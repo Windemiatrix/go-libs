@@ -1,0 +1,40 @@
+# Binaries and build output
+/dist/
+*.exe
+*.test
+*.out
+
+# Test and coverage output
+coverage.*
+*.prof
+
+# Go workspace (local only, never committed)
+go.work
+go.work.sum
+
+# Personal data: never commit Photos libraries, databases, run reports
+# or manual-sync material
+*.photoslibrary
+*.sqlite*
+state.db*
+runs/
+_sync/
+# run journals contain file and album names; only test data may be committed
+*.jsonl
+!**/testdata/**/*.jsonl
+
+# ...except the test databases of the osxphotos module (synthetic databases
+# or osxphotos upstream test libraries; reviewed before every commit).
+# The exception is limited to one fixed layout:
+# osxphotos/testdata/libraries/<name>/database/Photos.sqlite
+# (directory WITHOUT the .photoslibrary suffix: git cannot re-include a file
+# from a directory that is already excluded). A copy of a real library put
+# anywhere else, for example in testdata/ for a local run, stays ignored.
+!osxphotos/testdata/libraries/*/database/Photos.sqlite
+!osxphotos/testdata/libraries/*/database/Photos.sqlite-wal
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
