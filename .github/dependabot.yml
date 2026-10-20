@@ -1,0 +1,35 @@
+version: 2
+
+updates:
+  # The Go module is not in the repository root.
+  - package-ecosystem: gomod
+    directory: /osxphotos
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      go-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
+
+  # Follows new osxphotos releases on PyPI: tools/golden/requirements.txt is
+  # the single source of the upstream version used for reference data.
+  - package-ecosystem: pip
+    directory: /tools/golden
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+      include: scope

@@ -1,0 +1,107 @@
+# golangci-lint v2 configuration for the osxphotos module. The version is
+# pinned in the Makefile (GOLANGCI_LINT_VERSION); CI runs "make lint" on macOS
+# so that darwin-only files are analyzed too. golangci-lint finds this file in
+# the parent directory of the module.
+version: "2"
+
+run:
+  timeout: 10m
+  tests: true
+
+linters:
+  # standard = govet, staticcheck, errcheck, ineffassign, unused
+  default: standard
+  enable:
+    - depguard
+    - forbidigo
+    - gosec
+    - errorlint
+    - bodyclose
+    - noctx
+    - misspell
+    - revive
+  settings:
+    depguard:
+      rules:
+        # The template language is pure: it renders from values it is given and
+        # never touches files, the database or the network.
+        template:
+          list-mode: lax
+          files:
+            - "**/osxphotos/template/**"
+            - "!$test"
+          deny:
+            - {pkg: os, desc: "template does no I/O"}
+            - {pkg: os/exec, desc: "template does not start processes"}
+            - {pkg: io, desc: "template does no I/O; it renders to strings"}
+            - {pkg: io/ioutil, desc: "template does no I/O"}
+            - {pkg: net, desc: "template does no I/O"}
+            - {pkg: net/http, desc: "template does no I/O"}
+            - {pkg: database/sql, desc: "template does not read the database"}
+            - {pkg: modernc.org/sqlite, desc: "template does not read the database"}
+            - {pkg: path/filepath, desc: "template builds slash-separated paths with package path"}
+            - {pkg: syscall, desc: "template does not call the system"}
+            - {pkg: unsafe, desc: "template does not use unsafe"}
+        # The export naming rules are pure as well.
+        export:
+          list-mode: lax
+          files:
+            - "**/osxphotos/export/**"
+            - "!$test"
+          deny:
+            - {pkg: os, desc: "export computes names only; it does no I/O"}
+            - {pkg: os/exec, desc: "export does not start processes"}
+            - {pkg: io/ioutil, desc: "export does no I/O"}
+            - {pkg: net, desc: "export does no I/O"}
+            - {pkg: net/http, desc: "export does no I/O"}
+            - {pkg: database/sql, desc: "export does not read the database"}
+            - {pkg: modernc.org/sqlite, desc: "export does not read the database"}
+            - {pkg: syscall, desc: "export does not call the system"}
+            - {pkg: unsafe, desc: "export does not use unsafe"}
+    forbidigo:
+      forbid:
+        - pattern: ^fmt\.Print(f|ln)?$
+          msg: "a library does not write to stdout; log through the *slog.Logger passed by the caller"
+        - pattern: ^log\.(Print|Fatal|Panic)(f|ln)?$
+          msg: "a library logs only through the *slog.Logger passed by the caller"
+        - pattern: ^os\.Exit$
+          msg: "a library never exits the process"
+        - pattern: ^http\.(DefaultClient|DefaultTransport|Get|Head|Post|PostForm)$
+          msg: "use a dedicated http.Client with timeouts"
+    gosec:
+      # G402 (TLS), G204 (subprocess) and G304 (file path) are not excluded;
+      # a justified //nolint:gosec comment is the only way to silence them.
+      excludes: []
+    misspell:
+      locale: US
+    revive:
+      rules:
+        - name: exported
+
+  exclusions:
+    generated: lax
+    rules:
+      # forbidigo applies to library code, not to command-line helpers and tests.
+      - path: (^|/)cmd/
+        linters: [forbidigo]
+      - path: _test\.go$
+        linters: [forbidigo]
+      # Tests read their own fixtures by variable path.
+      - path: _test\.go$
+        linters: [gosec]
+        text: G304
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/Windemiatrix
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest an improvement or a new capability
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem do you want to solve?
+      description: Describe your use case and why the current API does not cover it. A problem is more useful than a ready-made solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to have?
+      description: The API or behavior you expect, for example a code snippet that you wish worked.
+    validations:
+      required: true
+  - type: textarea
+    id: upstream
+    attributes:
+      label: Does osxphotos do this?
+      description: If the behavior exists in osxphotos, name the command, option or property.
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste personal data: real album or folder names, paths, UUIDs. Use neutral examples such as `IMG_0001.HEIC` or `2024/05-01 - Holidays`.

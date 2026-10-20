@@ -1,0 +1,18 @@
+# Code owners are requested for review on every pull request that touches
+# the matching paths. The paths below are the ones where a change can weaken
+# the checks, change what is published or alter the reference data.
+* @Windemiatrix
+
+/.github/ @Windemiatrix
+go.mod @Windemiatrix
+go.sum @Windemiatrix
+Makefile @Windemiatrix
+/scripts/ @Windemiatrix
+*.m @Windemiatrix
+*.h @Windemiatrix
+/tools/ @Windemiatrix
+/osxphotos/photokit/ @Windemiatrix
+/osxphotos/testdata/ @Windemiatrix
+/osxphotos/UPSTREAM.md @Windemiatrix
+/osxphotos/LICENSE @Windemiatrix
+/osxphotos/NOTICE @Windemiatrix
