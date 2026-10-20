@@ -1,0 +1,134 @@
+# Release of the osxphotos module: runs when the maintainer pushes a tag
+# osxphotos/vX.Y.Z (scripts/release.sh). The workflow never creates tags.
+#
+# - verify: the tagged commit is on main, tests and govulncheck pass on it. The
+#   tag could have been pushed later than the last green ci.yml run.
+# - publish: creates the GitHub Release (not a draft: warming up the Go proxy
+#   makes the version permanent anyway) with notes built from the PR titles
+#   since the previous tag, grouped like the commit types, and then asks the
+#   Go proxy for the new version.
+# - No job writes through git: every checkout drops the credentials. Only
+#   publish has contents: write, and it needs it for the Release.
+# - Values from events (the tag name) reach shell steps only through env:,
+#   never through ${{ }} inside run:.
+# - No caches in a release job: a cache can be poisoned by another workflow.
+# - verify-macos repeats the cgo build and tests of ci.yml: photokit is the
+#   part of the module that a release can break on macOS only.
+name: release
+
+on:
+  push:
+    tags: ["osxphotos/v*"]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Tests must not depend on the time zone of the machine.
+  TZ: Asia/Kolkata
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      # Full history and tags: merge-base needs the history of main.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: The tag has the form osxphotos/vX.Y.Z
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! [[ "$TAG" =~ ^osxphotos/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "error: the tag is not of the form osxphotos/vX.Y.Z" >&2
+            exit 1
+          fi
+      # A tag on a commit of a side branch is not published: the Go proxy would
+      # cache the version for good.
+      - name: The tagged commit is on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: osxphotos/go.mod
+          cache: false
+      - name: Test
+        working-directory: osxphotos
+        run: go test -race -shuffle=on -count=1 ./...
+      - name: govulncheck
+        working-directory: osxphotos
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
+  verify-macos:
+    runs-on: macos-15
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    env:
+      CGO_ENABLED: "1"
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
+    defaults:
+      run:
+        working-directory: osxphotos
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: osxphotos/go.mod
+          cache: false
+      - name: Test with cgo
+        run: go test -race -shuffle=on -count=1 ./...
+      - name: Build for arm64
+        run: go build ./...
+      # Catches a broken cgo cross-compilation before it reaches users.
+      - name: Cross-build for amd64
+        env:
+          GOARCH: amd64
+          CC: clang -arch x86_64
+        run: go build ./...
+
+  publish:
+    needs: [verify, verify-macos]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      # Full history and tags: the notes are the titles between the previous
+      # tag and this one. A clone of depth 1 has no previous tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          notes="$RUNNER_TEMP/notes.md"
+          bash scripts/next-version.sh --notes "$TAG" > "$notes"
+          gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$notes"
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: osxphotos/go.mod
+          cache: false
+      # Run from the repository root, which is not a module: inside osxphotos/
+      # "go list -m <module>@<version>" refuses to query the main module.
+      - name: Warm up the Go proxy
+        env:
+          TAG: ${{ github.ref_name }}
+          GOPROXY: https://proxy.golang.org
+        run: |
+          version="${TAG#osxphotos/}"
+          go list -m "github.com/Windemiatrix/go-libs/osxphotos@${version}"
