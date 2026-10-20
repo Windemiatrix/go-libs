@@ -4,17 +4,22 @@
 # The title of a PR becomes the title of the squash commit on main, so it is
 # checked before merging:
 #
-#   <type>(<scope>): <description>
+#   <type>(<scope>)[!]: <description>
 #
 # - type is one of feat, fix, docs, style, refactor, test, chore;
-# - scope is lowercase letters, digits and . _ / -;
+# - scope is lowercase letters, digits and . _ / - and is required;
+# - "!" right after the scope marks an incompatible change of the public API;
+#   it decides the next version (scripts/next-version.sh) and puts the title
+#   in the "Breaking changes" section of the release notes;
 # - the description is printable ASCII only (this also rejects control
 #   characters, ESC and bidi marks, and enforces "English");
 # - the whole title is at most 70 characters and does not end with a period.
 #
+# scripts/next-version.sh uses the same expression and the same locale.
+#
 # Usage:
 #   PR_TITLE='feat(photosdb): read albums' scripts/check-pr-title.sh
-#   scripts/check-pr-title.sh 'feat(photosdb): read albums'
+#   scripts/check-pr-title.sh 'feat(photosdb)!: rename the query options'
 #
 # In CI the title comes from the environment, never from ${{ }} inside a run
 # script: the title of a pull request from a fork is untrusted input.
@@ -26,7 +31,7 @@ export LC_ALL=C
 
 title="${1-${PR_TITLE-}}"
 
-re='^(feat|fix|docs|style|refactor|test|chore)\([a-z0-9._/-]+\): [ -~]+$'
+re='^(feat|fix|docs|style|refactor|test|chore)\([a-z0-9._/-]+\)!?: [ -~]+$'
 max=70
 
 if [[ -z "$title" ]]; then
@@ -36,11 +41,13 @@ fi
 
 if ! [[ "$title" =~ $re ]]; then
   cat >&2 <<'EOF'
-error: PR title does not match "<type>(<scope>): <description>"
+error: PR title does not match "<type>(<scope>)[!]: <description>"
   type:        feat, fix, docs, style, refactor, test or chore
-  scope:       lowercase letters, digits and . _ / -
+  scope:       lowercase letters, digits and . _ / - (required)
+  !            right after the scope: an incompatible change of the public API
   description: English, printable ASCII only
-example: feat(photosdb): read albums and folders
+examples: feat(photosdb): read albums and folders
+          feat(photosdb)!: rename the query options
 EOF
   exit 1
 fi

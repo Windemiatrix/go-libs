@@ -19,13 +19,14 @@ The path is the same for everyone: the maintainer, AI agents acting on the maint
 
 The PR title becomes the commit title on `main`.
 
-- Format `<type>(<scope>): <description>`, for example `feat(schema): add photos12 schema`. The scope is required: lowercase letters, digits, `._/-`.
+- Format `<type>(<scope>)[!]: <description>`, for example `feat(schema): add photos12 schema`. The scope is required: lowercase letters, digits, `._/-`.
+- `!` right after the scope marks an incompatible change of the public API: `feat(photosdb)!: rename the query options`. The marker decides the next version (see "Releases") and moves the title to the "Breaking changes" section of the release notes. The body of a squash commit is empty, and `BREAKING CHANGE:` in it is not recognized.
 - English, printable ASCII only, at most 70 characters, no `#<number>`: GitHub appends ` (#<PR number>)` itself.
 - The `pr-title` job checks it; editing the title re-runs the check.
 - **Do not edit the title or body in the squash-merge dialog.** The only place to fix a title is the PR itself; otherwise `main` gets a title the check never saw.
 - Commit titles inside a branch are not checked: squash discards them.
 
-A change that users of the module will notice is also recorded in the module's `CHANGELOG.md`.
+The PR title ends up in the release notes: word it for a user of the module. There is no separate change list.
 
 ## Red `ci-ok` on `main`
 
@@ -65,4 +66,18 @@ Tests tagged `photokit_live` import, change and delete objects in a real library
 
 ## Releases
 
-Only the maintainer creates tags of the form `osxphotos/vX.Y.Z` and releases, with `scripts/release.sh`. A published tag is never moved: the Go proxy caches the module version. A faulty version is superseded by the next one together with a `retract` directive.
+The version is computed, not assigned: `scripts/next-version.sh` takes the titles of the commits on `main` that changed `osxphotos/`, since the last tag `osxphotos/vX.Y.Z`.
+
+| Titles since the last tag | before `1.0.0` | after `1.0.0` |
+|---|---|---|
+| there is a `type(scope)!:` | minor | major |
+| otherwise there is a `feat(scope):` | minor | minor |
+| otherwise any other type, or a title outside the rule | patch | patch |
+
+No commits, no release. The move to `1.0.0` is not derived from titles: only explicitly, with `scripts/release.sh --major`. From version 2 the module path in `osxphotos/go.mod` gets the `/vN` suffix; the script checks it.
+
+Only the maintainer creates tags of the form `osxphotos/vX.Y.Z` and releases, with `scripts/release.sh`. The script checks that `HEAD` equals `origin/main` and that `ci-ok` is green on that commit; it shows the version and the list of titles with their classes; after confirmation it creates a signed tag and pushes it. Then the `release` workflow checks that the commit is on `main`, runs the tests and `govulncheck`, creates the GitHub Release and warms up the Go proxy.
+
+The release notes are the same PR titles with the ` (#N)` suffix between two tags, in sections: Breaking changes, Features, Bug fixes, Documentation, Other. They are in English only and are not translated by hand. There is no `CHANGELOG.md`.
+
+A published tag is never moved: the Go proxy caches the module version. A faulty version is superseded by the next one together with a `retract` directive.

@@ -77,8 +77,20 @@ if git grep -nE 'uses: *[^ ]+@' -- '.github/workflows' | grep -vE '@[0-9a-f]{40}
   fail "workflow actions must be pinned to a full 40-character commit SHA"
 fi
 
-# 8. The PR title checker itself.
+# 8. Every checkout in a workflow drops the git credentials: no job writes
+#    through git, the release is created through the API.
+while IFS= read -r workflow; do
+  [[ -n "$workflow" ]] || continue
+  checkouts="$(grep -cE '^ *- uses: *actions/checkout@' "$workflow" || true)"
+  dropped="$(grep -cE '^ *persist-credentials: false *$' "$workflow" || true)"
+  if [[ "$checkouts" != "$dropped" ]]; then
+    fail "$workflow: every actions/checkout needs 'persist-credentials: false' ($checkouts checkouts, $dropped with it)"
+  fi
+done < <(git ls-files '.github/workflows/*.yml')
+
+# 9. The PR title checker and the version script themselves.
 bash scripts/check-pr-title-test.sh || failed=1
+bash scripts/next-version-test.sh || failed=1
 
 if ((failed)); then
   exit 1
