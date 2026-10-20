@@ -1,0 +1,21 @@
+# Normalize line endings: LF in the repository and in the working tree.
+* text=auto eol=lf
+
+# Binary files: never diff or convert.
+*.sqlite binary
+*.sqlite-wal binary
+*.sqlite-shm binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.heic binary
+*.mov binary
+*.mp4 binary
+*.gz binary
+
+# Files that must keep LF even on a Windows checkout.
+*.sh text eol=lf
+Makefile text eol=lf
+
+# Reference data produced by the golden-data workflow is not edited by hand.
+osxphotos/testdata/golden/** linguist-generated
