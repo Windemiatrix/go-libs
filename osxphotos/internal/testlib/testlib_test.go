@@ -510,11 +510,17 @@ func rowStrings(t *testing.T, db *sql.DB, query string) []string {
 func hashTree(t *testing.T, dir string) map[string]string {
 	t.Helper()
 	sums := map[string]string{}
-	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+	// os.Root keeps every open inside dir, so a symlink cannot lead the walk out of it.
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = root.Close() }()
+	err = fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		f, err := os.Open(p)
+		f, err := root.Open(p)
 		if err != nil {
 			return err
 		}
@@ -523,11 +529,7 @@ func hashTree(t *testing.T, dir string) map[string]string {
 		if _, err := io.Copy(h, f); err != nil {
 			return err
 		}
-		rel, err := filepath.Rel(dir, p)
-		if err != nil {
-			return err
-		}
-		sums[rel] = hex.EncodeToString(h.Sum(nil))
+		sums[filepath.FromSlash(p)] = hex.EncodeToString(h.Sum(nil))
 		return nil
 	})
 	if err != nil {
