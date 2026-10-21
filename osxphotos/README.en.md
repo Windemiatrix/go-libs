@@ -72,7 +72,17 @@ Will not be supported (`ErrUnsupportedSchema`): models below 16000, 16000-16319 
 
 - **Differential tests:** A, osxphotos test libraries; B, a synthetic database built from the DDL of real schemas with a reference from `osxphotos query --json`; C, a local run on the maintainer's library (not published; a condition of the first release). Items are compared by UUID; known divergences are listed with reasons. References are generated only by a separate manual workflow from a pinned osxphotos version.
 - **Schemas:** range boundaries and gaps; every column that is read exists in the DDL of its schema.
-- **Extensions:** SQL fixtures with synthetic values.
+- **Extensions:** osxphotos gives no reference for fields beyond it, for intentional differences, or for states its test libraries lack. These are checked with SQL migrations with synthetic values (`testdata/libraries/<name>/migrations/`): a test applies them to a temporary copy of a test library. The databases themselves stay unchanged copies of upstream, and the reference tests run on them. Checked:
+  - cloud identifiers of items, albums and folders, including `NULL`, an empty string (counts as no identifier) and two items sharing one identifier;
+  - the cloud master: present but not in iCloud (`InCloud == false`), no master (`InCloud == nil`);
+  - `FingerprintSchema` and an empty fingerprint;
+  - `Resources`, `IsMissing`, `HasRAW`;
+  - the Shared Library: `SharedLibrary`, `LibraryScopeShareState`, `LibraryScope`;
+  - `NULL` in the time zone, file name and creation date; `DateModifiedRaw` apart from `DateModified`;
+  - bursts: every pick type, `BurstUnselected()`, `BurstAlbumUUIDs`, `BurstSelectedOnly`;
+  - trash without implicit filters; `Syndicated`, `SavedToLibrary`, `Shared`; `Info.SkippedAssets`.
+
+  The description, the list of cases and how to add one are in [testdata/libraries/SOURCES.md](../testdata/libraries/SOURCES.md).
 - **Templates and names:** tables, comparison with osxphotos rendering, parser fuzzing.
 - **PhotoKit:** a stub and the Go layer over a fake bridge; Objective-C built with `-Werror`; "live" tests that modify the library run only by hand under a separate macOS account with its own Apple ID and a test library, never in CI and never against a primary library.
 - `go test -race -shuffle=on`, a linter, coverage of at least 80%.

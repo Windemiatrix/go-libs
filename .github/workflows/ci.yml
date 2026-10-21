@@ -147,7 +147,9 @@ jobs:
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: moderate
-          allow-licenses: MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC
+          # LicenseRef-scancode-google-patent-license-golang is the extra patent
+          # grant on top of BSD-3-Clause that every golang.org/x module carries.
+          allow-licenses: MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC, LicenseRef-scancode-google-patent-license-golang
           comment-summary-in-pr: never
 
   # Scheduled and manual only: a new vulnerability in a dependency must not

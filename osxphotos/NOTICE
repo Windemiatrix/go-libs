@@ -10,8 +10,10 @@ This library is a Go port of parts of osxphotos (version 0.77.2):
 
 The logic for reading the Photos library database, the data of the schema
 versions, the field semantics and the template language subset follow the
-original project. The original MIT license notice is reproduced below, as
-required by that license.
+original project. The test databases in testdata/libraries at the root of
+the go-libs repository are copied unchanged from the tests of osxphotos
+v0.77.2 (see testdata/libraries/SOURCES.md). The original MIT license notice
+is reproduced below, as required by that license.
 
 ---
 

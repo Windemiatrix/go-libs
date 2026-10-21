@@ -26,15 +26,16 @@ _sync/
 *.jsonl
 !**/testdata/**/*.jsonl
 
-# ...except the test databases of the osxphotos module (synthetic databases
-# or osxphotos upstream test libraries; reviewed before every commit).
+# ...except the test databases of the osxphotos upstream test libraries
+# (reviewed before every commit). They live outside the module directory, so
+# they are not part of the module zip that every consumer downloads.
 # The exception is limited to one fixed layout:
-# osxphotos/testdata/libraries/<name>/database/Photos.sqlite
+# testdata/libraries/<name>/database/Photos.sqlite (and -wal)
 # (directory WITHOUT the .photoslibrary suffix: git cannot re-include a file
 # from a directory that is already excluded). A copy of a real library put
-# anywhere else, for example in testdata/ for a local run, stays ignored.
-!osxphotos/testdata/libraries/*/database/Photos.sqlite
-!osxphotos/testdata/libraries/*/database/Photos.sqlite-wal
+# anywhere else stays ignored.
+!/testdata/libraries/*/database/Photos.sqlite
+!/testdata/libraries/*/database/Photos.sqlite-wal
 
 # Editors and OS
 .idea/
