@@ -414,7 +414,7 @@ func TestInvariantsCatch(t *testing.T) {
 		t.Run(fmt.Sprintf("%02d-%s", i, tt.invariant), func(t *testing.T) {
 			t.Parallel()
 			path := filepath.Join(t.TempDir(), "Photos.sqlite")
-			if err := os.WriteFile(path, pristine, 0o600); err != nil {
+			if err := os.WriteFile(path, pristine, 0o600); err != nil { //nolint:gosec // G703: a file in t.TempDir()
 				t.Fatal(err)
 			}
 			if tt.corrupt == "" {
