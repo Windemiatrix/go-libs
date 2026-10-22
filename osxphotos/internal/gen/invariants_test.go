@@ -311,15 +311,16 @@ func TestInvariantsCatch(t *testing.T) {
 	fp, adj := sc.fingerprint, sc.adjustments
 	mt, ma, ms, mo := sc.members, sc.memberAlbum, sc.memberAsset, sc.memberOrder
 	const (
-		firstAlbum  = "(SELECT MIN(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)"
-		firstVideo  = "(SELECT MIN(Z_PK) FROM ZASSET WHERE ZKIND = 1)"
-		firstPhoto  = "(SELECT MIN(Z_PK) FROM ZASSET WHERE ZKIND = 0 AND ZKINDSUBTYPE = 0 AND ZAVALANCHEUUID IS NULL)"
-		firstRAW    = "(SELECT MIN(ZASSET) FROM ZINTERNALRESOURCE WHERE ZDATASTORESUBTYPE = 3)"
-		firstDNG    = "(SELECT MIN(Z_PK) FROM ZASSET WHERE ZUNIFORMTYPEIDENTIFIER = 'com.adobe.raw-image')"
-		firstShared = "(SELECT MIN(Z_PK) FROM ZASSET WHERE ZLIBRARYSCOPE IS NOT NULL)"
-		masterOf1   = "(SELECT ZMASTER FROM ZASSET WHERE Z_PK = 1)"
-		attrsOf1    = "(SELECT ZADDITIONALATTRIBUTES FROM ZASSET WHERE Z_PK = 1)"
-		invisible   = "(SELECT MIN(Z_PK) FROM ZASSET WHERE ZVISIBILITYSTATE = 2)"
+		firstAlbum   = "(SELECT MIN(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)"
+		firstVideo   = "(SELECT MIN(Z_PK) FROM ZASSET WHERE ZKIND = 1)"
+		firstPhoto   = "(SELECT MIN(Z_PK) FROM ZASSET WHERE ZKIND = 0 AND ZKINDSUBTYPE = 0 AND ZAVALANCHEUUID IS NULL)"
+		firstRAW     = "(SELECT MIN(ZASSET) FROM ZINTERNALRESOURCE WHERE ZDATASTORESUBTYPE = 3)"
+		firstDNG     = "(SELECT MIN(Z_PK) FROM ZASSET WHERE ZUNIFORMTYPEIDENTIFIER = 'com.adobe.raw-image')"
+		firstShared  = "(SELECT MIN(Z_PK) FROM ZASSET WHERE ZLIBRARYSCOPE IS NOT NULL)"
+		firstTrashed = "(SELECT MIN(Z_PK) FROM ZASSET WHERE ZTRASHEDSTATE = 1)"
+		masterOf1    = "(SELECT ZMASTER FROM ZASSET WHERE Z_PK = 1)"
+		attrsOf1     = "(SELECT ZADDITIONALATTRIBUTES FROM ZASSET WHERE Z_PK = 1)"
+		invisible    = "(SELECT MIN(Z_PK) FROM ZASSET WHERE ZVISIBILITYSTATE = 2)"
 	)
 	tests := []struct {
 		invariant string
@@ -364,11 +365,17 @@ func TestInvariantsCatch(t *testing.T) {
 			"VALUES (" + firstRAW + ", 3, 4, 0, 0, 12)"},
 		{"flags-dates", "UPDATE ZASSET SET ZFAVORITE = 3 WHERE Z_PK = 1"},
 		// The update of ZHIDDEN fires a trigger that calls a Core Data function (stand-in of testlib).
-		{"flags-dates", "UPDATE ZASSET SET ZHIDDEN = 1 WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZASSET WHERE ZTRASHEDSTATE = 1)"},
+		{"flags-dates", "UPDATE ZASSET SET ZHIDDEN = 1 WHERE Z_PK = " + firstTrashed},
 		{"flags-dates", "UPDATE ZASSET SET ZADDEDDATE = ZDATECREATED - 1 WHERE Z_PK = 1"},
 		{"flags-dates", "UPDATE ZASSET SET ZTRASHEDDATE = ZADDEDDATE WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZASSET WHERE ZTRASHEDSTATE = 0)"},
+		{"flags-dates", "UPDATE ZASSET SET ZTRASHEDDATE = NULL WHERE Z_PK = " + firstTrashed},
+		{"flags-dates", "UPDATE ZASSET SET ZTRASHEDDATE = ZADDEDDATE - 1 WHERE Z_PK = " + firstTrashed},
 		{"flags-dates", "UPDATE ZASSET SET ZADJUSTMENTTIMESTAMP = NULL WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZASSET WHERE " + adj + " > 0)"},
+		{"flags-dates", "UPDATE ZASSET SET ZADJUSTMENTTIMESTAMP = ZADDEDDATE WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZASSET WHERE " + adj + " = 0)"},
 		{"bursts", "UPDATE ZASSET SET ZAVALANCHEUUID = 'X' WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZASSET WHERE ZAVALANCHEUUID IS NOT NULL)"},
+		// Every frame of one group hidden; fires the same trigger as below.
+		{"bursts", "UPDATE ZASSET SET ZVISIBILITYSTATE = 2 WHERE ZAVALANCHEUUID = " +
+			"(SELECT ZAVALANCHEUUID FROM ZASSET WHERE ZAVALANCHEUUID IS NOT NULL ORDER BY Z_PK LIMIT 1)"},
 		// The update of ZVISIBILITYSTATE fires a trigger that calls a Core Data function (stand-in of testlib).
 		{"bursts", "UPDATE ZASSET SET ZVISIBILITYSTATE = 2 WHERE Z_PK = " + firstPhoto},
 		{"album-root", "INSERT INTO ZGENERICALBUM (Z_PK, Z_ENT, Z_OPT, ZKIND, ZTRASHEDSTATE) VALUES (999999, 41, 1, 3999, 0)"},
