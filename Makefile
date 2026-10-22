@@ -14,7 +14,10 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: test
-test: ## Vet and run all tests with the race detector
+test: unit lint check-repo ## Run every local check (before a PR)
+
+.PHONY: unit
+unit: ## Vet and run all tests with the race detector
 	go -C osxphotos vet ./...
 	go -C osxphotos test -race -shuffle=on -count=1 ./...
 
