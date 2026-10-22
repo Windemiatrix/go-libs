@@ -1,7 +1,5 @@
 dummy := $(shell touch .env)
 include .env
-# Tools are built from source by "go run" with the Go toolchain from go.mod and
-# verified through the Go checksum database. Bump the versions here only.
 GOLANGCI_LINT_VERSION ?= v2.15.0
 ACTIONLINT_VERSION ?= v1.7.12
 GOVULNCHECK_VERSION ?= v1.9.0
@@ -13,36 +11,27 @@ export
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-# CI runs the same targets (.github/workflows/ci.yml): every check is defined
-# here once. "make test" is all of them on one machine.
-
 ##@ Development
 
 .PHONY: test
-test: mod cover lint cross-build check-repo ## Run every check (before a PR)
+test: mod vet cover lint cross-build check-repo ## Run every check (before a PR)
 
 .PHONY: mod
-mod: ## go.mod is tidy and the downloaded modules are verified
+mod: ## go.mod is tidy and the modules match go.sum
 	go -C osxphotos mod tidy -diff
 	go -C osxphotos mod verify
 
 .PHONY: vet
-vet: ## Vet and build
+vet: ## go vet
 	go -C osxphotos vet ./...
-	go -C osxphotos build ./...
-
-.PHONY: unit
-unit: vet ## Vet, build and run all tests with the race detector
-	go -C osxphotos test -race -shuffle=on -count=1 ./...
 
 .PHONY: cover
-cover: vet ## Vet, build, run tests with coverage and check the threshold
+cover: ## Tests with the race detector and the coverage threshold
 	go -C osxphotos test -race -shuffle=on -count=1 -covermode=atomic -coverprofile=coverage.out ./...
 	cd osxphotos && bash ../scripts/check-coverage.sh coverage.out
 
-# Catches a broken cgo cross-compilation before a release does (macOS only).
 .PHONY: cross-build
-cross-build: ## Build for amd64 with cgo (macOS)
+cross-build: ## cgo build for amd64 (macOS)
 	GOARCH=amd64 CC="clang -arch x86_64" go -C osxphotos build ./...
 
 .PHONY: lint
@@ -60,8 +49,34 @@ check-repo: ## Repository hygiene checks and actionlint
 	bash scripts/check-repo.sh
 	go run github.com/rhysd/actionlint/cmd/actionlint@$(ACTIONLINT_VERSION)
 
-# Not part of "make test": a new vulnerability in a dependency must not turn an
-# unrelated change red. CI runs it on a schedule.
 .PHONY: vuln
-vuln: ## Check dependencies for known vulnerabilities
+vuln: ## Known vulnerabilities in dependencies (not in "make test")
 	go -C osxphotos run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
+
+##@ CI
+
+.PHONY: pr-title
+pr-title: ## PR_TITLE follows the title convention
+	bash scripts/check-pr-title.sh
+
+.PHONY: ci-ok
+ci-ok: ## Every job in NEEDS passed or was skipped
+	@printf '%s' "$$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+	@printf '%s' "$$NEEDS" | jq -e 'all(.[]; .result == "success" or .result == "skipped")' >/dev/null
+
+##@ Release
+
+.PHONY: release-verify
+release-verify: ## TAG is osxphotos/vX.Y.Z on a commit of main
+	@printf '%s\n' "$$TAG" | grep -Eq '^osxphotos/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$$' \
+		|| { echo "error: the tag is not of the form osxphotos/vX.Y.Z" >&2; exit 1; }
+	git fetch origin main
+	git merge-base --is-ancestor HEAD origin/main
+
+.PHONY: release
+release: ## GitHub Release for TAG with grouped notes, then the Go proxy warm-up (needs GH_TOKEN)
+	@notes="$$(mktemp "$${RUNNER_TEMP:-$${TMPDIR:-/tmp}}/osxphotos-notes.XXXXXX")" && \
+	bash scripts/next-version.sh --notes "$$TAG" >"$$notes" && \
+	gh release create "$$TAG" --verify-tag --title "$$TAG" --notes-file "$$notes"; \
+	status=$$?; rm -f "$$notes"; exit $$status
+	GOPROXY=https://proxy.golang.org go list -m "github.com/Windemiatrix/go-libs/osxphotos@$${TAG#osxphotos/}"
