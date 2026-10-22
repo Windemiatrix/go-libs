@@ -14,6 +14,8 @@
 # - No caches in a release job: a cache can be poisoned by another workflow.
 # - verify-macos repeats the cgo build and tests of ci.yml: photokit is the
 #   part of the module that a release can break on macOS only.
+# - Checks are the Makefile targets ci.yml uses; only the release mechanics
+#   (the tag form, the tag on main, the Release, the proxy warm-up) live here.
 name: release
 
 on:
@@ -60,12 +62,10 @@ jobs:
         with:
           go-version-file: osxphotos/go.mod
           cache: false
-      - name: Test
-        working-directory: osxphotos
-        run: go test -race -shuffle=on -count=1 ./...
+      - name: Vet, build, test
+        run: make unit
       - name: govulncheck
-        working-directory: osxphotos
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+        run: make vuln
 
   verify-macos:
     runs-on: macos-15
@@ -75,9 +75,6 @@ jobs:
     env:
       CGO_ENABLED: "1"
       MACOSX_DEPLOYMENT_TARGET: "13.0"
-    defaults:
-      run:
-        working-directory: osxphotos
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -86,16 +83,11 @@ jobs:
         with:
           go-version-file: osxphotos/go.mod
           cache: false
-      - name: Test with cgo
-        run: go test -race -shuffle=on -count=1 ./...
-      - name: Build for arm64
-        run: go build ./...
+      - name: Vet, build, test with cgo
+        run: make unit
       # Catches a broken cgo cross-compilation before it reaches users.
       - name: Cross-build for amd64
-        env:
-          GOARCH: amd64
-          CC: clang -arch x86_64
-        run: go build ./...
+        run: make cross-build
 
   publish:
     needs: [verify, verify-macos]
