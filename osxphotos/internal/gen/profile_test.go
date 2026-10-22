@@ -67,6 +67,9 @@ func TestProfileDefault(t *testing.T) {
 		{"same second 0.1", "SELECT COUNT(*) - COUNT(DISTINCT ZDATECREATED) FROM ZASSET WHERE ZDATECREATED NOT IN (0, -978307200)", "200"},
 		{"created range", "SELECT COUNT(*) FROM ZASSET WHERE ZDATECREATED NOT IN (0, -978307200) " +
 			"AND (ZDATECREATED < 283996800 OR ZDATECREATED >= 788918400)", "0"},
+		// Whole dates are stored as INTEGER, dates with a fraction as REAL.
+		{"date types", "SELECT SUM(typeof(ZDATECREATED) = 'integer') > 0 AND SUM(typeof(ZDATECREATED) = 'real') > 0 " +
+			"AND SUM(typeof(ZADDEDDATE) = 'integer') > 0 AND SUM(typeof(ZADDEDDATE) = 'real') > 0 FROM ZASSET", "1"},
 		{"modified range", "SELECT COUNT(*) FROM ZASSET WHERE ZMODIFICATIONDATE < ZADDEDDATE OR ZMODIFICATIONDATE >= 801964800", "0"},
 		{"same content 1", "SELECT COUNT(*) - COUNT(DISTINCT " + sc.fingerprint + ") FROM ZADDITIONALASSETATTRIBUTES", "1"},
 		{"huge video", "SELECT COUNT(*) FROM ZINTERNALRESOURCE WHERE ZDATALENGTH > 4294967296", "1"},
@@ -86,8 +89,8 @@ func TestProfileDefault(t *testing.T) {
 		{"title length", "SELECT MAX(length(ZTITLE)) <= 54 FROM ZGENERICALBUM", "1"},
 		{"distinct titles in a folder", "SELECT COUNT(*) FROM (SELECT ZPARENTFOLDER, ZTITLE FROM ZGENERICALBUM " +
 			"GROUP BY 1, 2 HAVING COUNT(*) > 1)", "0"},
-		// 0.6 of 52 albums and folders is about 31; seed 1 gives 34
-		{"cloud GUID = UUID", "SELECT SUM(ZCLOUDGUID = ZUUID) FROM ZGENERICALBUM WHERE ZKIND IN (2, 4000)", "34"},
+		// round(0.6 × 52 albums and folders) = 31
+		{"cloud GUID = UUID", "SELECT SUM(ZCLOUDGUID = ZUUID) FROM ZGENERICALBUM WHERE ZKIND IN (2, 4000)", "31"},
 		{"root cloud GUID", "SELECT COUNT(*) FROM ZGENERICALBUM WHERE ZKIND = 3999 AND ZCLOUDGUID = ZUUID", "0"},
 		{"order step", "SELECT MIN(" + sc.memberOrder + ") || '/' || COUNT(DISTINCT " + sc.memberOrder + " % 1024) FROM " + mt, "1024/1"},
 		// 2000 originals, 80 second originals, 6 paired videos

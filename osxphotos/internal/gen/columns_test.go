@@ -186,6 +186,9 @@ func TestParseDDL(t *testing.T) {
 		{"-- c\nCREATE TRIGGER T AFTER INSERT ON A BEGIN SELECT 1; END; PRAGMA writable_schema = ON;\n", "line 2"},
 		{"CREATE TRIGGER T AFTER INSERT ON A BEGIN SELECT 1; END; ATTACH DATABASE 'x' AS p; " +
 			"CREATE TRIGGER U AFTER INSERT ON A BEGIN SELECT 1; END;\n", "line 1"},
+		{"CREATE TRIGGER T AFTER INSERT ON A BEGIN SELECT 1; end; ATTACH DATABASE 'x' AS p; " +
+			"CREATE TRIGGER U AFTER INSERT ON A BEGIN SELECT 1; END;\n", "line 1"},
+		{"CREATE INDEX I ON A (x) -- x;\n", "line 1"},
 	} {
 		if _, err := parseDDL(bad.src); err == nil || !strings.Contains(err.Error(), bad.line) {
 			t.Errorf("parseDDL(%q): got error %v, want one about %s", bad.src, err, bad.line)

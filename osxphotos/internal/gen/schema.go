@@ -82,14 +82,12 @@ const (
 	createTrigger = "CREATE TRIGGER "
 )
 
-// parseDDL splits a DDL file into statements: one statement per line, blank
-// lines and lines starting with "--" are skipped, and any other line must be
-// a CREATE statement ending with ";". Only a trigger, whose body holds
-// statements, may contain more than one ";", and its only "END;" must end
-// the line; a trigger body holds only INSERT, UPDATE, DELETE and SELECT, so
-// nothing like ATTACH or PRAGMA can follow a CREATE on the same line.
-// The CREATE TABLE of a shadow table of a virtual table in the same file is
-// dropped: CREATE VIRTUAL TABLE creates it.
+// parseDDL splits a DDL file into statements, one per line. Blank lines and
+// lines starting with "--" are skipped; any other line must start with one
+// of the CREATE prefixes, end with ";" and hold no "--". A line other than a
+// trigger holds exactly one ";"; a trigger line ends with "END;" and holds
+// no other "END;" in any case. The CREATE TABLE of a shadow table of a
+// virtual table in the same file is dropped: CREATE VIRTUAL TABLE creates it.
 func parseDDL(src string) (ddl, error) {
 	type stmt struct{ kind, sql string }
 	var (
@@ -106,7 +104,10 @@ func parseDDL(src string) (ddl, error) {
 		if k < 0 || !strings.HasSuffix(line, ";") {
 			return ddl{}, fmt.Errorf("line %d: not a one-line CREATE TABLE, VIRTUAL TABLE, INDEX, UNIQUE INDEX, VIEW or TRIGGER statement ending with ';'", i+1)
 		}
-		if kinds[k] == createTrigger && (!strings.HasSuffix(line, "END;") || strings.Count(line, "END;") != 1) {
+		if strings.Contains(line, "--") {
+			return ddl{}, fmt.Errorf("line %d: a comment inside a statement", i+1)
+		}
+		if kinds[k] == createTrigger && (!strings.HasSuffix(line, "END;") || strings.Count(strings.ToUpper(line), "END;") != 1) {
 			return ddl{}, fmt.Errorf("line %d: a CREATE TRIGGER statement does not end with the only 'END;' of the line", i+1)
 		}
 		if kinds[k] != createTrigger && strings.Count(line, ";") != 1 {

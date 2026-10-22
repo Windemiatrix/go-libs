@@ -199,14 +199,13 @@ func (c *journalCtx) Err() error {
 	return c.Context.Err()
 }
 
-// TestOutputCanceledInsert: a context canceled between the inserts makes
-// Generate roll back the transaction and remove everything it created.
-// Whoever checks the context first inside the transaction, database/sql or
-// the generator, cancels it.
-func TestOutputCanceledInsert(t *testing.T) {
+// TestOutputRollback: a context canceled inside the insert transaction makes
+// Generate roll it back and remove everything it created. Whoever checks the
+// context first, database/sql or the generator, sees the cancellation.
+func TestOutputRollback(t *testing.T) {
 	t.Parallel()
 	cfg := DefaultConfig()
-	cfg.Assets = 2 * ctxCheckEvery // past the generator's own check at asset 1000
+	cfg.Assets = 2 * ctxCheckEvery // the generator checks the context inside the transaction too
 	parent := t.TempDir()
 	dir := filepath.Join(parent, "lib")
 	inner, cancel := context.WithCancel(t.Context())

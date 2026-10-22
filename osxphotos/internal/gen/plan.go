@@ -47,10 +47,10 @@ func newRNG(seed, stream uint64) *rng {
 	return &rng{src: rand.NewPCG(seed, stream)} //nolint:gosec // G404: deterministic synthetic data
 }
 
-// below returns a number in [0, n) for n > 0 from a uniform u: the high word
-// of u × n.
+// below returns a number in [0, n) for n > 0, and 0 for n = 0, from a uniform
+// u: the high word of u × n.
 func below(u uint64, n int64) int64 {
-	hi, _ := bits.Mul64(u, uint64(n)) //nolint:gosec // G115: n > 0
+	hi, _ := bits.Mul64(u, uint64(n)) //nolint:gosec // G115: n >= 0
 	return int64(hi)                  //nolint:gosec // G115: hi < n
 }
 
@@ -268,9 +268,18 @@ var (
 
 func coreData(t time.Time) float64 { return t.Sub(coreDataEpoch).Seconds() }
 
-// between returns a whole number of seconds in [lo, hi) from a uniform u; lo
-// and hi are whole numbers of seconds, lo < hi.
-func between(lo, hi float64, u uint64) float64 { return lo + float64(below(u, int64(hi-lo))) }
+// between returns a date in [lo, hi), lo < hi, from a uniform u: lo plus
+// whole seconds from the high bits of u, and in about half the dates a
+// fraction of milliseconds from the low bits, so the database holds both
+// INTEGER and REAL dates as a real library does. The fraction is an integer
+// divided and added, never multiplied (see rng).
+func between(lo, hi float64, u uint64) float64 {
+	d := lo + float64(below(u, int64(hi-lo)))
+	if ms := u % 2000; ms < 1000 && d+1 <= hi {
+		d += float64(ms) / 1000
+	}
+	return d
+}
 
 // Synthetic words of album and folder titles, mostly non-ASCII.
 var titleWords = []string{"Отпуск", "Дача", "Море", "Café", "Straße", "Holidays", "Поездки"}
@@ -562,7 +571,8 @@ func planNames(p *plan, cfg Config) {
 	}
 }
 
-// planDates sets the creation, added, modification, trash and adjustment dates.
+// planDates sets the creation, added, modification, trash and adjustment
+// dates; between gives about half of them a fraction of a second.
 func planDates(p *plan, cfg Config) {
 	r := newRNG(cfg.Seed, streamDates)
 	n := len(p.assets)
@@ -615,13 +625,6 @@ func planDates(p *plan, cfg Config) {
 func planAlbums(p *plan, cfg Config, c counts) {
 	r := newRNG(cfg.Seed, streamAlbums)
 	created := func() float64 { return between(addedFromZero, dateEnd, r.src.Uint64()) } // synthetic
-	guids := func() (string, string) {
-		uuid, other, u := r.uuid(), r.uuid(), r.float()
-		if u < albumGUIDShare {
-			return uuid, uuid
-		}
-		return uuid, other
-	}
 	root := album{kind: 3999, parent: -1, uuid: r.uuid(), cloudGUID: r.uuid(), created: created()}
 	p.albums = []album{root}
 	n := cfg.Assets
@@ -632,7 +635,7 @@ func planAlbums(p *plan, cfg Config, c counts) {
 	folders := max(1, ceilDiv(albums, cfg.AlbumsPerFolder))
 	for f := range folders {
 		a := album{kind: 4000, parent: 0, created: created()}
-		a.uuid, a.cloudGUID = guids()
+		a.uuid, a.cloudGUID = r.uuid(), r.uuid()
 		year, word := 2010+r.intn(16), titleWords[f%len(titleWords)]
 		a.title = fmt.Sprintf("%d/%s %d", year, word, f+1)
 		if f == folders-1 {
@@ -643,7 +646,7 @@ func planAlbums(p *plan, cfg Config, c counts) {
 	inRoot := r.pick(albums, countOf(rootAlbumsShare, albums))
 	for j := range albums {
 		a := album{kind: 2, created: created()}
-		a.uuid, a.cloudGUID = guids()
+		a.uuid, a.cloudGUID = r.uuid(), r.uuid()
 		year, month, day, folder := 2010+r.intn(16), 1+r.intn(12), 1+r.intn(28), r.intn(folders)
 		a.parent = 1 + folder
 		if inRoot[j] {
@@ -655,6 +658,11 @@ func planAlbums(p *plan, cfg Config, c counts) {
 			a.title = fmt.Sprintf("%s %d", word, j+1) // one album without "/"
 		}
 		p.albums = append(p.albums, a)
+	}
+	for j, same := range r.pick(folders+albums, countOf(albumGUIDShare, folders+albums)) {
+		if same {
+			p.albums[1+j].cloudGUID = p.albums[1+j].uuid
+		}
 	}
 	planMembers(p, cfg, c, p.albums[1+folders:])
 }
