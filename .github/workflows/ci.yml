@@ -2,8 +2,10 @@
 #
 # - "ci-ok" is the single aggregate check: the ruleset of main requires it, so
 #   the names of the other jobs can change freely.
-# - The Go module is in the osxphotos directory, not in the repository root:
-#   Go steps run there (see defaults.run.working-directory).
+# - Every check is a Makefile target; the jobs only choose which targets run
+#   on which machine. "make test" runs all of them locally.
+# - The Go module is in the osxphotos directory; the Makefile in the
+#   repository root runs Go there.
 # - Every third-party action is pinned to a full commit SHA with its release
 #   version in a comment; Dependabot keeps both up to date, and
 #   scripts/check-repo.sh fails on any action that is not pinned by SHA.
@@ -53,9 +55,6 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-    defaults:
-      run:
-        working-directory: osxphotos
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -66,27 +65,16 @@ jobs:
           # The module cache is keyed on go.sum, which does not exist while the
           # module has no dependencies. Turn caching on with the first dependency.
           cache: false
-      - name: go.mod is tidy
-        run: go mod tidy -diff
-      - name: Verify dependencies
-        run: go mod verify
-      - name: Vet
-        run: go vet ./...
-      - name: Build
-        run: go build ./...
-      - name: Test
-        run: go test -race -shuffle=on -covermode=atomic -coverprofile=coverage.out ./...
-      - name: Check coverage
-        run: bash ../scripts/check-coverage.sh coverage.out
+      - name: go.mod is tidy, modules are verified
+        run: make mod
+      - name: Vet, build, test with coverage
+        run: make cover
 
   macos:
     runs-on: macos-15
     timeout-minutes: 40
     permissions:
       contents: read
-    defaults:
-      run:
-        working-directory: osxphotos
     env:
       CGO_ENABLED: "1"
       MACOSX_DEPLOYMENT_TARGET: "13.0"
@@ -98,21 +86,13 @@ jobs:
         with:
           go-version-file: osxphotos/go.mod
           cache: false
-      # The linter runs here, not on Linux, so that darwin-only files are
-      # analyzed. The Makefile is in the repository root.
+      # The linter runs here, not on Linux, so that darwin-only files are analyzed.
       - name: Lint
-        working-directory: .
         run: make lint
-      - name: Test with cgo
-        run: go test -race -shuffle=on ./...
-      - name: Build for arm64
-        run: go build ./...
-      # Catches a broken cgo cross-compilation before a release does.
+      - name: Vet, build, test with cgo
+        run: make unit
       - name: Cross-build for amd64
-        env:
-          GOARCH: amd64
-          CC: clang -arch x86_64
-        run: go build ./...
+        run: make cross-build
 
   repo-checks:
     runs-on: ubuntu-24.04
@@ -127,12 +107,10 @@ jobs:
         with:
           go-version-file: osxphotos/go.mod
           cache: false
-      - name: Repository checks
-        run: bash scripts/check-repo.sh
-      # Built from source at a fixed version; the module checksum database
-      # verifies the download.
-      - name: actionlint
-        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      # actionlint is built from source at the version pinned in the Makefile;
+      # the module checksum database verifies the download.
+      - name: Repository checks and actionlint
+        run: make check-repo
 
   deps:
     if: github.event_name == 'pull_request'
@@ -160,9 +138,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-    defaults:
-      run:
-        working-directory: osxphotos
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -172,7 +147,7 @@ jobs:
           go-version-file: osxphotos/go.mod
           cache: false
       - name: govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+        run: make vuln
 
   ci-ok:
     if: always()
