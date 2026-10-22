@@ -65,10 +65,18 @@ jobs:
           # The module cache is keyed on go.sum, which does not exist while the
           # module has no dependencies. Turn caching on with the first dependency.
           cache: false
-      - name: go.mod is tidy, modules are verified
-        run: make mod
-      - name: Vet, build, test with coverage
-        run: make cover
+      - name: go.mod is tidy
+        run: make tidy
+      - name: Verify the modules
+        run: make mod-verify
+      - name: Vet
+        run: make vet
+      - name: Build
+        run: make build
+      - name: Test with coverage
+        run: make coverage
+      - name: Check coverage
+        run: make coverage-check
 
   macos:
     runs-on: macos-15
@@ -89,8 +97,12 @@ jobs:
       # The linter runs here, not on Linux, so that darwin-only files are analyzed.
       - name: Lint
         run: make lint
-      - name: Vet, build, test with cgo
-        run: make unit
+      - name: Vet
+        run: make vet
+      - name: Build for arm64 with cgo
+        run: make build
+      - name: Test with cgo
+        run: make race
       - name: Cross-build for amd64
         run: make cross-build
 
@@ -107,10 +119,12 @@ jobs:
         with:
           go-version-file: osxphotos/go.mod
           cache: false
-      # actionlint is built from source at the version pinned in the Makefile;
-      # the module checksum database verifies the download.
-      - name: Repository checks and actionlint
-        run: make check-repo
+      - name: Repository checks
+        run: make repo-hygiene
+      # Built from source at the version pinned in the Makefile; the module
+      # checksum database verifies the download.
+      - name: actionlint
+        run: make actionlint
 
   deps:
     if: github.event_name == 'pull_request'

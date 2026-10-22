@@ -62,8 +62,12 @@ jobs:
         with:
           go-version-file: osxphotos/go.mod
           cache: false
-      - name: Vet, build, test
-        run: make unit
+      - name: Vet
+        run: make vet
+      - name: Build
+        run: make build
+      - name: Test
+        run: make race
       - name: govulncheck
         run: make vuln
 
@@ -83,8 +87,12 @@ jobs:
         with:
           go-version-file: osxphotos/go.mod
           cache: false
-      - name: Vet, build, test with cgo
-        run: make unit
+      - name: Vet
+        run: make vet
+      - name: Build for arm64 with cgo
+        run: make build
+      - name: Test with cgo
+        run: make race
       # Catches a broken cgo cross-compilation before it reaches users.
       - name: Cross-build for amd64
         run: make cross-build
