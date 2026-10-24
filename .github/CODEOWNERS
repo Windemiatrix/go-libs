@@ -12,7 +12,7 @@ Makefile @Windemiatrix
 *.h @Windemiatrix
 /tools/ @Windemiatrix
 /osxphotos/photokit/ @Windemiatrix
-/osxphotos/testdata/ @Windemiatrix
+testdata/ @Windemiatrix
 /osxphotos/UPSTREAM.md @Windemiatrix
 /osxphotos/LICENSE @Windemiatrix
 /osxphotos/NOTICE @Windemiatrix
