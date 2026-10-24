@@ -90,6 +90,17 @@ linters:
             - {pkg: net, desc: "the osxphotos library does not use the network"}
             - {pkg: net/http, desc: "the osxphotos library does not use the network"}
             - {pkg: os/exec, desc: "the osxphotos library does not start processes"}
+        # Test support is imported only by tests, so its lines count as tests.
+        testsupport:
+          list-mode: lax
+          files:
+            - "**"
+            - "!$test"
+            - "!**/internal/golden/**"
+            - "!**/internal/testlib/**"
+          deny:
+            - {pkg: github.com/Windemiatrix/go-libs/osxphotos/internal/golden, desc: "golden is imported by tests only"}
+            - {pkg: github.com/Windemiatrix/go-libs/osxphotos/internal/testlib, desc: "testlib is imported by tests only"}
     forbidigo:
       forbid:
         - pattern: ^fmt\.Print(f|ln)?$
