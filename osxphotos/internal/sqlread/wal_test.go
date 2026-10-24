@@ -87,14 +87,14 @@ func TestTruncatedWAL(t *testing.T) {
 	opens := 0
 	// L = -1 is a source without -wal.
 	for l := -1; l <= len(wal); l++ {
-		if err := os.WriteFile(src, db, 0o600); err != nil {
+		if err := os.WriteFile(src, db, 0o600); err != nil { //nolint:gosec // G703: a file in t.TempDir()
 			t.Fatal(err)
 		}
 		if l < 0 {
 			if err := os.Remove(src + "-wal"); err != nil && !errors.Is(err, fs.ErrNotExist) {
 				t.Fatal(err)
 			}
-		} else if err := os.WriteFile(src+"-wal", wal[:l], 0o600); err != nil {
+		} else if err := os.WriteFile(src+"-wal", wal[:l], 0o600); err != nil { //nolint:gosec // G703: a file in t.TempDir()
 			t.Fatal(err)
 		}
 		want := 0

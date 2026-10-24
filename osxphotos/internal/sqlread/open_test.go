@@ -300,7 +300,7 @@ func TestSourceUnchanged(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := os.Chmod(dir, 0o500); err != nil {
+	if err := os.Chmod(dir, 0o500); err != nil { //nolint:gosec // G302: a read-only directory in t.TempDir() is the point of the test
 		t.Fatal(err)
 	}
 	// Registered after OpenPristine and t.TempDir, so it runs before their
