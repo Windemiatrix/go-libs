@@ -58,6 +58,38 @@ linters:
             - {pkg: modernc.org/sqlite, desc: "export does not read the database"}
             - {pkg: syscall, desc: "export does not call the system"}
             - {pkg: unsafe, desc: "export does not use unsafe"}
+        # Photos, albums, queries and the schema table are plain values and
+        # rules: reading the library is the job of photosdb.
+        pure:
+          list-mode: lax
+          files:
+            - "**/osxphotos/photoinfo/**"
+            - "**/osxphotos/albuminfo/**"
+            - "**/osxphotos/query/**"
+            - "**/osxphotos/internal/schema/**"
+            - "!$test"
+          deny:
+            - {pkg: os, desc: "this package does no I/O"}
+            - {pkg: os/exec, desc: "this package does not start processes"}
+            - {pkg: io, desc: "this package does no I/O"}
+            - {pkg: io/ioutil, desc: "this package does no I/O"}
+            - {pkg: net, desc: "this package does no I/O"}
+            - {pkg: net/http, desc: "this package does no I/O"}
+            - {pkg: database/sql, desc: "this package does not read the database; photosdb does"}
+            - {pkg: modernc.org/sqlite, desc: "this package does not read the database; photosdb does"}
+            - {pkg: syscall, desc: "this package does not call the system"}
+            - {pkg: unsafe, desc: "this package does not use unsafe"}
+            - {pkg: C, desc: "this package does not use cgo"}
+        # The library neither goes to the network nor starts processes.
+        library:
+          list-mode: lax
+          files:
+            - "**/osxphotos/**"
+            - "!$test"
+          deny:
+            - {pkg: net, desc: "the osxphotos library does not use the network"}
+            - {pkg: net/http, desc: "the osxphotos library does not use the network"}
+            - {pkg: os/exec, desc: "the osxphotos library does not start processes"}
     forbidigo:
       forbid:
         - pattern: ^fmt\.Print(f|ln)?$
@@ -86,10 +118,11 @@ linters:
         linters: [forbidigo]
       - path: _test\.go$
         linters: [forbidigo]
-      # Tests read their own fixtures by variable path.
+      # Tests read their own fixtures by variable path, encode fixture bytes by
+      # hand and shuffle with a seeded, reproducible generator.
       - path: _test\.go$
         linters: [gosec]
-        text: G304
+        text: G304|G115|G404
 
 formatters:
   enable:
