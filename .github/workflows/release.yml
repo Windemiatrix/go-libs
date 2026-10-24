@@ -1,5 +1,6 @@
 # A tag osxphotos/vX.Y.Z pushed by scripts/release.sh publishes the Release.
-# Every step runs one Makefile target; the tag reaches make only through env:.
+# A step that also runs locally calls one Makefile target; the tag reaches
+# every step only through env:.
 # No caches: they could be poisoned.
 name: release
 
@@ -34,7 +35,13 @@ jobs:
       - name: Tag form, tag on main
         env:
           TAG: ${{ github.ref_name }}
-        run: make release-verify
+        run: |
+          if ! [[ "$TAG" =~ ^osxphotos/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "error: the tag is not of the form osxphotos/vX.Y.Z" >&2
+            exit 1
+          fi
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
       - name: Vet
         run: make vet
       - name: Tests and coverage

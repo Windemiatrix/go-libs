@@ -1,11 +1,6 @@
-dummy := $(shell touch .env)
-include .env
 GOLANGCI_LINT_VERSION ?= v2.15.0
 ACTIONLINT_VERSION ?= v1.7.12
 GOVULNCHECK_VERSION ?= v1.9.0
-export
-
-.DEFAULT_GOAL := help
 
 .PHONY: help
 help: ## Display this help.
@@ -53,25 +48,13 @@ check-repo: ## Repository hygiene checks and actionlint
 vuln: ## Known vulnerabilities in dependencies (not in "make test")
 	go -C osxphotos run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
 
-##@ CI
+##@ Pull requests
 
 .PHONY: pr-title
-pr-title: ## PR_TITLE follows the title convention
+pr-title: ## PR_TITLE follows the title convention (PR_TITLE='...' make pr-title)
 	bash scripts/check-pr-title.sh
 
-.PHONY: ci-ok
-ci-ok: ## Every job in NEEDS passed or was skipped
-	@printf '%s' "$$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-	@printf '%s' "$$NEEDS" | jq -e 'all(.[]; .result == "success" or .result == "skipped")' >/dev/null
-
 ##@ Release
-
-.PHONY: release-verify
-release-verify: ## TAG is osxphotos/vX.Y.Z on a commit of main
-	@printf '%s\n' "$$TAG" | grep -Eq '^osxphotos/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$$' \
-		|| { echo "error: the tag is not of the form osxphotos/vX.Y.Z" >&2; exit 1; }
-	git fetch origin main
-	git merge-base --is-ancestor HEAD origin/main
 
 .PHONY: release
 release: ## GitHub Release for TAG with grouped notes, then the Go proxy warm-up (needs GH_TOKEN)
