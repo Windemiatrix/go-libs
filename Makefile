@@ -1,10 +1,6 @@
-dummy := $(shell touch .env)
-include .env
 GOLANGCI_LINT_VERSION ?= v2.15.0
 ACTIONLINT_VERSION ?= v1.7.12
 GOVULNCHECK_VERSION ?= v1.9.0
-
-.DEFAULT_GOAL := help
 
 .PHONY: help
 help: ## Display this help.
