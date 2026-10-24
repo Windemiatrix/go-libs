@@ -110,7 +110,9 @@ jobs:
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: moderate
-          allow-licenses: MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC, LicenseRef-scancode-google-patent-license-golang
+          # The LicenseRef is howett.net/plist: BSD-2-Clause-Views together with
+          # BSD-3-Clause, both permissive; GitHub does not map the pair to SPDX ids.
+          allow-licenses: MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC, LicenseRef-scancode-google-patent-license-golang, LicenseRef-bad-bsd-2-clause-views-bsd-3-clause
           comment-summary-in-pr: never
 
   # Not in ci-ok: a new vulnerability must not turn an unrelated change red.
