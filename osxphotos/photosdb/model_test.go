@@ -311,7 +311,8 @@ func referenceCases() []detectCase {
 // TestDetectSchemaReferences checks that the reference cases end, with an
 // error, within a bound. A decoder that copies a shared object once per path
 // runs out of memory instead, and parsing deep nesting takes time quadratic
-// in the depth.
+// in the depth: minutes or more for a megabyte. The bound catches that, not
+// speed: under the race detector on a busy CI runner a case took over 5 s.
 func TestDetectSchemaReferences(t *testing.T) {
 	t.Parallel()
 	for _, tt := range referenceCases() {
@@ -333,8 +334,8 @@ func TestDetectSchemaReferences(t *testing.T) {
 			select {
 			case r := <-done:
 				checkDetectResult(t, tt, r.model, r.s, r.err)
-			case <-time.After(5 * time.Second):
-				t.Fatalf("detectSchema of %d bytes did not return within 5 s", len(tt.plist))
+			case <-time.After(60 * time.Second):
+				t.Fatalf("detectSchema of %d bytes did not return within 60 s", len(tt.plist))
 			}
 		})
 	}
