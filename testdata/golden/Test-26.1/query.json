@@ -1,0 +1,1379 @@
+[
+  {
+    "album_info": [],
+    "albums": [],
+    "burst": false,
+    "burst_album_info": [],
+    "burst_albums": [],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": null,
+    "date": "1970-01-01T00:00:00+00:00",
+    "date_added": "2020-06-06T14:15:24.725564+00:00",
+    "date_modified": null,
+    "date_trashed": null,
+    "description": null,
+    "favorite": false,
+    "filename": "8846E3E6-8AC8-4857-8448-E3D025784410.tiff",
+    "fingerprint": "ASkk75asO1LysOyOM6CYu5E7U6d6",
+    "folders": {},
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 3024,
+    "hidden": false,
+    "incloud": null,
+    "intrash": false,
+    "iscloudasset": false,
+    "ismissing": false,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "IMG_1693.tif",
+    "original_filesize": 48774438,
+    "original_height": 3024,
+    "original_orientation": 1,
+    "original_width": 4032,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": -25200,
+    "uti": "public.tiff",
+    "uti_original": "public.tiff",
+    "uti_raw": null,
+    "uuid": "8846E3E6-8AC8-4857-8448-E3D025784410",
+    "width": 4032
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2020-08-31T04:05:11.367272+00:00",
+        "end_date": "2017-06-20T07:48:56.518000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2017-06-20T07:48:56.518000+00:00",
+        "title": "2018-10 - Sponsion, Museum, Frühstück, Römermuseum",
+        "uuid": "8A3F182E-20D4-4C30-AFFD-9BD7CEC01C75"
+      },
+      {
+        "creation_date": "2020-09-14T00:34:56.804132+00:00",
+        "end_date": "2017-06-20T07:48:56.518000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2017-06-20T07:48:56.518000+00:00",
+        "title": "2019-10/11 Paris Clermont",
+        "uuid": "3ABA0FAD-470D-41D7-BDA9-C46D2662AC04"
+      },
+      {
+        "creation_date": "2020-04-11T18:05:09.224879+00:00",
+        "end_date": "2019-04-15T18:40:24.086000+00:00",
+        "folder_list": [
+          "88A5F8B8-5B9A-43C7-BB85-3952B81580EB",
+          "29EF7A97-7E76-4D5F-A5E0-CC0A93E8524C"
+        ],
+        "folder_names": [
+          "Folder1",
+          "SubFolder2"
+        ],
+        "owner": null,
+        "parent": "29EF7A97-7E76-4D5F-A5E0-CC0A93E8524C",
+        "sort_order": null,
+        "start_date": "2017-06-20T07:48:56.518000+00:00",
+        "title": "AlbumInFolder",
+        "uuid": "973ED0FD-5B5F-4CD7-A40F-4DDE73CE3FAB"
+      }
+    ],
+    "albums": [
+      "2018-10 - Sponsion, Museum, Frühstück, Römermuseum",
+      "2019-10/11 Paris Clermont",
+      "AlbumInFolder"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2020-08-31T04:05:11.367272+00:00",
+        "end_date": "2017-06-20T07:48:56.518000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2017-06-20T07:48:56.518000+00:00",
+        "title": "2018-10 - Sponsion, Museum, Frühstück, Römermuseum",
+        "uuid": "8A3F182E-20D4-4C30-AFFD-9BD7CEC01C75"
+      },
+      {
+        "creation_date": "2020-09-14T00:34:56.804132+00:00",
+        "end_date": "2017-06-20T07:48:56.518000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2017-06-20T07:48:56.518000+00:00",
+        "title": "2019-10/11 Paris Clermont",
+        "uuid": "3ABA0FAD-470D-41D7-BDA9-C46D2662AC04"
+      },
+      {
+        "creation_date": "2020-04-11T18:05:09.224879+00:00",
+        "end_date": "2019-04-15T18:40:24.086000+00:00",
+        "folder_list": [
+          "88A5F8B8-5B9A-43C7-BB85-3952B81580EB",
+          "29EF7A97-7E76-4D5F-A5E0-CC0A93E8524C"
+        ],
+        "folder_names": [
+          "Folder1",
+          "SubFolder2"
+        ],
+        "owner": null,
+        "parent": "29EF7A97-7E76-4D5F-A5E0-CC0A93E8524C",
+        "sort_order": null,
+        "start_date": "2017-06-20T07:48:56.518000+00:00",
+        "title": "AlbumInFolder",
+        "uuid": "973ED0FD-5B5F-4CD7-A40F-4DDE73CE3FAB"
+      }
+    ],
+    "burst_albums": [
+      "2018-10 - Sponsion, Museum, Frühstück, Römermuseum",
+      "2019-10/11 Paris Clermont",
+      "AlbumInFolder"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": null,
+    "date": "2017-06-20T17:18:56.518000+09:30",
+    "date_added": "2020-04-06T05:52:24.442561+00:00",
+    "date_modified": null,
+    "date_trashed": null,
+    "description": "⁨Elder Park⁩, ⁨Adelaide⁩, ⁨Australia⁩",
+    "favorite": false,
+    "filename": "3DD2C897-F19E-4CA6-8C22-B027D5A71907.jpeg",
+    "fingerprint": "AcrntWs8LmFJvDyxMB5XCKyKFMEN",
+    "folders": {
+      "2018-10 - Sponsion, Museum, Frühstück, Römermuseum": [],
+      "2019-10/11 Paris Clermont": [],
+      "AlbumInFolder": [
+        "Folder1",
+        "SubFolder2"
+      ]
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 2754,
+    "hidden": false,
+    "incloud": null,
+    "intrash": false,
+    "iscloudasset": false,
+    "ismissing": false,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": -34.91889167000001,
+    "live_photo": false,
+    "location": [
+      -34.91889167000001,
+      138.59686167
+    ],
+    "longitude": 138.59686167,
+    "orientation": 1,
+    "original_filename": "IMG_4547.jpg",
+    "original_filesize": 1477654,
+    "original_height": 2754,
+    "original_orientation": 1,
+    "original_width": 2754,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": "Elder Park",
+    "tzoffset": 34200,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "3DD2C897-F19E-4CA6-8C22-B027D5A71907",
+    "width": 2754
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2019-07-27T13:19:13.706262+00:00",
+        "end_date": "2018-09-28T20:09:33.022000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2018-09-28T19:35:49.063000+00:00",
+        "title": "Pumpkin Farm",
+        "uuid": "0C514A98-7B77-4E4F-801B-364B7B65EAFA"
+      },
+      {
+        "creation_date": "2019-12-07T20:45:45.353661+00:00",
+        "end_date": "2018-09-28T19:35:49.063000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2018-09-28T19:35:49.063000+00:00",
+        "title": "Test Album",
+        "uuid": "AA4145F5-098C-496E-9197-B7584958FF9B"
+      }
+    ],
+    "albums": [
+      "Pumpkin Farm",
+      "Test Album"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2019-07-27T13:19:13.706262+00:00",
+        "end_date": "2018-09-28T20:09:33.022000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2018-09-28T19:35:49.063000+00:00",
+        "title": "Pumpkin Farm",
+        "uuid": "0C514A98-7B77-4E4F-801B-364B7B65EAFA"
+      },
+      {
+        "creation_date": "2019-12-07T20:45:45.353661+00:00",
+        "end_date": "2018-09-28T19:35:49.063000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2018-09-28T19:35:49.063000+00:00",
+        "title": "Test Album",
+        "uuid": "AA4145F5-098C-496E-9197-B7584958FF9B"
+      }
+    ],
+    "burst_albums": [
+      "Pumpkin Farm",
+      "Test Album"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": null,
+    "date": "2018-09-28T15:35:49.063000-04:00",
+    "date_added": "2019-07-27T13:16:49.804603+00:00",
+    "date_modified": null,
+    "date_trashed": null,
+    "description": "Girls with pumpkins",
+    "favorite": false,
+    "filename": "F12384F6-CD17-4151-ACBA-AE0E3688539E.jpeg",
+    "fingerprint": "AUTEnaXpCRgZGfTY4wSdZ9UUf8Op",
+    "folders": {
+      "Pumpkin Farm": [],
+      "Test Album": []
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 1365,
+    "hidden": false,
+    "incloud": null,
+    "intrash": false,
+    "iscloudasset": false,
+    "ismissing": false,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [
+      "Kids"
+    ],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "Pumkins1.jpg",
+    "original_filesize": 554127,
+    "original_height": 1365,
+    "original_orientation": 1,
+    "original_width": 2048,
+    "persons": [
+      "Katie",
+      "Suzy"
+    ],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": "Can we carry this?",
+    "tzoffset": -14400,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "F12384F6-CD17-4151-ACBA-AE0E3688539E",
+    "width": 2048
+  },
+  {
+    "album_info": [],
+    "albums": [],
+    "burst": false,
+    "burst_album_info": [],
+    "burst_albums": [],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": null,
+    "date": "2018-09-28T15:39:59.008000-04:00",
+    "date_added": "2019-07-27T14:08:28.312111+00:00",
+    "date_modified": null,
+    "date_trashed": null,
+    "description": null,
+    "favorite": false,
+    "filename": "Pumpkins4.jpg",
+    "fingerprint": "Acg7iUvHLiR8FEuZ08xqDKhpN+tR",
+    "folders": {},
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 2048,
+    "hidden": true,
+    "incloud": null,
+    "intrash": false,
+    "iscloudasset": false,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": true,
+    "keywords": [
+      "Kids"
+    ],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "Pumpkins4.jpg",
+    "original_filesize": 700340,
+    "original_height": 2048,
+    "original_orientation": 1,
+    "original_width": 1991,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": "Pumpkin heads",
+    "tzoffset": -14400,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "A1DD1F98-2ECD-431F-9AC9-5AFEFE2D3A5C",
+    "width": 1991
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2019-07-27T13:19:13.706262+00:00",
+        "end_date": "2018-09-28T20:09:33.022000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2018-09-28T19:35:49.063000+00:00",
+        "title": "Pumpkin Farm",
+        "uuid": "0C514A98-7B77-4E4F-801B-364B7B65EAFA"
+      },
+      {
+        "creation_date": "2019-12-07T20:45:32.900475+00:00",
+        "end_date": "2018-09-28T20:07:07+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2018-09-28T20:07:07+00:00",
+        "title": "Test Album",
+        "uuid": "ECB9B3AA-7BEF-474D-90FA-A104EC42ED22"
+      }
+    ],
+    "albums": [
+      "Pumpkin Farm",
+      "Test Album"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2019-07-27T13:19:13.706262+00:00",
+        "end_date": "2018-09-28T20:09:33.022000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2018-09-28T19:35:49.063000+00:00",
+        "title": "Pumpkin Farm",
+        "uuid": "0C514A98-7B77-4E4F-801B-364B7B65EAFA"
+      },
+      {
+        "creation_date": "2019-12-07T20:45:32.900475+00:00",
+        "end_date": "2018-09-28T20:07:07+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2018-09-28T20:07:07+00:00",
+        "title": "Test Album",
+        "uuid": "ECB9B3AA-7BEF-474D-90FA-A104EC42ED22"
+      }
+    ],
+    "burst_albums": [
+      "Pumpkin Farm",
+      "Test Album"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": null,
+    "date": "2018-09-28T16:07:07-04:00",
+    "date_added": "2019-07-27T13:16:49.778432+00:00",
+    "date_modified": null,
+    "date_trashed": null,
+    "description": "Girl holding pumpkin",
+    "favorite": false,
+    "filename": "D79B8D77-BFFC-460B-9312-034F2877D35B.jpeg",
+    "fingerprint": "ARa9lDSd7xt40VFCM32sxtN78t3s",
+    "folders": {
+      "Pumpkin Farm": [],
+      "Test Album": []
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 2048,
+    "hidden": false,
+    "incloud": null,
+    "intrash": false,
+    "iscloudasset": false,
+    "ismissing": false,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [
+      "Kids"
+    ],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "Pumkins2.jpg",
+    "original_filesize": 541174,
+    "original_height": 2048,
+    "original_orientation": 1,
+    "original_width": 1365,
+    "persons": [
+      "Katie"
+    ],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": "I found one!",
+    "tzoffset": -14400,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "D79B8D77-BFFC-460B-9312-034F2877D35B",
+    "width": 1365
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2019-07-27T13:19:13.706262+00:00",
+        "end_date": "2018-09-28T20:09:33.022000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2018-09-28T19:35:49.063000+00:00",
+        "title": "Pumpkin Farm",
+        "uuid": "0C514A98-7B77-4E4F-801B-364B7B65EAFA"
+      }
+    ],
+    "albums": [
+      "Pumpkin Farm"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2019-07-27T13:19:13.706262+00:00",
+        "end_date": "2018-09-28T20:09:33.022000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2018-09-28T19:35:49.063000+00:00",
+        "title": "Pumpkin Farm",
+        "uuid": "0C514A98-7B77-4E4F-801B-364B7B65EAFA"
+      }
+    ],
+    "burst_albums": [
+      "Pumpkin Farm"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": null,
+    "date": "2018-09-28T16:09:33.022000-04:00",
+    "date_added": "2019-07-27T13:16:49.757001+00:00",
+    "date_modified": null,
+    "date_trashed": null,
+    "description": "Kids in pumpkin field",
+    "favorite": false,
+    "filename": "1EB2B765-0765-43BA-A90C-0D0580E6172C.jpeg",
+    "fingerprint": "AcfhCyA9QrbLeurYu6zE5FnQe+SG",
+    "folders": {
+      "Pumpkin Farm": []
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 2048,
+    "hidden": false,
+    "incloud": null,
+    "intrash": false,
+    "iscloudasset": false,
+    "ismissing": false,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [
+      "Kids"
+    ],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "Pumpkins3.jpg",
+    "original_filesize": 588140,
+    "original_height": 2048,
+    "original_orientation": 1,
+    "original_width": 1365,
+    "persons": [
+      "Katie",
+      "Suzy"
+    ],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": -14400,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "1EB2B765-0765-43BA-A90C-0D0580E6172C",
+    "width": 1365
+  },
+  {
+    "album_info": [],
+    "albums": [],
+    "burst": false,
+    "burst_album_info": [],
+    "burst_albums": [],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": null,
+    "date": "2018-10-13T09:18:12.501000-04:00",
+    "date_added": "2019-07-27T13:16:49.859624+00:00",
+    "date_modified": "2019-12-01T15:27:48.198932+00:00",
+    "date_trashed": null,
+    "description": null,
+    "favorite": false,
+    "filename": "DC99FBDD-7A52-4100-A5BB-344131646C30.jpeg",
+    "fingerprint": "AdADRa7jIaoKGF0vlcVdYYYTkjPj",
+    "folders": {},
+    "has_raw": false,
+    "hasadjustments": true,
+    "height": 1356,
+    "hidden": false,
+    "incloud": null,
+    "intrash": false,
+    "iscloudasset": false,
+    "ismissing": false,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [
+      "England",
+      "London",
+      "London 2018",
+      "St. James's Park",
+      "UK",
+      "United Kingdom"
+    ],
+    "latitude": 51.50357167,
+    "live_photo": false,
+    "location": [
+      51.50357167,
+      -0.1318055
+    ],
+    "longitude": -0.1318055,
+    "orientation": 0,
+    "original_filename": "St James Park.jpg",
+    "original_filesize": 1262861,
+    "original_height": 1356,
+    "original_orientation": 1,
+    "original_width": 2047,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": "St. James's Park",
+    "tzoffset": -14400,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "DC99FBDD-7A52-4100-A5BB-344131646C30",
+    "width": 2047
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2020-04-11T18:05:09.224879+00:00",
+        "end_date": "2019-04-15T18:40:24.086000+00:00",
+        "folder_list": [
+          "88A5F8B8-5B9A-43C7-BB85-3952B81580EB",
+          "29EF7A97-7E76-4D5F-A5E0-CC0A93E8524C"
+        ],
+        "folder_names": [
+          "Folder1",
+          "SubFolder2"
+        ],
+        "owner": null,
+        "parent": "29EF7A97-7E76-4D5F-A5E0-CC0A93E8524C",
+        "sort_order": null,
+        "start_date": "2017-06-20T07:48:56.518000+00:00",
+        "title": "AlbumInFolder",
+        "uuid": "973ED0FD-5B5F-4CD7-A40F-4DDE73CE3FAB"
+      },
+      {
+        "creation_date": "2020-06-07T14:54:41.584484+00:00",
+        "end_date": "2019-04-15T18:40:24.086000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2019-04-15T18:40:24.086000+00:00",
+        "title": "I have a deleted twin",
+        "uuid": "EA8E27F6-2A49-44B0-BC77-2A2BC23C21BF"
+      }
+    ],
+    "albums": [
+      "AlbumInFolder",
+      "I have a deleted twin"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2020-04-11T18:05:09.224879+00:00",
+        "end_date": "2019-04-15T18:40:24.086000+00:00",
+        "folder_list": [
+          "88A5F8B8-5B9A-43C7-BB85-3952B81580EB",
+          "29EF7A97-7E76-4D5F-A5E0-CC0A93E8524C"
+        ],
+        "folder_names": [
+          "Folder1",
+          "SubFolder2"
+        ],
+        "owner": null,
+        "parent": "29EF7A97-7E76-4D5F-A5E0-CC0A93E8524C",
+        "sort_order": null,
+        "start_date": "2017-06-20T07:48:56.518000+00:00",
+        "title": "AlbumInFolder",
+        "uuid": "973ED0FD-5B5F-4CD7-A40F-4DDE73CE3FAB"
+      },
+      {
+        "creation_date": "2020-06-07T14:54:41.584484+00:00",
+        "end_date": "2019-04-15T18:40:24.086000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2019-04-15T18:40:24.086000+00:00",
+        "title": "I have a deleted twin",
+        "uuid": "EA8E27F6-2A49-44B0-BC77-2A2BC23C21BF"
+      }
+    ],
+    "burst_albums": [
+      "AlbumInFolder",
+      "I have a deleted twin"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": null,
+    "date": "2019-04-15T14:40:24.086000-04:00",
+    "date_added": "2019-07-27T13:16:49.735651+00:00",
+    "date_modified": "2019-07-27T21:33:28.398138+00:00",
+    "date_trashed": null,
+    "description": "Bride Wedding day",
+    "favorite": true,
+    "filename": "E9BC5C36-7CD1-40A1-A72B-8B8FAC227D51.jpeg",
+    "fingerprint": "ASs96bJvsunOg9Vxo5hK7VU3HegE",
+    "folders": {
+      "AlbumInFolder": [
+        "Folder1",
+        "SubFolder2"
+      ],
+      "I have a deleted twin": []
+    },
+    "has_raw": false,
+    "hasadjustments": true,
+    "height": 1325,
+    "hidden": false,
+    "incloud": null,
+    "intrash": false,
+    "iscloudasset": false,
+    "ismissing": false,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [
+      "wedding"
+    ],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 0,
+    "original_filename": "wedding.jpg",
+    "original_filesize": 460483,
+    "original_height": 1367,
+    "original_orientation": 1,
+    "original_width": 2048,
+    "persons": [
+      "Maria"
+    ],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": -14400,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "E9BC5C36-7CD1-40A1-A72B-8B8FAC227D51",
+    "width": 1526
+  },
+  {
+    "album_info": [],
+    "albums": [],
+    "burst": false,
+    "burst_album_info": [],
+    "burst_albums": [],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": null,
+    "date": "2019-07-04T16:24:01-04:00",
+    "date_added": "2019-07-27T13:16:49.827957+00:00",
+    "date_modified": "2020-05-29T03:39:38.402870+00:00",
+    "date_trashed": null,
+    "description": "Wedding tulips",
+    "favorite": false,
+    "filename": "6191423D-8DB8-4D4C-92BE-9BBBA308AAC4.jpeg",
+    "fingerprint": "AUgz5viPNaPHi9NPSlthfeUdQUbu",
+    "folders": {},
+    "has_raw": false,
+    "hasadjustments": true,
+    "height": 1365,
+    "hidden": false,
+    "incloud": null,
+    "intrash": false,
+    "iscloudasset": false,
+    "ismissing": false,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [
+      "flowers",
+      "wedding"
+    ],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 0,
+    "original_filename": "Tulips.jpg",
+    "original_filesize": 512561,
+    "original_height": 1365,
+    "original_orientation": 1,
+    "original_width": 2047,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": "Tulips tied together at a flower shop",
+    "tzoffset": -14400,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "6191423D-8DB8-4D4C-92BE-9BBBA308AAC4",
+    "width": 2047
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2020-05-02T14:25:15.014280+00:00",
+        "end_date": "2020-04-16T19:28:21+00:00",
+        "folder_list": [
+          "2C2AF115-BD1D-4434-A747-D1C8BD8E2045"
+        ],
+        "folder_names": [
+          "Folder2"
+        ],
+        "owner": null,
+        "parent": "2C2AF115-BD1D-4434-A747-D1C8BD8E2045",
+        "sort_order": null,
+        "start_date": "2020-04-12T17:30:23+00:00",
+        "title": "Raw",
+        "uuid": "68001ACE-DE4E-46B7-A3F8-3B2D03D39D59"
+      }
+    ],
+    "albums": [
+      "Raw"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2020-05-02T14:25:15.014280+00:00",
+        "end_date": "2020-04-16T19:28:21+00:00",
+        "folder_list": [
+          "2C2AF115-BD1D-4434-A747-D1C8BD8E2045"
+        ],
+        "folder_names": [
+          "Folder2"
+        ],
+        "owner": null,
+        "parent": "2C2AF115-BD1D-4434-A747-D1C8BD8E2045",
+        "sort_order": null,
+        "start_date": "2020-04-12T17:30:23+00:00",
+        "title": "Raw",
+        "uuid": "68001ACE-DE4E-46B7-A3F8-3B2D03D39D59"
+      }
+    ],
+    "burst_albums": [
+      "Raw"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": null,
+    "date": "2020-04-12T10:30:23-07:00",
+    "date_added": "2020-04-19T15:27:32.244626+00:00",
+    "date_modified": null,
+    "date_trashed": null,
+    "description": "RAW only",
+    "favorite": false,
+    "filename": "D05A5FE3-15FB-49A1-A15D-AB3DA6F8B068.dng",
+    "fingerprint": "AR+/+jZz0TvuBm+zF1BqtIneTrsZ",
+    "folders": {
+      "Raw": [
+        "Folder2"
+      ]
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 6000,
+    "hidden": false,
+    "incloud": null,
+    "intrash": false,
+    "iscloudasset": false,
+    "ismissing": false,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": true,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 8,
+    "original_filename": "DSC03584.dng",
+    "original_filesize": 21473824,
+    "original_height": 4000,
+    "original_orientation": 8,
+    "original_width": 6000,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": -25200,
+    "uti": "com.adobe.raw-image",
+    "uti_original": "com.adobe.raw-image",
+    "uti_raw": null,
+    "uuid": "D05A5FE3-15FB-49A1-A15D-AB3DA6F8B068",
+    "width": 4000
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2020-05-02T14:25:15.014280+00:00",
+        "end_date": "2020-04-16T19:28:21+00:00",
+        "folder_list": [
+          "2C2AF115-BD1D-4434-A747-D1C8BD8E2045"
+        ],
+        "folder_names": [
+          "Folder2"
+        ],
+        "owner": null,
+        "parent": "2C2AF115-BD1D-4434-A747-D1C8BD8E2045",
+        "sort_order": null,
+        "start_date": "2020-04-12T17:30:23+00:00",
+        "title": "Raw",
+        "uuid": "68001ACE-DE4E-46B7-A3F8-3B2D03D39D59"
+      }
+    ],
+    "albums": [
+      "Raw"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2020-05-02T14:25:15.014280+00:00",
+        "end_date": "2020-04-16T19:28:21+00:00",
+        "folder_list": [
+          "2C2AF115-BD1D-4434-A747-D1C8BD8E2045"
+        ],
+        "folder_names": [
+          "Folder2"
+        ],
+        "owner": null,
+        "parent": "2C2AF115-BD1D-4434-A747-D1C8BD8E2045",
+        "sort_order": null,
+        "start_date": "2020-04-12T17:30:23+00:00",
+        "title": "Raw",
+        "uuid": "68001ACE-DE4E-46B7-A3F8-3B2D03D39D59"
+      }
+    ],
+    "burst_albums": [
+      "Raw"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": null,
+    "date": "2020-04-15T10:25:51-07:00",
+    "date_added": "2020-04-19T15:27:55.301814+00:00",
+    "date_modified": null,
+    "date_trashed": null,
+    "description": "RAW + JPEG, JPEG Original",
+    "favorite": false,
+    "filename": "A92D9C26-3A50-4197-9388-CB5F7DB9FA91.jpeg",
+    "fingerprint": "AT6Ji2L3VO4MblxwJL/B7PjzfzGv",
+    "folders": {
+      "Raw": [
+        "Folder2"
+      ]
+    },
+    "has_raw": true,
+    "hasadjustments": false,
+    "height": 3312,
+    "hidden": false,
+    "incloud": null,
+    "intrash": false,
+    "iscloudasset": false,
+    "ismissing": false,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "IMG_1994.JPG",
+    "original_filesize": 2901554,
+    "original_height": 3312,
+    "original_orientation": 1,
+    "original_width": 4416,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": -25200,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "A92D9C26-3A50-4197-9388-CB5F7DB9FA91",
+    "width": 4416
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2020-05-02T14:25:15.014280+00:00",
+        "end_date": "2020-04-16T19:28:21+00:00",
+        "folder_list": [
+          "2C2AF115-BD1D-4434-A747-D1C8BD8E2045"
+        ],
+        "folder_names": [
+          "Folder2"
+        ],
+        "owner": null,
+        "parent": "2C2AF115-BD1D-4434-A747-D1C8BD8E2045",
+        "sort_order": null,
+        "start_date": "2020-04-12T17:30:23+00:00",
+        "title": "Raw",
+        "uuid": "68001ACE-DE4E-46B7-A3F8-3B2D03D39D59"
+      }
+    ],
+    "albums": [
+      "Raw"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2020-05-02T14:25:15.014280+00:00",
+        "end_date": "2020-04-16T19:28:21+00:00",
+        "folder_list": [
+          "2C2AF115-BD1D-4434-A747-D1C8BD8E2045"
+        ],
+        "folder_names": [
+          "Folder2"
+        ],
+        "owner": null,
+        "parent": "2C2AF115-BD1D-4434-A747-D1C8BD8E2045",
+        "sort_order": null,
+        "start_date": "2020-04-12T17:30:23+00:00",
+        "title": "Raw",
+        "uuid": "68001ACE-DE4E-46B7-A3F8-3B2D03D39D59"
+      }
+    ],
+    "burst_albums": [
+      "Raw"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": null,
+    "date": "2020-04-16T10:42:58-07:00",
+    "date_added": "2020-04-19T15:29:17.264402+00:00",
+    "date_modified": null,
+    "date_trashed": null,
+    "description": "RAW + JPEG, RAW original",
+    "favorite": false,
+    "filename": "4D521201-92AC-43E5-8F7C-59BC41C37A96.jpeg",
+    "fingerprint": "AdLY396dV18Hg6gS5YMwXpOdemH7",
+    "folders": {
+      "Raw": [
+        "Folder2"
+      ]
+    },
+    "has_raw": true,
+    "hasadjustments": false,
+    "height": 4416,
+    "hidden": false,
+    "incloud": null,
+    "intrash": false,
+    "iscloudasset": false,
+    "ismissing": false,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 6,
+    "original_filename": "IMG_1997.JPG",
+    "original_filesize": 2991408,
+    "original_height": 3312,
+    "original_orientation": 6,
+    "original_width": 4416,
+    "persons": [],
+    "raw_original": true,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": -25200,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "4D521201-92AC-43E5-8F7C-59BC41C37A96",
+    "width": 3312
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2020-05-02T14:25:15.014280+00:00",
+        "end_date": "2020-04-16T19:28:21+00:00",
+        "folder_list": [
+          "2C2AF115-BD1D-4434-A747-D1C8BD8E2045"
+        ],
+        "folder_names": [
+          "Folder2"
+        ],
+        "owner": null,
+        "parent": "2C2AF115-BD1D-4434-A747-D1C8BD8E2045",
+        "sort_order": null,
+        "start_date": "2020-04-12T17:30:23+00:00",
+        "title": "Raw",
+        "uuid": "68001ACE-DE4E-46B7-A3F8-3B2D03D39D59"
+      }
+    ],
+    "albums": [
+      "Raw"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2020-05-02T14:25:15.014280+00:00",
+        "end_date": "2020-04-16T19:28:21+00:00",
+        "folder_list": [
+          "2C2AF115-BD1D-4434-A747-D1C8BD8E2045"
+        ],
+        "folder_names": [
+          "Folder2"
+        ],
+        "owner": null,
+        "parent": "2C2AF115-BD1D-4434-A747-D1C8BD8E2045",
+        "sort_order": null,
+        "start_date": "2020-04-12T17:30:23+00:00",
+        "title": "Raw",
+        "uuid": "68001ACE-DE4E-46B7-A3F8-3B2D03D39D59"
+      }
+    ],
+    "burst_albums": [
+      "Raw"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": null,
+    "date": "2020-04-16T12:28:21-07:00",
+    "date_added": "2020-04-19T15:30:44.297306+00:00",
+    "date_modified": null,
+    "date_trashed": null,
+    "description": "RAW + JPEG, Not copied to library",
+    "favorite": false,
+    "filename": "IMG_2000.JPG",
+    "fingerprint": "AZVxdRDZsxYTjNjMmxh82cHk3MB/",
+    "folders": {
+      "Raw": [
+        "Folder2"
+      ]
+    },
+    "has_raw": true,
+    "hasadjustments": false,
+    "height": 4416,
+    "hidden": false,
+    "incloud": null,
+    "intrash": false,
+    "iscloudasset": false,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": true,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 6,
+    "original_filename": "IMG_2000.JPG",
+    "original_filesize": 3869191,
+    "original_height": 3312,
+    "original_orientation": 6,
+    "original_width": 4416,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": -25200,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "8E1D7BC9-9321-44F9-8CFB-4083F6B9232A",
+    "width": 3312
+  },
+  {
+    "album_info": [],
+    "albums": [],
+    "burst": false,
+    "burst_album_info": [],
+    "burst_albums": [],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": null,
+    "date": "2020-09-19T14:36:26.719000-07:00",
+    "date_added": "2020-09-25T13:19:49.647434+00:00",
+    "date_modified": "2020-10-04T06:00:14.113462+00:00",
+    "date_trashed": null,
+    "description": null,
+    "favorite": false,
+    "filename": "7783E8E6-9CAC-40F3-BE22-81FB7051C266.heic",
+    "fingerprint": "AbQ65MLrRyNJwYcHGqMr6cycEWug",
+    "folders": {},
+    "has_raw": false,
+    "hasadjustments": true,
+    "height": 4032,
+    "hidden": false,
+    "incloud": null,
+    "intrash": false,
+    "iscloudasset": false,
+    "ismissing": false,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 0,
+    "original_filename": "IMG_3092.heic",
+    "original_filesize": 1877314,
+    "original_height": 4032,
+    "original_orientation": 1,
+    "original_width": 3024,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": -25200,
+    "uti": "public.heic",
+    "uti_original": "public.heic",
+    "uti_raw": null,
+    "uuid": "7783E8E6-9CAC-40F3-BE22-81FB7051C266",
+    "width": 3024
+  }
+]

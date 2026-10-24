@@ -1,0 +1,1716 @@
+[
+  {
+    "album_info": [],
+    "albums": [],
+    "burst": false,
+    "burst_album_info": [],
+    "burst_albums": [],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "6CBA9789-0879-4B66-B482-074EB53A2E3C",
+    "date": "2011-03-06T11:18:27-05:00",
+    "date_added": "2012-05-15T01:04:24+00:00",
+    "date_modified": null,
+    "date_trashed": "2021-11-04T15:16:17+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "2CB65649-5F43-41C5-BDBE-6DC99CDDBF68.jpeg",
+    "fingerprint": "AS6VXqb5HPm7gzpkj3ca+A22RZwQ",
+    "folders": {},
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 3024,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "IMG_0893.JPG",
+    "original_filesize": 3481977,
+    "original_height": 3024,
+    "original_orientation": 1,
+    "original_width": 4032,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": true,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": -18000,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "2CB65649-5F43-41C5-BDBE-6DC99CDDBF68",
+    "width": 4032
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2024-12-19T21:02:31+00:00",
+        "end_date": "2025-11-09T12:53:12.562000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2011-10-01T14:46:23.188000+00:00",
+        "title": "2023/09-17 - Straße 12",
+        "uuid": "3E02CEDD-F98C-4DF5-B12E-7C775BA3C939"
+      }
+    ],
+    "albums": [
+      "2023/09-17 - Straße 12"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2024-12-19T21:02:31+00:00",
+        "end_date": "2025-11-09T12:53:12.562000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2011-10-01T14:46:23.188000+00:00",
+        "title": "2023/09-17 - Straße 12",
+        "uuid": "3E02CEDD-F98C-4DF5-B12E-7C775BA3C939"
+      }
+    ],
+    "burst_albums": [
+      "2023/09-17 - Straße 12"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "CB9A3BEB-0CB0-4CA1-B939-7E8063BD6B79",
+    "date": "2011-10-01T14:46:23.188000+00:00",
+    "date_added": "2013-10-12T11:40:44.188000+00:00",
+    "date_modified": null,
+    "date_trashed": "2026-02-23T16:48:08.710000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "1F797EB9-F7CE-431C-B3C1-98A5AE7A7723.heic",
+    "fingerprint": "AQCZ05K36764UKWIU/vYxqQ2QUf1",
+    "folders": {
+      "2023/09-17 - Straße 12": [
+        "Отпуск 1"
+      ]
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 6048,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": 37.004650999999996,
+    "live_photo": false,
+    "location": [
+      37.004650999999996,
+      90.346093
+    ],
+    "longitude": 90.346093,
+    "orientation": 1,
+    "original_filename": "IMG_0119.HEIC",
+    "original_filesize": 1294459,
+    "original_height": 6048,
+    "original_orientation": 1,
+    "original_width": 8064,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": true,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": null,
+    "uti": "public.heic",
+    "uti_original": "public.heic",
+    "uti_raw": null,
+    "uuid": "1F797EB9-F7CE-431C-B3C1-98A5AE7A7723",
+    "width": 8064
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2023-02-07T20:33:13.971000+00:00",
+        "end_date": "2025-09-14T15:57:59.532000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-02-11T14:46:49.182000+00:00",
+        "title": "2021/08-19 - Море 24",
+        "uuid": "919024D2-3A84-4C25-A502-D48979B3FC60"
+      }
+    ],
+    "albums": [
+      "2021/08-19 - Море 24"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2023-02-07T20:33:13.971000+00:00",
+        "end_date": "2025-09-14T15:57:59.532000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-02-11T14:46:49.182000+00:00",
+        "title": "2021/08-19 - Море 24",
+        "uuid": "919024D2-3A84-4C25-A502-D48979B3FC60"
+      }
+    ],
+    "burst_albums": [
+      "2021/08-19 - Море 24"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "03E11061-F1E9-489B-8BCC-BEB025D3F48F",
+    "date": "2012-06-10T16:16:46.158000+00:00",
+    "date_added": "2013-10-20T00:29:38.158000+00:00",
+    "date_modified": null,
+    "date_trashed": "2013-11-15T15:01:30.873000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "89668F84-229C-4D85-BD02-8DB4DD4EB824.heic",
+    "fingerprint": "ASYa4FZ09VjFcM7jw8kdaxunrOFT",
+    "folders": {
+      "2021/08-19 - Море 24": [
+        "Отпуск 1"
+      ]
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 4284,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": false,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "IMG_0155.HEIC",
+    "original_filesize": 3795641,
+    "original_height": 4284,
+    "original_orientation": 1,
+    "original_width": 5712,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": null,
+    "uti": "public.heic",
+    "uti_original": "public.heic",
+    "uti_raw": null,
+    "uuid": "89668F84-229C-4D85-BD02-8DB4DD4EB824",
+    "width": 5712
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2024-12-19T21:02:31+00:00",
+        "end_date": "2025-11-09T12:53:12.562000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2011-10-01T14:46:23.188000+00:00",
+        "title": "2023/09-17 - Straße 12",
+        "uuid": "3E02CEDD-F98C-4DF5-B12E-7C775BA3C939"
+      }
+    ],
+    "albums": [
+      "2023/09-17 - Straße 12"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2024-12-19T21:02:31+00:00",
+        "end_date": "2025-11-09T12:53:12.562000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2011-10-01T14:46:23.188000+00:00",
+        "title": "2023/09-17 - Straße 12",
+        "uuid": "3E02CEDD-F98C-4DF5-B12E-7C775BA3C939"
+      }
+    ],
+    "burst_albums": [
+      "2023/09-17 - Straße 12"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "6861D8DD-09B9-4BB9-A661-93214E2BCA3B",
+    "date": "2013-04-23T09:00:57+05:45",
+    "date_added": "2014-08-07T03:52:15+00:00",
+    "date_modified": "2024-08-06T13:39:25+00:00",
+    "date_trashed": "2024-09-05T23:06:39+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "ABAA0A96-A831-4A58-9F28-B21C5DC294DD.jpeg",
+    "fingerprint": "AVw9f0C/K9L84GlgAvAgG8ZRn3yH",
+    "folders": {
+      "2023/09-17 - Straße 12": [
+        "Отпуск 1"
+      ]
+    },
+    "has_raw": false,
+    "hasadjustments": true,
+    "height": 4284,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 0,
+    "original_filename": "IMG_0503.JPG",
+    "original_filesize": 5476037,
+    "original_height": 4284,
+    "original_orientation": 1,
+    "original_width": 5712,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": true,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": 20700,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "ABAA0A96-A831-4A58-9F28-B21C5DC294DD",
+    "width": 5712
+  },
+  {
+    "album_info": [],
+    "albums": [],
+    "burst": false,
+    "burst_album_info": [],
+    "burst_albums": [],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "F18A0F84-06FE-42C1-B9EF-AB5553DC61C7",
+    "date": "2014-05-11T16:45:15.083000+05:45",
+    "date_added": "2014-12-22T06:07:57.083000+00:00",
+    "date_modified": null,
+    "date_trashed": "2018-08-14T20:40:28.083000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "92201025-6ABB-4015-B8D8-15EBF60E3839.heic",
+    "fingerprint": "ARygiK9EpLzw7jfsIaEbN4rF5jRK",
+    "folders": {},
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 6048,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": -81.56424200000001,
+    "live_photo": false,
+    "location": [
+      -81.56424200000001,
+      48.418845000000005
+    ],
+    "longitude": 48.418845000000005,
+    "orientation": 1,
+    "original_filename": "IMG_0972.HEIC",
+    "original_filesize": 2941036,
+    "original_height": 6048,
+    "original_orientation": 1,
+    "original_width": 8064,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": true,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": 20700,
+    "uti": "public.heic",
+    "uti_original": "public.heic",
+    "uti_raw": null,
+    "uuid": "92201025-6ABB-4015-B8D8-15EBF60E3839",
+    "width": 8064
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2023-09-19T09:39:28.785000+00:00",
+        "end_date": "2025-12-01T22:53:04+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2001-01-01T00:00:00+00:00",
+        "title": "2013/02-26 - Straße 5",
+        "uuid": "57679609-C6A3-49D3-89C7-471B6EE9537E"
+      }
+    ],
+    "albums": [
+      "2013/02-26 - Straße 5"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2023-09-19T09:39:28.785000+00:00",
+        "end_date": "2025-12-01T22:53:04+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2001-01-01T00:00:00+00:00",
+        "title": "2013/02-26 - Straße 5",
+        "uuid": "57679609-C6A3-49D3-89C7-471B6EE9537E"
+      }
+    ],
+    "burst_albums": [
+      "2013/02-26 - Straße 5"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "B994EFD5-CF2F-4E46-BAD1-82D2F7FCBCED",
+    "date": "2014-06-24T22:08:50.808000+03:00",
+    "date_added": "2016-05-25T23:35:35.480000+00:00",
+    "date_modified": null,
+    "date_trashed": "2024-01-29T15:12:25.649000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "5DA50FD8-24CD-4BFE-9FFB-32BF8606C67C.heic",
+    "fingerprint": "AbZODtWdmKfaM4s3zf6A+RmEk+jz",
+    "folders": {
+      "2013/02-26 - Straße 5": [
+        "Отпуск 1"
+      ]
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 4284,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "IMG_0682.HEIC",
+    "original_filesize": 1132341,
+    "original_height": 4284,
+    "original_orientation": 1,
+    "original_width": 5712,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": true,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": 10800,
+    "uti": "public.heic",
+    "uti_original": "public.heic",
+    "uti_raw": null,
+    "uuid": "5DA50FD8-24CD-4BFE-9FFB-32BF8606C67C",
+    "width": 5712
+  },
+  {
+    "album_info": [],
+    "albums": [],
+    "burst": false,
+    "burst_album_info": [],
+    "burst_albums": [],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "39F51067-286A-454A-8E0A-553C4365F1F2",
+    "date": "2015-03-31T19:39:07+14:00",
+    "date_added": "2017-07-13T05:30:50.648000+00:00",
+    "date_modified": null,
+    "date_trashed": "2026-03-23T11:27:55.408000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "874C9FB9-FF3C-4B66-B930-2DDF24C3FC20.heic",
+    "fingerprint": "AcHT/b61Zra3ZGfGWCJ/Q/jZ2rb5",
+    "folders": {},
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 3024,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": 87.83461500000001,
+    "live_photo": false,
+    "location": [
+      87.83461500000001,
+      154.607983
+    ],
+    "longitude": 154.607983,
+    "orientation": 1,
+    "original_filename": "IMG_0917.HEIC",
+    "original_filesize": 1767769,
+    "original_height": 3024,
+    "original_orientation": 1,
+    "original_width": 4032,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": 50400,
+    "uti": "public.heic",
+    "uti_original": "public.heic",
+    "uti_raw": null,
+    "uuid": "874C9FB9-FF3C-4B66-B930-2DDF24C3FC20",
+    "width": 4032
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2024-11-15T18:29:57.611000+00:00",
+        "end_date": "2025-01-24T18:45:40+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-08-22T15:03:08+00:00",
+        "title": "2012/08-19 - Отпуск 22",
+        "uuid": "AE50F7B7-5751-4618-88B5-1CC19852B485"
+      }
+    ],
+    "albums": [
+      "2012/08-19 - Отпуск 22"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2024-11-15T18:29:57.611000+00:00",
+        "end_date": "2025-01-24T18:45:40+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-08-22T15:03:08+00:00",
+        "title": "2012/08-19 - Отпуск 22",
+        "uuid": "AE50F7B7-5751-4618-88B5-1CC19852B485"
+      }
+    ],
+    "burst_albums": [
+      "2012/08-19 - Отпуск 22"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "3D985B7C-395F-4FBE-A85C-C2FE48DA9F60",
+    "date": "2015-09-23T07:56:58+14:00",
+    "date_added": "2017-06-13T04:53:33+00:00",
+    "date_modified": null,
+    "date_trashed": "2021-08-25T18:30:42+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "D75A7EA6-380B-4A98-967D-444C087059BB.dng",
+    "fingerprint": "AYXYXl4W0H+55AmKFaYnUWk03Nxt",
+    "folders": {
+      "2012/08-19 - Отпуск 22": [
+        "Отпуск 1"
+      ]
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 3024,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": true,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "IMG_0371.DNG",
+    "original_filesize": 33603911,
+    "original_height": 3024,
+    "original_orientation": 1,
+    "original_width": 4032,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": true,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": 50400,
+    "uti": "com.adobe.raw-image",
+    "uti_original": "com.adobe.raw-image",
+    "uti_raw": null,
+    "uuid": "D75A7EA6-380B-4A98-967D-444C087059BB",
+    "width": 4032
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2025-06-22T11:02:38+00:00",
+        "end_date": "2025-10-27T00:07:53.308000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-01-21T19:16:14+00:00",
+        "title": "2010/09-12 - Море 3",
+        "uuid": "5690B50E-22CA-4DE3-9A67-6DA38EF69175"
+      }
+    ],
+    "albums": [
+      "2010/09-12 - Море 3"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2025-06-22T11:02:38+00:00",
+        "end_date": "2025-10-27T00:07:53.308000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-01-21T19:16:14+00:00",
+        "title": "2010/09-12 - Море 3",
+        "uuid": "5690B50E-22CA-4DE3-9A67-6DA38EF69175"
+      }
+    ],
+    "burst_albums": [
+      "2010/09-12 - Море 3"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "7DFF7A24-AD37-4B69-B5E1-C3152DAF190D",
+    "date": "2015-11-25T00:52:39.904000+00:00",
+    "date_added": "2016-01-25T01:37:08.470000+00:00",
+    "date_modified": null,
+    "date_trashed": "2016-09-07T04:53:14.470000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "5EF670D8-E196-4A1F-977C-D3319C1DB769.jpeg",
+    "fingerprint": "AcIn7rRYScD+ZxDGwI3xqS1/JrYO",
+    "folders": {
+      "2010/09-12 - Море 3": [
+        "Отпуск 1"
+      ]
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 3024,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "IMG_0488.JPG",
+    "original_filesize": 4778896,
+    "original_height": 3024,
+    "original_orientation": 1,
+    "original_width": 4032,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": 0,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "5EF670D8-E196-4A1F-977C-D3319C1DB769",
+    "width": 4032
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2021-09-11T23:15:26+00:00",
+        "end_date": "2025-11-25T06:37:36+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-12-03T00:37:09.459000+00:00",
+        "title": "2010/05-22 - Море 17",
+        "uuid": "3DD7809F-3A18-4D60-A094-EE172327D206"
+      }
+    ],
+    "albums": [
+      "2010/05-22 - Море 17"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2021-09-11T23:15:26+00:00",
+        "end_date": "2025-11-25T06:37:36+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-12-03T00:37:09.459000+00:00",
+        "title": "2010/05-22 - Море 17",
+        "uuid": "3DD7809F-3A18-4D60-A094-EE172327D206"
+      }
+    ],
+    "burst_albums": [
+      "2010/05-22 - Море 17"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "5462C8E0-0381-43D3-A371-6E54873FC488",
+    "date": "2016-03-20T02:47:33+00:00",
+    "date_added": "2018-12-31T17:25:58+00:00",
+    "date_modified": null,
+    "date_trashed": "2024-06-15T19:21:53.657000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "D60EA1FA-D910-4F49-A80E-FE64C8568E19.mov",
+    "fingerprint": "AQh5+FJfMfCqWE1pAvTc81M3Go+Z",
+    "folders": {
+      "2010/05-22 - Море 17": [
+        "Отпуск 1"
+      ]
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 1080,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": true,
+    "isphoto": false,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "IMG_0814.MOV",
+    "original_filesize": 34785468,
+    "original_height": 1080,
+    "original_orientation": 1,
+    "original_width": 1920,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": true,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": 0,
+    "uti": "com.apple.quicktime-movie",
+    "uti_original": "com.apple.quicktime-movie",
+    "uti_raw": null,
+    "uuid": "D60EA1FA-D910-4F49-A80E-FE64C8568E19",
+    "width": 1920
+  },
+  {
+    "album_info": [],
+    "albums": [],
+    "burst": false,
+    "burst_album_info": [],
+    "burst_albums": [],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "68FF6657-63E1-45A0-901F-11F1F3DCCB50",
+    "date": "2017-03-20T01:44:16.926000+00:00",
+    "date_added": "2017-05-02T08:50:05.926000+00:00",
+    "date_modified": null,
+    "date_trashed": "2018-01-10T14:37:46.926000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "46607BEC-796B-4967-AFBF-8F749B4E7C00.jpeg",
+    "fingerprint": "ARNjoY8bJ7JI8dTuZ3r6IGFTNR0J",
+    "folders": {},
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 6048,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": 33.545372,
+    "live_photo": false,
+    "location": [
+      33.545372,
+      123.04688900000002
+    ],
+    "longitude": 123.04688900000002,
+    "orientation": 1,
+    "original_filename": "IMG_0239.JPG",
+    "original_filesize": 2512267,
+    "original_height": 6048,
+    "original_orientation": 1,
+    "original_width": 8064,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": null,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "46607BEC-796B-4967-AFBF-8F749B4E7C00",
+    "width": 8064
+  },
+  {
+    "album_info": [],
+    "albums": [],
+    "burst": false,
+    "burst_album_info": [],
+    "burst_albums": [],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "1778D975-0A79-40EE-B593-0E34EAA45F3E",
+    "date": "2017-07-31T19:39:51.696000+03:00",
+    "date_added": "2020-04-03T12:41:30.217000+00:00",
+    "date_modified": null,
+    "date_trashed": "2020-11-20T06:58:46.217000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "B086A203-A303-4A59-A09C-D99DAC06099E.heic",
+    "fingerprint": "AdOSN7oTNKMtlYfyA495V0ZCixb9",
+    "folders": {},
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 6048,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": -80.728889,
+    "live_photo": false,
+    "location": [
+      -80.728889,
+      -172.931931
+    ],
+    "longitude": -172.931931,
+    "orientation": 1,
+    "original_filename": "IMG_0703.HEIC",
+    "original_filesize": 1723523,
+    "original_height": 6048,
+    "original_orientation": 1,
+    "original_width": 8064,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": 10800,
+    "uti": "public.heic",
+    "uti_original": "public.heic",
+    "uti_raw": null,
+    "uuid": "B086A203-A303-4A59-A09C-D99DAC06099E",
+    "width": 8064
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2026-03-31T14:57:38+00:00",
+        "end_date": "2025-12-18T04:36:48.327000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-11-22T15:33:52.158000+00:00",
+        "title": "2010/06-18 - Отпуск 8",
+        "uuid": "0F1E7566-16B6-417C-85E6-ECD2A6A6170D"
+      }
+    ],
+    "albums": [
+      "2010/06-18 - Отпуск 8"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2026-03-31T14:57:38+00:00",
+        "end_date": "2025-12-18T04:36:48.327000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-11-22T15:33:52.158000+00:00",
+        "title": "2010/06-18 - Отпуск 8",
+        "uuid": "0F1E7566-16B6-417C-85E6-ECD2A6A6170D"
+      }
+    ],
+    "burst_albums": [
+      "2010/06-18 - Отпуск 8"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "22338850-60F1-4B4E-88AE-C64E55868951",
+    "date": "2019-06-01T00:53:20.938000+05:45",
+    "date_added": "2022-01-14T02:00:10.254000+00:00",
+    "date_modified": null,
+    "date_trashed": "2025-01-03T21:10:39.254000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "EF9B45DD-6EB0-40FD-8311-3F80132CF38A.jpeg",
+    "fingerprint": "AUrw2orW4WgG/vIeRt4z/WYm7Ddd",
+    "folders": {
+      "2010/06-18 - Отпуск 8": [
+        "Отпуск 1"
+      ]
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 4284,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "IMG_0146.JPG",
+    "original_filesize": 5326269,
+    "original_height": 4284,
+    "original_orientation": 1,
+    "original_width": 5712,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": true,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": 20700,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "EF9B45DD-6EB0-40FD-8311-3F80132CF38A",
+    "width": 5712
+  },
+  {
+    "album_info": [],
+    "albums": [],
+    "burst": false,
+    "burst_album_info": [],
+    "burst_albums": [],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "13CD704A-F5B0-44B5-861E-D37EECD5FC38",
+    "date": "2019-07-06T14:49:18.540000+03:00",
+    "date_added": "2021-10-28T00:37:38.783000+00:00",
+    "date_modified": null,
+    "date_trashed": "2025-12-02T11:32:05.783000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "425714BE-E260-407E-8792-0A4C57D80936.heic",
+    "fingerprint": "AcLi3CfA2Rx0GrRvO8n2m6aYggX/",
+    "folders": {},
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 4284,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": false,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "IMG_0717.HEIC",
+    "original_filesize": 3650995,
+    "original_height": 4284,
+    "original_orientation": 1,
+    "original_width": 5712,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": true,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": 10800,
+    "uti": "public.heic",
+    "uti_original": "public.heic",
+    "uti_raw": null,
+    "uuid": "425714BE-E260-407E-8792-0A4C57D80936",
+    "width": 5712
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2025-06-22T11:02:38+00:00",
+        "end_date": "2025-10-27T00:07:53.308000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-01-21T19:16:14+00:00",
+        "title": "2010/09-12 - Море 3",
+        "uuid": "5690B50E-22CA-4DE3-9A67-6DA38EF69175"
+      }
+    ],
+    "albums": [
+      "2010/09-12 - Море 3"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2025-06-22T11:02:38+00:00",
+        "end_date": "2025-10-27T00:07:53.308000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-01-21T19:16:14+00:00",
+        "title": "2010/09-12 - Море 3",
+        "uuid": "5690B50E-22CA-4DE3-9A67-6DA38EF69175"
+      }
+    ],
+    "burst_albums": [
+      "2010/09-12 - Море 3"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "8852AF66-F7E2-44C0-B0BB-3FF661900F43",
+    "date": "2020-03-03T03:19:26+05:45",
+    "date_added": "2021-03-26T06:23:23.067000+00:00",
+    "date_modified": null,
+    "date_trashed": "2023-03-19T13:00:56.683000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "FD215E32-B1BB-4312-AD31-704B8B83524D.jpeg",
+    "fingerprint": "ATGSujimvMK3YUgwgNbpjtsPZwaw",
+    "folders": {
+      "2010/09-12 - Море 3": [
+        "Отпуск 1"
+      ]
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 6048,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": false,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": -62.381077000000005,
+    "live_photo": false,
+    "location": [
+      -62.381077000000005,
+      94.76030600000001
+    ],
+    "longitude": 94.76030600000001,
+    "orientation": 1,
+    "original_filename": "IMG_0482.JPG",
+    "original_filesize": 2177949,
+    "original_height": 6048,
+    "original_orientation": 1,
+    "original_width": 8064,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": true,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": 20700,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "FD215E32-B1BB-4312-AD31-704B8B83524D",
+    "width": 8064
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2023-05-05T16:39:00+00:00",
+        "end_date": "2025-06-18T10:41:55.835000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-07-14T12:08:06.793000+00:00",
+        "title": "2016/01-09 - Holidays 13",
+        "uuid": "45C48D7A-54CE-4FDD-9244-4E5C21D2E6F2"
+      }
+    ],
+    "albums": [
+      "2016/01-09 - Holidays 13"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2023-05-05T16:39:00+00:00",
+        "end_date": "2025-06-18T10:41:55.835000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-07-14T12:08:06.793000+00:00",
+        "title": "2016/01-09 - Holidays 13",
+        "uuid": "45C48D7A-54CE-4FDD-9244-4E5C21D2E6F2"
+      }
+    ],
+    "burst_albums": [
+      "2016/01-09 - Holidays 13"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "ED703671-D8EA-4611-B2D8-1995CC6FB302",
+    "date": "2020-05-03T10:23:05+05:30",
+    "date_added": "2020-06-04T16:07:50+00:00",
+    "date_modified": "2025-01-03T15:55:06+00:00",
+    "date_trashed": "2026-03-15T07:32:43.590000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "1E62E341-7219-48F3-9E4A-583AC4181653.jpeg",
+    "fingerprint": "AUo1h9T2LdthOZ0OGEQGjtVswQbt",
+    "folders": {
+      "2016/01-09 - Holidays 13": [
+        "Отпуск 1"
+      ]
+    },
+    "has_raw": false,
+    "hasadjustments": true,
+    "height": 4284,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 0,
+    "original_filename": "IMG_0271.JPG",
+    "original_filesize": 4322293,
+    "original_height": 4284,
+    "original_orientation": 1,
+    "original_width": 5712,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": 19800,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "1E62E341-7219-48F3-9E4A-583AC4181653",
+    "width": 5712
+  },
+  {
+    "album_info": [],
+    "albums": [],
+    "burst": false,
+    "burst_album_info": [],
+    "burst_albums": [],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "0BC83D15-8071-4B00-9A80-718620E8ACF8",
+    "date": "2024-02-18T19:21:05.073000+05:45",
+    "date_added": "2024-06-16T18:05:53.073000+00:00",
+    "date_modified": "2024-08-24T19:29:29.639000+00:00",
+    "date_trashed": "2025-04-12T05:44:35.460000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "62B61D94-57D9-40F3-8CC5-E3B9B992ED57.dng",
+    "fingerprint": "ARXzMrB5k9Dkc7rMpELqlE8QsWON",
+    "folders": {},
+    "has_raw": false,
+    "hasadjustments": true,
+    "height": 6048,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": true,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 0,
+    "original_filename": "IMG_0678.DNG",
+    "original_filesize": 36180298,
+    "original_height": 6048,
+    "original_orientation": 1,
+    "original_width": 8064,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": true,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": 20700,
+    "uti": "com.adobe.raw-image",
+    "uti_original": "com.adobe.raw-image",
+    "uti_raw": null,
+    "uuid": "62B61D94-57D9-40F3-8CC5-E3B9B992ED57",
+    "width": 8064
+  },
+  {
+    "album_info": [],
+    "albums": [],
+    "burst": false,
+    "burst_album_info": [],
+    "burst_albums": [],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "6439558A-6CFF-44C2-A5B2-B1F521E5B92D",
+    "date": "2024-08-08T07:59:41.226000-05:00",
+    "date_added": "2025-07-24T22:41:16.226000+00:00",
+    "date_modified": null,
+    "date_trashed": "2025-08-30T04:43:44.226000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "99704C73-82BF-4B7A-BF76-D36C8E23AC90.jpeg",
+    "fingerprint": "AdtOKkZwPSNoDVVbYruLZjrDrbOh",
+    "folders": {},
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 3024,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "IMG_0515.JPG",
+    "original_filesize": 5133188,
+    "original_height": 3024,
+    "original_orientation": 1,
+    "original_width": 4032,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": true,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": -18000,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "99704C73-82BF-4B7A-BF76-D36C8E23AC90",
+    "width": 4032
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2023-11-04T01:41:30+00:00",
+        "end_date": "2025-07-11T00:57:51+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2011-02-21T05:54:59+00:00",
+        "title": "2010/05-03 - Café 4",
+        "uuid": "03B11B6C-AF1C-46C5-906D-F8E94AF5092D"
+      }
+    ],
+    "albums": [
+      "2010/05-03 - Café 4"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2023-11-04T01:41:30+00:00",
+        "end_date": "2025-07-11T00:57:51+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2011-02-21T05:54:59+00:00",
+        "title": "2010/05-03 - Café 4",
+        "uuid": "03B11B6C-AF1C-46C5-906D-F8E94AF5092D"
+      }
+    ],
+    "burst_albums": [
+      "2010/05-03 - Café 4"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "F76EE178-F35B-4538-A2DD-4F0170A29989",
+    "date": "2024-09-09T08:23:50+00:00",
+    "date_added": "2025-02-08T17:05:31+00:00",
+    "date_modified": null,
+    "date_trashed": "2025-03-21T17:54:16.175000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "0BDF442C-A149-4DD3-B9D8-0E1BE1B980DD.mp4",
+    "fingerprint": "ARuao4iVkCBBmuKBpqz7K2K2kBTl",
+    "folders": {
+      "2010/05-03 - Café 4": [
+        "Отпуск 1"
+      ]
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 1080,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": true,
+    "isphoto": false,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": -22.704109000000003,
+    "live_photo": false,
+    "location": [
+      -22.704109000000003,
+      -126.362008
+    ],
+    "longitude": -126.362008,
+    "orientation": 1,
+    "original_filename": "IMG_0520.MP4",
+    "original_filesize": 1518008,
+    "original_height": 1080,
+    "original_orientation": 1,
+    "original_width": 1920,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": false,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": 0,
+    "uti": "public.mpeg-4",
+    "uti_original": "public.mpeg-4",
+    "uti_raw": null,
+    "uuid": "0BDF442C-A149-4DD3-B9D8-0E1BE1B980DD",
+    "width": 1920
+  },
+  {
+    "album_info": [
+      {
+        "creation_date": "2020-08-21T19:45:39+00:00",
+        "end_date": "2025-01-10T07:31:58.800000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2010-01-19T01:24:13.339000+00:00",
+        "title": "2017/11-21 - Straße 19",
+        "uuid": "AADBD359-5881-42DF-AD76-AD6877B70D4E"
+      }
+    ],
+    "albums": [
+      "2017/11-21 - Straße 19"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2020-08-21T19:45:39+00:00",
+        "end_date": "2025-01-10T07:31:58.800000+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": "2010-01-19T01:24:13.339000+00:00",
+        "title": "2017/11-21 - Straße 19",
+        "uuid": "AADBD359-5881-42DF-AD76-AD6877B70D4E"
+      }
+    ],
+    "burst_albums": [
+      "2017/11-21 - Straße 19"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "017890A8-02C1-49AE-B526-0884E8C835C8",
+    "date": "2025-01-10T02:31:58.800000-05:00",
+    "date_added": "2025-09-26T21:15:15.800000+00:00",
+    "date_modified": null,
+    "date_trashed": "2025-12-03T03:04:21.357000+00:00",
+    "description": null,
+    "favorite": false,
+    "filename": "2E0F37BE-4C70-4D5C-BE8C-700CA79FEC89.jpeg",
+    "fingerprint": "AW0i6+lfqHG/T5OtnsyH7m8+Cmby",
+    "folders": {
+      "2017/11-21 - Straße 19": []
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "height": 6048,
+    "hidden": false,
+    "incloud": true,
+    "intrash": true,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": null,
+    "live_photo": false,
+    "location": [
+      null,
+      null
+    ],
+    "longitude": null,
+    "orientation": 1,
+    "original_filename": "IMG_0417.JPG",
+    "original_filesize": 1499179,
+    "original_height": 6048,
+    "original_orientation": 1,
+    "original_width": 8064,
+    "persons": [],
+    "raw_original": false,
+    "saved_to_library": false,
+    "screenshot": false,
+    "shared": false,
+    "shared_library": true,
+    "syndicated": false,
+    "title": null,
+    "tzoffset": -18000,
+    "uti": "public.jpeg",
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "2E0F37BE-4C70-4D5C-BE8C-700CA79FEC89",
+    "width": 8064
+  }
+]
