@@ -17,5 +17,5 @@
 *.sh text eol=lf
 Makefile text eol=lf
 
-# Reference data produced by the golden-data workflow is not edited by hand.
-osxphotos/testdata/golden/** linguist-generated
+# Reference data downloaded from the golden-regen workflow is not edited by hand.
+testdata/golden/*/*.json linguist-generated

@@ -48,6 +48,25 @@ check-repo: ## Repository hygiene checks and actionlint
 vuln: ## Known vulnerabilities in dependencies (not in "make test")
 	go -C osxphotos run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
 
+##@ Reference data
+
+# RUN is read from the environment of the recipe ($$RUN), not substituted into
+# the text of a command. The run must be a successful golden-regen started by
+# hand, otherwise an artifact named "golden" of another workflow could end up
+# in testdata/golden. gh must not be older than 2.63.1 (a fix for writing
+# outside --dir in "gh run download"). The JSON files of an earlier run are
+# removed first, so that none of them survives in a library the new run lacks.
+.PHONY: golden-fetch
+golden-fetch: ## Download the reference data of a golden-regen run (make golden-fetch RUN=<run id>)
+	@case "$$RUN" in ''|*[!0-9]*) echo "usage: make golden-fetch RUN=<numeric run id>" >&2; exit 2;; esac
+	@info="$$(gh run view "$$RUN" --repo Windemiatrix/go-libs --json workflowName,event,status,conclusion,headBranch,headSha \
+		--jq 'select(.workflowName == "golden-regen" and .event == "workflow_dispatch" and .status == "completed" and .conclusion == "success") | "headBranch: \(.headBranch)\nheadSha: \(.headSha)"')" \
+		|| { echo "golden-fetch: cannot verify run $$RUN (see the gh message above)" >&2; exit 2; }; \
+	[ -n "$$info" ] || { echo "golden-fetch: run $$RUN is not a successful golden-regen run started by workflow_dispatch" >&2; exit 2; }; \
+	echo "$$info"
+	rm -f testdata/golden/*/query.json testdata/golden/*/deleted.json
+	gh run download "$$RUN" --repo Windemiatrix/go-libs --name golden --dir testdata/golden
+
 ##@ Pull requests
 
 .PHONY: pr-title
