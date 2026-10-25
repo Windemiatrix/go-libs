@@ -60,14 +60,16 @@ func loadAlbums(rows []sqlread.Album, members []sqlread.Member, assets []sqlread
 			continue
 		}
 		a := &albuminfo.AlbumInfo{
-			UUID:         r.UUID,
-			CloudGUID:    r.CloudGUID.String,
-			Title:        nfc(r.Title.String),
-			FolderNames:  folders,
-			CreationDate: optionalTime(r.Created),
-			StartDate:    optionalTime(r.Start),
-			EndDate:      optionalTime(r.End),
-			InTrash:      trashed(r),
+			UUID:             r.UUID,
+			CloudGUID:        r.CloudGUID.String,
+			Title:            nfc(r.Title.String),
+			FolderNames:      folders,
+			CreationDate:     optionalTime(r.Created),
+			StartDate:        optionalTime(r.Start),
+			EndDate:          optionalTime(r.End),
+			InTrash:          trashed(r),
+			SortOrder:        sortOrder(r),
+			LibraryListOrder: libraryListOrder(r, byPK, rootPK),
 		}
 		if r.Parent.Valid && r.Parent.Int64 != rootPK { // albuminfo.py:228-234
 			a.ParentUUID = byPK[r.Parent.Int64].UUID
@@ -113,6 +115,52 @@ func folderNames(album sqlread.Album, byPK map[int64]sqlread.Album, rootPK int64
 	}
 	slices.Reverse(names)
 	return names, true
+}
+
+// Upstream: albuminfo.py:243-256.
+func sortOrder(r sqlread.Album) albuminfo.AlbumSortOrder {
+	if !r.SortKey.Valid {
+		return albuminfo.AlbumSortUnknown
+	}
+	switch r.SortKey.Int64 {
+	case 0:
+		return albuminfo.AlbumSortManual
+	case 5:
+		return albuminfo.AlbumSortTitle
+	case 1:
+		if r.SortAscending.Valid {
+			switch r.SortAscending.Int64 {
+			case 0:
+				return albuminfo.AlbumSortNewestFirst
+			case 1:
+				return albuminfo.AlbumSortOldestFirst
+			}
+		}
+	}
+	return albuminfo.AlbumSortUnknown
+}
+
+// What upstream returns when it fails to read the order (albuminfo.py:278, 513).
+const noListOrder = 9_999_999
+
+// Upstream: albuminfo.py:266-278, 501-513. A row without an order drops the
+// list of its own parents, as the exception of int(None) does there. The
+// chain of parents of r must end: folderNames has checked it.
+func libraryListOrder(r sqlread.Album, byPK map[int64]sqlread.Album, rootPK int64) []int {
+	var order []int
+	for {
+		if !r.ListOrder.Valid {
+			order = append(order, noListOrder)
+			break
+		}
+		order = append(order, int(r.ListOrder.Int64))
+		if !r.Parent.Valid || r.Parent.Int64 == rootPK {
+			break
+		}
+		r = byPK[r.Parent.Int64]
+	}
+	slices.Reverse(order)
+	return order
 }
 
 // trashed is one rule for albums and folders: Python None != 0 holds, so a

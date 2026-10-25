@@ -81,7 +81,12 @@ func loadFolders(rows []sqlread.Album, albums []*albuminfo.AlbumInfo) (all, top 
 			badParents++
 			continue
 		}
-		f := &albuminfo.FolderInfo{UUID: r.UUID, CloudGUID: r.CloudGUID.String, Title: nfc(r.Title.String)}
+		f := &albuminfo.FolderInfo{
+			UUID:             r.UUID,
+			CloudGUID:        r.CloudGUID.String,
+			Title:            nfc(r.Title.String),
+			LibraryListOrder: libraryListOrder(r, byPK, rootPK),
+		}
 		if r.Parent.Valid && r.Parent.Int64 != rootPK { // albuminfo.py:459-465
 			f.ParentUUID = byPK[r.Parent.Int64].UUID
 		}
