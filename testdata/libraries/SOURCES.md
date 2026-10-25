@@ -27,7 +27,7 @@ A state of a field that osxphotos outputs but no library holds goes to `<name>/r
 | Case | What it covers | Library |
 |---|---|---|
 | `kinds` | `SlowMo` (subtype 101), `ScreenRecording` (103), `BurstDefaultPick` (pick bit 4 on a selected frame) | `synthetic` |
-| `columns` | on plain photos: `HDR` (`ZHDRTYPE` 3), `Panorama` (`ZHDRTYPE` 6 and subtype 1), `Portrait` (`ZDEPTHTYPE` 1, `NULL` and 0), `Visible` (`ZVISIBILITYSTATE` 0 and 2), `Spatial`, `CloudOwnerHashedID`, `SharedMoment`, `Selfie`, `TZName`, `ImportedByName` and `ImportedByBundleID` | `synthetic` |
+| `columns` | on plain photos: `HDR` (`ZHDRTYPE` 3), `Panorama` (`ZHDRTYPE` 6 and subtype 1), `Portrait` (`ZDEPTHTYPE` 1, `NULL` and 0), `Visible` (`ZVISIBILITYSTATE` 0 and 2), `Spatial`, `CloudOwnerHashedID`, `SharedMoment`, `Selfie`, `ImportedByName` and `ImportedByBundleID` | `synthetic` |
 
 To add a library: take the database from the same upstream tag, put it in `<name>/database/` (no `.photoslibrary` suffix, so that `.gitignore` lets it through), and add a row here.
 
@@ -99,7 +99,7 @@ To add a case: a new file `NNN_<case>.sql` (lowercase letters, digits and hyphen
 | Случай | Что покрывает | Медиатека |
 |---|---|---|
 | `kinds` | `SlowMo` (подтип 101), `ScreenRecording` (103), `BurstDefaultPick` (бит 4 у выбранного кадра) | `synthetic` |
-| `columns` | у обычных фото: `HDR` (`ZHDRTYPE` 3), `Panorama` (`ZHDRTYPE` 6 и подтип 1), `Portrait` (`ZDEPTHTYPE` 1, `NULL` и 0), `Visible` (`ZVISIBILITYSTATE` 0 и 2), `Spatial`, `CloudOwnerHashedID`, `SharedMoment`, `Selfie`, `TZName`, `ImportedByName` и `ImportedByBundleID` | `synthetic` |
+| `columns` | у обычных фото: `HDR` (`ZHDRTYPE` 3), `Panorama` (`ZHDRTYPE` 6 и подтип 1), `Portrait` (`ZDEPTHTYPE` 1, `NULL` и 0), `Visible` (`ZVISIBILITYSTATE` 0 и 2), `Spatial`, `CloudOwnerHashedID`, `SharedMoment`, `Selfie`, `ImportedByName` и `ImportedByBundleID` | `synthetic` |
 
 Чтобы добавить медиатеку: взять базу из того же тега upstream, положить в `<имя>/database/` (без суффикса `.photoslibrary`, иначе `.gitignore` её не пропустит) и добавить строку в таблицу.
 
