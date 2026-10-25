@@ -1,0 +1,12 @@
+# The version rule of the release on merge (CONTRIBUTING.md, "Releases"): "!"
+# bumps minor before 1.0.0, feat bumps minor, any other title bumps patch.
+# 1.0.0 is set only by hand: the "major" input of ci.yml. Only commits that
+# touch osxphotos/ count: the module has its own tags.
+tag:
+  prefix: osxphotos/v
+  pattern: "osxphotos/v*"
+log:
+  directory:
+    - osxphotos
+v0: true
+always: true

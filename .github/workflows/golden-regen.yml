@@ -35,68 +35,91 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Keep the top-level keys of fields.txt, in the order of osxphotos
-          # (date, date_added, uuid). $f and $k are jq variables, not shell ones.
+          # A jq filter that keeps only the top-level keys listed in
+          # testdata/golden/fields.txt, in the order osxphotos writes them.
+          # $f and $k are jq variables, not shell ones.
           # shellcheck disable=SC2016
-          filter='($f | split("\n") | map(select(test("^[a-z]")))) as $k
+          listed_fields_only='($f | split("\n") | map(select(test("^[a-z]")))) as $k
             | map(with_entries(select(.key | IN($k[]))))'
 
-          # project <package> <name> writes golden/<name>/{query,deleted}.json.
-          # The raw output has the path of the runner in "library", it stays in
+          # copy_database <library dir> <package>: a package with nothing but
+          # copies of the database and its WAL. It is also the check that
+          # osxphotos opens such a package.
+          copy_database() {
+            local dir="$1" pkg="$2"
+            mkdir -p "$pkg/database"
+            cp "${dir}database/Photos.sqlite" "$pkg/database/Photos.sqlite"
+            if [ -f "${dir}database/Photos.sqlite-wal" ]; then
+              cp "${dir}database/Photos.sqlite-wal" "$pkg/database/Photos.sqlite-wal"
+            fi
+          }
+
+          # write_reference_data <package> <name>: writes
+          # golden/<name>/query.json and deleted.json. The raw output of
+          # osxphotos has the path of the runner in "library": it stays in
           # RUNNER_TEMP and never reaches the artifact.
-          project() {
+          write_reference_data() {
             local pkg="$1" name="$2" out raw photos trashed
             out="$RUNNER_TEMP/golden/$name"
             mkdir -p "$out"
             raw="$(mktemp "$RUNNER_TEMP/raw.XXXXXX")"
             osxphotos query --library "$pkg" --json --mute >"$raw"
-            jq --rawfile f testdata/golden/fields.txt "$filter" "$raw" >"$out/query.json"
+            jq --rawfile f testdata/golden/fields.txt "$listed_fields_only" "$raw" >"$out/query.json"
             osxphotos query --library "$pkg" --json --mute --deleted-only >"$raw"
-            jq --rawfile f testdata/golden/fields.txt "$filter" "$raw" >"$out/deleted.json"
+            jq --rawfile f testdata/golden/fields.txt "$listed_fields_only" "$raw" >"$out/deleted.json"
             rm -f "$raw"
             photos="$(jq length "$out/query.json")"
             trashed="$(jq length "$out/deleted.json")"
             echo "$name: $photos photos, $trashed in the trash"
           }
 
-          # A package with nothing but the database (and its WAL): this is also
-          # the check that osxphotos opens such a package. The files are copies.
-          for dir in testdata/libraries/*/; do
-            [ -f "${dir}database/Photos.sqlite" ] || continue
-            name="$(basename "$dir")"
-            pkg="$RUNNER_TEMP/libs/$name.photoslibrary"
-            mkdir -p "$pkg/database"
-            cp "${dir}database/Photos.sqlite" "$pkg/database/Photos.sqlite"
-            if [ -f "${dir}database/Photos.sqlite-wal" ]; then
-              cp "${dir}database/Photos.sqlite-wal" "$pkg/database/Photos.sqlite-wal"
-            fi
-            project "$pkg" "$name"
-          done
           # The synthetic library is the only one with some states
           # (testdata/libraries/SOURCES.md): a run without it is not a result.
-          if ! [ -d "$RUNNER_TEMP/golden/synthetic" ]; then
-            echo "error: no synthetic library in testdata/libraries" >&2
-            exit 1
-          fi
+          require_synthetic_library() {
+            if ! [ -d "$RUNNER_TEMP/golden/synthetic" ]; then
+              echo "error: no synthetic library in testdata/libraries" >&2
+              exit 1
+            fi
+          }
 
-          # No path of the runner in the data: print the names of the files only.
-          # grep exits 0 on a match, 1 on none and 2 on an error: only 1 passes.
-          rc=0
-          grep -rlF -e "$RUNNER_TEMP" -e "$HOME" -e "$GITHUB_WORKSPACE" "$RUNNER_TEMP/golden" || rc=$?
-          if [ "$rc" -ne 1 ]; then
-            echo "error: grep exited with $rc: the files above contain a path of the runner, or the check failed" >&2
-            exit 1
-          fi
+          # -l: on a match the log shows the names of the files, never the data.
+          check_no_runner_paths() {
+            local grep_status=0 no_match=1
+            grep -rlF -e "$RUNNER_TEMP" -e "$HOME" -e "$GITHUB_WORKSPACE" "$RUNNER_TEMP/golden" || grep_status=$?
+            if [ "$grep_status" -ne "$no_match" ]; then
+              echo "error: grep exited with $grep_status: the files above contain a path of the runner, or the check failed" >&2
+              exit 1
+            fi
+          }
 
           # The hashes let a person compare the data of a pull request with this
           # log, and two runs with each other.
-          for out in "$RUNNER_TEMP"/golden/*/; do
-            name="$(basename "$out")"
-            for file in query.json deleted.json; do
-              sum="$(shasum -a 256 "$out$file")"
-              echo "sha256 $name/$file ${sum%% *}"
+          print_hashes() {
+            local out name file sum
+            for out in "$RUNNER_TEMP"/golden/*/; do
+              name="$(basename "$out")"
+              for file in query.json deleted.json; do
+                sum="$(shasum -a 256 "$out$file")"
+                echo "sha256 $name/$file ${sum%% *}"
+              done
             done
-          done
+          }
+
+          write_reference_data_of_every_library() {
+            local dir name pkg
+            for dir in testdata/libraries/*/; do
+              [ -f "${dir}database/Photos.sqlite" ] || continue
+              name="$(basename "$dir")"
+              pkg="$RUNNER_TEMP/libs/$name.photoslibrary"
+              copy_database "$dir" "$pkg"
+              write_reference_data "$pkg" "$name"
+            done
+          }
+
+          write_reference_data_of_every_library
+          require_synthetic_library
+          check_no_runner_paths
+          print_hashes
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: golden

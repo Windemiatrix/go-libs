@@ -22,10 +22,9 @@ The boundary is an allowlist, not a denylist: any prohibition can be bypassed wi
 - `gh pr merge`, `gh pr edit` (including enabling auto-merge);
 - `gh release`;
 - `gh workflow run`;
-- `git tag`;
-- `scripts/release.sh`.
+- `git tag`.
 
-Reaching the same result another way (a direct GitHub API request, another client, changing repository settings) needs the same confirmation. Only the maintainer merges PRs and creates tags. Module tags (`osxphotos/vX.Y.Z`) are immutable: the Go proxy caches a published version.
+Reaching the same result another way (a direct GitHub API request, another client, changing repository settings) needs the same confirmation. Only the maintainer merges PRs, and a merge releases. Module tags (`osxphotos/vX.Y.Z`) are immutable: the Go proxy caches a published version.
 
 ## Workflow
 
@@ -34,13 +33,13 @@ Reaching the same result another way (a direct GitHub API request, another clien
 3. `make test` (every check, the linter included) is green locally → push the branch (with the maintainer's confirmation) → `gh pr create --head <branch>`.
 4. The PR title becomes the commit title on `main`: `<type>(<scope>)[!]: <description>`, English, printable ASCII only, at most 70 characters, no `#<number>`. `!` after the scope marks an incompatible change of the public API: it decides the next version, and a mistake in it changes the release number.
 5. Code, comments, commits and PR titles are in English; documents are in Russian and English at the same time, with the same meaning.
-6. A new direct dependency, and any change to `.github/`, `scripts/`, `Makefile`, `go.mod`, `go.sum`, goes in its own PR with an explanation in the description: the maintainer checks that the CI checks are not weakened.
+6. A new direct dependency, and any change to `.github/`, `scripts/`, `Makefile`, `.svu.yml`, `go.mod`, `go.sum`, goes in its own PR with an explanation in the description: the maintainer checks that the CI checks are not weakened.
 
 ## Releases
 
-- The version is computed by `scripts/next-version.sh` from PR titles (`!` is an incompatible change, `feat` a new feature, anything else a fix); only the maintainer creates the tag and the release, with `scripts/release.sh`. An agent does not run these scripts and does not create tags.
-- The release notes are built by the `release` workflow from PR titles. `CHANGELOG.md` is not kept and is not created; the commit body and `BREAKING CHANGE:` are not used.
-- Changes to `scripts/release.sh`, `scripts/next-version.sh` and `.github/workflows/release.yml` go in their own PR, like any change to `scripts/` and `.github/` (item 6 above): a mistake in them shows only at release time, and a tag is immutable.
+- A release comes out by itself after a merged PR that changed `osxphotos/` (the `release` job of `ci.yml`). svu computes the version from PR titles (`.svu.yml`: `!` is an incompatible change, `feat` a new feature, anything else a fix). An agent does not create tags and does not call `gh release` or `gh workflow run`.
+- The release notes are built by the same job from PR titles. `CHANGELOG.md` is not kept and is not created; the commit body and `BREAKING CHANGE:` are not used.
+- Changes to the `release` job and `.svu.yml` go in their own PR, like any change to `.github/` (item 6 above): a mistake in them shows only at release time, and a tag is immutable.
 
 ## Code structure
 
