@@ -176,12 +176,12 @@ case "$err" in
   *$'\xe2'*) fail "a raw non-ASCII byte reached stderr" ;;
 esac
 case "$err" in
-  *'esc\x1B[31m end'*) ;;
-  *) fail "ESC is not shown as \\x1B: $err" ;;
+  *'esc?[31m end'*) ;;
+  *) fail "ESC is not shown as ?: $err" ;;
 esac
 case "$err" in
-  *'bidi \xE2\x80\xAE end'*) ;;
-  *) fail "the bidi mark is not shown as \\xE2\\x80\\xAE: $err" ;;
+  *'bidi ??? end'*) ;;
+  *) fail "the three bytes of the bidi mark are not shown as ???: $err" ;;
 esac
 
 # Usage errors.

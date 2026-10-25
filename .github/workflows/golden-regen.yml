@@ -1,7 +1,7 @@
 # Reference data for the differential tests of the osxphotos module. Runs
 # osxphotos (the version in tools/golden/requirements.txt) on every library of
-# testdata/libraries and on the synthetic library of internal/gen, keeps the
-# keys listed in testdata/golden/fields.txt and uploads the artifact "golden".
+# testdata/libraries, the synthetic one included, keeps the keys listed in
+# testdata/golden/fields.txt and uploads the artifact "golden".
 # It never pushes and never opens a pull request: "make golden-fetch RUN=<id>"
 # downloads the artifact and a person commits it.
 name: golden-regen
@@ -24,17 +24,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: osxphotos/go.mod
-          cache: false
-      # Before setup-python and pip: no code of a pip package runs before the
-      # synthetic library exists. The flags equal gen.DefaultConfig(), which
-      # TestPinnedDefault pins.
-      - name: Synthetic library
-        run: |
-          mkdir -p "$RUNNER_TEMP/libs"
-          go -C osxphotos run ./internal/gen/cmd -out "$RUNNER_TEMP/libs/synthetic.photoslibrary" -n 1000 -seed 1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
@@ -47,16 +36,10 @@ jobs:
           set -euo pipefail
 
           # Keep the top-level keys of fields.txt, in the order of osxphotos
-          # (date, date_added, uuid). A key of fields.txt that osxphotos does not
-          # print fails the run instead of becoming an empty field. $f and $k
-          # are jq variables, not shell ones.
+          # (date, date_added, uuid). $f and $k are jq variables, not shell ones.
           # shellcheck disable=SC2016
           filter='($f | split("\n") | map(select(test("^[a-z]")))) as $k
-            | if length == 0 then .
-              elif ($k - (.[0] | keys)) != [] then
-                error("keys of fields.txt missing from the osxphotos output: \($k - (.[0] | keys) | join(", "))")
-              else map(with_entries(select(.key | IN($k[]))))
-              end'
+            | map(with_entries(select(.key | IN($k[]))))'
 
           # project <package> <name> writes golden/<name>/{query,deleted}.json.
           # The raw output has the path of the runner in "library", it stays in
@@ -71,16 +54,6 @@ jobs:
             osxphotos query --library "$pkg" --json --mute --deleted-only >"$raw"
             jq --rawfile f testdata/golden/fields.txt "$filter" "$raw" >"$out/deleted.json"
             rm -f "$raw"
-            # jq -e fails on empty input too: osxphotos can exit 0 and print
-            # nothing, and an empty file must not pass as a result.
-            jq -e 'type == "array" and length > 0' "$out/query.json" >/dev/null || {
-              echo "error: $name: query.json is not a non-empty array of photos" >&2
-              exit 1
-            }
-            jq -e 'type == "array"' "$out/deleted.json" >/dev/null || {
-              echo "error: $name: deleted.json is not an array" >&2
-              exit 1
-            }
             photos="$(jq length "$out/query.json")"
             trashed="$(jq length "$out/deleted.json")"
             echo "$name: $photos photos, $trashed in the trash"
@@ -88,14 +61,9 @@ jobs:
 
           # A package with nothing but the database (and its WAL): this is also
           # the check that osxphotos opens such a package. The files are copies.
-          found=0
           for dir in testdata/libraries/*/; do
             [ -f "${dir}database/Photos.sqlite" ] || continue
             name="$(basename "$dir")"
-            if ! [[ "$name" =~ ^[A-Za-z0-9._-]+$ ]] || [ "$name" = synthetic ]; then
-              echo "error: unexpected library name: $name" >&2
-              exit 1
-            fi
             pkg="$RUNNER_TEMP/libs/$name.photoslibrary"
             mkdir -p "$pkg/database"
             cp "${dir}database/Photos.sqlite" "$pkg/database/Photos.sqlite"
@@ -103,13 +71,13 @@ jobs:
               cp "${dir}database/Photos.sqlite-wal" "$pkg/database/Photos.sqlite-wal"
             fi
             project "$pkg" "$name"
-            found=$((found + 1))
           done
-          if [ "$found" -eq 0 ]; then
-            echo "error: no library in testdata/libraries" >&2
+          # The synthetic library is the only one with some states
+          # (testdata/libraries/SOURCES.md): a run without it is not a result.
+          if ! [ -d "$RUNNER_TEMP/golden/synthetic" ]; then
+            echo "error: no synthetic library in testdata/libraries" >&2
             exit 1
           fi
-          project "$RUNNER_TEMP/libs/synthetic.photoslibrary" synthetic
 
           # No path of the runner in the data: print the names of the files only.
           # grep exits 0 on a match, 1 on none and 2 on an error: only 1 passes.

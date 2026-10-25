@@ -57,11 +57,7 @@ sha="$(git rev-parse HEAD)"
 [[ -z "$(git status --porcelain)" ]] || die "the working tree is not clean"
 
 echo "==> computing the next version"
-if [[ -n "$major_flag" ]]; then
-  tag="$(bash "$here/next-version.sh" "$major_flag")" || die "no version was computed"
-else
-  tag="$(bash "$here/next-version.sh")" || die "no version was computed"
-fi
+tag="$(bash "$here/next-version.sh" ${major_flag:+"$major_flag"})" || die "no version was computed"
 
 if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
   die "tag $tag already exists locally"

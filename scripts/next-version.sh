@@ -29,12 +29,12 @@
 # " (#N)" that GitHub appends is cut off. The length limit is not checked: it
 # applies to the PR title, the squash commit is longer by the suffix. Titles
 # are untrusted data: they are never executed and are printed with every byte
-# outside printable ASCII shown as \xHH.
+# outside printable ASCII shown as "?".
 #
 # Plain bash 3.2 syntax: the script also runs on macOS.
 set -euo pipefail
 
-# C locale: a bracket range is a plain byte range, ${#s} and ${s:i:1} count bytes.
+# C locale: a bracket range and a tr class are plain byte ranges.
 export LC_ALL=C
 
 module_dir="osxphotos"
@@ -55,20 +55,9 @@ usage() {
   exit 2
 }
 
-# esc <text>: prints the text with every byte outside printable ASCII as \xHH.
+# esc <text>: prints the text with every byte outside printable ASCII as "?".
 esc() {
-  local s="$1" out="" c code h i
-  for ((i = 0; i < ${#s}; i++)); do
-    c="${s:i:1}"
-    if [[ "$c" == [[:print:]] ]]; then
-      out+="$c"
-    else
-      code="$(printf '%d' "'$c")"
-      printf -v h '\\x%02X' $((code & 255))
-      out+="$h"
-    fi
-  done
-  printf '%s' "$out"
+  printf '%s' "$1" | tr -c '[:print:]' '?'
 }
 
 # classify <title>: sets class to breaking, feat, fix, docs, other or invalid.
