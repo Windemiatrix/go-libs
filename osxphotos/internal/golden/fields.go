@@ -60,9 +60,6 @@ var (
 // (photosdb.py:1790-1796, _constants.py:337).
 const unknownPerson = "_UNKNOWN_"
 
-// burstDefaultPick is BURST_DEFAULT_PICK (_constants.py:678).
-const burstDefaultPick = 4
-
 func buildRules() map[string]rule {
 	list := []rule{
 		// uuid has no Go side: the sets of objects are compared by Compare itself.
@@ -89,7 +86,7 @@ func buildRules() map[string]rule {
 
 		// Booleans. A null in the reference is a mistake of the form.
 		flag("burst", func(p *photoinfo.PhotoInfo) bool { return p.Burst }),
-		flag("burst_default_pick", func(p *photoinfo.PhotoInfo) bool { return p.BurstPickType&burstDefaultPick != 0 }),
+		flag("burst_default_pick", func(p *photoinfo.PhotoInfo) bool { return p.BurstDefaultPick }),
 		flag("burst_key", func(p *photoinfo.PhotoInfo) bool { return p.BurstKey }),
 		flag("burst_selected", func(p *photoinfo.PhotoInfo) bool { return p.BurstSelected }),
 		flag("favorite", func(p *photoinfo.PhotoInfo) bool { return p.Favorite }),
@@ -99,6 +96,9 @@ func buildRules() map[string]rule {
 		flag("ismovie", func(p *photoinfo.PhotoInfo) bool { return p.IsMovie }),
 		flag("live_photo", func(p *photoinfo.PhotoInfo) bool { return p.Live }),
 		flag("screenshot", func(p *photoinfo.PhotoInfo) bool { return p.Screenshot }),
+		flag("screen_recording", func(p *photoinfo.PhotoInfo) bool { return p.ScreenRecording }),
+		flag("slow_mo", func(p *photoinfo.PhotoInfo) bool { return p.SlowMo }),
+		flag("time_lapse", func(p *photoinfo.PhotoInfo) bool { return p.TimeLapse }),
 		flag("isreference", func(p *photoinfo.PhotoInfo) bool { return p.IsReference }),
 		flag("hasadjustments", func(p *photoinfo.PhotoInfo) bool { return p.HasAdjustments }),
 		flag("has_raw", func(p *photoinfo.PhotoInfo) bool { return p.HasRAW }),
@@ -116,6 +116,7 @@ func buildRules() map[string]rule {
 		text("original_filename", false, func(p *photoinfo.PhotoInfo) string { return p.OriginalFilename }),
 		text("uti", false, func(p *photoinfo.PhotoInfo) string { return p.UTI }),
 		text("uti_original", false, func(p *photoinfo.PhotoInfo) string { return p.UTIOriginal }),
+		text("uti_edited", true, func(p *photoinfo.PhotoInfo) string { return p.UTIEdited }),
 		text("uti_raw", true, func(p *photoinfo.PhotoInfo) string { return p.UTIRaw }),
 		text("cloud_guid", true, func(p *photoinfo.PhotoInfo) string { return p.CloudMasterGUID }),
 		text("description", true, func(p *photoinfo.PhotoInfo) string { return p.Description }),

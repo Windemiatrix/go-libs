@@ -24,6 +24,10 @@ The databases live outside the `osxphotos` module directory, so they are not par
 
 A state of a field that osxphotos outputs but no library holds goes to `<name>/reference/NNN_<case>.sql`: these files are part of the library. The test helper applies them to every copy, `testlib.OpenPristine` included, and `golden-regen.yml` applies them to a copy before it runs osxphotos, so the reference covers the state. They follow the rules of a migration below, except that a row is chosen by a rule alone, with no title marker: a title would show in the reference.
 
+| Case | What it covers | Library |
+|---|---|---|
+| `kinds` | `SlowMo` (subtype 101), `ScreenRecording` (103), `BurstDefaultPick` (pick bit 4 on a selected frame) | `synthetic` |
+
 To add a library: take the database from the same upstream tag, put it in `<name>/database/` (no `.photoslibrary` suffix, so that `.gitignore` lets it through), and add a row here.
 
 ## Migrations
@@ -90,6 +94,10 @@ To add a case: a new file `NNN_<case>.sql` (lowercase letters, digits and hyphen
 `synthetic` — не медиатека upstream. Её база сгенерирована один раз прежним генератором этого репозитория, `osxphotos/internal/gen`, с настройками по умолчанию: 1000 объектов, seed 1. Все её значения сгенерированы. В ней есть состояния, которых нет в медиатеках upstream: пары RAW+JPEG, общая медиатека, ресурсы только в iCloud, серии со всеми видами отметок, видео больше 2^32 байт, имена в NFD, объекты, созданные в одну секунду. Генератора больше нет: сам файл базы больше не меняется.
 
 Состояние поля, которое выводит osxphotos, но которого нет ни в одной медиатеке, — в `<имя>/reference/NNN_<случай>.sql`: эти файлы — часть медиатеки. Тестовый помощник применяет их к каждой копии, включая `testlib.OpenPristine`, а `golden-regen.yml` — к копии перед запуском osxphotos, поэтому эталон покрывает это состояние. Правила — как у миграции ниже, но строка выбирается только правилом, без маркера-названия: название попало бы в эталон.
+
+| Случай | Что покрывает | Медиатека |
+|---|---|---|
+| `kinds` | `SlowMo` (подтип 101), `ScreenRecording` (103), `BurstDefaultPick` (бит 4 у выбранного кадра) | `synthetic` |
 
 Чтобы добавить медиатеку: взять базу из того же тега upstream, положить в `<имя>/database/` (без суффикса `.photoslibrary`, иначе `.gitignore` её не пропустит) и добавить строку в таблицу.
 

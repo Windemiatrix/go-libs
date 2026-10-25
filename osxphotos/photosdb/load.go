@@ -21,6 +21,9 @@ const (
 	// ZASSET.ZKINDSUBTYPE (photosdb.py:2234-2236).
 	subtypeLive, subtypeScreen = 2, 10
 
+	// ZASSET.ZKINDSUBTYPE of slow-motion, time-lapse and screen-recording videos (photosdb.py:2231-2240).
+	subtypeSlowMo, subtypeTimeLapse, subtypeScreenRecording = 101, 102, 103
+
 	// ZASSET.ZSAVEDASSETTYPE of a referenced file (photosdb.py:2315).
 	savedReference = 10
 
@@ -157,9 +160,13 @@ func photo(a sqlread.Asset, res []sqlread.Resource, fingerprintColumn string) *p
 
 		IsPhoto:     a.Kind.Valid && a.Kind.Int64 == kindPhoto,
 		IsMovie:     a.Kind.Valid && a.Kind.Int64 == kindMovie,
-		Live:        a.KindSubtype.Valid && a.KindSubtype.Int64 == subtypeLive,
-		Screenshot:  a.KindSubtype.Valid && a.KindSubtype.Int64 == subtypeScreen,
+		Live:        is(a.KindSubtype, subtypeLive),
+		Screenshot:  is(a.KindSubtype, subtypeScreen),
 		RawOriginal: is(a.OriginalResourceChoice, rawOriginalChoice),
+
+		SlowMo:          is(a.KindSubtype, subtypeSlowMo),
+		TimeLapse:       is(a.KindSubtype, subtypeTimeLapse),
+		ScreenRecording: is(a.KindSubtype, subtypeScreenRecording),
 
 		Burst:         a.BurstUUID.Valid,
 		BurstUUID:     a.BurstUUID.String,
@@ -198,8 +205,13 @@ func photo(a sqlread.Asset, res []sqlread.Resource, fingerprintColumn string) *p
 	}
 	p.BurstSelected = p.BurstPickType&photoinfo.BurstPickSelected != 0
 	p.BurstKey = p.BurstPickType&photoinfo.BurstPickKey != 0
+	p.BurstDefaultPick = p.BurstPickType&photoinfo.BurstPickDefault != 0
 	if !(a.Latitude.Valid && a.Latitude.Float64 == noCoordinate && a.Longitude.Valid && a.Longitude.Float64 == noCoordinate) {
 		p.Latitude, p.Longitude = optionalFloat(a.Latitude), optionalFloat(a.Longitude)
+	}
+
+	if p.HasAdjustments { // photoinfo.py:929-930
+		p.UTIEdited = p.UTI
 	}
 
 	p.UTIOriginal = p.UTI

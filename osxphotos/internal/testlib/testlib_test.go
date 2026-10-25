@@ -266,8 +266,9 @@ func TestSynthetic(t *testing.T) {
 	}
 }
 
-// TestPinnedSynthetic pins the content of the synthetic library: the
-// reference data in testdata/golden/synthetic was made from it. Change the
+// TestPinnedSynthetic pins the content of the synthetic library, its
+// reference/*.sql applied: the reference data in testdata/golden/synthetic was
+// made from it. Change the
 // values only together with a new golden-regen run and the data of
 // testdata/golden/synthetic.
 func TestPinnedSynthetic(t *testing.T) {
@@ -275,7 +276,7 @@ func TestPinnedSynthetic(t *testing.T) {
 	db := OpenDB(t, dbFile(OpenPristine(t, "synthetic")))
 	want := map[string]string{
 		"ZADDITIONALASSETATTRIBUTES": "a0feab3f0ba6eb1fa1cfd9cdeae1d8e839d6a97deee0fa31e72c2397d144f69e",
-		"ZASSET":                     "908e214ba7a9469c3c63af73df18a332b1669bedf1b0f6e51870e2971fa9fd9c",
+		"ZASSET":                     "6d2d9b87de17ab1f947578323dc1adc468ab6e378bbcaa617fb3f3b32a4640eb",
 		"ZCLOUDMASTER":               "0b16088332ad364ce67bf0430bcccfc8cbd138fcca4f2898f9e6a65bbee5fa77",
 		"ZGENERICALBUM":              "0edff7f44c9549940cca5fb5ece6afd2ee993e93e1ca41aa3f7491f5b533a8e8",
 		"ZINTERNALRESOURCE":          "a0c7073c0e59cfe254990ca61fdf0426231418c89d7a1b93747336597f063080",
