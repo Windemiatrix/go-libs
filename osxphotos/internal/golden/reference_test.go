@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
-	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
 func allKeys() []string { return slices.Sorted(maps.Keys(rules)) }
@@ -17,27 +16,25 @@ func allKeys() []string { return slices.Sorted(maps.Keys(rules)) }
 var columnsKeys = []string{"adjustment_type", "cloud_owner_hashed_id", "external_edit", "hdr", "imported_by", "panorama",
 	"portrait", "selfie", "shared_moment", "spatial", "tzname", "visible"}
 
-// A key that has the zero value of Go on every object does not test its rule
-// in TestGolden; testdata/libraries/synthetic/reference adds the states the
-// libraries lack.
+// A key with one value everywhere does not test its rule.
 func TestColumnsKeysVary(t *testing.T) {
 	canon := func(v any, err error) string {
 		t.Helper()
-		if err == nil {
-			var s string
-			if s, err = canonical(v); err == nil {
-				return s
-			}
+		if err != nil {
+			t.Fatal(err)
 		}
-		t.Fatal(err)
-		return ""
+		s, err := canonical(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return s
 	}
-	zero := map[string]string{}
+	vals := map[string]map[string]bool{}
 	for _, key := range columnsKeys {
-		zero[key] = canon(rules[key].got(&env{}, &photoinfo.PhotoInfo{}, nil))
+		vals[key] = map[string]bool{}
 	}
 	dir := testlib.RepoDir(t, "golden")
-	set, total := map[string]int{}, 0
+	total := 0
 	for _, name := range testlib.Libraries(t) {
 		ref, err := Load(dir, name)
 		if err != nil {
@@ -46,16 +43,14 @@ func TestColumnsKeysVary(t *testing.T) {
 		for _, obj := range slices.Concat(ref.Query, ref.Deleted) {
 			total++
 			for _, key := range columnsKeys {
-				if canon(rules[key].ref(obj)) != zero[key] {
-					set[key]++
-				}
+				vals[key][canon(rules[key].ref(obj))] = true
 			}
 		}
 	}
 	for _, key := range columnsKeys {
-		t.Logf("%s: %d of %d objects differ from the zero value", key, set[key], total)
-		if set[key] == 0 {
-			t.Errorf("%s: no object differs from the zero value", key)
+		t.Logf("%s: %d distinct values in %d objects", key, len(vals[key]), total)
+		if len(vals[key]) < 2 {
+			t.Errorf("%s: every object has one value", key)
 		}
 	}
 }

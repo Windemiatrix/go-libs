@@ -29,6 +29,9 @@ const (
 	// ZASSET.ZVISIBILITYSTATE of a visible asset (photosdb.py:2307).
 	visibleState = 0
 
+	// ZASSET.ZDEPTHTYPE of a photo without depth (photosdb.py:2251).
+	noDepth = 0
+
 	// ZUNMANAGEDADJUSTMENT.ZADJUSTMENTFORMATIDENTIFIER of an edit in another app (photoinfo.py:810).
 	externalEditFormat = "com.apple.Photos.externalEdit"
 
@@ -177,8 +180,8 @@ func photo(a sqlread.Asset, res []sqlread.Resource, fingerprintColumn string) *p
 		Selfie:   is(a.CameraCaptureDevice, frontCamera),
 		Visible:  is(a.VisibilityState, visibleState),
 		Spatial:  intOf(a.SpatialType),
-		// Python None != 0: a NULL depth type counts as a portrait (photosdb.py:2251).
-		Portrait: !is(a.DepthType, 0),
+		// Python None != 0 (photosdb.py:2251).
+		Portrait: !is(a.DepthType, noDepth),
 
 		SharedMoment:       a.MomentShare.Valid && a.MomentShare.Int64 != 0,
 		ExternalEdit:       a.AdjustmentFormat.String == externalEditFormat,

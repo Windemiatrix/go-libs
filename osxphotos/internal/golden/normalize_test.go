@@ -195,6 +195,7 @@ func TestNormalize(t *testing.T) {
 		{name: "tzname null", key: "tzname", raw: `null`, want: `""`},
 		{name: "cloud_owner_hashed_id null", key: "cloud_owner_hashed_id", raw: `null`, want: `""`},
 		{name: "spatial", key: "spatial", raw: `2`, want: `2`},
+		{name: "spatial null", key: "spatial", raw: `null`, want: `0`},
 		{name: "spatial as a float", key: "spatial", raw: `2.0`, wantErr: "spatial: want an integer"},
 		{name: "adjustment_type null", key: "adjustment_type", raw: `null`, want: `null`},
 		{name: "adjustment_type 0 is not null", key: "adjustment_type", raw: `0`, want: `0`},
@@ -203,6 +204,7 @@ func TestNormalize(t *testing.T) {
 		{name: "imported_by nulls", key: "imported_by", raw: `[null, null]`, want: `["",""]`},
 		{name: "imported_by of one", key: "imported_by", raw: `["a"]`, wantErr: "imported_by: want a list of two strings or nulls"},
 		{name: "imported_by null", key: "imported_by", raw: `null`, wantErr: "imported_by: want a list of two strings or nulls"},
+		{name: "imported_by of three", key: "imported_by", raw: `["a", "b", "c"]`, wantErr: "imported_by: want a list of two strings or nulls"},
 		{name: "imported_by with a number", key: "imported_by", raw: `["a", 1]`, wantErr: "imported_by: want a list of two strings or nulls"},
 
 		{name: "no key", key: "title", raw: ``, wantErr: "title: want a value (the key is missing)"},

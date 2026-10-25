@@ -212,16 +212,29 @@ func TestReadersRows(t *testing.T) {
 				"(SELECT 1 FROM ZADDITIONALASSETATTRIBUTES x WHERE x.ZASSET = a.Z_PK)"); int64(noAttr) != want {
 				t.Errorf("Assets: %d without attributes, want %d", noAttr, want)
 			}
+			rows, err := ro.QueryContext(t.Context(), "SELECT a.ZUUID, u.ZADJUSTMENTFORMATIDENTIFIER FROM ZASSET a "+
+				"LEFT JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK "+
+				"LEFT JOIN ZUNMANAGEDADJUSTMENT u ON u.Z_PK = x.ZUNMANAGEDADJUSTMENT ORDER BY a.ZUUID, a.Z_PK")
+			if err != nil {
+				t.Fatal(err)
+			}
 			formats := 0
-			for _, a := range assets {
-				if a.AdjustmentFormat.Valid {
+			for i := 0; rows.Next(); i++ {
+				var uuid, format sql.NullString
+				if err := rows.Scan(&uuid, &format); err != nil {
+					t.Fatal(err)
+				}
+				if i >= len(assets) || assets[i].UUID != uuid || assets[i].AdjustmentFormat != format {
+					t.Fatalf("Assets: row %d differs from the adjustment format of the same join", i+1)
+				}
+				if format.Valid {
 					formats++
 				}
 			}
-			if want := count(t, ro, "SELECT COUNT(*) FROM ZASSET a JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK "+
-				"JOIN ZUNMANAGEDADJUSTMENT u ON u.Z_PK = x.ZUNMANAGEDADJUSTMENT WHERE u.ZADJUSTMENTFORMATIDENTIFIER IS NOT NULL"); int64(formats) != want {
-				t.Errorf("Assets: %d with an adjustment format, want %d", formats, want)
+			if err := rows.Err(); err != nil {
+				t.Fatal(err)
 			}
+			_ = rows.Close()
 			t.Logf("Assets: %d with an adjustment format", formats)
 
 			res, err := d.Resources(t.Context())

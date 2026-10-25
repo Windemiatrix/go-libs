@@ -220,18 +220,11 @@ func persons() rule {
 
 func location() rule {
 	return simple("location",
-		func(o Object) (any, error) {
-			pair, err := refPair[*float64](o, "location", "a list of two numbers or nulls")
-			if err != nil {
-				return nil, err
-			}
-			return pair, nil
-		},
+		func(o Object) (any, error) { return refPair[*float64](o, "location", "a list of two numbers or nulls") },
 		func(p *photoinfo.PhotoInfo) any { return []*float64{p.Latitude, p.Longitude} })
 }
 
-// osxphotos writes imported_by as the pair (display name, bundle ID)
-// (photoinfo.py:682-694).
+// photoinfo.py:682-694.
 func importedBy() rule {
 	return simple("imported_by",
 		func(o Object) (any, error) {

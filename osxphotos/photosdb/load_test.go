@@ -373,8 +373,10 @@ func TestLoadColumns(t *testing.T) {
 		// Python None != 0 (photosdb.py:2251).
 		{"portrait depth type NULL", func(a *sqlread.Asset) { a.DepthType = sql.NullInt64{} }, func(p *photoInfo) bool { return p.Portrait }},
 		{"selfie", func(a *sqlread.Asset) { a.CameraCaptureDevice = nullInt(1) }, func(p *photoInfo) bool { return p.Selfie }},
+		{"camera 2", func(a *sqlread.Asset) { a.CameraCaptureDevice = nullInt(2) }, func(p *photoInfo) bool { return !p.Selfie }},
 		{"camera NULL", func(a *sqlread.Asset) { a.CameraCaptureDevice = sql.NullInt64{} }, func(p *photoInfo) bool { return !p.Selfie }},
 		{"not visible", func(a *sqlread.Asset) { a.VisibilityState = nullInt(2) }, func(p *photoInfo) bool { return !p.Visible }},
+		{"visibility 1", func(a *sqlread.Asset) { a.VisibilityState = nullInt(1) }, func(p *photoInfo) bool { return !p.Visible }},
 		{"visibility NULL", func(a *sqlread.Asset) { a.VisibilityState = sql.NullInt64{} }, func(p *photoInfo) bool { return !p.Visible }},
 		{"spatial", func(a *sqlread.Asset) { a.SpatialType = nullInt(2) }, func(p *photoInfo) bool { return p.Spatial == 2 }},
 		{"time zone name", func(a *sqlread.Asset) { a.TZName = nullString("Europe/Paris") }, func(p *photoInfo) bool { return p.TZName == "Europe/Paris" }},

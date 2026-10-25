@@ -29,8 +29,15 @@ type Asset struct {
 	Width, Height, Orientation                 sql.NullInt64   // ZWIDTH, ZHEIGHT, ZORIENTATION
 	SavedAssetType                             sql.NullInt64   // ZSAVEDASSETTYPE
 	ScopeParticipation, ScopeShareState, Scope sql.NullInt64   // ZACTIVELIBRARYSCOPEPARTICIPATIONSTATE, ZLIBRARYSCOPESHARESTATE, ZLIBRARYSCOPE
+	HDRType, DepthType, VisibilityState        sql.NullInt64   // ZHDRTYPE, ZDEPTHTYPE, ZVISIBILITYSTATE
+	CloudOwnerHashedID                         sql.NullString  // ZCLOUDOWNERHASHEDPERSONID
+	MomentShare                                sql.NullInt64   // ZMOMENTSHARE
+	SpatialType                                sql.NullInt64   // ZSPATIALTYPE; NULL when ZASSET has no such column
 
 	HasAttributes                         bool           // the ZADDITIONALASSETATTRIBUTES row exists
+	CameraCaptureDevice                   sql.NullInt64  // ZCAMERACAPTUREDEVICE
+	TZName                                sql.NullString // ZTIMEZONENAME
+	ImportedByName, ImportedByBundleID    sql.NullString // ZIMPORTEDBYDISPLAYNAME, ZIMPORTEDBYBUNDLEIDENTIFIER
 	Title, OriginalFilename               sql.NullString // ZTITLE, ZORIGINALFILENAME
 	TZOffset                              sql.NullInt64  // ZTIMEZONEOFFSET
 	Fingerprint                           sql.NullString // schema.Schema.FingerprintColumn
@@ -40,15 +47,7 @@ type Asset struct {
 	SyndicationIdentifier                 sql.NullString // ZSYNDICATIONIDENTIFIER
 	SyndicationHistory                    sql.NullInt64  // ZSYNDICATIONHISTORY
 	Description                           sql.NullString // ZASSETDESCRIPTION.ZLONGDESCRIPTION
-
-	HDRType, DepthType, VisibilityState sql.NullInt64  // ZHDRTYPE, ZDEPTHTYPE, ZVISIBILITYSTATE
-	CloudOwnerHashedID                  sql.NullString // ZCLOUDOWNERHASHEDPERSONID
-	MomentShare                         sql.NullInt64  // ZMOMENTSHARE
-	SpatialType                         sql.NullInt64  // ZSPATIALTYPE; NULL when ZASSET has no such column
-	CameraCaptureDevice                 sql.NullInt64  // ZADDITIONALASSETATTRIBUTES.ZCAMERACAPTUREDEVICE
-	TZName                              sql.NullString // ZADDITIONALASSETATTRIBUTES.ZTIMEZONENAME
-	ImportedByName, ImportedByBundleID  sql.NullString // ZIMPORTEDBYDISPLAYNAME, ZIMPORTEDBYBUNDLEIDENTIFIER
-	AdjustmentFormat                    sql.NullString // ZUNMANAGEDADJUSTMENT.ZADJUSTMENTFORMATIDENTIFIER
+	AdjustmentFormat                      sql.NullString // ZUNMANAGEDADJUSTMENT.ZADJUSTMENTFORMATIDENTIFIER
 
 	HasMaster       bool           // the ZCLOUDMASTER row of ZASSET.ZMASTER exists
 	CloudLocalState sql.NullInt64  // ZCLOUDMASTER.ZCLOUDLOCALSTATE
