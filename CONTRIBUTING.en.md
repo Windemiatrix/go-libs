@@ -34,7 +34,7 @@ The PR title becomes the commit title on `main`.
 - Format `<type>(<scope>)[!]: <description>`, for example `feat(schema): add photos12 schema`. The scope is required: lowercase letters, digits, `._/-`.
 - `!` right after the scope marks an incompatible change of the public API: `feat(photosdb)!: rename the query options`. The marker decides the next version (see "Releases (for the maintainer)") and moves the title to the "Breaking changes" section of the release notes. The body of a squash commit is empty, and `BREAKING CHANGE:` in it is not recognized.
 - English, printable ASCII only, at most 70 characters, no `#<number>`: GitHub appends ` (#<PR number>)` itself.
-- The `pr-title` job checks it when the PR is opened and on every push. It does not see a title edit: check a new title locally, `make pr-title PR_TITLE='...'`.
+- The `pr-title` workflow checks it when the PR is opened, on every push and on every title edit. Before opening the PR you can check the title locally: `make pr-title PR_TITLE='...'`.
 - **Do not edit the title or body in the squash-merge dialog.** The only place to fix a title is the PR itself; otherwise `main` gets a title the check never saw.
 - Commit titles inside a branch are not checked: squash discards them.
 
