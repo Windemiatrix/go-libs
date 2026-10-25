@@ -76,6 +76,8 @@ func TestApplyDuplicate(t *testing.T) {
 	located := func(p *photoinfo.PhotoInfo) { p.Latitude = ptr(1.5) }
 	unselected := func(p *photoinfo.PhotoInfo) { p.Burst, p.BurstPickType = true, 2 }
 	noKind := func(p *photoinfo.PhotoInfo) { p.IsPhoto = false }
+	sharedMoment := func(p *photoinfo.PhotoInfo) { p.SharedMoment = true }
+	portrait := func(p *photoinfo.PhotoInfo) { p.Portrait = true }
 
 	trashed := []*photoinfo.PhotoInfo{
 		twin("P", "2020-01-01T00:00:00Z", nil),
@@ -104,10 +106,19 @@ func TestApplyDuplicate(t *testing.T) {
 		{"unselected frame and object without kind", Options{Duplicate: true}, hidden, []string{"K", "KN", "KU"}},
 		{"uuid does not limit the duplicates", Options{Duplicate: true, UUID: []string{"K"}}, hidden, []string{"K", "KN", "KU"}},
 		{"location after the step", Options{Duplicate: true, Location: true}, locations, []string{"L1", "L4"}},
+		{"shared moment after the step", Options{Duplicate: true, SharedMoment: true}, []*photoinfo.PhotoInfo{
+			twin("M1", "2020-01-01T00:00:00Z", nil),
+			twin("M2", "2020-01-01T00:00:00Z", sharedMoment),
+		}, []string{"M2"}},
+		{"portrait before the step", Options{Duplicate: true, Portrait: true}, []*photoinfo.PhotoInfo{
+			twin("R1", "2020-01-01T00:00:00Z", portrait),
+			twin("R2", "2020-01-01T00:00:00Z", nil),
+		}, []string{"R1", "R2"}},
 	}, nil)
 
-	// The groups differ by Date. Favorite runs before the step and selects g1b,
-	// g2c, g3a and g3b; g2b comes before g2a in the catalog.
+	// g2b precedes g2a in the catalog so that only Sort, not the catalog order,
+	// passes the step-order check; Favorite is a filter before the step
+	// (photoquery.py:560, 754).
 	groups := []*photoinfo.PhotoInfo{
 		twin("g1a", "2020-01-01T00:00:00Z", nil),
 		twin("g1b", "2020-01-01T00:00:00Z", nil),

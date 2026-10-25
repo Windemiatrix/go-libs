@@ -43,20 +43,31 @@ func signatureOf(p *photo) signature {
 	return s
 }
 
-// withDuplicates is the duplicate step of photoquery.py:754-771. The
-// duplicates come from the whole catalog, as get_photo does
-// (photoinfo.py:1435); the signature index is that of photosdb.py:2358-2363.
+// The duplicates come from the whole catalog, as get_photo does
+// (photoinfo.py:1435); the index is that of photosdb.py:2358-2363; each UUID
+// once, as photoquery.py:758-765.
 func withDuplicates(in, catalog []*photo, o Options) []*photo {
 	bySignature := map[signature][]*photo{}
 	for _, p := range catalog {
 		s := signatureOf(p)
 		bySignature[s] = append(bySignature[s], p)
 	}
+	seen := map[string]bool{}
 	var out []*photo
 	for _, p := range Sort(in) {
-		if dups := Duplicates(p, bySignature[signatureOf(p)]); len(dups) > 0 {
-			out = append(append(out, p), Sort(dups)...)
+		if seen[p.UUID] {
+			continue
+		}
+		dups := Duplicates(p, bySignature[signatureOf(p)])
+		if len(dups) == 0 {
+			continue
+		}
+		for _, q := range append([]*photo{p}, Sort(dups)...) {
+			if !seen[q.UUID] {
+				seen[q.UUID] = true
+				out = append(out, q)
+			}
 		}
 	}
-	return slices.DeleteFunc(withoutRepeatedUUIDs(out), func(p *photo) bool { return !inTrashSelection(o, p) })
+	return slices.DeleteFunc(out, func(p *photo) bool { return !inTrashSelection(o, p) })
 }

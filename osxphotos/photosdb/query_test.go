@@ -575,9 +575,9 @@ func TestQueryMissing(t *testing.T) {
 	}
 }
 
-// The groups of the signature of photosdb/photosdb.py:3411-3420 over the rows
-// of the main query of upstream, which joins ZADDITIONALASSETATTRIBUTES
-// (photosdb/photosdb.py:2086-2090, 2358-2363).
+// Upstream signs only the rows of its main query, which joins
+// ZADDITIONALASSETATTRIBUTES (photosdb/photosdb.py:2086-2090, 2358-2363,
+// 3411-3420).
 func queryFlagsSignatureGroups(t *testing.T, lib, schemaID string) map[string][]string {
 	t.Helper()
 	i := slices.IndexFunc(schema.All(), func(s schema.Schema) bool { return s.ID == schemaID })
@@ -585,7 +585,9 @@ func queryFlagsSignatureGroups(t *testing.T, lib, schemaID string) map[string][]
 		t.Fatalf("schema %s is not in schema.All", schemaID)
 	}
 	adjustments := schema.All()[i].AdjustmentsColumn
-	rows, err := roDB(t, lib).QueryContext(t.Context(), "SELECT group_concat(a.ZUUID, ' ') FROM ZASSET a JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK GROUP BY x.ZORIGINALFILESIZE, a.ZDATECREATED, a.ZHEIGHT, a.ZWIDTH, a.ZUNIFORMTYPEIDENTIFIER, a."+adjustments+" HAVING count(*) > 1") //nolint:gosec // G202: the column name is a constant of internal/schema
+	// The module reads a NULL size, height, width or UTI as 0 or ""
+	// (UPSTREAM.md), but keeps a NULL AdjustmentType apart from 0.
+	rows, err := roDB(t, lib).QueryContext(t.Context(), "SELECT group_concat(a.ZUUID, ' ') FROM ZASSET a JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK GROUP BY COALESCE(x.ZORIGINALFILESIZE, 0), a.ZDATECREATED, COALESCE(a.ZHEIGHT, 0), COALESCE(a.ZWIDTH, 0), COALESCE(a.ZUNIFORMTYPEIDENTIFIER, ''), a."+adjustments+" HAVING count(*) > 1") //nolint:gosec // G202: the column name is a constant of internal/schema
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -611,7 +613,7 @@ func TestQueryDuplicates(t *testing.T) {
 	t.Parallel()
 
 	var mu sync.Mutex
-	withDuplicates := 0
+	withDuplicates, byQuery := 0, 0
 	t.Run("libraries", func(t *testing.T) {
 		for _, lib := range goldenLibraries(t) {
 			t.Run(lib.name, func(t *testing.T) {
@@ -627,14 +629,34 @@ func TestQueryDuplicates(t *testing.T) {
 						t.Errorf("Duplicates of %s = %q, want %q", p.UUID, got, want)
 					}
 				}
-				t.Logf("%d photos with duplicates", len(groups))
+				selected := map[string]bool{}
+				for _, p := range db.Query(query.Options{}) {
+					for _, u := range groups[p.UUID] {
+						q, ok := db.Photo(u)
+						if !ok {
+							t.Fatalf("group member %s is not a photo of the library", u)
+						}
+						if !q.InTrash {
+							selected[u] = true
+						}
+					}
+				}
+				got := slices.Sorted(slices.Values(queryIDs(db.Query(query.Options{Duplicate: true}), nil)))
+				if want := slices.Sorted(maps.Keys(selected)); !slices.Equal(got, want) {
+					t.Errorf("Query(Duplicate) = %q, want %q", got, want)
+				}
+				t.Logf("%d photos with duplicates, %d by Query(Duplicate)", len(groups), len(got))
 				mu.Lock()
 				defer mu.Unlock()
 				withDuplicates += len(groups)
+				byQuery += len(got)
 			})
 		}
 	})
 	if withDuplicates == 0 {
 		t.Error("no library has duplicates: the test is vacuous")
+	}
+	if byQuery == 0 {
+		t.Error("Query(Duplicate) returns no photo in any library: the test is vacuous")
 	}
 }
