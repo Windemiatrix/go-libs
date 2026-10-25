@@ -11,16 +11,16 @@ type PhotoInfo struct {
 	CloudAssetGUID    string // extension: not in osxphotos — ZASSET.ZCLOUDASSETGUID; "" when absent
 	CloudMasterGUID   string // osxphotos cloud_guid
 	Fingerprint       string
-	FingerprintSchema string // extension: not in osxphotos — the column Fingerprint was read from; values of different columns do not compare
+	FingerprintSchema string // extension: not in osxphotos — the column Fingerprint was read from (ZMASTERFINGERPRINT or ZORIGINALSTABLEHASH), "" without a fingerprint; values of one column compare across schemas, values of different columns do not
 
 	Filename         string
 	OriginalFilename string // Filename when the database has none, as osxphotos
 
-	Date            time.Time // the moment; the asset's offset is TZOffset
-	TZOffset        *int      // seconds east of UTC; nil when unknown (osxphotos then uses UTC)
-	DateAdded       *time.Time
-	DateModified    *time.Time // ZASSET.ZADJUSTMENTTIMESTAMP, as osxphotos
-	DateTrashed     *time.Time
+	Date            time.Time  // the moment, in the fixed zone of TZOffset (UTC when TZOffset is nil); 1970-01-01T00:00:00Z when the database has no date, as osxphotos
+	TZOffset        *int       // seconds east of UTC; nil when unknown (osxphotos then uses UTC)
+	DateAdded       *time.Time // nil when the database has no value
+	DateModified    *time.Time // ZASSET.ZADJUSTMENTTIMESTAMP, as osxphotos; nil when the database has no value
+	DateTrashed     *time.Time // nil when the database has no value
 	DateModifiedRaw *time.Time // extension: not in osxphotos — ZASSET.ZMODIFICATIONDATE
 
 	Width, Height, Orientation                         int
@@ -45,13 +45,13 @@ type PhotoInfo struct {
 	IsMissing, IsCloudAsset, IsReference bool
 
 	Title, Description  string
-	Keywords            []string
-	HasPersons          bool // extension: not in osxphotos — osxphotos lists the names of the persons
+	Keywords            []string // ascending
+	HasPersons          bool     // extension: not in osxphotos — osxphotos lists the names of the persons
 	Latitude, Longitude *float64
 
-	AlbumUUIDs      []string   // albums of the asset, trashed albums included
-	BurstAlbumUUIDs []string   // extension: not in osxphotos — own albums plus those of the burst's key frame
-	Resources       []Resource // extension: not in osxphotos
+	AlbumUUIDs      []string   // albums of the asset, trashed albums included; ascending
+	BurstAlbumUUIDs []string   // extension: not in osxphotos — own albums plus those of the burst's key frame; ascending
+	Resources       []Resource // extension: not in osxphotos — in Z_PK order
 }
 
 // Resource is one ZINTERNALRESOURCE row of an asset.
@@ -64,18 +64,17 @@ type Resource struct {
 	RemoteAvailability int   // ZREMOTEAVAILABILITY
 }
 
-// Burst pick type values of ZASSET.ZAVALANCHEPICKTYPE (_constants.py:676-680).
+// Bits of BurstPickType, ZASSET.ZAVALANCHEPICKTYPE (_constants.py:676-681).
 const (
-	burstPickNone = 0  // BURST_PICK_TYPE_NONE
-	burstSelected = 8  // BURST_SELECTED
-	burstKey      = 16 // BURST_KEY
+	BurstPickSelected = 8  // BURST_SELECTED: the frame is selected
+	BurstPickKey      = 16 // BURST_KEY: the key frame of the burst
 )
 
 // BurstUnselected reports a burst frame that osxphotos photos() leaves out:
-// not selected (pick&8), not the key frame (pick&16) and not without a pick
-// (0) — photosdb.py:3347-3351.
+// it has a pick type (not 0), and the type is neither selected nor key
+// (photosdb.py:3347-3351).
 // extension: not in osxphotos.
 func (p *PhotoInfo) BurstUnselected() bool {
 	pick := p.BurstPickType
-	return p.Burst && pick&burstSelected == 0 && pick&burstKey == 0 && pick != burstPickNone
+	return p.Burst && pick != 0 && pick&(BurstPickSelected|BurstPickKey) == 0
 }

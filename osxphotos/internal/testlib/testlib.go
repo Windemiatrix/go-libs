@@ -203,9 +203,9 @@ func applyFile(ctx context.Context, tx *sql.Tx, file string) error {
 }
 
 // checkDB checkpoints the WAL into the main file and runs quick_check on every
-// ordinary table. The whole-database quick_check is not used: since SQLite
-// 3.44 it also checks virtual tables, and the full-text index of photos12 uses
-// a tokenizer that exists only inside the Photos app.
+// ordinary table. The whole-database quick_check is not used: it fails on a
+// virtual table whose module exists but cannot be loaded (fts5 with a
+// tokenizer of its own); see sqlread.TestQuickCheckVirtualTable.
 func checkDB(ctx context.Context, db *sql.DB) error {
 	var busy, walFrames, checkpointed int
 	if err := db.QueryRowContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)").Scan(&busy, &walFrames, &checkpointed); err != nil {

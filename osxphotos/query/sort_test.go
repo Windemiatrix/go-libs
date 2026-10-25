@@ -8,27 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
-
-func TestOSXPhotosDefaults(t *testing.T) {
-	t.Parallel()
-
-	if got, want := OSXPhotosDefaults(), (Options{BurstSelectedOnly: true}); !equalOptions(got, want) {
-		t.Errorf("OSXPhotosDefaults() = %+v, want %+v", got, want)
-	}
-}
-
-// equalOptions compares Options field by field: the struct holds a slice, so
-// == does not compile.
-func equalOptions(a, b Options) bool {
-	return slices.Equal(a.Album, b.Album) &&
-		a.FromDate == b.FromDate && a.ToDate == b.ToDate &&
-		a.Photos == b.Photos && a.Movies == b.Movies && a.SharedLibrary == b.SharedLibrary &&
-		a.IncludeTrashed == b.IncludeTrashed && a.TrashedOnly == b.TrashedOnly &&
-		a.BurstSelectedOnly == b.BurstSelectedOnly
-}
 
 func at(s string) time.Time {
 	t, err := time.Parse(time.RFC3339, s)
@@ -48,7 +29,7 @@ func uuids(ps []*photoinfo.PhotoInfo) []string {
 	return out
 }
 
-func TestApplyOrder(t *testing.T) {
+func TestSortOrder(t *testing.T) {
 	t.Parallel()
 
 	plus3 := time.FixedZone("+03", 3*3600)
@@ -108,7 +89,7 @@ func TestApplyOrder(t *testing.T) {
 			want: []string{"A", "B", "b"},
 		},
 		{
-			// Apply does not guess a date for the zero time: year 1 sorts
+			// Sort does not guess a date for the zero time: year 1 sorts
 			// first. NULL dates are mapped to the epoch by the loader.
 			name: "zero Date sorts as year 1",
 			in: []*photoinfo.PhotoInfo{
@@ -122,14 +103,14 @@ func TestApplyOrder(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if got := uuids(Apply(Options{}, tt.in, nil)); !slices.Equal(got, tt.want) {
-				t.Errorf("Apply order = %q, want %q", got, tt.want)
+			if got := uuids(Sort(tt.in)); !slices.Equal(got, tt.want) {
+				t.Errorf("Sort order = %q, want %q", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestApplyKeepsInput(t *testing.T) {
+func TestSortKeepsInput(t *testing.T) {
 	t.Parallel()
 
 	in := []*photoinfo.PhotoInfo{
@@ -138,62 +119,35 @@ func TestApplyKeepsInput(t *testing.T) {
 		{UUID: "B", Date: at("2021-01-01T00:00:00Z")},
 	}
 	before := slices.Clone(in)
-	out := Apply(Options{}, in, nil)
+	out := Sort(in)
 
 	if !slices.Equal(in, before) {
-		t.Errorf("Apply reordered its input: %q, was %q", uuids(in), uuids(before))
+		t.Errorf("Sort reordered its input: %q, was %q", uuids(in), uuids(before))
 	}
 	if len(out) != len(in) {
-		t.Fatalf("len(Apply) = %d, want %d", len(out), len(in))
+		t.Fatalf("len(Sort) = %d, want %d", len(out), len(in))
 	}
 	for _, p := range out {
 		if !slices.Contains(in, p) {
-			t.Errorf("Apply result holds %p (%s), not an element of the input", p, p.UUID)
+			t.Errorf("Sort result holds %p (%s), not an element of the input", p, p.UUID)
 		}
 	}
 	out[0] = &photoinfo.PhotoInfo{UUID: "new"}
 	if slices.ContainsFunc(in, func(p *photoinfo.PhotoInfo) bool { return p.UUID == "new" }) {
-		t.Error("a write to the Apply result is visible in the input: the result shares its backing array")
+		t.Error("a write to the Sort result is visible in the input: the result shares its backing array")
 	}
 
-	if got := Apply(Options{}, []*photoinfo.PhotoInfo{}, nil); len(got) != 0 {
-		t.Errorf("Apply of an empty slice has length %d", len(got))
+	if got := Sort([]*photoinfo.PhotoInfo{}); len(got) != 0 {
+		t.Errorf("Sort of an empty slice has length %d", len(got))
 	}
 }
 
-// TestApplyIgnoresOptions pins the current behavior: Apply only sorts, and
-// opts and albums do not change the result yet.
-func TestApplyIgnoresOptions(t *testing.T) {
-	t.Parallel()
-
-	in := []*photoinfo.PhotoInfo{
-		{UUID: "B", Date: at("2021-01-01T00:00:00Z"), IsMovie: true, InTrash: true},
-		{UUID: "A", Date: at("2020-01-01T00:00:00Z"), IsPhoto: true, Burst: true, BurstPickType: 2},
-	}
-	opts := Options{
-		Album:             []string{"Folder/Album"},
-		FromDate:          ptr(at("2030-01-01T00:00:00Z")),
-		ToDate:            ptr(at("2031-01-01T00:00:00Z")),
-		Photos:            ptr(false),
-		Movies:            ptr(false),
-		SharedLibrary:     ptr(true),
-		IncludeTrashed:    true,
-		TrashedOnly:       true,
-		BurstSelectedOnly: true,
-	}
-	albums := []*albuminfo.AlbumInfo{{UUID: "X", Title: "Album", FolderNames: []string{"Folder"}}}
-	want := uuids(Apply(Options{}, in, nil))
-	if got := uuids(Apply(opts, in, albums)); !slices.Equal(got, want) {
-		t.Errorf("Apply with options = %q, want %q (as with zero Options)", got, want)
-	}
-}
-
-// TestApplyStable checks that photos with fully equal keys keep their input
+// TestSortStable checks that photos with fully equal keys keep their input
 // order. The input is large and mixes several groups of equal keys: a sort
 // that is not stable keeps the order of a handful of elements (insertion
 // sort) or of a single group (no comparison says "less"), so neither would
 // be red.
-func TestApplyStable(t *testing.T) {
+func TestSortStable(t *testing.T) {
 	t.Parallel()
 
 	keys := []*photoinfo.PhotoInfo{
@@ -221,11 +175,11 @@ func TestApplyStable(t *testing.T) {
 		for i, p := range tt.in {
 			position[p] = i
 		}
-		out := Apply(Options{}, tt.in, nil)
+		out := Sort(tt.in)
 		last := map[string]int{} // UUID -> input position of the last photo of the group seen
 		for _, p := range out {
 			if prev, ok := last[p.UUID]; ok && position[p] < prev {
-				t.Fatalf("%s (PCG seed %d, %d): Apply put the photo at input position %d after the one at %d; equal keys must keep their input order",
+				t.Fatalf("%s (PCG seed %d, %d): Sort put the photo at input position %d after the one at %d; equal keys must keep their input order",
 					tt.name, seed1, seed2, position[p], prev)
 			}
 			last[p.UUID] = position[p]
@@ -234,7 +188,7 @@ func TestApplyStable(t *testing.T) {
 }
 
 // oracle sorts by insertion on (Date moment, DateAdded moment, UUID), written
-// independently of Apply.
+// independently of Sort.
 func oracle(in []*photoinfo.PhotoInfo) []*photoinfo.PhotoInfo {
 	epoch := time.Unix(0, 0)
 	added := func(p *photoinfo.PhotoInfo) time.Time {
@@ -263,7 +217,7 @@ func oracle(in []*photoinfo.PhotoInfo) []*photoinfo.PhotoInfo {
 	return out
 }
 
-func TestApplyPermutations(t *testing.T) {
+func TestSortPermutations(t *testing.T) {
 	t.Parallel()
 
 	zones := []*time.Location{time.UTC, time.FixedZone("+05:30", 19800), time.FixedZone("-08", -8*3600)}
@@ -295,8 +249,8 @@ func TestApplyPermutations(t *testing.T) {
 	for i := range 200 {
 		perm := slices.Clone(in)
 		rng.Shuffle(len(perm), func(a, b int) { perm[a], perm[b] = perm[b], perm[a] })
-		if got := uuids(Apply(Options{}, perm, nil)); !slices.Equal(got, wantIDs) {
-			t.Fatalf("permutation %d (PCG seed %d, %d): Apply order\n%s\nwant\n%s",
+		if got := uuids(Sort(perm)); !slices.Equal(got, wantIDs) {
+			t.Fatalf("permutation %d (PCG seed %d, %d): Sort order\n%s\nwant\n%s",
 				i, seed1, seed2, strings.Join(got, " "), strings.Join(wantIDs, " "))
 		}
 		if got := uuids(oracle(perm)); !slices.Equal(got, wantIDs) {

@@ -2,7 +2,7 @@
 -- Schema photos8 keeps the fingerprint of the original in ZADDITIONALASSETATTRIBUTES.ZMASTERFINGERPRINT.
 -- Changes: the asset marked mig:fingerprint-value gets the fingerprint TEST-FP-0001; the asset marked
 -- mig:fingerprint-null gets NULL. ZINTERNALRESOURCE.ZFINGERPRINT is left as it is.
--- Expects: value: Fingerprint "TEST-FP-0001" and FingerprintSchema equal to Info().SchemaID (photos8);
+-- Expects: value: Fingerprint "TEST-FP-0001" and FingerprintSchema equal to the column name ZMASTERFINGERPRINT;
 -- null: Fingerprint "" and FingerprintSchema "". IsMissing of these assets is not asserted.
 
 UPDATE ZADDITIONALASSETATTRIBUTES SET ZTITLE = 'mig:fingerprint-value', ZMASTERFINGERPRINT = 'TEST-FP-0001'

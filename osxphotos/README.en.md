@@ -45,10 +45,9 @@ Marked in code with `// extension: not in osxphotos` and listed in `UPSTREAM.md`
 - `PhotoInfo` fields: `CloudAssetGUID` (uniqueness and stability: stage 0), `Resources` (sizes of Live and RAW resources without downloading), `DateModifiedRaw`, `BurstAlbumUUIDs`, Shared Library flags.
 - `AlbumInfo.CloudGUID`, `FolderInfo.CloudGUID`: whether the column exists and the identifier is stable is **unverified (stage 0)**.
 - `template.Registry` (custom fields), `RenderOptions.Sanitize` (the caller defines name sanitizing), the `{cloud_asset_guid}` field.
-- `query.Options.BurstSelectedOnly` instead of an implicit burst filter.
 - `photokit`: import (including Live and RAW pairs), albums and folders, updating and deleting items, `CloudIdentifiers`, authorization with write access. osxphotos has none of this (it uses AppleScript), so there is no reference; behavior is pinned down by tests against real PhotoKit. Importing directly into the Shared Library is **unverified (stage 0)**.
 
-Intentional differences: an unknown model is an error; the database is always copied; `Photos()` applies no implicit filters (osxphotos behavior is `query.OSXPhotosDefaults()`); items without an additional-attributes row are counted in `Info.SkippedAssets` instead of vanishing silently; `TZOffset` and `InCloud` distinguish "unknown".
+Intentional differences: an unknown model is an error; the database is always copied; `Photos()` applies no implicit filters (the osxphotos selection is described in the documentation of `DB.Photos`); items without an additional-attributes row are counted in `Info.SkippedAssets` instead of vanishing silently; `TZOffset` and `InCloud` distinguish "unknown".
 
 ## macOS versions (planned)
 
@@ -79,7 +78,7 @@ Will not be supported (`ErrUnsupportedSchema`): models below 16000, 16000-16319 
   - `Resources`, `IsMissing`, `HasRAW`;
   - the Shared Library: `SharedLibrary`, `LibraryScopeShareState`, `LibraryScope`;
   - `NULL` in the time zone, file name and creation date; `DateModifiedRaw` apart from `DateModified`;
-  - bursts: every pick type, `BurstUnselected()`, `BurstAlbumUUIDs`, `BurstSelectedOnly`;
+  - bursts: every pick type, `BurstUnselected()`, `BurstAlbumUUIDs`;
   - trash without implicit filters; `Syndicated`, `SavedToLibrary`, `Shared`; `Info.SkippedAssets`.
 
   The description, the list of cases and how to add one are in [testdata/libraries/SOURCES.md](../testdata/libraries/SOURCES.md).

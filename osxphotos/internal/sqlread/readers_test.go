@@ -1,0 +1,487 @@
+package sqlread
+
+import (
+	"context"
+	"database/sql"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/gen"
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
+)
+
+// librarySchemas is the schema of each test library, from the public values
+// of testdata/libraries/SOURCES.md.
+var librarySchemas = map[string]string{
+	"Test-13.0.0":       "photos8",
+	"Test-Cloud-13.1":   "photos8",
+	"Test-14.0.0":       "photos9",
+	"Test-14.6.0":       "photos9_14_6",
+	"Test-15.4.1":       "photos10",
+	"Test-16.0.0-beta":  "photos11",
+	"Test-26.1":         "photos11_1",
+	"Test-27.0_DevBeta": "photos12",
+}
+
+func schemaByID(t *testing.T, id string) schema.Schema {
+	t.Helper()
+	for _, s := range schema.All() {
+		if s.ID == id {
+			return s
+		}
+	}
+	t.Fatalf("no schema %q", id)
+	return schema.Schema{}
+}
+
+// readers is every reader of DB; the count is checked against the exported
+// methods of *DB, so that a new reader is added here.
+var readers = []struct {
+	name string
+	run  func(context.Context, *DB, schema.Schema) (int, error)
+}{
+	{"Assets", func(ctx context.Context, d *DB, s schema.Schema) (int, error) {
+		r, err := d.Assets(ctx, s)
+		return len(r), err
+	}},
+	{"Resources", func(ctx context.Context, d *DB, _ schema.Schema) (int, error) {
+		r, err := d.Resources(ctx)
+		return len(r), err
+	}},
+	{"Keywords", func(ctx context.Context, d *DB, s schema.Schema) (int, error) {
+		r, err := d.Keywords(ctx, s)
+		return len(r), err
+	}},
+	{"NamedPersonAssets", func(ctx context.Context, d *DB, s schema.Schema) (int, error) {
+		r, err := d.NamedPersonAssets(ctx, s)
+		return len(r), err
+	}},
+	{"Members", func(ctx context.Context, d *DB, s schema.Schema) (int, error) {
+		r, err := d.Members(ctx, s)
+		return len(r), err
+	}},
+}
+
+func contains(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+// testDB is a database to read with its schema.
+type testDB struct {
+	name, path string // path of Photos.sqlite
+	schema     schema.Schema
+}
+
+// libraryDBs returns the 8 test libraries (without migrations) and a gen
+// library with assets assets.
+func libraryDBs(t *testing.T, assets int) []testDB {
+	t.Helper()
+	var out []testDB
+	for _, name := range testlib.Libraries(t) {
+		id, ok := librarySchemas[name]
+		if !ok {
+			t.Fatalf("test library %s is not in librarySchemas", name)
+		}
+		lib := testlib.OpenPristine(t, name)
+		out = append(out, testDB{name, filepath.Join(lib, "database", "Photos.sqlite"), schemaByID(t, id)})
+	}
+	return append(out, testDB{"gen", genDB(t, assets), schemaByID(t, gen.DefaultSchema)})
+}
+
+func openDB(t *testing.T, path string) *DB {
+	t.Helper()
+	d, err := Open(t.Context(), path, t.TempDir())
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = d.Close() })
+	return d
+}
+
+// openRO opens path read-only for direct SQL.
+func openRO(t *testing.T, path string) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("sqlite", "file:"+path+"?mode=ro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	return db
+}
+
+func TestReaderColumns(t *testing.T) {
+	t.Parallel()
+
+	methods := reflect.TypeFor[*DB]().NumMethod() - len([]string{"Close", "Metadata", "CheckColumns"})
+	if methods != len(readers) {
+		t.Fatalf("*DB has %d exported reader methods, the table of readers has %d; add the new reader", methods, len(readers))
+	}
+	for _, lib := range libraryDBs(t, 0) {
+		t.Run(lib.name, func(t *testing.T) {
+			t.Parallel()
+			d := openDB(t, lib.path)
+			if err := d.CheckColumns(t.Context(), Columns(lib.schema)); err != nil {
+				t.Errorf("CheckColumns(Columns): %v", err)
+			}
+			for _, r := range readers {
+				if _, err := r.run(t.Context(), d, lib.schema); err != nil {
+					t.Errorf("%s: %v", r.name, err)
+				}
+			}
+		})
+	}
+}
+
+func TestColumnsIncludeJoins(t *testing.T) {
+	t.Parallel()
+
+	c := Columns(schemaByID(t, "photos11_1"))
+	want := map[string][]string{
+		"ZASSET":                     {"ZMASTER", "ZCLOUDASSETGUID", "ZADJUSTMENTSSTATE"},
+		"ZADDITIONALASSETATTRIBUTES": {"ZASSET", "ZASSETDESCRIPTION", "ZORIGINALSTABLEHASH"},
+		"ZASSETDESCRIPTION":          {"Z_PK", "ZLONGDESCRIPTION"},
+		"ZCLOUDMASTER":               {"Z_PK", "ZCLOUDLOCALSTATE", "ZCLOUDMASTERGUID"},
+		"ZINTERNALRESOURCE":          {"ZASSET", "ZDATASTORESUBTYPE", "ZRESOURCETYPE", "ZFINGERPRINT"},
+		"Z_1KEYWORDS":                {"Z_1ASSETATTRIBUTES", "Z_52KEYWORDS"},
+		"ZKEYWORD":                   {"Z_PK", "ZTITLE"},
+		"ZDETECTEDFACE":              {"ZASSETFORFACE", "ZPERSONFORFACE"},
+		"ZPERSON":                    {"Z_PK", "ZFULLNAME"},
+		"Z_33ASSETS":                 {"Z_33ALBUMS", "Z_3ASSETS"},
+		"ZGENERICALBUM":              {"Z_PK", "ZUUID", "ZKIND"},
+	}
+	for table, cols := range want {
+		for _, col := range cols {
+			if !contains(c[table], col) {
+				t.Errorf("Columns has no %s.%s", table, col)
+			}
+		}
+	}
+	if len(c) != len(want) {
+		t.Errorf("Columns has %d tables, want %d", len(c), len(want))
+	}
+	for table, cols := range c {
+		seen := map[string]bool{}
+		for _, col := range cols {
+			if seen[col] {
+				t.Errorf("Columns: %s.%s twice", table, col)
+			}
+			seen[col] = true
+		}
+	}
+}
+
+func TestReadersRows(t *testing.T) {
+	t.Parallel()
+
+	for _, lib := range append(libraryDBs(t, 1000), testDB{"gen-empty", genDB(t, 0), schemaByID(t, gen.DefaultSchema)}) {
+		t.Run(lib.name, func(t *testing.T) {
+			t.Parallel()
+			ro := openRO(t, lib.path)
+			d := openDB(t, lib.path)
+			n := lib.schema
+
+			assets, err := d.Assets(t.Context(), n)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := count(t, ro, "SELECT COUNT(*) FROM ZASSET"); int64(len(assets)) != want {
+				t.Errorf("Assets: %d rows, want %d", len(assets), want)
+			}
+			noAttr := 0
+			for i, a := range assets {
+				if !a.HasAttributes {
+					noAttr++
+				}
+				if i > 0 && assets[i-1].UUID.String > a.UUID.String {
+					t.Errorf("Assets: row %d out of ZUUID order", i+1)
+				}
+			}
+			if want := count(t, ro, "SELECT COUNT(*) FROM ZASSET a WHERE NOT EXISTS "+
+				"(SELECT 1 FROM ZADDITIONALASSETATTRIBUTES x WHERE x.ZASSET = a.Z_PK)"); int64(noAttr) != want {
+				t.Errorf("Assets: %d without attributes, want %d", noAttr, want)
+			}
+
+			res, err := d.Resources(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := count(t, ro, "SELECT COUNT(*) FROM ZINTERNALRESOURCE WHERE ZASSET IS NOT NULL"); int64(len(res)) != want {
+				t.Errorf("Resources: %d rows, want %d", len(res), want)
+			}
+			for i := 1; i < len(res); i++ {
+				a, b := res[i-1], res[i]
+				if a.AssetPK > b.AssetPK || (a.AssetPK == b.AssetPK && a.PK >= b.PK) {
+					t.Errorf("Resources: row %d out of (ZASSET, Z_PK) order", i+1)
+				}
+			}
+
+			members, err := d.Members(t.Context(), n)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := count(t, ro, "SELECT COUNT(*) FROM "+n.MemberTable+" m JOIN ZGENERICALBUM g ON g.Z_PK = m."+
+				n.MemberAlbumColumn+" WHERE g.ZKIND = 2 AND m."+n.MemberAssetColumn+" IS NOT NULL AND g.ZUUID IS NOT NULL"); int64(len(members)) != want {
+				t.Errorf("Members: %d rows, want %d", len(members), want)
+			}
+
+			kws, err := d.Keywords(t.Context(), n)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := count(t, ro, "SELECT COUNT(*) FROM Z_1KEYWORDS j JOIN ZADDITIONALASSETATTRIBUTES x ON x.Z_PK = j.Z_1ASSETATTRIBUTES "+
+				"JOIN ZKEYWORD k ON k.Z_PK = j."+n.KeywordColumn+" WHERE x.ZASSET IS NOT NULL"); int64(len(kws)) != want {
+				t.Errorf("Keywords: %d rows, want %d", len(kws), want)
+			}
+
+			persons, err := d.NamedPersonAssets(t.Context(), n)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := count(t, ro, "SELECT COUNT(DISTINCT f."+n.FaceAssetColumn+") FROM ZDETECTEDFACE f JOIN ZPERSON p ON p.Z_PK = f."+
+				n.FacePersonColumn+" WHERE p.ZFULLNAME != ''"); int64(len(persons)) != want {
+				t.Errorf("NamedPersonAssets: %d, want %d", len(persons), want)
+			}
+			for i := 1; i < len(persons); i++ {
+				if persons[i-1] >= persons[i] {
+					t.Errorf("NamedPersonAssets not sorted and distinct at %d", i)
+				}
+			}
+
+			if lib.name == "gen-empty" && len(assets)+len(res)+len(members)+len(kws)+len(persons) != 0 {
+				t.Errorf("empty library: %d assets, %d resources, %d members, %d keywords, %d persons",
+					len(assets), len(res), len(members), len(kws), len(persons))
+			}
+		})
+	}
+}
+
+// TestReadersMigrations checks the readers on two migrations of the test
+// libraries.
+func TestReadersMigrations(t *testing.T) {
+	t.Parallel()
+
+	t.Run("skipped asset", func(t *testing.T) {
+		t.Parallel()
+		lib := testlib.Open(t, "Test-16.0.0-beta")
+		d := openDB(t, filepath.Join(lib, "database", "Photos.sqlite"))
+		assets, err := d.Assets(t.Context(), schemaByID(t, "photos11"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, a := range assets {
+			if a.Filename.String == "mig-skipped-asset.jpg" {
+				found = true
+				if a.HasAttributes {
+					t.Error("mig-skipped-asset.jpg: HasAttributes true")
+				}
+			}
+		}
+		if !found {
+			t.Fatal("no asset mig-skipped-asset.jpg")
+		}
+	})
+
+	t.Run("burst frames out of albums", func(t *testing.T) {
+		t.Parallel()
+		lib := testlib.Open(t, "Test-13.0.0")
+		path := filepath.Join(lib, "database", "Photos.sqlite")
+		n := schemaByID(t, "photos8")
+		d := openDB(t, path)
+		members, err := d.Members(t.Context(), n)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assets, err := d.Assets(t.Context(), n)
+		if err != nil {
+			t.Fatal(err)
+		}
+		frames := map[int64]string{}
+		key := int64(0)
+		for _, a := range assets {
+			switch a.Title.String {
+			case "mig:burst-selected", "mig:burst-none", "mig:burst-unselected", "mig:burst-default", "mig:burst-null":
+				frames[a.PK] = a.Title.String
+			case "mig:burst-key":
+				key = a.PK
+			}
+		}
+		if len(frames) != 5 || key == 0 {
+			t.Fatalf("found %d frames and key %d, want 5 and a key frame", len(frames), key)
+		}
+		keyAlbums := 0
+		for _, m := range members {
+			if title, ok := frames[m.AssetPK]; ok {
+				t.Errorf("%s is in an album", title)
+			}
+			if m.AssetPK == key {
+				keyAlbums++
+			}
+		}
+		if keyAlbums == 0 {
+			t.Error("the key frame is in no album")
+		}
+	})
+}
+
+// TestReaderValueType checks that a value of the wrong type is an error with
+// the row number and without the value.
+func TestReaderValueType(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name, stmt string
+		run        func(context.Context, *DB, schema.Schema) (int, error)
+	}{
+		{"resource length", "UPDATE ZINTERNALRESOURCE SET ZDATALENGTH = 'SECRET-L' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZINTERNALRESOURCE)", readers[1].run},
+		{"asset width", "UPDATE ZASSET SET ZWIDTH = 'SECRET-W' WHERE Z_PK = 3", readers[0].run},
+		{"member asset", "UPDATE Z_33ASSETS SET Z_3ASSETS = 'SECRET-M' WHERE rowid = (SELECT MIN(rowid) FROM Z_33ASSETS)", readers[4].run},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			path := genDB(t, 20)
+			w := openWriter(t, path)
+			exec(t, w, tt.stmt)
+			if err := w.Close(); err != nil {
+				t.Fatal(err)
+			}
+			d := openDB(t, path)
+			_, err := tt.run(t.Context(), d, schemaByID(t, gen.DefaultSchema))
+			if err == nil {
+				t.Fatal("no error")
+			}
+			if !strings.Contains(err.Error(), ": row ") || !strings.Contains(err.Error(), "unexpected value type") {
+				t.Errorf("error %q, want row <n>: unexpected value type", err)
+			}
+			if strings.Contains(err.Error(), "SECRET") {
+				t.Errorf("error %q holds the value", err)
+			}
+		})
+	}
+}
+
+// TestReadersNull checks that NULL in the columns of a non-Null field
+// leaves the row out instead of failing.
+func TestReadersNull(t *testing.T) {
+	t.Parallel()
+
+	path := genDB(t, 20)
+	w := openWriter(t, path)
+	exec(t, w,
+		"UPDATE Z_33ASSETS SET Z_3ASSETS = NULL WHERE rowid = (SELECT MIN(rowid) FROM Z_33ASSETS)",
+		"UPDATE Z_33ASSETS SET Z_33ALBUMS = NULL WHERE rowid = (SELECT MAX(rowid) FROM Z_33ASSETS)",
+		"UPDATE ZINTERNALRESOURCE SET ZASSET = NULL WHERE Z_PK = 1",
+		"UPDATE ZASSET SET ZUUID = NULL, ZFILENAME = NULL, ZKIND = NULL, ZDATECREATED = NULL WHERE Z_PK = 2",
+		"UPDATE ZADDITIONALASSETATTRIBUTES SET ZORIGINALFILENAME = NULL, ZTIMEZONEOFFSET = NULL WHERE ZASSET = 2",
+	)
+	ro := openRO(t, path)
+	wantMembers := count(t, ro, "SELECT COUNT(*) FROM Z_33ASSETS") - 2
+	wantRes := count(t, ro, "SELECT COUNT(*) FROM ZINTERNALRESOURCE") - 1
+	d := openDB(t, path)
+	n := schemaByID(t, gen.DefaultSchema)
+	for _, r := range readers {
+		if _, err := r.run(t.Context(), d, n); err != nil {
+			t.Errorf("%s: %v", r.name, err)
+		}
+	}
+	if m, _ := d.Members(t.Context(), n); int64(len(m)) != wantMembers {
+		t.Errorf("Members: %d, want %d", len(m), wantMembers)
+	}
+	if r, _ := d.Resources(t.Context()); int64(len(r)) != wantRes {
+		t.Errorf("Resources: %d, want %d", len(r), wantRes)
+	}
+}
+
+func TestReaderCanceled(t *testing.T) {
+	t.Parallel()
+
+	d := openDB(t, genDB(t, 20))
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	n := schemaByID(t, gen.DefaultSchema)
+	for _, r := range readers {
+		if _, err := r.run(ctx, d, n); err == nil {
+			t.Errorf("%s: no error with a canceled context", r.name)
+		}
+	}
+}
+
+// rawAggregate is one line of the log of TestRAWResourceType.
+type rawAggregate struct {
+	subtype, rtype sql.NullInt64
+	compact        sql.NullString
+	rows           int64
+}
+
+// TestRAWResourceType holds the premise of the HasRAW rule of photosdb: a
+// RAW resource (data store subtype 17) has ZRESOURCETYPE 4, and an original
+// (1) or a Live video (18) never has it. It logs the aggregates.
+func TestRAWResourceType(t *testing.T) {
+	t.Parallel()
+
+	var raw17, raw17Type4 int64
+	for _, lib := range libraryDBs(t, 1000) {
+		ro := openRO(t, lib.path)
+		rows, err := ro.QueryContext(t.Context(), "SELECT ZDATASTORESUBTYPE, ZRESOURCETYPE, CAST(ZCOMPACTUTI AS TEXT), COUNT(*) "+
+			"FROM ZINTERNALRESOURCE WHERE ZDATASTORESUBTYPE IN (1, 3, 17, 18) GROUP BY 1, 2, 3 ORDER BY 1, 2, 3")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var agg []rawAggregate
+		for rows.Next() {
+			var a rawAggregate
+			if err := rows.Scan(&a.subtype, &a.rtype, &a.compact, &a.rows); err != nil {
+				t.Fatal(err)
+			}
+			agg = append(agg, a)
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+		_ = rows.Close()
+		for _, a := range agg {
+			t.Logf("%s: subtype %v, type %v, compact %v: %d", lib.name, a.subtype.Int64, nullInt(a.rtype), nullStr(a.compact), a.rows)
+		}
+		pair3 := count(t, ro, "SELECT COUNT(DISTINCT r.ZASSET) FROM ZINTERNALRESOURCE r WHERE r.ZDATASTORESUBTYPE = 3 AND r.ZRESOURCETYPE = 4 "+
+			"AND NOT EXISTS (SELECT 1 FROM ZINTERNALRESOURCE s WHERE s.ZASSET = r.ZASSET AND s.ZDATASTORESUBTYPE = 17)")
+		t.Logf("%s: assets with subtype 3 and type 4 without 17: %d", lib.name, pair3)
+		if bad := count(t, ro, "SELECT COUNT(*) FROM ZINTERNALRESOURCE WHERE ZDATASTORESUBTYPE IN (1, 18) AND ZRESOURCETYPE = 4"); bad != 0 {
+			t.Errorf("%s: %d resources of subtype 1 or 18 have type 4", lib.name, bad)
+		}
+		if lib.name == "gen" {
+			if want := int64(40); pair3 != want { // RAWPairs 0.04 of 1000 assets
+				t.Errorf("gen: %d assets with subtype 3 and type 4, want %d", pair3, want)
+			}
+			continue
+		}
+		raw17 += count(t, ro, "SELECT COUNT(*) FROM ZINTERNALRESOURCE WHERE ZDATASTORESUBTYPE = 17")
+		raw17Type4 += count(t, ro, "SELECT COUNT(*) FROM ZINTERNALRESOURCE WHERE ZDATASTORESUBTYPE = 17 AND ZRESOURCETYPE = 4")
+	}
+	t.Logf("libraries: %d resources of subtype 17, %d of them type 4", raw17, raw17Type4)
+	if raw17 == 0 || raw17 != raw17Type4 {
+		t.Errorf("%d resources of subtype 17, %d of them of type 4; want all of them, at least one", raw17, raw17Type4)
+	}
+}
+
+func nullInt(v sql.NullInt64) any {
+	if !v.Valid {
+		return "NULL"
+	}
+	return v.Int64
+}
+
+func nullStr(v sql.NullString) any {
+	if !v.Valid {
+		return "NULL"
+	}
+	return v.String
+}
