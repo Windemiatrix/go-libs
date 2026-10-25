@@ -45,10 +45,9 @@ osxphotos — подробный открытый разбор базы «Фот
 - Поля `PhotoInfo`: `CloudAssetGUID` (уникальность и стабильность — этап 0), `Resources` (размеры ресурсов Live и RAW без скачивания), `DateModifiedRaw`, `BurstAlbumUUIDs`, признаки общей медиатеки.
 - `AlbumInfo.CloudGUID`, `FolderInfo.CloudGUID`: существует ли колонка и стабилен ли идентификатор, **не проверено (этап 0)**.
 - `template.Registry` (свои поля), `RenderOptions.Sanitize` (очистка имён задаётся вызывающим), поле `{cloud_asset_guid}`.
-- `query.Options.BurstSelectedOnly` вместо неявного фильтра серий.
 - `photokit`: импорт (включая Live и RAW-пары), альбомы и папки, обновление и удаление объектов, `CloudIdentifiers`, авторизация с правом записи. В osxphotos этого нет (он использует AppleScript), эталона нет, поведение фиксируется тестами на реальном PhotoKit. Импорт сразу в общую медиатеку **не проверен (этап 0)**.
 
-Намеренные отличия: неизвестная модель — ошибка; копия базы всегда; `Photos()` без неявных фильтров (поведение osxphotos даёт `query.OSXPhotosDefaults()`); объекты без дополнительных атрибутов считаются в `Info.SkippedAssets`, а не пропадают молча; `TZOffset` и `InCloud` различают «неизвестно».
+Намеренные отличия: неизвестная модель — ошибка; копия базы всегда; `Photos()` без неявных фильтров (отбор как в osxphotos описан в документации `DB.Photos`); объекты без дополнительных атрибутов считаются в `Info.SkippedAssets`, а не пропадают молча; `TZOffset` и `InCloud` различают «неизвестно».
 
 ## Версии macOS (план)
 
@@ -79,7 +78,7 @@ osxphotos — подробный открытый разбор базы «Фот
   - `Resources`, `IsMissing`, `HasRAW`;
   - общая медиатека: `SharedLibrary`, `LibraryScopeShareState`, `LibraryScope`;
   - `NULL` в поясе, имени файла и дате создания; `DateModifiedRaw` отдельно от `DateModified`;
-  - серии: все виды отметок, `BurstUnselected()`, `BurstAlbumUUIDs`, `BurstSelectedOnly`;
+  - серии: все виды отметок, `BurstUnselected()`, `BurstAlbumUUIDs`;
   - корзина без неявных фильтров; `Syndicated`, `SavedToLibrary`, `Shared`; `Info.SkippedAssets`.
 
   Описание, список случаев и порядок добавления нового — в [testdata/libraries/SOURCES.md](../testdata/libraries/SOURCES.md).

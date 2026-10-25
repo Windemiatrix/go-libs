@@ -1,0 +1,351 @@
+package photosdb
+
+import (
+	"database/sql"
+	"fmt"
+	"slices"
+	"strings"
+
+	"golang.org/x/text/unicode/norm"
+
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/uti"
+	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+)
+
+// Values of the database that load interprets.
+const (
+	// ZASSET.ZKIND (photosdb.py:2197-2204).
+	kindPhoto, kindMovie = 0, 1
+
+	// ZASSET.ZKINDSUBTYPE (photosdb.py:2234-2236).
+	subtypeLive, subtypeScreen = 2, 10
+
+	// ZASSET.ZSAVEDASSETTYPE of a referenced file (photosdb.py:2315).
+	savedReference = 10
+
+	// ZCLOUDMASTER.ZCLOUDLOCALSTATE of a master in iCloud (photosdb.py:2534).
+	cloudInCloud = 3
+
+	// ZLATITUDE and ZLONGITUDE of an asset without a location (photosdb.py:2174-2181).
+	noCoordinate = -180.0
+
+	// ZINTERNALRESOURCE.ZDATASTORESUBTYPE of the originals (photosdb.py:2459)
+	// and of a RAW resource (photosdb.py:2550).
+	resOriginal, resSecond, resRAW = 1, 3, 17
+
+	// ZRESOURCETYPE of the RAW resource of a RAW+JPEG pair.
+	resTypeRAW = 4
+
+	// Part of the UTI of every RAW format (photoinfo.py:1368-1371).
+	rawUTIMarker = "raw-image"
+
+	// ZLOCALAVAILABILITY of a resource on disk (photosdb.py:2492, 2513).
+	localAvailable = 1
+
+	// ZORIGINALRESOURCECHOICE when the RAW is the original (photosdb.py:2288).
+	rawOriginalChoice = 1
+
+	// ZTRASHEDSTATE of an asset in the trash, and ZHIDDEN and ZFAVORITE when set.
+	trashedState, flagSet = 1, 1
+
+	// ZSYNDICATIONHISTORY of a photo not saved to the library (photoinfo.py:1597).
+	syndicationHistoryNotSaved = 0
+)
+
+// tables are the rows that the readers of internal/sqlread return.
+type tables struct {
+	assets    []sqlread.Asset
+	resources []sqlread.Resource
+	keywords  []sqlread.Keyword
+	persons   []int64 // NamedPersonAssets
+	members   []sqlread.Member
+}
+
+// catalog is the result of load.
+type catalog struct {
+	photos  []*photoinfo.PhotoInfo // ZUUID order
+	byUUID  map[string]*photoinfo.PhotoInfo
+	skipped int // assets without ZADDITIONALASSETATTRIBUTES
+}
+
+// nfc normalizes a text value of the database to NFC, as osxphotos does
+// (unicode.py:12, 76-92).
+func nfc(s string) string { return norm.NFC.String(s) }
+
+// load turns the rows into photos. Assets without an attributes row are
+// counted in skipped and left out, as the inner join of upstream drops them
+// (photosdb.py:2086-2090). Among the other assets, one without ZUUID, or two
+// with one ZUUID, is an error: upstream keeps the last row (photosdb.py:2356),
+// and an ambiguous identity is worse for a caller that synchronizes than a
+// refusal.
+//
+// The rows come in the order of their readers: the assets by ZUUID, the
+// resources of an asset by Z_PK. catalog.photos and PhotoInfo.Resources keep
+// that order.
+//
+// fingerprintColumn is the column Asset.Fingerprint was read from. Paths are
+// not set here (see setPaths). load never indexes by a value of the
+// database, so no content makes it panic.
+func load(t tables, fingerprintColumn string) (*catalog, error) {
+	resources := groupResources(t.resources)
+	keywords := groupKeywords(t.keywords)
+	albums := groupMembers(t.members)
+	persons := make(map[int64]bool, len(t.persons))
+	for _, pk := range t.persons {
+		persons[pk] = true
+	}
+
+	c := &catalog{byUUID: make(map[string]*photoinfo.PhotoInfo, len(t.assets))}
+	var noUUID, dupUUID int
+	for _, a := range t.assets {
+		if !a.HasAttributes {
+			c.skipped++
+			continue
+		}
+		if a.UUID.String == "" {
+			noUUID++
+			continue
+		}
+		if _, dup := c.byUUID[a.UUID.String]; dup {
+			dupUUID++
+			continue
+		}
+		p := photo(a, resources[a.PK], fingerprintColumn)
+		p.Keywords = keywords[a.PK]
+		p.AlbumUUIDs = albums[a.PK]
+		p.HasPersons = persons[a.PK]
+		c.photos = append(c.photos, p)
+		c.byUUID[p.UUID] = p
+	}
+	if noUUID > 0 {
+		return nil, fmt.Errorf("photosdb: %d assets without ZASSET.ZUUID", noUUID)
+	}
+	if dupUUID > 0 {
+		return nil, fmt.Errorf("photosdb: %d assets with the ZASSET.ZUUID of another asset", dupUUID)
+	}
+	setBurstAlbums(c.photos)
+	return c, nil
+}
+
+// photo sets the fields of one asset that depend on its own rows only.
+func photo(a sqlread.Asset, res []sqlread.Resource, fingerprintColumn string) *photoinfo.PhotoInfo {
+	p := &photoinfo.PhotoInfo{
+		UUID:           a.UUID.String,
+		CloudAssetGUID: a.CloudAssetGUID.String,
+		Fingerprint:    a.Fingerprint.String,
+
+		Filename: nfc(a.Filename.String),
+
+		Date:            assetDate(a.Created, a.TZOffset),
+		TZOffset:        optionalInt(a.TZOffset),
+		DateAdded:       optionalTime(a.Added),
+		DateModified:    optionalTime(a.Adjusted),
+		DateTrashed:     optionalTime(a.Trashed),
+		DateModifiedRaw: optionalTime(a.Modified),
+
+		Width:               intOf(a.Width),
+		Height:              intOf(a.Height),
+		Orientation:         intOf(a.Orientation),
+		OriginalWidth:       intOf(a.OriginalWidth),
+		OriginalHeight:      intOf(a.OriginalHeight),
+		OriginalOrientation: intOf(a.OriginalOrientation),
+		OriginalFilesize:    a.OriginalFilesize.Int64,
+
+		UTI: a.UTI.String,
+
+		IsPhoto:     a.Kind.Valid && a.Kind.Int64 == kindPhoto,
+		IsMovie:     a.Kind.Valid && a.Kind.Int64 == kindMovie,
+		Live:        a.KindSubtype.Valid && a.KindSubtype.Int64 == subtypeLive,
+		Screenshot:  a.KindSubtype.Valid && a.KindSubtype.Int64 == subtypeScreen,
+		RawOriginal: is(a.OriginalResourceChoice, rawOriginalChoice),
+
+		Burst:         a.BurstUUID.Valid,
+		BurstUUID:     a.BurstUUID.String,
+		BurstPickType: intOf(a.BurstPickType),
+
+		Hidden:         is(a.Hidden, flagSet),
+		Favorite:       is(a.Favorite, flagSet),
+		InTrash:        is(a.TrashedState, trashedState),
+		HasAdjustments: a.Adjustments.Valid && a.Adjustments.Int64 != 0,
+
+		Shared:     a.CloudBatchPublishDate.Valid,
+		Syndicated: a.SyndicationIdentifier.Valid,
+		// Python None != 0: a NULL history counts as saved (photoinfo.py:1597).
+		SavedToLibrary:         !is(a.SyndicationHistory, syndicationHistoryNotSaved),
+		SharedLibrary:          a.ScopeParticipation.Valid && a.ScopeParticipation.Int64 != 0,
+		LibraryScopeShareState: intOf(a.ScopeShareState),
+		LibraryScope:           intOf(a.Scope),
+
+		IsReference: is(a.SavedAssetType, savedReference),
+
+		Title:       nfc(a.Title.String),
+		Description: nfc(a.Description.String),
+	}
+	if p.Fingerprint != "" {
+		p.FingerprintSchema = fingerprintColumn
+	}
+	p.OriginalFilename = nfc(a.OriginalFilename.String)
+	if p.OriginalFilename == "" {
+		p.OriginalFilename = p.Filename // photoinfo.py:140
+	}
+	p.IsCloudAsset = p.CloudAssetGUID != ""
+	if a.HasMaster {
+		inCloud := is(a.CloudLocalState, cloudInCloud)
+		p.InCloud = &inCloud
+		p.CloudMasterGUID = a.CloudMasterGUID.String
+	}
+	p.BurstSelected = p.BurstPickType&photoinfo.BurstPickSelected != 0
+	p.BurstKey = p.BurstPickType&photoinfo.BurstPickKey != 0
+	if !(a.Latitude.Valid && a.Latitude.Float64 == noCoordinate && a.Longitude.Valid && a.Longitude.Float64 == noCoordinate) {
+		p.Latitude, p.Longitude = optionalFloat(a.Latitude), optionalFloat(a.Longitude)
+	}
+
+	p.UTIOriginal = p.UTI
+	if !p.Shared { // photoinfo.py:908-917
+		if u := uti.ForExtension(suffix(p.OriginalFilename)); u != "" {
+			p.UTIOriginal = u
+		}
+	}
+	p.IsRAW = strings.Contains(p.UTIOriginal, rawUTIMarker)
+
+	p.HasRAW = hasRAW(res)
+	p.IsMissing = isMissing(res, p.Fingerprint)
+	for _, r := range res {
+		p.Resources = append(p.Resources, photoinfo.Resource{
+			Type:               intOf(r.Type),
+			Subtype:            intOf(r.Subtype),
+			Size:               r.DataLength.Int64,
+			LocalAvailability:  intOf(r.Local),
+			RemoteAvailability: intOf(r.Remote),
+		})
+	}
+	return p
+}
+
+// hasRAW reports a RAW resource: data store subtype 17 of any resource type,
+// as upstream (photosdb.py:2537-2577), or subtype 3 of resource type 4.
+// extension: not in osxphotos — the subtype 3 rule.
+func hasRAW(res []sqlread.Resource) bool {
+	for _, r := range res {
+		if is(r.Subtype, resRAW) || is(r.Subtype, resSecond) && is(r.Type, resTypeRAW) {
+			return true
+		}
+	}
+	return false
+}
+
+// isMissing decides IsMissing from the resources of the asset, ordered by
+// Z_PK (photosdb.py:2441-2516). Upstream reads the resources of subtypes 1
+// and 3, then the resources whose ZFINGERPRINT is the fingerprint of the
+// asset, of any asset, and the last row read wins. Here the second pass
+// reads only the resources of the asset, and the last row is the one with
+// the highest Z_PK.
+func isMissing(res []sqlread.Resource, fingerprint string) bool {
+	var last *sqlread.Resource
+	if fingerprint != "" {
+		for i := range res {
+			if res[i].Fingerprint.Valid && res[i].Fingerprint.String == fingerprint {
+				last = &res[i]
+			}
+		}
+	}
+	if last == nil {
+		for i := range res {
+			if is(res[i].Subtype, resOriginal) || is(res[i].Subtype, resSecond) {
+				last = &res[i]
+			}
+		}
+	}
+	return last != nil && !is(last.Local, localAvailable)
+}
+
+// setBurstAlbums sets BurstAlbumUUIDs: for a burst frame its own albums and
+// those of the key frames of its burst (photoinfo.py:646-653, 1031-1044),
+// otherwise AlbumUUIDs. A burst is the frames with Burst and one BurstUUID,
+// "" included. A burst may hold every asset, so the albums of its key frames
+// are made distinct once per burst, not once per frame.
+func setBurstAlbums(photos []*photoinfo.PhotoInfo) {
+	keyAlbums := map[string][]string{}
+	for _, p := range photos {
+		if p.Burst && p.BurstKey {
+			keyAlbums[p.BurstUUID] = append(keyAlbums[p.BurstUUID], p.AlbumUUIDs...)
+		}
+	}
+	for b, s := range keyAlbums {
+		keyAlbums[b] = sortedSet(s)
+	}
+	for _, p := range photos {
+		if !p.Burst {
+			p.BurstAlbumUUIDs = slices.Clone(p.AlbumUUIDs)
+			continue
+		}
+		p.BurstAlbumUUIDs = sortedSet(slices.Concat(p.AlbumUUIDs, keyAlbums[p.BurstUUID]))
+	}
+}
+
+// groupResources groups the resources by asset, in the order of rows.
+func groupResources(rows []sqlread.Resource) map[int64][]sqlread.Resource {
+	out := map[int64][]sqlread.Resource{}
+	for _, r := range rows {
+		out[r.AssetPK] = append(out[r.AssetPK], r)
+	}
+	return out
+}
+
+// groupKeywords groups the keyword titles by asset, in NFC, sorted by
+// bytes; a NULL title is "" and a repeated keyword stays repeated
+// (photosdb.py:2005-2010).
+func groupKeywords(rows []sqlread.Keyword) map[int64][]string {
+	out := map[int64][]string{}
+	for _, k := range rows {
+		out[k.AssetPK] = append(out[k.AssetPK], nfc(k.Title.String))
+	}
+	for _, g := range out {
+		slices.Sort(g)
+	}
+	return out
+}
+
+// groupMembers groups the album UUIDs by asset, sorted and distinct.
+func groupMembers(rows []sqlread.Member) map[int64][]string {
+	out := map[int64][]string{}
+	for _, m := range rows {
+		out[m.AssetPK] = append(out[m.AssetPK], m.AlbumUUID)
+	}
+	for pk, g := range out {
+		out[pk] = sortedSet(g)
+	}
+	return out
+}
+
+// sortedSet sorts s and removes repeated values; an empty s is nil.
+func sortedSet(s []string) []string {
+	if len(s) == 0 {
+		return nil
+	}
+	slices.Sort(s)
+	return slices.Compact(s)
+}
+
+func is(v sql.NullInt64, want int64) bool { return v.Valid && v.Int64 == want }
+
+// intOf is an integer column as int, NULL as 0. int is 64 bits on every
+// platform this module supports (macOS on amd64 and arm64).
+func intOf(v sql.NullInt64) int { return int(v.Int64) } //nolint:gosec // G115: int is 64 bits on the supported platforms
+
+func optionalInt(v sql.NullInt64) *int {
+	if !v.Valid {
+		return nil
+	}
+	i := intOf(v)
+	return &i
+}
+
+func optionalFloat(v sql.NullFloat64) *float64 {
+	if !v.Valid {
+		return nil
+	}
+	f := v.Float64
+	return &f
+}

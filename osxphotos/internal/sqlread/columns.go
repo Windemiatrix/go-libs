@@ -6,7 +6,37 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
+
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
 )
+
+// column is a column of a query: the table alias of the query, the table and
+// the column name.
+type column struct{ alias, table, name string }
+
+// selectList is the select list of cols: alias.name, comma separated.
+func selectList(cols []column) string {
+	parts := make([]string, len(cols))
+	for i, c := range cols {
+		parts[i] = c.alias + "." + c.name
+	}
+	return strings.Join(parts, ", ")
+}
+
+// Columns returns every table and column that the readers read with s, for
+// CheckColumns. Each reader file declares its part next to its query.
+func Columns(s schema.Schema) map[string][]string {
+	out := map[string][]string{}
+	for _, cols := range [][]column{assetColumns(s), resourceSelect(), keywordColumns(s), personColumns(s), memberColumns(s)} {
+		for _, c := range cols {
+			if !slices.Contains(out[c.table], c.name) {
+				out[c.table] = append(out[c.table], c.name)
+			}
+		}
+	}
+	return out
+}
 
 // ErrMissingColumn is wrapped by CheckColumns for a missing table or column.
 var ErrMissingColumn = errors.New("sqlread: missing table or column")

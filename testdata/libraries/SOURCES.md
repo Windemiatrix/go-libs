@@ -50,7 +50,7 @@ Cases (the expected values are in the tests of the package that reads the field)
 | `shared-library` | `SharedLibrary`, `LibraryScopeShareState`, `LibraryScope` | `Test-14.6.0` |
 | `attrs-null` | `NULL` in the time zone offset, original file name and creation date | `Test-14.6.0` |
 | `date-modified-raw` | `DateModifiedRaw` apart from `DateModified` | `Test-16.0.0-beta` |
-| `burst-frames` | every burst pick type, `BurstUnselected()`, `BurstAlbumUUIDs`, `BurstSelectedOnly` | `Test-13.0.0`, `Test-26.1` |
+| `burst-frames` | every burst pick type, `BurstUnselected()`, `BurstAlbumUUIDs` | `Test-13.0.0`, `Test-26.1` |
 | `trash` | a trashed asset is returned when no filters are set | `Test-14.0.0` |
 | `syndication-shared` | `Syndicated`, `SavedToLibrary`, `Shared` | `Test-15.4.1` |
 | `skipped-asset` | `Info.SkippedAssets`: an asset without a row in `ZADDITIONALASSETATTRIBUTES` is absent from `Photos()` and counted (marked by `ZASSET.ZFILENAME`, see above) | `Test-16.0.0-beta` |
@@ -113,7 +113,7 @@ To add a case: a new file `NNN_<case>.sql` (lowercase letters, digits and hyphen
 | `shared-library` | `SharedLibrary`, `LibraryScopeShareState`, `LibraryScope` | `Test-14.6.0` |
 | `attrs-null` | `NULL` в смещении пояса, исходном имени файла и дате создания | `Test-14.6.0` |
 | `date-modified-raw` | `DateModifiedRaw` отдельно от `DateModified` | `Test-16.0.0-beta` |
-| `burst-frames` | все виды отметок серий, `BurstUnselected()`, `BurstAlbumUUIDs`, `BurstSelectedOnly` | `Test-13.0.0`, `Test-26.1` |
+| `burst-frames` | все виды отметок серий, `BurstUnselected()`, `BurstAlbumUUIDs` | `Test-13.0.0`, `Test-26.1` |
 | `trash` | объект в корзине возвращается, когда фильтров нет | `Test-14.0.0` |
 | `syndication-shared` | `Syndicated`, `SavedToLibrary`, `Shared` | `Test-15.4.1` |
 | `skipped-asset` | `Info.SkippedAssets`: объект без строки в `ZADDITIONALASSETATTRIBUTES` не попадает в `Photos()` и считается (помечен `ZASSET.ZFILENAME`, см. выше) | `Test-16.0.0-beta` |

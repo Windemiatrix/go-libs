@@ -3,6 +3,7 @@ module github.com/Windemiatrix/go-libs/osxphotos
 go 1.26.0
 
 require (
+	golang.org/x/text v0.43.0
 	howett.net/plist v1.0.1
 	modernc.org/sqlite v1.60.1
 )

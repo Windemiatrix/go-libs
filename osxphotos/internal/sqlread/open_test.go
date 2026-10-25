@@ -410,13 +410,6 @@ func TestOpenErrors(t *testing.T) {
 	t.Parallel()
 	src := genDB(t, 0)
 	dbDir := filepath.Dir(src)
-	if err := os.Mkdir(filepath.Join(dbDir, "sub"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	sibling := dbDir + "2" // "database2" is not under "database"
-	if err := os.Mkdir(sibling, 0o700); err != nil {
-		t.Fatal(err)
-	}
 	srcSum := sha(t, src)
 	srcNames := names(t, dbDir)
 
@@ -439,18 +432,6 @@ func TestOpenErrors(t *testing.T) {
 	if err := os.Chmod(walUnreadable+"-wal", 0); err != nil {
 		t.Fatal(err)
 	}
-	// linkDir holds a symbolic link to the database: the link sits inside
-	// "the library", the file elsewhere.
-	linkDir := t.TempDir()
-	dbLink := filepath.Join(linkDir, "Photos.sqlite")
-	if err := os.Symlink(src, dbLink); err != nil {
-		t.Fatal(err)
-	}
-	// tempLink is a symbolic link to the database directory.
-	tempLink := filepath.Join(t.TempDir(), "tmp")
-	if err := os.Symlink(dbDir, tempLink); err != nil {
-		t.Fatal(err)
-	}
 	canceled, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -470,11 +451,6 @@ func TestOpenErrors(t *testing.T) {
 		{name: "wal unreadable", src: walUnreadable, is: os.ErrPermission},
 		{name: "missing temporary directory", src: src, tempDir: filepath.Join(t.TempDir(), "none"), is: os.ErrNotExist},
 		{name: "temporary directory is a file", src: src, tempDir: text, want: "not a directory"},
-		{name: "temporary directory is the database directory", src: src, tempDir: dbDir, want: "inside the directory of the database"},
-		{name: "temporary directory under the database directory", src: src, tempDir: filepath.Join(dbDir, "sub"), want: "inside the directory of the database"},
-		{name: "temporary directory is a symlink to the database directory", src: src, tempDir: tempLink, want: "inside the directory of the database"},
-		{name: "database is a symlink, temporary directory is the directory of the file", src: dbLink, tempDir: dbDir, want: "inside the directory of the database"},
-		{name: "database is a symlink, temporary directory is the directory of the link", src: dbLink, tempDir: linkDir, want: "inside the directory of the database"},
 		{name: "canceled", ctx: canceled, src: src, is: context.Canceled},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -507,27 +483,12 @@ func TestOpenErrors(t *testing.T) {
 		})
 	}
 
-	t.Run("sibling of the database directory", func(t *testing.T) {
-		t.Parallel()
-		d, err := Open(t.Context(), src, sibling)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := d.Close(); err != nil {
-			t.Fatal(err)
-		}
-		assertEmpty(t, sibling)
-	})
-
 	t.Cleanup(func() {
 		if got := names(t, dbDir); !slices.Equal(got, srcNames) {
 			t.Errorf("the database directory holds %q, want %q", got, srcNames)
 		}
 		if sha(t, src) != srcSum {
 			t.Error("the source changed")
-		}
-		if got := names(t, linkDir); !slices.Equal(got, []string{"Photos.sqlite"}) {
-			t.Errorf("the directory of the link holds %q, want only the link", got)
 		}
 	})
 }

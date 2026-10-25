@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 
 	_ "modernc.org/sqlite" // the "sqlite" database/sql driver
 )
@@ -36,8 +35,8 @@ var afterCopy func(attempt int, copyPath string)
 //
 // The -shm file is not copied: SQLite rebuilds the WAL index from -wal on
 // the first connection to the copy, and a -shm taken at another moment than
-// -wal could only be stale. Open refuses a tempDir that is the directory of
-// the database or lies under it.
+// -wal could only be stale. A tempDir inside the library is refused by the
+// caller, photosdb.Open.
 func Open(ctx context.Context, dbPath, tempDir string) (*DB, error) {
 	src, err := source(dbPath)
 	if err != nil {
@@ -46,18 +45,9 @@ func Open(ctx context.Context, dbPath, tempDir string) (*DB, error) {
 	if tempDir == "" {
 		tempDir = os.TempDir()
 	}
-	tmp, err := realPath(tempDir)
+	tmp, err := RealPath(tempDir)
 	if err != nil {
 		return nil, fmt.Errorf("sqlread: temporary directory: %w", err)
-	}
-	// Both the directory of the file and that of dbPath itself count: dbPath
-	// may be a symbolic link inside the library to a file elsewhere.
-	linkDir, err := realPath(filepath.Dir(dbPath))
-	if err != nil {
-		return nil, fmt.Errorf("sqlread: %w", err)
-	}
-	if within(tmp, filepath.Dir(src)) || within(tmp, linkDir) {
-		return nil, fmt.Errorf("sqlread: %s: the temporary directory %s is inside the directory of the database", dbPath, tempDir)
 	}
 	sweep(tmp, os.Getpid(), processAlive)
 
@@ -99,32 +89,21 @@ func source(dbPath string) (string, error) {
 	if info.Size() == 0 {
 		return "", fmt.Errorf("sqlread: %s: empty file", dbPath)
 	}
-	src, err := realPath(dbPath)
+	src, err := RealPath(dbPath)
 	if err != nil {
 		return "", fmt.Errorf("sqlread: %w", err)
 	}
 	return src, nil
 }
 
-// realPath is the absolute path of an existing file with symbolic links
+// RealPath is the absolute path of an existing file with symbolic links
 // resolved.
-func realPath(path string) (string, error) {
+func RealPath(path string) (string, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return "", err
 	}
 	return filepath.EvalSymlinks(abs)
-}
-
-// within reports whether path is dir or lies under it; both are absolute and
-// clean. The comparison is by path segments: "/a/database2" is not under
-// "/a/database".
-func within(path, dir string) bool {
-	rel, err := filepath.Rel(dir, path)
-	if err != nil {
-		return false
-	}
-	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // openChecked opens the copy at path read-only and runs quick_check on it.
@@ -143,6 +122,33 @@ func openChecked(ctx context.Context, path string) (*sql.DB, error) {
 		return nil, errors.Join(err, db.Close())
 	}
 	return db, nil
+}
+
+// readRows runs query and calls scan for each row. A failed scan is
+// reported with the number of the row (from 1) and without the error of
+// database/sql, whose text holds the value. The rows are checked with
+// rows.Err and rows.Close: a result read only in part is an error.
+func (d *DB) readRows(ctx context.Context, reader, query string, scan func(*sql.Rows) error, args ...any) error {
+	rows, err := d.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("sqlread: %s: %w", reader, err)
+	}
+	row := 0
+	for rows.Next() {
+		row++
+		if err := scan(rows); err != nil {
+			_ = rows.Close() // the scan error is the one reported
+			return fmt.Errorf("sqlread: %s: row %d: unexpected value type", reader, row)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return fmt.Errorf("sqlread: %s: %w", reader, err)
+	}
+	if err := rows.Close(); err != nil {
+		return fmt.Errorf("sqlread: %s: %w", reader, err)
+	}
+	return nil
 }
 
 // Close closes the database and removes the copy. A second call returns nil.

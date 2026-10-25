@@ -16,7 +16,7 @@ import (
 
 // Library is the Go side of a comparison, as plain values.
 type Library struct {
-	Photos []*photoinfo.PhotoInfo // every photo of the database: photosdb.DB.Photos(query.Options{})
+	Photos []*photoinfo.PhotoInfo // every photo of the database: photosdb.DB.Photos()
 	Albums []*albuminfo.AlbumInfo // every user album, trashed ones included; nil is allowed only without AlbumKeys
 }
 
