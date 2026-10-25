@@ -4,9 +4,21 @@
 
 Code of conduct: [CODE_OF_CONDUCT.en.md](CODE_OF_CONDUCT.en.md). Report a vulnerability privately, as described in [SECURITY.en.md](SECURITY.en.md), not in an issue. Questions and ideas go to Discussions.
 
+## Getting started
+
+Requires Go 1.26+.
+
+```sh
+git clone https://github.com/Windemiatrix/go-libs
+cd go-libs
+make help            # list the commands
+make test            # every check, as in CI (on macOS)
+make mod vet cover   # on Linux: what the Linux CI job runs
+```
+
 ## How a change gets in
 
-The path is the same for everyone: the maintainer, AI agents acting on the maintainer's behalf ([AGENTS.en.md](AGENTS.en.md)), external contributors (from a fork branch) and Dependabot.
+The path is the same for everyone: the maintainer, external contributors (from a fork branch) and Dependabot. AI agents have separate rules in [AGENTS.en.md](AGENTS.en.md).
 
 1. Branch from an up-to-date `main`: `<type>/<topic>`, for example `feat/schema-photos12`, `fix/template-parser`. Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`.
 2. Test first, then code (TDD): a test that fails for the right reason, then the code that makes it pass. A bug fix starts with a test that reproduces the bug. For ported behavior, the test is checked against the osxphotos reference where one exists.
@@ -20,9 +32,9 @@ The path is the same for everyone: the maintainer, AI agents acting on the maint
 The PR title becomes the commit title on `main`.
 
 - Format `<type>(<scope>)[!]: <description>`, for example `feat(schema): add photos12 schema`. The scope is required: lowercase letters, digits, `._/-`.
-- `!` right after the scope marks an incompatible change of the public API: `feat(photosdb)!: rename the query options`. The marker decides the next version (see "Releases") and moves the title to the "Breaking changes" section of the release notes. The body of a squash commit is empty, and `BREAKING CHANGE:` in it is not recognized.
+- `!` right after the scope marks an incompatible change of the public API: `feat(photosdb)!: rename the query options`. The marker decides the next version (see "Releases (for the maintainer)") and moves the title to the "Breaking changes" section of the release notes. The body of a squash commit is empty, and `BREAKING CHANGE:` in it is not recognized.
 - English, printable ASCII only, at most 70 characters, no `#<number>`: GitHub appends ` (#<PR number>)` itself.
-- The `pr-title` job checks it; editing the title re-runs the check. Before opening the PR you can check the title locally: `make pr-title PR_TITLE='...'`.
+- The `pr-title` job checks it when the PR is opened and on every push. It does not see a title edit: check a new title locally, `make pr-title PR_TITLE='...'`.
 - **Do not edit the title or body in the squash-merge dialog.** The only place to fix a title is the PR itself; otherwise `main` gets a title the check never saw.
 - Commit titles inside a branch are not checked: squash discards them.
 
@@ -48,23 +60,30 @@ Public history cannot be undone: forks and archives keep whatever once reached t
 - your Photos libraries and any copies or exports of them, names of your albums, paths, UUIDs and GUIDs, exact counts from your library;
 - passwords and tokens.
 
-`testdata/` holds only `database/Photos.sqlite` of test libraries with a verified license, and synthetic fragments; images are not copied. The whole module directory goes into the module zip that every consumer downloads, so size matters. Reference files are never edited by hand: a separate manual workflow generates them from a pinned osxphotos version.
+`testdata/` holds only `database/Photos.sqlite` of test libraries with a verified license, and synthetic fragments; images are not copied. `testdata/` lies outside the module directory and is not part of the module zip; the `osxphotos/` directory goes into the zip whole, so no test data is put there. Reference files are never edited by hand: a separate manual workflow generates them from a pinned osxphotos version.
 
 Tests and documents use generic examples: `IMG_0001.HEIC`, `2024/05-01 - Holidays`, `user@example.com`. Optional: run `gitleaks` and a personal list of forbidden strings, kept outside the repository, before committing.
 
 A Photos schema for a new macOS version is not added blindly: without a test library of that version it stays unsupported. Open an issue with the "new macOS/Photos version" template.
 
+## Tests
+
+- `make cover` runs the tests with `-race` and the coverage threshold of 80%.
+- Reference comparison: the output of `Open` is compared with osxphotos results (by UUID) on its test libraries and on the synthetic database. Known divergences are recorded with reasons in `testdata/golden/divergences.json`.
+- Schemas: range boundaries and the gaps between them; every column that is read exists in the DDL of its schema.
+- Fields beyond osxphotos, intentional differences and states that its libraries lack are checked with SQL migrations with synthetic values on a temporary copy of the database. The rules and the list of cases are in [testdata/libraries/SOURCES.md](testdata/libraries/SOURCES.md).
+
 ## Tests that modify Photos
 
-Tests tagged `photokit_live` import, change and delete objects in a real library. They run only manually, under a separate macOS user account with a separate Apple ID and a test library, never against your main library and never in CI. All other tests do not touch the library.
+Tests of the future `photokit` that modify a library (tag `photokit_live`) will run only by hand, under a separate macOS account with a separate Apple ID and a test library, never in CI; all other tests do not touch the library.
 
 ## External contributors
 
 - CI for a PR from a fork runs after the maintainer approves it.
-- Explain in the description any PR that changes `.github/`, `scripts/`, `Makefile`, `go.mod` or `go.sum`: the maintainer checks that it does not weaken the checks.
-- Building on macOS is needed for `photokit` (cgo); the rest of the code builds and is checked on Linux too.
+- Explain in the description any PR that changes `.github/`, `scripts/`, `Makefile`, `.svu.yml`, `go.mod` or `go.sum`: the maintainer checks that it does not weaken the checks.
+- Building on macOS will be needed for `photokit` (cgo); the rest of the code builds and is checked on Linux too.
 
-## Releases
+## Releases (for the maintainer)
 
 A release comes out by itself after every merged PR that changed `osxphotos/`. Once CI on the commit in `main` is green, the `release` job of `ci.yml` computes the version, runs `govulncheck`, publishes the GitHub Release (which creates the tag `osxphotos/vX.Y.Z` on that commit) and warms up the Go proxy.
 
@@ -76,7 +95,7 @@ The version is computed, not assigned: [svu](https://github.com/caarlos0/svu) ta
 | otherwise there is a `feat(scope):` | minor | minor |
 | otherwise any other type, or a title outside the rule | patch | patch |
 
-A PR that did not change `osxphotos/` releases nothing. The first release is `osxphotos/v0.1.0`. The move to `1.0.0` is not derived from titles: the maintainer releases it by running `ci.yml` by hand (Run workflow) with the `major` flag. From version 2 the module path in `osxphotos/go.mod` gets the `/vN` suffix: the same PR with `!` changes it; nothing checks it automatically.
+A PR that did not change `osxphotos/` releases nothing. The move to `1.0.0` is not derived from titles: the maintainer releases it by running `ci.yml` by hand (Run workflow) with the `major` flag. From version 2 the module path in `osxphotos/go.mod` gets the `/vN` suffix: the same PR with `!` changes it; nothing checks it automatically.
 
 The release notes are the same PR titles with the ` (#N)` suffix between two tags, in sections: Breaking changes, Features, Bug fixes, Documentation, Other. They are in English only and are not translated by hand. There is no `CHANGELOG.md`.
 
