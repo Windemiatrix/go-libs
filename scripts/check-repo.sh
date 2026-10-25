@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Repository hygiene checks: rules that neither the compiler nor the linter
-# enforce, plus the self-tests of the scripts that decide titles and versions.
+# enforce, plus the self-test of the PR title check.
 # Only files tracked by git are examined, so build output and local junk never
 # matter.
 #
@@ -110,10 +110,8 @@ check_checkouts_drop_credentials() {
   done < <(git ls-files '.github/workflows/*.yml' '.github/workflows/*.yaml')
 }
 
-# The scripts that decide titles and versions.
 run_self_tests() {
   bash scripts/check-pr-title-test.sh || failed=1
-  bash scripts/next-version-test.sh || failed=1
 }
 
 check_module_license

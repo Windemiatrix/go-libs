@@ -88,7 +88,7 @@ Will not be supported (`ErrUnsupportedSchema`): models below 16000, 16000-16319 
 
 ## Versioning
 
-Semver, independent of the osxphotos version. `scripts/next-version.sh` computes the version from PR titles: `!` after the scope is an incompatible API change, `feat` is a new feature (minor), anything else is a fix (patch). Before `v1.0.0` an incompatible change gives a minor release. The release notes are the same titles in sections, on the GitHub Release page; there is no `CHANGELOG.md`. `v1.0.0` ships once a consuming application has proven the API.
+Semver, independent of the osxphotos version. A release comes out after every merged PR that changed the module; [svu](https://github.com/caarlos0/svu) computes the version from PR titles: `!` after the scope is an incompatible API change, `feat` is a new feature (minor), anything else is a fix (patch). Before `v1.0.0` an incompatible change gives a minor release. The release notes are the same titles in sections, on the GitHub Release page; there is no `CHANGELOG.md`. `v1.0.0` ships once a consuming application has proven the API.
 
 ## License
 

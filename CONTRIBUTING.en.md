@@ -66,7 +66,9 @@ Tests tagged `photokit_live` import, change and delete objects in a real library
 
 ## Releases
 
-The version is computed, not assigned: `scripts/next-version.sh` takes the titles of the commits on `main` that changed `osxphotos/`, since the last tag `osxphotos/vX.Y.Z`.
+A release comes out by itself after every merged PR that changed `osxphotos/`. Once CI on the commit in `main` is green, the `release` job of `ci.yml` computes the version, runs `govulncheck`, publishes the GitHub Release (which creates the tag `osxphotos/vX.Y.Z` on that commit) and warms up the Go proxy.
+
+The version is computed, not assigned: [svu](https://github.com/caarlos0/svu) takes the titles of the commits on `main` that changed `osxphotos/`, since the last tag `osxphotos/vX.Y.Z`, with the rules in `.svu.yml`. `make next-version` shows the next one.
 
 | Titles since the last tag | before `1.0.0` | after `1.0.0` |
 |---|---|---|
@@ -74,9 +76,7 @@ The version is computed, not assigned: `scripts/next-version.sh` takes the title
 | otherwise there is a `feat(scope):` | minor | minor |
 | otherwise any other type, or a title outside the rule | patch | patch |
 
-No commits, no release. The move to `1.0.0` is not derived from titles: only explicitly, with `scripts/release.sh --major`. From version 2 the module path in `osxphotos/go.mod` gets the `/vN` suffix; the script checks it.
-
-Only the maintainer creates tags of the form `osxphotos/vX.Y.Z` and releases, with `scripts/release.sh`. The script checks that `HEAD` equals `origin/main` and that `ci-ok` is green on that commit; it shows the version and the list of titles with their classes; after confirmation it creates a signed tag and pushes it. Then the `release` workflow checks the tag form and that the commit is on `main`, runs `govulncheck`, creates the GitHub Release and warms up the Go proxy.
+A PR that did not change `osxphotos/` releases nothing. The first release is `osxphotos/v0.1.0`. The move to `1.0.0` is not derived from titles: the maintainer releases it by running `ci.yml` by hand (Run workflow) with the `major` flag. From version 2 the module path in `osxphotos/go.mod` gets the `/vN` suffix: the same PR with `!` changes it; nothing checks it automatically.
 
 The release notes are the same PR titles with the ` (#N)` suffix between two tags, in sections: Breaking changes, Features, Bug fixes, Documentation, Other. They are in English only and are not translated by hand. There is no `CHANGELOG.md`.
 

@@ -2,6 +2,7 @@ GOLANGCI_LINT_VERSION ?= v2.15.0
 ACTIONLINT_VERSION ?= v1.7.12
 GOVULNCHECK_VERSION ?= v1.9.0
 SHFMT_VERSION ?= v3.14.1
+SVU_VERSION ?= v3.4.1
 
 # The minimum total test coverage, in percent. Not "?=": the environment must
 # not lower it.
@@ -28,7 +29,9 @@ vet: ## go vet
 .PHONY: cover
 cover: ## Tests with the race detector and the coverage threshold
 	go -C osxphotos test -race -shuffle=on -count=1 -covermode=atomic -coverprofile=coverage.out ./...
-	go -C osxphotos tool cover -func=coverage.out | awk '/^total:/ { found = 1; sub(/%/, "", $$3); print; exit ($$3 + 0 < $(COVERAGE_MIN)) } END { if (!found) exit 1 }'
+	@pct=$$(go -C osxphotos tool cover -func=coverage.out | tail -n 1 | tr -dc '0-9.'); \
+	echo "coverage: $$pct% (minimum $(COVERAGE_MIN)%)"; \
+	test "$${pct%.*}" -ge $(COVERAGE_MIN)
 
 .PHONY: cross-build
 cross-build: ## cgo build for amd64 (macOS)
@@ -84,13 +87,14 @@ golden-fetch: ## Download the reference data of a golden-regen run (make golden-
 ##@ Pull requests
 
 .PHONY: pr-title
-pr-title: ## PR_TITLE follows the title convention (PR_TITLE='...' make pr-title)
+pr-title: ## PR_TITLE follows the title convention (make pr-title PR_TITLE='...')
 	bash scripts/check-pr-title.sh
 
 ##@ Release
 
-.PHONY: release
-release: ## GitHub Release for TAG with grouped notes, then the Go proxy warm-up (needs GH_TOKEN)
-	@notes="$$(bash scripts/next-version.sh --notes "$$TAG")" && \
-	gh release create "$$TAG" --verify-tag --title "$$TAG" --notes "$$notes"
-	GOPROXY=https://proxy.golang.org go list -m "github.com/Windemiatrix/go-libs/osxphotos@$${TAG#osxphotos/}"
+# BUMP=major gives 1.0.0: from 0.x the only way there.
+BUMP ?= next
+
+.PHONY: next-version
+next-version: ## The version that the next merge to main releases (svu, .svu.yml; needs a tag)
+	@go run github.com/caarlos0/svu/v3@$(SVU_VERSION) $(BUMP)
