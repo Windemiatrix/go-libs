@@ -4,8 +4,9 @@
 // The libraries live in testdata/libraries of the repository, outside the
 // module: copies of the osxphotos test libraries and the synthetic library.
 // They are never opened for writing: Open copies a database into a temporary
-// directory and applies the SQL migrations of that library to the copy (see
-// testdata/libraries/SOURCES.md for the rules of a migration file).
+// directory and applies the SQL files of that library to the copy: reference/
+// (seen by osxphotos too) and then migrations/ (Go tests only); see
+// testdata/libraries/SOURCES.md for the rules of these files.
 package testlib
 
 import (
@@ -80,23 +81,39 @@ func Libraries(t testing.TB) []string {
 func Open(t testing.TB, name string) string {
 	t.Helper()
 	lib := OpenPristine(t, name)
-	files, err := filepath.Glob(filepath.Join(RepoDir(t, "libraries"), name, "migrations", "*.sql"))
+	applyDir(t, lib, name, "migrations")
+	return lib
+}
+
+// OpenPristine makes the same copy as Open without applying migrations, for
+// tests that compare the original state with the migrated one. It does apply
+// reference/*.sql of the library: those statements are part of the library,
+// and golden-regen.yml applies them too before it runs osxphotos.
+func OpenPristine(t testing.TB, name string) string {
+	t.Helper()
+	lib := copyLibrary(t, name)
+	applyDir(t, lib, name, "reference")
+	return lib
+}
+
+// applyDir applies <name>/<dir>/*.sql of testdata/libraries to the copy lib in
+// file-name order inside one transaction.
+func applyDir(t testing.TB, lib, name, dir string) {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join(RepoDir(t, "libraries"), name, dir, "*.sql"))
 	if err != nil {
 		t.Fatalf("testlib: %s: %v", name, err)
 	}
 	if len(files) == 0 {
-		return lib
+		return
 	}
 	slices.Sort(files)
 	if err := migrate(t.Context(), filepath.Join(lib, "database", "Photos.sqlite"), files); err != nil {
 		t.Fatalf("testlib: %s: %v", name, err)
 	}
-	return lib
 }
 
-// OpenPristine makes the same copy as Open without applying migrations, for
-// tests that compare the original state with the migrated one.
-func OpenPristine(t testing.TB, name string) string {
+func copyLibrary(t testing.TB, name string) string {
 	t.Helper()
 	if name == "" || name != filepath.Base(name) || name == "." || name == ".." {
 		t.Fatalf("testlib: invalid library name %q", name)

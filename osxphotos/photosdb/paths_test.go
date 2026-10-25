@@ -169,8 +169,8 @@ func TestPaths(t *testing.T) {
 	// in Unicode normalization (photoinfo.py:545-558, utils.py:359-368).
 	for _, tt := range []struct{ name, dbFile, rawFile string }{
 		{"RAW name in lower case", "", ""},
-		{"RAW name in NFD, ZFILENAME in NFC", "Café.jpeg", "Café_4.DNG"},
-		{"RAW name in NFC, ZFILENAME in NFD", "Café.jpeg", "Café_4.DNG"},
+		{"RAW name in NFD, ZFILENAME in NFC", "Caf\U000000e9.jpeg", "Cafe\U00000301_4.DNG"},
+		{"RAW name in NFC, ZFILENAME in NFD", "Cafe\U00000301.jpeg", "Caf\U000000e9_4.DNG"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()

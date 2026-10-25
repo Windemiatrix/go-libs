@@ -273,14 +273,6 @@ func TestNormalizeGoSide(t *testing.T) {
 			}
 		}
 	})
-	t.Run("the pick type bit of the default pick", func(t *testing.T) {
-		t.Parallel()
-		for pick, want := range map[int]string{0: "false", 2: "false", 4: "true", 12: "true", 16: "false", 20: "true"} {
-			if got := goCanon(t, "burst_default_pick", &photoinfo.PhotoInfo{BurstPickType: pick}); got != want {
-				t.Errorf("pick %d: %s, want %s", pick, got, want)
-			}
-		}
-	})
 	t.Run("the list of the Go side is not sorted", func(t *testing.T) {
 		t.Parallel()
 		p := &photoinfo.PhotoInfo{Keywords: []string{"b", "a"}}

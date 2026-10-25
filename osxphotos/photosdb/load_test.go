@@ -60,7 +60,7 @@ func resource(subtype, typ int64, local sql.NullInt64) sqlread.Resource {
 func TestLoadFields(t *testing.T) {
 	t.Parallel()
 
-	const nfd, nfcForm = "Café", "Café"
+	const nfd, nfcForm = "Cafe\U00000301", "Caf\U000000e9"
 	tests := []struct {
 		name  string
 		edit  func(a *sqlread.Asset)
@@ -269,6 +269,89 @@ func TestLoadFields(t *testing.T) {
 	}
 }
 
+func TestLoadKindFlags(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		subtype sql.NullInt64
+		want    [3]bool // SlowMo, TimeLapse, ScreenRecording
+	}{
+		{"no subtype", nullInt(0), [3]bool{}},
+		{"panorama", nullInt(1), [3]bool{}},
+		{"live", nullInt(2), [3]bool{}},
+		{"screenshot", nullInt(10), [3]bool{}},
+		{"slow motion", nullInt(101), [3]bool{true, false, false}},
+		{"time lapse", nullInt(102), [3]bool{false, true, false}},
+		{"screen recording", nullInt(103), [3]bool{false, false, true}},
+		{"100", nullInt(100), [3]bool{}},
+		{"104", nullInt(104), [3]bool{}},
+		{"NULL", sql.NullInt64{}, [3]bool{}},
+	}
+	for _, tt := range tests {
+		a := baseAsset(1, "A-1")
+		a.KindSubtype = tt.subtype
+		p := loadOne(t, a)
+		if got := [3]bool{p.SlowMo, p.TimeLapse, p.ScreenRecording}; got != tt.want {
+			t.Errorf("%s: SlowMo, TimeLapse, ScreenRecording = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestLoadBurstDefaultPick(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		pick  sql.NullInt64
+		burst bool
+		want  bool
+	}{
+		// burst_default_pick does not look at the burst (photoinfo.py:1021-1029).
+		{"default, not in a burst", nullInt(4), false, true},
+		{"NULL", sql.NullInt64{}, true, false},
+		{"0", nullInt(0), true, false},
+		{"selected", nullInt(8), true, false},
+		{"key", nullInt(16), true, false},
+		{"default", nullInt(4), true, true},
+		{"default and key", nullInt(20), true, true},
+		{"default and an unknown bit", nullInt(36), true, true},
+	}
+	for _, tt := range tests {
+		a := baseAsset(1, "A-1")
+		a.BurstPickType = tt.pick
+		if tt.burst {
+			a.BurstUUID = nullString("B")
+		}
+		if got := loadOne(t, a).BurstDefaultPick; got != tt.want {
+			t.Errorf("%s: BurstDefaultPick = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestLoadUTIEdited(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		adjustments sql.NullInt64
+		uti         sql.NullString
+		want        string
+	}{
+		{"adjusted", nullInt(2), nullString("public.heic"), "public.heic"},
+		{"not adjusted", nullInt(0), nullString("public.heic"), ""},
+		{"adjustments NULL", sql.NullInt64{}, nullString("public.heic"), ""},
+		{"adjusted, UTI NULL", nullInt(2), sql.NullString{}, ""},
+	}
+	for _, tt := range tests {
+		a := baseAsset(1, "A-1")
+		a.Adjustments, a.UTI = tt.adjustments, tt.uti
+		if got := loadOne(t, a).UTIEdited; got != tt.want {
+			t.Errorf("%s: UTIEdited = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
+
 func timeIs(got *time.Time, want time.Time) bool {
 	return got != nil && got.Equal(want) && got.Location() == time.UTC
 }
@@ -276,7 +359,7 @@ func timeIs(got *time.Time, want time.Time) bool {
 func TestLoadKeywordsAlbumsPersons(t *testing.T) {
 	t.Parallel()
 
-	const nfd = "Café"
+	const nfd = "Cafe\U00000301"
 	in := tables{
 		assets: []sqlread.Asset{baseAsset(1, "A-1"), baseAsset(2, "A-2")},
 		keywords: []sqlread.Keyword{
@@ -296,7 +379,7 @@ func TestLoadKeywordsAlbumsPersons(t *testing.T) {
 	p1, p2 := c.byUUID["A-1"], c.byUUID["A-2"]
 	// Upstream keeps a repeated keyword (photosdb.py:2005-2010) and sorts the
 	// list (photoinfo.py:705-708); NULL is "".
-	if want := []string{"", "B", "Café", "b", "b"}; !slices.Equal(p1.Keywords, want) {
+	if want := []string{"", "B", "Caf\U000000e9", "b", "b"}; !slices.Equal(p1.Keywords, want) {
 		t.Errorf("Keywords = %q, want %q", p1.Keywords, want)
 	}
 	if want := []string{"AL-1", "AL-2"}; !slices.Equal(p1.AlbumUUIDs, want) || !slices.Equal(p1.BurstAlbumUUIDs, want) {

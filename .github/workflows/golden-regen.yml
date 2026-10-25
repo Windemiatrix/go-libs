@@ -44,7 +44,30 @@ jobs:
           # osxphotos finds database/Photos.sqlite in the library directory.
           for lib in testdata/libraries/*/; do
             [ -f "${lib}database/Photos.sqlite" ] || continue
-            out="$RUNNER_TEMP/golden/$(basename "$lib")"
+            name=$(basename "$lib")
+            # reference/*.sql is part of the library: apply it to a copy, as
+            # testlib.OpenPristine does. The triggers of Photos.sqlite call
+            # Core Data functions; the stand-ins are those of testlib.
+            if compgen -G "${lib}reference/*.sql" >/dev/null; then
+              copy="$RUNNER_TEMP/libraries/$name"
+              mkdir -p "$copy"
+              cp -R "${lib}database" "$copy/"
+              python - "$copy/database/Photos.sqlite" "${lib}"reference/*.sql <<'EOF'
+          import sqlite3, sys
+          con = sqlite3.connect(sys.argv[1])
+          for name in ("NSCoreDataTriggerUpdateAffectedObjectValue",
+                       "NSCoreDataDATriggerUpdatedAffectedObjectValue",
+                       "NSCoreDataDATriggerInsertUpdatedAffectedObjectValue"):
+              con.create_function(name, -1, lambda *args: None)
+          for path in sys.argv[2:]:
+              with open(path) as f:
+                  con.executescript(f.read())
+          con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+          con.close()
+          EOF
+              lib="$copy/"
+            fi
+            out="$RUNNER_TEMP/golden/$name"
             mkdir -p "$out"
             osxphotos query --library "$lib" --json --mute |
               jq --rawfile f testdata/golden/fields.txt "$listed_fields" >"$out/query.json"

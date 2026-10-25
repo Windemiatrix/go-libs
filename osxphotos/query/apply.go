@@ -3,6 +3,7 @@ package query
 import (
 	"slices"
 	"strings"
+	"time"
 
 	"golang.org/x/text/unicode/norm"
 
@@ -17,8 +18,9 @@ type photo = photoinfo.PhotoInfo
 // (photoquery.py:417-885). photos is every photo of a library (DB.Photos()),
 // albums every user album, the albums that PhotoInfo.AlbumUUIDs refers to
 // (DB.Albums()). The result is new, in the order of Sort (reversed with
-// NewestFirst), each photo once; its elements are the pointers of photos.
-// photos and albums are not modified.
+// NewestFirst), each photo once unless a Function returns it twice and
+// BurstPhotos is off; its elements are the pointers of photos. photos and
+// albums are not modified.
 func Apply(o Options, photos []*photoinfo.PhotoInfo, albums []*albuminfo.AlbumInfo) []*photoinfo.PhotoInfo {
 	fs := filters(o, newPhotoAlbums(albums))
 	var out []*photo
@@ -26,6 +28,12 @@ func Apply(o Options, photos []*photoinfo.PhotoInfo, albums []*albuminfo.AlbumIn
 		if inSelection(o, p) && !slices.ContainsFunc(fs, func(f filter) bool { return !f(p) }) {
 			out = append(out, p)
 		}
+	}
+	for _, f := range o.Function {
+		out = f(out)
+	}
+	if o.BurstPhotos { // after the functions, as photoquery.py:863 (ref #640)
+		out = withBursts(out, photos, o.MissingBursts)
 	}
 	slices.SortStableFunc(out, comparePhotos)
 	if o.NewestFirst { // the keys of Sort are unique, so this is sorted(reverse=True)
@@ -102,14 +110,57 @@ func filters(o Options, in photoAlbums) []filter {
 	when(o.HasRAW, func(p *photo) bool { return p.HasRAW })
 	pair(o.IsReference, o.NotReference, func(p *photo) bool { return p.IsReference })
 	pair(o.InAlbum, o.NotInAlbum, func(p *photo) bool { return in.has(p, func(*albuminfo.AlbumInfo) bool { return true }) })
+	when(o.FromTime != nil, func(p *photo) bool { return timeOfDay(p.Date) >= *o.FromTime })
+	when(o.ToTime != nil, func(p *photo) bool { return timeOfDay(p.Date) < *o.ToTime })
+	when(len(o.Year) > 0, func(p *photo) bool { return slices.Contains(o.Year, p.Date.Year()) })
 	// Photos 5 and later: OriginalFilename only (photoquery.py:693-697).
 	when(len(names) > 0, func(p *photo) bool { return containsAny(fold.apply(p.OriginalFilename), names) })
+	when(o.MinSize != 0, func(p *photo) bool { return p.OriginalFilesize >= o.MinSize })
+	when(o.MaxSize != 0, func(p *photo) bool { return p.OriginalFilesize <= o.MaxSize })
 	pair(o.Location, o.NoLocation, func(p *photo) bool { return p.Latitude != nil || p.Longitude != nil })
+	when(!o.AddedAfter.IsZero(), func(p *photo) bool { return dateAdded(p).After(o.AddedAfter) })
+	when(!o.AddedBefore.IsZero(), func(p *photo) bool { return dateAdded(p).Before(o.AddedBefore) })
+	if o.AddedInLast != 0 {
+		inLast := time.Now().Add(-o.AddedInLast) // one cutoff for all photos (photoquery.py:835)
+		fs = append(fs, func(p *photo) bool { return dateAdded(p).After(inLast) })
+	}
 	pair(o.Syndicated, o.NotSyndicated, func(p *photo) bool { return p.Syndicated })
 	pair(o.SavedToLibrary, o.NotSavedToLibrary, func(p *photo) bool { return p.SavedToLibrary })
 	when(o.SavedToLibrary || o.NotSavedToLibrary, func(p *photo) bool { return p.Syndicated }) // photoquery.py:844-847
 	pair(o.SharedLibrary, o.NotSharedLibrary, func(p *photo) bool { return p.SharedLibrary })
 	return fs
+}
+
+// timeOfDay is date.time() of Python: the wall clock in the zone of d
+// (photoquery.py:676-680).
+func timeOfDay(d time.Time) time.Duration {
+	h, m, s := d.Clock()
+	return time.Duration(h)*time.Hour + time.Duration(m)*time.Minute + time.Duration(s)*time.Second + time.Duration(d.Nanosecond())
+}
+
+// withBursts adds to in the other frames of the bursts it holds, taken from
+// every photo of catalog, in the trash or unselected too; the frames that are
+// IsMissing only with missing. Each UUID stays once, at its first place
+// (photoquery.py:863-883; photoinfo.py:1031-1044).
+func withBursts(in, catalog []*photo, missing bool) []*photo {
+	held := map[string]bool{}
+	for _, p := range in {
+		if p.Burst {
+			held[p.BurstUUID] = true
+		}
+	}
+	out := slices.Clone(in)
+	for _, p := range catalog {
+		if p.Burst && held[p.BurstUUID] && (missing || !p.IsMissing) {
+			out = append(out, p)
+		}
+	}
+	seen := make(map[string]bool, len(out))
+	return slices.DeleteFunc(out, func(p *photo) bool {
+		dup := seen[p.UUID]
+		seen[p.UUID] = true
+		return dup
+	})
 }
 
 // caseFold is ignore_case: str.lower of both sides (photoquery.py:484-491).
