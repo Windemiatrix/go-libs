@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
@@ -414,8 +415,8 @@ func TestOpenDanglingReferences(t *testing.T) {
 }
 
 // TestOpenSharedAlbum turns a user album with members into a shared album
-// (ZKIND 1505): its UUID is in no AlbumUUIDs or BurstAlbumUUIDs, since
-// shared albums are not read.
+// (ZKIND 1505): its UUID is in no AlbumUUIDs or BurstAlbumUUIDs and the album
+// is not in Albums, since shared albums are not read.
 func TestOpenSharedAlbum(t *testing.T) {
 	t.Parallel()
 
@@ -435,12 +436,15 @@ func TestOpenSharedAlbum(t *testing.T) {
 		}
 		return n
 	}
+	listed := func(db *DB) bool {
+		return slices.ContainsFunc(db.Albums(), func(a *albuminfo.AlbumInfo) bool { return a.UUID == album })
+	}
 	before, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inAlbum(before) == 0 {
-		t.Fatal("the user album has no photos before the change")
+	if inAlbum(before) == 0 || !listed(before) {
+		t.Fatal("the user album has no photos or is not in Albums before the change")
 	}
 	change(t, lib, "UPDATE ZGENERICALBUM SET ZKIND = 1505 WHERE ZUUID = '"+album+"'")
 	after, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
@@ -449,6 +453,9 @@ func TestOpenSharedAlbum(t *testing.T) {
 	}
 	if n := inAlbum(after); n != 0 {
 		t.Errorf("%d photos list the shared album", n)
+	}
+	if listed(after) {
+		t.Error("the shared album is in Albums")
 	}
 }
 

@@ -2,9 +2,9 @@
 
 **English** | [Русский](#upstream-osxphotos-ru)
 
-This module is a Go port of parts of [osxphotos](https://github.com/RhetTbull/osxphotos). The port follows one fixed upstream release; changes made upstream after that release are not ported until the version below is updated.
+For contributors who compare behavior with Python osxphotos or update the port. Users need only the [README](README.md).
 
-The three lines below are read by a test in this module and by CI. Keep exactly this form.
+This module is a Go port of parts of [osxphotos](https://github.com/RhetTbull/osxphotos). The port follows one fixed upstream release; changes made upstream after that release are not ported until the version below is updated.
 
 ```text
 Upstream version: 0.77.2
@@ -12,13 +12,15 @@ Upstream tag: v0.77.2
 Tag commit: da8dfb212c19c61238dd1a9da8c87fc289324450
 ```
 
+<!-- A test and CI read these three lines; keep the exact form. -->
+
 The version must equal the one in `tools/golden/requirements.txt` (the version used to generate reference data). CI fails when they differ, so moving to a new upstream version changes both files in the same pull request.
 
 Upstream references below are written as `file:line` in that release. Paths are relative to the `osxphotos/` package of the release, as in the table.
 
 ## Correspondence
 
-Only what is ported in v0.1.0. Templates, export and PhotoKit appear together with their own packages.
+Only what is ported so far. Templates, export and PhotoKit appear together with their own packages.
 
 | osxphotos module | Go package |
 |---|---|
@@ -38,6 +40,8 @@ Only what is ported in v0.1.0. Templates, export and PhotoKit appear together wi
 
 ## Intentional differences
 
+If you only read three things: (1) models outside the supported table return `ErrUnsupportedSchema` instead of guessing; (2) the database is always read from a copy; (3) `Photos()` applies no implicit filters, so filter the result yourself to get what `osxphotos query` returns.
+
 - A model from 13000 to 16319 (Photos 5-7 and the pre-release builds 16000-16319) or from 18000 to 18200 gives `ErrUnsupportedSchema`. Upstream reads all of these with their own schemas (`_constants.py:56-62`).
 - Any other model that is not in the schema table also gives `ErrUnsupportedSchema`: below 13000, 19000-19062, 20000-269999999, above 270999999, or a missing `PLModelVersion`. Upstream assumes the latest schema for a model outside all of its ranges and for a missing one (`photosdb/photosdb_utils.py:131-136`, `photosdb/photosdb_utils.py:160-163`).
 - A string `PLModelVersion` is accepted only as ASCII decimal digits. Upstream `int()` also accepts a sign, surrounding spaces and non-ASCII digits (`photosdb/photosdb_utils.py:137`).
@@ -55,7 +59,8 @@ Only what is ported in v0.1.0. Templates, export and PhotoKit appear together wi
 - A `TZOffset` outside (-86400, 86400) seconds always gives `Date` 1970-01-01T00:00:00Z. Upstream gives the same date (`ValueError`), but for an offset outside the range of `timedelta` it fails with an uncaught `OverflowError` (`photos_datetime.py:64-67`).
 - Shared albums (`ZKIND` 1505) are not in `AlbumUUIDs` and `BurstAlbumUUIDs`. Upstream includes them in `album_info` and `albums` (`photoinfo.py:2023-2034`, `_constants.py:364-365`).
 - An empty GUID string means no GUID, as `NULL` does.
-- `AlbumUUIDs` includes albums in the trash; the caller filters by `AlbumInfo.InTrash`.
+- `Albums()` and `AlbumUUIDs` include albums in the trash; filter by `AlbumInfo.InTrash` to get osxphotos `album_info` of the library (`photosdb/photosdb.py:3199-3209`) and of a photo (`photoinfo.py:2029-2034`).
+- `Albums()` returns every album of `ZKIND` 2. Upstream `album_info` also requires an empty `ZCLOUDOWNERHASHEDPERSONID` (`photosdb/photosdb.py:3206`); no album of `ZKIND` 2 in the test libraries has one.
 - The order of photos in an album is not stored: `PhotoUUIDs` is a set.
 - `SystemLibraryPath` has no PhotoKit fallback (`utils.py:206-228`). When neither photolibraryd preferences file holds an absolute path without NUL, it returns `ErrLibraryNotFound`. Upstream returns any value of the key as is (`utils.py:180-206`).
 
@@ -82,9 +87,9 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 
 ## Upstream: osxphotos (по-русски)
 
-Модуль — порт частей [osxphotos](https://github.com/RhetTbull/osxphotos) на Go. Порт следует одному зафиксированному выпуску upstream; правки upstream после этого выпуска не переносятся, пока версия выше не обновлена.
+Для тех, кто сравнивает поведение с Python osxphotos или обновляет порт; пользователю достаточно [README](README.md).
 
-Три строки в блоке выше читает тест этого модуля и CI. Формат менять нельзя.
+Модуль — порт частей [osxphotos](https://github.com/RhetTbull/osxphotos) на Go. Порт следует одному зафиксированному выпуску upstream; правки upstream после этого выпуска не переносятся, пока версия выше не обновлена.
 
 Версия должна совпадать с версией в `tools/golden/requirements.txt` (по ней строятся эталонные данные). При расхождении CI падает, поэтому переход на новую версию upstream меняет оба файла в одном PR.
 
@@ -92,7 +97,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 
 ### Соответствие
 
-Только то, что перенесено в v0.1.0. Шаблоны, экспорт и PhotoKit появятся вместе со своими пакетами.
+Только то, что уже перенесено. Шаблоны, экспорт и PhotoKit появятся вместе со своими пакетами.
 
 | Модуль osxphotos | Пакет Go |
 |---|---|
@@ -112,6 +117,8 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 
 ### Намеренные отличия
 
+Если читать только три пункта: (1) модели вне таблицы поддерживаемых дают `ErrUnsupportedSchema`, а не догадку; (2) база всегда читается из копии; (3) `Photos()` без неявных фильтров, поэтому результат фильтруйте сами, чтобы получить то, что отдаёт `osxphotos query`.
+
 - Номер модели от 13000 до 16319 (Photos 5-7 и предварительные сборки 16000-16319) или от 18000 до 18200 даёт `ErrUnsupportedSchema`. Upstream читает все эти модели по их собственным схемам (`_constants.py:56-62`).
 - Любой другой номер модели, которого нет в таблице схем, тоже даёт `ErrUnsupportedSchema`: меньше 13000, 19000-19062, 20000-269999999, больше 270999999 или отсутствующий `PLModelVersion`. Upstream для номера вне всех своих диапазонов и для отсутствующего берёт последнюю схему (`photosdb/photosdb_utils.py:131-136`, `photosdb/photosdb_utils.py:160-163`).
 - Строковый `PLModelVersion` принимается, только если это десятичные цифры ASCII. `int()` в upstream принимает ещё знак, пробелы по краям и цифры других алфавитов (не ASCII) (`photosdb/photosdb_utils.py:137`).
@@ -129,7 +136,8 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `TZOffset` вне диапазона (-86400, 86400) секунд всегда даёт `Date` 1970-01-01T00:00:00Z. Upstream даёт ту же дату (`ValueError`), но на смещении вне диапазона `timedelta` падает с непойманным `OverflowError` (`photos_datetime.py:64-67`).
 - Общие альбомы (`ZKIND` 1505) не входят в `AlbumUUIDs` и `BurstAlbumUUIDs`. Upstream включает их в `album_info` и `albums` (`photoinfo.py:2023-2034`, `_constants.py:364-365`).
 - Пустая строка GUID означает отсутствие GUID, как и `NULL`.
-- `AlbumUUIDs` включает альбомы в корзине; вызывающий фильтрует по `AlbumInfo.InTrash`.
+- `Albums()` и `AlbumUUIDs` включают альбомы в корзине; фильтр по `AlbumInfo.InTrash` даёт `album_info` из osxphotos для медиатеки (`photosdb/photosdb.py:3199-3209`) и для фото (`photoinfo.py:2029-2034`).
+- `Albums()` возвращает все альбомы с `ZKIND` 2. `album_info` в upstream требует ещё пустого `ZCLOUDOWNERHASHEDPERSONID` (`photosdb/photosdb.py:3206`); ни у одного альбома с `ZKIND` 2 в тестовых медиатеках его нет.
 - Порядок фото в альбоме не хранится: `PhotoUUIDs` — множество.
 - У `SystemLibraryPath` нет запасного пути через PhotoKit (`utils.py:206-228`). Если ни один из двух файлов настроек photolibraryd не содержит абсолютный путь без NUL, возвращается `ErrLibraryNotFound`. Upstream возвращает любое значение ключа как есть (`utils.py:180-206`).
 

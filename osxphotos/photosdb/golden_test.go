@@ -25,8 +25,9 @@ func goldenLibraries(t *testing.T) []goldenLibrary {
 	return libs
 }
 
-// TestGolden compares every photo key of the osxphotos output with what Open
-// reads, for the test libraries and the synthetic library.
+// TestGolden compares every key of the osxphotos output, those of the albums
+// of a photo included, with what Open reads, for the test libraries and the
+// synthetic library.
 func TestGolden(t *testing.T) {
 	t.Parallel()
 
@@ -47,7 +48,8 @@ func TestGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 			photos := db.Photos()
-			rep, err := golden.Compare(ref, golden.Library{Photos: photos}, golden.PhotoKeys(), divs)
+			rep, err := golden.Compare(ref, golden.Library{Photos: photos, Albums: db.Albums()},
+				slices.Concat(golden.PhotoKeys(), golden.AlbumKeys()), divs)
 			if err != nil {
 				t.Fatal(err)
 			}

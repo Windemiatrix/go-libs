@@ -7,9 +7,6 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
 )
 
-// userAlbumKind is ZGENERICALBUM.ZKIND of a user album (_constants.py:364).
-const userAlbumKind = 2
-
 // Member is one asset of a user album (ZKIND 2, _constants.py:364), trashed
 // albums included (photosdb.py:1873-1901).
 type Member struct {
@@ -47,7 +44,7 @@ func (d *DB) Members(ctx context.Context, s schema.Schema) ([]Member, error) {
 		}
 		out = append(out, m)
 		return nil
-	}, userAlbumKind)
+	}, KindUserAlbum)
 	if err != nil {
 		return nil, err
 	}
