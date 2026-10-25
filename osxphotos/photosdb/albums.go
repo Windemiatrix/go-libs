@@ -12,10 +12,10 @@ import (
 
 // Albums returns every user album of the library, those in the trash
 // included, ordered by UUID: the albums that PhotoInfo.AlbumUUIDs refers to.
-// osxphotos album_info leaves out the albums in the trash
-// (photosdb/photosdb.py:3199-3209): filter by InTrash for its list. Shared
+// osxphotos album_info, without the albums in the trash, is AlbumInfo. Shared
 // albums are not read. The slice is new on every call, but its values are
 // shared by all calls: do not modify them.
+// extension: not in osxphotos — osxphotos lists no album in the trash.
 func (db *DB) Albums() []*albuminfo.AlbumInfo { return slices.Clone(db.albums) }
 
 // loadAlbums builds the user albums from the rows of ZGENERICALBUM; the
@@ -71,8 +71,7 @@ func loadAlbums(rows []sqlread.Album, members []sqlread.Member, assets []sqlread
 			CreationDate: optionalTime(r.Created),
 			StartDate:    optionalTime(r.Start),
 			EndDate:      optionalTime(r.End),
-			// Python None != 0: a NULL state counts as trashed (photosdb.py:1936).
-			InTrash: !r.Trashed.Valid || r.Trashed.Int64 != 0,
+			InTrash:      trashed(r),
 		}
 		if r.Parent.Valid && r.Parent.Int64 != rootPK { // albuminfo.py:228-234
 			a.ParentUUID = byPK[r.Parent.Int64].UUID
@@ -122,3 +121,7 @@ func folderNames(album sqlread.Album, byPK map[int64]sqlread.Album, rootPK int64
 	slices.Reverse(names)
 	return names, true
 }
+
+// trashed is one rule for albums and folders: Python None != 0 holds, so a
+// NULL state counts as trashed (photosdb.py:1936).
+func trashed(r sqlread.Album) bool { return !r.Trashed.Valid || r.Trashed.Int64 != 0 }
