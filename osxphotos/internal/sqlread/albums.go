@@ -22,6 +22,9 @@ type Album struct {
 	Title, CloudGUID    sql.NullString  // ZTITLE, ZCLOUDGUID
 	Trashed             sql.NullInt64   // ZTRASHEDSTATE
 	Created, Start, End sql.NullFloat64 // ZCREATIONDATE, ZSTARTDATE, ZENDDATE
+	SortKey             sql.NullInt64   // ZCUSTOMSORTKEY
+	SortAscending       sql.NullInt64   // ZCUSTOMSORTASCENDING
+	ListOrder           sql.NullInt64   // Z_FOK_PARENTFOLDER: the place among the rows of one parent folder
 }
 
 // The order is that of the Scan in Albums.
@@ -30,6 +33,7 @@ func albumSelect() []column {
 	return []column{
 		g("Z_PK"), g("ZUUID"), g("ZKIND"), g("ZPARENTFOLDER"), g("ZTITLE"), g("ZCLOUDGUID"),
 		g("ZTRASHEDSTATE"), g("ZCREATIONDATE"), g("ZSTARTDATE"), g("ZENDDATE"),
+		g("ZCUSTOMSORTKEY"), g("ZCUSTOMSORTASCENDING"), g("Z_FOK_PARENTFOLDER"),
 	}
 }
 
@@ -43,7 +47,7 @@ func (d *DB) Albums(ctx context.Context) ([]Album, error) {
 	err := d.readRows(ctx, "albums", q, func(rows *sql.Rows) error {
 		var a Album
 		if err := rows.Scan(&a.PK, &a.UUID, &a.Kind, &a.Parent, &a.Title, &a.CloudGUID,
-			&a.Trashed, &a.Created, &a.Start, &a.End); err != nil {
+			&a.Trashed, &a.Created, &a.Start, &a.End, &a.SortKey, &a.SortAscending, &a.ListOrder); err != nil {
 			return err
 		}
 		out = append(out, a)

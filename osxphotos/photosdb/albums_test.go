@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -107,6 +108,191 @@ func TestLoadAlbums(t *testing.T) {
 			!sameStringsNilAware(g.FolderNames, w.FolderNames) || !sameStringsNilAware(g.PhotoUUIDs, w.PhotoUUIDs) || g.InTrash != w.InTrash ||
 			!sameTime(g.CreationDate, w.CreationDate) || !sameTime(g.StartDate, w.StartDate) || !sameTime(g.EndDate, w.EndDate) {
 			t.Errorf("album %d = %+v, want %+v", i, *g, *w)
+		}
+	}
+}
+
+func TestLoadAlbumsSortOrder(t *testing.T) {
+	t.Parallel()
+
+	none := sql.NullInt64{}
+	tests := []struct {
+		name     string
+		key, asc sql.NullInt64
+		want     albuminfo.AlbumSortOrder
+	}{
+		{"newest first", nullInt(1), nullInt(0), albuminfo.AlbumSortNewestFirst},
+		{"oldest first", nullInt(1), nullInt(1), albuminfo.AlbumSortOldestFirst},
+		{"another direction", nullInt(1), nullInt(2), albuminfo.AlbumSortUnknown},
+		{"no direction", nullInt(1), none, albuminfo.AlbumSortUnknown},
+		{"title", nullInt(5), nullInt(1), albuminfo.AlbumSortTitle},
+		{"title without direction", nullInt(5), none, albuminfo.AlbumSortTitle},
+		{"manual", nullInt(0), none, albuminfo.AlbumSortManual},
+		{"manual with a direction", nullInt(0), nullInt(1), albuminfo.AlbumSortManual},
+		{"another key", nullInt(2), nullInt(0), albuminfo.AlbumSortUnknown},
+		{"no key", none, nullInt(0), albuminfo.AlbumSortUnknown},
+		{"no key and no direction", none, none, albuminfo.AlbumSortUnknown},
+	}
+	rows := []sqlread.Album{albumRow(1, "ROOT", sqlread.KindRootFolder, none)}
+	for i, tt := range tests {
+		r := albumRow(int64(i+2), fmt.Sprintf("A-%02d", i), sqlread.KindUserAlbum, nullInt(1))
+		r.SortKey, r.SortAscending = tt.key, tt.asc
+		rows = append(rows, r)
+	}
+	got, err := loadAlbums(rows, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != len(tests) {
+		t.Fatalf("%d albums, want %d", len(got), len(tests))
+	}
+	for i, tt := range tests {
+		if got[i].SortOrder != tt.want {
+			t.Errorf("%s: SortOrder %d, want %d", tt.name, got[i].SortOrder, tt.want)
+		}
+	}
+}
+
+func sortRow(pk int64, uuid string, kind int64, parent, order sql.NullInt64) sqlread.Album {
+	r := albumRow(pk, uuid, kind, parent)
+	r.ListOrder = order
+	return r
+}
+
+func sortListRows() []sqlread.Album {
+	none := sql.NullInt64{}
+	const folder, album = sqlread.KindFolder, sqlread.KindUserAlbum
+	return []sqlread.Album{
+		sortRow(1, "ROOT", sqlread.KindRootFolder, none, none),
+		sortRow(2, "F-1", folder, nullInt(1), nullInt(3)),
+		sortRow(3, "F-2", folder, nullInt(2), nullInt(7)),
+		sortRow(4, "F-N", folder, nullInt(1), none),
+		sortRow(5, "F-NN", folder, nullInt(4), nullInt(4)),
+		sortRow(6, "F-P", folder, none, nullInt(2)),
+		sortRow(7, "F-X", folder, nullInt(2), none),
+		sortRow(8, "A-TOP", album, nullInt(1), nullInt(5)),
+		sortRow(9, "A-DEEP", album, nullInt(3), nullInt(2)),
+		sortRow(10, "A-DEEP2", album, nullInt(3), nullInt(9)),
+		sortRow(11, "A-ZERO", album, nullInt(2), nullInt(0)),
+		sortRow(12, "A-UNDERNULL", album, nullInt(4), nullInt(6)),
+		sortRow(13, "A-UNDERNN", album, nullInt(5), nullInt(8)),
+		sortRow(14, "A-NULL", album, nullInt(2), none),
+		sortRow(15, "A-NOPARENT", album, none, nullInt(1)),
+		sortRow(16, "A-UNDERX", album, nullInt(7), nullInt(1)),
+	}
+}
+
+func TestLoadAlbumsListOrder(t *testing.T) {
+	t.Parallel()
+
+	want := map[string][]int{
+		"A-TOP":       {5},
+		"A-DEEP":      {3, 7, 2},
+		"A-DEEP2":     {3, 7, 9},
+		"A-ZERO":      {3, 0},
+		"A-UNDERNULL": {9999999, 6},
+		"A-UNDERNN":   {9999999, 4, 8},
+		"A-NULL":      {9999999},
+		"A-NOPARENT":  {1},
+		"A-UNDERX":    {9999999, 1},
+	}
+	got, err := loadAlbums(sortListRows(), nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != len(want) {
+		t.Fatalf("%d albums, want %d", len(got), len(want))
+	}
+	for _, a := range got {
+		if !slices.Equal(a.LibraryListOrder, want[a.UUID]) {
+			t.Errorf("album %s: LibraryListOrder %v, want %v", a.UUID, a.LibraryListOrder, want[a.UUID])
+		}
+	}
+}
+
+const sortCase = "SELECT CASE WHEN ZCUSTOMSORTKEY = 1 AND ZCUSTOMSORTASCENDING = 0 THEN 2 " +
+	"WHEN ZCUSTOMSORTKEY = 1 AND ZCUSTOMSORTASCENDING = 1 THEN 3 WHEN ZCUSTOMSORTKEY = 5 THEN 5 " +
+	"WHEN ZCUSTOMSORTKEY = 0 THEN 1 ELSE 0 END FROM ZGENERICALBUM WHERE ZUUID = '"
+
+// A row without an order ends the walk up, as the exception of int(None) does in upstream.
+func sortChain(uuid string) string {
+	return "WITH RECURSIVE up(depth, parent, ord) AS (" +
+		"SELECT 0, ZPARENTFOLDER, Z_FOK_PARENTFOLDER FROM ZGENERICALBUM WHERE ZUUID = '" + uuid + "' " +
+		"UNION ALL SELECT up.depth + 1, g.ZPARENTFOLDER, g.Z_FOK_PARENTFOLDER FROM up JOIN ZGENERICALBUM g ON g.Z_PK = up.parent " +
+		"WHERE g.ZKIND != 3999 AND up.ord IS NOT NULL) SELECT COALESCE(ord, 9999999) FROM up ORDER BY depth DESC"
+}
+
+func sortStrings(order []int) []string {
+	out := make([]string, len(order))
+	for i, v := range order {
+		out[i] = strconv.Itoa(v)
+	}
+	return out
+}
+
+func sortCheckLibrary(t *testing.T, lib string, seen map[albuminfo.AlbumSortOrder]int) (chains int) {
+	t.Helper()
+	db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := roDB(t, lib)
+	for _, a := range db.Albums() {
+		seen[a.SortOrder]++
+		if want := testlib.Count(t, src, sortCase+a.UUID+"'"); int(a.SortOrder) != want {
+			t.Errorf("album %s: SortOrder %d, want %d", a.UUID, a.SortOrder, want)
+		}
+		if want := testlib.Rows(t, src, sortChain(a.UUID)); !slices.Equal(sortStrings(a.LibraryListOrder), want) {
+			t.Errorf("album %s: LibraryListOrder %v, want %q", a.UUID, a.LibraryListOrder, want)
+		}
+		if n := len(a.LibraryListOrder); n > 2 || (n > 1 && slices.Contains(a.LibraryListOrder, noListOrder)) {
+			chains++
+		}
+	}
+	for _, u := range testlib.Rows(t, src, "SELECT ZUUID FROM ZGENERICALBUM WHERE ZKIND = 4000 AND ZUUID IS NOT NULL") {
+		f, ok := db.Folder(u)
+		if !ok {
+			t.Errorf("Folder(%s) found nothing", u)
+			continue
+		}
+		if want := testlib.Rows(t, src, sortChain(u)); !slices.Equal(sortStrings(f.LibraryListOrder), want) {
+			t.Errorf("folder %s: LibraryListOrder %v, want %q", u, f.LibraryListOrder, want)
+		}
+	}
+	return chains
+}
+
+// The reference cannot check these: osxphotos prints sort_order as null and has
+// no library_list_order.
+func TestAlbumsOrder(t *testing.T) {
+	t.Parallel()
+
+	seen := map[albuminfo.AlbumSortOrder]int{}
+	chains := 0
+	for _, name := range testlib.Libraries(t) {
+		t.Run(name, func(t *testing.T) { chains += sortCheckLibrary(t, testlib.OpenPristine(t, name), seen) })
+	}
+	t.Run("synthetic with every sort order and some orders removed", func(t *testing.T) {
+		lib := testlib.OpenPristine(t, "synthetic")
+		change(t, lib,
+			"UPDATE ZGENERICALBUM SET "+
+				"ZCUSTOMSORTKEY = CASE Z_PK % 6 WHEN 0 THEN 1 WHEN 1 THEN 1 WHEN 2 THEN 5 WHEN 3 THEN 0 WHEN 4 THEN 1 END, "+
+				"ZCUSTOMSORTASCENDING = CASE Z_PK % 6 WHEN 0 THEN 0 WHEN 1 THEN 1 WHEN 4 THEN 2 END WHERE ZKIND = 2",
+			"UPDATE ZGENERICALBUM SET Z_FOK_PARENTFOLDER = NULL WHERE ZKIND IN (2, 4000) AND Z_PK % 5 = 3",
+		)
+		chains += sortCheckLibrary(t, lib, seen)
+	})
+	t.Logf("sort orders of all albums: %v; %d albums with a deep chain or a missing order above", seen, chains)
+	// Without them the SQL oracle says nothing about the drop of the folders above a row without an order.
+	if chains == 0 {
+		t.Error("no album has a chain deeper than one folder or an enclosing folder without an order")
+	}
+	for _, o := range []albuminfo.AlbumSortOrder{
+		albuminfo.AlbumSortUnknown, albuminfo.AlbumSortManual, albuminfo.AlbumSortNewestFirst,
+		albuminfo.AlbumSortOldestFirst, albuminfo.AlbumSortTitle,
+	} {
+		if seen[o] == 0 {
+			t.Errorf("no album has the sort order %d", o)
 		}
 	}
 }

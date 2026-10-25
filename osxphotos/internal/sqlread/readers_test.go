@@ -155,7 +155,7 @@ func TestColumnsIncludeJoins(t *testing.T) {
 		"ZDETECTEDFACE":              {"ZASSETFORFACE", "ZPERSONFORFACE"},
 		"ZPERSON":                    {"Z_PK", "ZFULLNAME"},
 		"Z_33ASSETS":                 {"Z_33ALBUMS", "Z_3ASSETS"},
-		"ZGENERICALBUM":              {"Z_PK", "ZUUID", "ZKIND"},
+		"ZGENERICALBUM":              {"Z_PK", "ZUUID", "ZKIND", "ZCUSTOMSORTKEY", "ZCUSTOMSORTASCENDING", "Z_FOK_PARENTFOLDER"},
 	}
 	for table, cols := range want {
 		for _, col := range cols {
@@ -272,6 +272,17 @@ func TestReadersRows(t *testing.T) {
 					t.Errorf("Albums: row %d out of Z_PK order", i+1)
 				}
 			}
+			var sums [3]int64
+			for _, a := range albums {
+				sums[0] += a.SortKey.Int64 * a.PK
+				sums[1] += a.SortAscending.Int64 * a.PK
+				sums[2] += a.ListOrder.Int64 * a.PK
+			}
+			for i, col := range []string{"ZCUSTOMSORTKEY", "ZCUSTOMSORTASCENDING", "Z_FOK_PARENTFOLDER"} {
+				if want := count(t, ro, "SELECT COALESCE(SUM("+col+" * Z_PK), 0) FROM ZGENERICALBUM WHERE ZKIND IN (2, 3999, 4000) AND ZUUID IS NOT NULL"); sums[i] != want {
+					t.Errorf("Albums: sum of %s * Z_PK %d, want %d", col, sums[i], want)
+				}
+			}
 
 			kws, err := d.Keywords(t.Context(), n)
 			if err != nil {
@@ -379,6 +390,9 @@ func TestReaderValueType(t *testing.T) {
 		{"asset spatial type", "UPDATE ZASSET SET ZSPATIALTYPE = 'SECRET-S' WHERE Z_PK = 3", readers[0].run},
 		{"member asset", "UPDATE Z_33ASSETS SET Z_3ASSETS = 'SECRET-M' WHERE rowid = (SELECT MIN(rowid) FROM Z_33ASSETS)", readers[4].run},
 		{"album parent", "UPDATE ZGENERICALBUM SET ZPARENTFOLDER = 'SECRET-P' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
+		{"album sort key", "UPDATE ZGENERICALBUM SET ZCUSTOMSORTKEY = 'SECRET-K' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
+		{"album sort ascending", "UPDATE ZGENERICALBUM SET ZCUSTOMSORTASCENDING = 'SECRET-A' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
+		{"album list order", "UPDATE ZGENERICALBUM SET Z_FOK_PARENTFOLDER = 'SECRET-O' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -418,7 +432,8 @@ func TestReadersNull(t *testing.T) {
 		"UPDATE ZADDITIONALASSETATTRIBUTES SET ZORIGINALFILENAME = NULL, ZTIMEZONEOFFSET = NULL, ZCAMERACAPTUREDEVICE = NULL, "+
 			"ZTIMEZONENAME = NULL, ZIMPORTEDBYDISPLAYNAME = NULL, ZIMPORTEDBYBUNDLEIDENTIFIER = NULL, ZUNMANAGEDADJUSTMENT = NULL WHERE ZASSET = 2",
 		// The album keeps its ZUUID: without it Members would lose its rows.
-		"UPDATE ZGENERICALBUM SET ZTITLE = NULL, ZPARENTFOLDER = NULL, ZTRASHEDSTATE = NULL, ZCREATIONDATE = NULL, ZCLOUDGUID = NULL "+
+		"UPDATE ZGENERICALBUM SET ZTITLE = NULL, ZPARENTFOLDER = NULL, ZTRASHEDSTATE = NULL, ZCREATIONDATE = NULL, ZCLOUDGUID = NULL, "+
+			"ZCUSTOMSORTKEY = NULL, ZCUSTOMSORTASCENDING = NULL, Z_FOK_PARENTFOLDER = NULL "+
 			"WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)",
 		"UPDATE ZGENERICALBUM SET ZUUID = NULL WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 4000)",
 	)
