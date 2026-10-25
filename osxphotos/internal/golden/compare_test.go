@@ -30,8 +30,8 @@ func TestCompareNoDifferences(t *testing.T) {
 	if !rep.OK() || len(rep.Diffs) != 0 || len(rep.Explained) != 0 || len(rep.Stale) != 0 {
 		t.Fatalf("report = %+v, want no differences", rep)
 	}
-	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 60 {
-		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 60", rep.Library, rep.Objects, len(rep.Keys))
+	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 72 {
+		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 72", rep.Library, rep.Objects, len(rep.Keys))
 	}
 	if !slices.IsSorted(rep.Keys) {
 		t.Error("Keys are not sorted")
@@ -89,6 +89,23 @@ func photoMutations() []mutation {
 		{"TimeLapse", p(func(x *photoinfo.PhotoInfo) { x.TimeLapse = false }), "time_lapse"},
 		{"ScreenRecording", p(func(x *photoinfo.PhotoInfo) { x.ScreenRecording = false }), "screen_recording"},
 		{"Burst", p(func(x *photoinfo.PhotoInfo) { x.Burst = false }), "burst burst_photos"},
+		{"HDR", p(func(x *photoinfo.PhotoInfo) { x.HDR = false }), "hdr"},
+		{"Panorama", p(func(x *photoinfo.PhotoInfo) { x.Panorama = false }), "panorama"},
+		{"Portrait", p(func(x *photoinfo.PhotoInfo) { x.Portrait = false }), "portrait"},
+		{"Selfie", p(func(x *photoinfo.PhotoInfo) { x.Selfie = false }), "selfie"},
+		{"Visible", p(func(x *photoinfo.PhotoInfo) { x.Visible = false }), "visible"},
+		{"SharedMoment", p(func(x *photoinfo.PhotoInfo) { x.SharedMoment = false }), "shared_moment"},
+		{"ExternalEdit", p(func(x *photoinfo.PhotoInfo) { x.ExternalEdit = false }), "external_edit"},
+		{"Spatial", p(func(x *photoinfo.PhotoInfo) { x.Spatial = 2 }), "spatial"},
+		{"TZName", p(func(x *photoinfo.PhotoInfo) { x.TZName = "" }), "tzname"},
+		{"CloudOwnerHashedID", p(func(x *photoinfo.PhotoInfo) { x.CloudOwnerHashedID = "" }), "cloud_owner_hashed_id"},
+		{"AdjustmentType", p(func(x *photoinfo.PhotoInfo) { x.AdjustmentType = ptr(2) }), "adjustment_type"},
+		{"AdjustmentType nil", p(func(x *photoinfo.PhotoInfo) { x.AdjustmentType = nil }), "adjustment_type"},
+		{"ImportedByName", p(func(x *photoinfo.PhotoInfo) { x.ImportedByName = "" }), "imported_by"},
+		{"ImportedByBundleID", p(func(x *photoinfo.PhotoInfo) { x.ImportedByBundleID = "" }), "imported_by"},
+		{"ImportedBy swapped", p(func(x *photoinfo.PhotoInfo) {
+			x.ImportedByName, x.ImportedByBundleID = x.ImportedByBundleID, x.ImportedByName
+		}), "imported_by"},
 
 		{"CloudMasterGUID", p(func(x *photoinfo.PhotoInfo) { x.CloudMasterGUID = "" }), "cloud_guid"},
 		{"Description", p(func(x *photoinfo.PhotoInfo) { x.Description = "" }), "description"},
@@ -355,6 +372,12 @@ func TestCompareNulls(t *testing.T) {
 		{"OriginalOrientation", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.OriginalOrientation = 1 }), "original_orientation"},
 		{"OriginalFilesize", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.OriginalFilesize = 1 }), "original_filesize"},
 		{"Orientation", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Orientation = 1 }), "orientation"},
+		{"Spatial", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Spatial = 1 }), "spatial"},
+		{"TZName", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.TZName = "x" }), "tzname"},
+		{"CloudOwnerHashedID", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.CloudOwnerHashedID = "x" }), "cloud_owner_hashed_id"},
+		{"AdjustmentType 0 is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.AdjustmentType = ptr(0) }), "adjustment_type"},
+		{"ImportedByName", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ImportedByName = "x" }), "imported_by"},
+		{"ImportedByBundleID", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ImportedByBundleID = "x" }), "imported_by"},
 		{"InCloud false is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.InCloud = ptr(false) }), "incloud"},
 		{"TZOffset 0 is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.TZOffset = ptr(0) }), "tzoffset"},
 		{"Latitude 0 is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Latitude = ptr(0.0) }), "latitude location"},

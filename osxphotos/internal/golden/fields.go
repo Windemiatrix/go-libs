@@ -72,6 +72,8 @@ func buildRules() map[string]rule {
 		value("tzoffset", true, "an integer or null", func(p *photoinfo.PhotoInfo) *int { return p.TZOffset }),
 		value("latitude", true, "a number or null", func(p *photoinfo.PhotoInfo) *float64 { return p.Latitude }),
 		value("longitude", true, "a number or null", func(p *photoinfo.PhotoInfo) *float64 { return p.Longitude }),
+		value("adjustment_type", true, "an integer or null", func(p *photoinfo.PhotoInfo) *int { return p.AdjustmentType }),
+		importedBy(),
 
 		moment("date", true, time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return &p.Date }),
 		moment("date_added", false, defaultDateAdded, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateAdded }),
@@ -103,6 +105,13 @@ func buildRules() map[string]rule {
 		flag("shared_library", func(p *photoinfo.PhotoInfo) bool { return p.SharedLibrary }),
 		flag("syndicated", func(p *photoinfo.PhotoInfo) bool { return p.Syndicated }),
 		flag("saved_to_library", func(p *photoinfo.PhotoInfo) bool { return p.SavedToLibrary }),
+		flag("hdr", func(p *photoinfo.PhotoInfo) bool { return p.HDR }),
+		flag("panorama", func(p *photoinfo.PhotoInfo) bool { return p.Panorama }),
+		flag("portrait", func(p *photoinfo.PhotoInfo) bool { return p.Portrait }),
+		flag("selfie", func(p *photoinfo.PhotoInfo) bool { return p.Selfie }),
+		flag("visible", func(p *photoinfo.PhotoInfo) bool { return p.Visible }),
+		flag("shared_moment", func(p *photoinfo.PhotoInfo) bool { return p.SharedMoment }),
+		flag("external_edit", func(p *photoinfo.PhotoInfo) bool { return p.ExternalEdit }),
 
 		text("filename", false, func(p *photoinfo.PhotoInfo) string { return p.Filename }),
 		text("original_filename", false, func(p *photoinfo.PhotoInfo) string { return p.OriginalFilename }),
@@ -114,6 +123,8 @@ func buildRules() map[string]rule {
 		text("description", true, func(p *photoinfo.PhotoInfo) string { return p.Description }),
 		text("fingerprint", true, func(p *photoinfo.PhotoInfo) string { return p.Fingerprint }),
 		text("title", true, func(p *photoinfo.PhotoInfo) string { return p.Title }),
+		text("tzname", true, func(p *photoinfo.PhotoInfo) string { return p.TZName }),
+		text("cloud_owner_hashed_id", true, func(p *photoinfo.PhotoInfo) string { return p.CloudOwnerHashedID }),
 
 		number("width", func(p *photoinfo.PhotoInfo) int64 { return int64(p.Width) }),
 		number("height", func(p *photoinfo.PhotoInfo) int64 { return int64(p.Height) }),
@@ -121,6 +132,7 @@ func buildRules() map[string]rule {
 		number("original_height", func(p *photoinfo.PhotoInfo) int64 { return int64(p.OriginalHeight) }),
 		number("original_orientation", func(p *photoinfo.PhotoInfo) int64 { return int64(p.OriginalOrientation) }),
 		number("original_filesize", func(p *photoinfo.PhotoInfo) int64 { return p.OriginalFilesize }),
+		number("spatial", func(p *photoinfo.PhotoInfo) int64 { return int64(p.Spatial) }),
 	}
 	m := make(map[string]rule, len(list))
 	for _, r := range list {
@@ -207,19 +219,30 @@ func persons() rule {
 }
 
 func location() rule {
-	const want = "a list of two numbers or nulls"
 	return simple("location",
+		func(o Object) (any, error) { return refPair[*float64](o, "location", "a list of two numbers or nulls") },
+		func(p *photoinfo.PhotoInfo) any { return []*float64{p.Latitude, p.Longitude} })
+}
+
+// photoinfo.py:682-694.
+func importedBy() rule {
+	return simple("imported_by",
 		func(o Object) (any, error) {
-			pair, err := decode[[]*float64](o, "location", false, want)
+			pair, err := refPair[*string](o, "imported_by", "a list of two strings or nulls")
 			if err != nil {
 				return nil, err
 			}
-			if len(pair) != 2 {
-				return nil, shape("location", want)
-			}
-			return pair, nil
+			return derefAll(pair), nil
 		},
-		func(p *photoinfo.PhotoInfo) any { return []*float64{p.Latitude, p.Longitude} })
+		func(p *photoinfo.PhotoInfo) any { return []string{p.ImportedByName, p.ImportedByBundleID} })
+}
+
+func refPair[T any](o Object, key, want string) ([]T, error) {
+	pair, err := decode[[]T](o, key, false, want)
+	if err == nil && len(pair) != 2 {
+		err = shape(key, want)
+	}
+	return pair, err
 }
 
 // The frames are found among all photos of the library, selected or not,

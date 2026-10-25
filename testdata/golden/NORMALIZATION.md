@@ -9,7 +9,7 @@ Upstream places are written as `file:line` relative to the `osxphotos/` package 
 ## General rules
 
 1. **By UUID.** The reference holds the objects of `query.json` and `deleted.json` together; a UUID repeated in them, or repeated on the Go side, is an error of the input. The Go side is the photos that upstream `photos()` would return: not an unselected burst frame (`BurstUnselected()`) and a photo or a movie (other kinds have no type upstream). An object on one side only is a difference of the key `uuid`; the other keys are compared for the objects both sides have.
-2. **A date is a moment**, to the microsecond (the resolution of Python `datetime`). A reference string (ISO 8601, offset `±HH:MM`, or `±HH:MM:SS` for some zones) is read as a moment; the Go value is compared as it is, without rounding, in UTC. The offset written in the string `date` is **not** compared: upstream takes it from the time zone name, which the module does not read. The offset of the asset is the key `tzoffset`.
+2. **A date is a moment**, to the microsecond (the resolution of Python `datetime`). A reference string (ISO 8601, offset `±HH:MM`, or `±HH:MM:SS` for some zones) is read as a moment; the Go value is compared as it is, without rounding, in UTC. The offset written in the string `date` is **not** compared: upstream takes it from the time zone name (`tzname`), which the module does not apply to `Date`. The offset of the asset is the key `tzoffset`.
 3. **`null` equals a zero Go value** only for the keys whose row says so: a string is `""`, an integer is `0`, a pointer is `nil`. `null` where a row does not allow it (a boolean, a strict string) is an error of the form of the reference.
 4. **Integers are exact** (a JSON integer that fits `int64`; `3024.0` is not accepted). **Floats** (`latitude`, `longitude`) are exact too: both sides read one IEEE double and neither Python `repr` nor Go changes it, so there is no tolerance (a tolerance would hide a wrong column).
 5. **Lists of strings** are sorted by upstream in `json()` (`photoinfo.py:2279-2285`), except `location`; they are compared in order, and the Go side has to give the same order (by bytes of UTF-8, which is the order of code points). `null` in a list equals `""`. A list that is a set (`album_info`, `burst_album_info`) is compared as a set by `uuid`; `keywords` is a list and keeps repeats.
@@ -23,6 +23,7 @@ One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and
 
 | Key | Go | Rule | Upstream |
 |---|---|---|---|
+| `adjustment_type` | `AdjustmentType` | integer; `null` = `nil`; `0` is not `null` | `photoinfo.py:802-805`; `photosdb/photosdb.py:2183` |
 | `album_info` | `AlbumUUIDs` → `Library.Albums`, albums in the trash left out | Set by `uuid` after rule 8. Per element: `uuid`; `title` (`null` = `""`); `parent` (`null` = `ParentUUID` `""`); `folder_names` in order; `creation_date` (a moment; 2001-01-01T00:00:00 = `nil`, as upstream defaults a missing value to 0 seconds of Core Data); `start_date`, `end_date` (`null` = `nil`). `folder_list`, `owner` and `sort_order` are not compared: Go has no counterpart | `photoinfo.py:655-662, 1991-2034`; `albuminfo.py:76-107, 135-143, 289-297`; `photosdb/photosdb.py:1937-1938` |
 | `albums` | titles of the same albums | Sorted set of titles, repeats merged; titles of dropped shared albums are removed unless a kept element of `album_info` has the title | `photoinfo.py:633-644` |
 | `burst` | `Burst` | boolean | `photosdb/photosdb.py:2212-2223` |
@@ -33,19 +34,23 @@ One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and
 | `burst_photos` | other photos of the burst in `Library.Photos` | With `Burst`: UUIDs of the other photos that have `Burst` and the same `BurstUUID` (an empty one too: upstream groups by "is not None"), selected or not, in the trash or not, photos or not; sorted; without the photo itself. Without `Burst`: `[]` | `photosdb/photosdb.py:2212-2220`; `photoinfo.py:1031-1044` |
 | `burst_selected` | `BurstSelected` | boolean | `photoinfo.py:989-997` |
 | `cloud_guid` | `CloudMasterGUID` | `null` = `""` | `photoinfo.py:1762-1765` |
+| `cloud_owner_hashed_id` | `CloudOwnerHashedID` | `null` = `""` | `photoinfo.py:1767-1770`; `photosdb/photosdb.py:2320` |
 | `date` | `Date` | moment (rule 2) | `photosdb/photosdb.py:2159-2167`; `photos_datetime.py:27-67` |
 | `date_added` | `DateAdded` | moment; the reference 1970-01-01T00:00:00 (the default of upstream) = `nil` or that moment | `photosdb/photosdb.py:2317`; `photos_datetime.py:19-21, 77-78`; `photoinfo.py:849-855` |
 | `date_modified` | `DateModified` | moment; `null` = `nil` | `photosdb/photosdb.py:2156-2157`; `photoinfo.py:165-177` |
 | `date_trashed` | `DateTrashed` | moment; `null` = `nil` | `photosdb/photosdb.py:2292-2293`; `photoinfo.py:842-847` |
 | `description` | `Description` | `null` = `""` | `photoinfo.py:592-595` |
+| `external_edit` | `ExternalEdit` | boolean | `photoinfo.py:807-810`; `photosdb/photosdb.py:2423-2439` |
 | `favorite` | `Favorite` | boolean | `photoinfo.py:812-815` |
 | `filename` | `Filename` | strict string | `photoinfo.py:114-140` |
 | `fingerprint` | `Fingerprint` | `null` = `""` | `photoinfo.py:1772-1775` |
 | `folders` | albums of `album_info` | Dictionary "title → `folder_names`" after rule 8: the same titles; with several Go albums of one title the value of the reference must equal `FolderNames` of one of them. An album without a title is the key `"null"` (`json.dumps` writes the key `None` as `null`; a mix of `None` and strings in keys cannot be sorted, so the reference has only that one key then) | `photoinfo.py:2125, 2286-2288` |
 | `has_raw` | `HasRAW` | boolean | `photoinfo.py:1363-1366` |
 | `hasadjustments` | `HasAdjustments` | boolean | `photoinfo.py:738-741` |
+| `hdr` | `HDR` | boolean | `photoinfo.py:1291-1294`; `photosdb/photosdb.py:2248-2249` |
 | `height` | `Height` | integer, `null` = 0 | `photoinfo.py:1380-1383` |
 | `hidden` | `Hidden` | boolean | `photoinfo.py:827-830` |
+| `imported_by` | `[ImportedByName, ImportedByBundleID]` | pair, the order matters, each `null` = `""` | `photoinfo.py:682-694`; `photosdb/photosdb.py:2070-2075, 2324-2325` |
 | `incloud` | `InCloud` | `null` = `nil`; `false` is not `null` | `photoinfo.py:958-964` |
 | `intrash` | `InTrash` | boolean | `photoinfo.py:837-840` |
 | `iscloudasset` | `IsCloudAsset` | boolean | `photoinfo.py:966-977` |
@@ -65,23 +70,30 @@ One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and
 | `original_height` | `OriginalHeight` | integer, `null` = 0 | `photoinfo.py:1406-1409` |
 | `original_orientation` | `OriginalOrientation` | integer, `null` = 0 | `photoinfo.py:1416-1419` |
 | `original_width` | `OriginalWidth` | integer, `null` = 0 | `photoinfo.py:1411-1414` |
+| `panorama` | `Panorama` | boolean | `photoinfo.py:1276-1279`; `photosdb/photosdb.py:2257-2258` |
 | `persons` | `HasPersons` | `true` if the list has a name other than `_UNKNOWN_` (upstream names a person without a name `_UNKNOWN_`); the module tells only whether there are people with a name | `photoinfo.py:597-603`; `photosdb/photosdb.py:1790-1796`; `_constants.py:337` |
+| `portrait` | `Portrait` | boolean | `photoinfo.py:1306-1309`; `photosdb/photosdb.py:2250-2251` |
 | `raw_original` | `RawOriginal` | boolean | `photoinfo.py:1373-1378` |
 | `saved_to_library` | `SavedToLibrary` | boolean | `photoinfo.py:1586-1599` |
 | `screen_recording` | `ScreenRecording` | boolean | `photoinfo.py:1301-1304`; `photosdb/photosdb.py:2237` |
 | `screenshot` | `Screenshot` | boolean | `photoinfo.py:1296-1299` |
+| `selfie` | `Selfie` | boolean | `photoinfo.py:1322-1325`; `photosdb/photosdb.py:2260-2261` |
 | `shared` | `Shared` | boolean | `photoinfo.py:872-879` |
 | `shared_library` | `SharedLibrary` | boolean | `photoinfo.py:1628-1632` |
+| `shared_moment` | `SharedMoment` | boolean | `photoinfo.py:1601-1604`; `photosdb/photosdb.py:2322` |
 | `slow_mo` | `SlowMo` | boolean | `photoinfo.py:1281-1284`; `photosdb/photosdb.py:2239` |
+| `spatial` | `Spatial` | integer, `null` = 0; 0 for a library without `ZASSET.ZSPATIALTYPE` | `photoinfo.py:1311-1320`; `photosdb/photosdb.py:1751-1759, 2253-2255` |
 | `syndicated` | `Syndicated` | boolean | `photoinfo.py:1569-1584` |
 | `time_lapse` | `TimeLapse` | boolean | `photoinfo.py:1286-1289`; `photosdb/photosdb.py:2240` |
 | `title` | `Title` | `null` = `""` (upstream turns `""` into `None`) | `photoinfo.py:710-717` |
+| `tzname` | `TZName` | `null` = `""` | `photoinfo.py:184-187`; `photosdb/photosdb.py:2160` |
 | `tzoffset` | `TZOffset` | integer; `null` = `nil`; `0` is not `null` | `photoinfo.py:179-182`; `photosdb/photosdb.py:2159` |
 | `uti` | `UTI` | strict string | `photoinfo.py:881-921` |
 | `uti_edited` | `UTIEdited` | `null` = `""` | `photoinfo.py:923-932` |
 | `uti_original` | `UTIOriginal` | strict string | `photoinfo.py:881-921` |
 | `uti_raw` | `UTIRaw` | `null` = `""` | `photoinfo.py:934-946` |
 | `uuid` | `UUID` | the sets of rule 1 | `photosdb/photosdb.py:2197-2204, 3346-3360` |
+| `visible` | `Visible` | boolean | `photoinfo.py:832-835`; `photosdb/photosdb.py:2304-2307` |
 | `width` | `Width` | integer, `null` = 0 | `photoinfo.py:1385-1388` |
 
 ## divergences.json
@@ -124,7 +136,7 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 ### Общие правила
 
 1. **По UUID.** Эталон — объекты `query.json` и `deleted.json` вместе; UUID, повторённый в них или на стороне Go, — ошибка входа. Сторона Go — фото, которые вернул бы `photos()` upstream: не невыбранный кадр серии (`BurstUnselected()`) и фото или видео (у остальных видов в upstream нет типа). Объект только с одной стороны — расхождение ключа `uuid`; остальные ключи сравниваются у объектов, которые есть с обеих сторон.
-2. **Дата — момент**, с точностью до микросекунды (разрешение `datetime` Python). Строка эталона (ISO 8601, смещение `±HH:MM`, у некоторых зон `±HH:MM:SS`) читается как момент; значение Go сравнивается как есть, без округления, в UTC. Смещение в строке `date` **не** сравнивается: upstream берёт его из названия часового пояса, которое модуль не читает. Смещение объекта — ключ `tzoffset`.
+2. **Дата — момент**, с точностью до микросекунды (разрешение `datetime` Python). Строка эталона (ISO 8601, смещение `±HH:MM`, у некоторых зон `±HH:MM:SS`) читается как момент; значение Go сравнивается как есть, без округления, в UTC. Смещение в строке `date` **не** сравнивается: upstream берёт его из названия часового пояса (`tzname`), которое модуль к `Date` не применяет. Смещение объекта — ключ `tzoffset`.
 3. **`null` равно нулевому значению Go** только у ключей, где это сказано в строке: строка — `""`, целое — `0`, указатель — `nil`. `null` там, где строка его не допускает (логическое значение, строгая строка), — ошибка формы эталона.
 4. **Целые — точно** (целое JSON, помещающееся в `int64`; `3024.0` не принимается). **Дробные** (`latitude`, `longitude`) — тоже точно: обе стороны читают один IEEE double, ни `repr` Python, ни Go его не меняют, допуска нет (допуск спрятал бы чтение не той колонки).
 5. **Списки строк** upstream сортирует в `json()` (`photoinfo.py:2279-2285`), кроме `location`; сравниваются по порядку, Go обязан дать тот же порядок (по байтам UTF-8, это порядок кодовых точек). `null` в списке равно `""`. Список-множество (`album_info`, `burst_album_info`) сравнивается как множество по `uuid`; `keywords` — список, повторы сохраняются.
@@ -138,6 +150,7 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 
 | Ключ | Go | Правило | Upstream |
 |---|---|---|---|
+| `adjustment_type` | `AdjustmentType` | целое; `null` = `nil`; `0` — не `null` | `photoinfo.py:802-805`; `photosdb/photosdb.py:2183` |
 | `album_info` | `AlbumUUIDs` → `Library.Albums`, альбомы в корзине не берутся | Множество по `uuid` после правила 8. У элемента: `uuid`; `title` (`null` = `""`); `parent` (`null` = `ParentUUID` `""`); `folder_names` по порядку; `creation_date` (момент; 2001-01-01T00:00:00 = `nil`: upstream подставляет вместо пустого значения 0 секунд Core Data); `start_date`, `end_date` (`null` = `nil`). `folder_list`, `owner` и `sort_order` не сравниваются: в Go их нет | `photoinfo.py:655-662, 1991-2034`; `albuminfo.py:76-107, 135-143, 289-297`; `photosdb/photosdb.py:1937-1938` |
 | `albums` | названия тех же альбомов | Отсортированное множество названий, повторы склеены; названия отброшенных общих альбомов убираются, если такого названия нет у оставшегося элемента `album_info` | `photoinfo.py:633-644` |
 | `burst` | `Burst` | логическое | `photosdb/photosdb.py:2212-2223` |
@@ -148,19 +161,23 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 | `burst_photos` | другие фото серии в `Library.Photos` | У кадра с `Burst`: UUID других фото с `Burst` и тем же `BurstUUID` (в том числе пустым: upstream группирует по «не None»), выбранных и нет, в корзине и нет, фото и нет; отсортированные; без самого кадра. Без `Burst`: `[]` | `photosdb/photosdb.py:2212-2220`; `photoinfo.py:1031-1044` |
 | `burst_selected` | `BurstSelected` | логическое | `photoinfo.py:989-997` |
 | `cloud_guid` | `CloudMasterGUID` | `null` = `""` | `photoinfo.py:1762-1765` |
+| `cloud_owner_hashed_id` | `CloudOwnerHashedID` | `null` = `""` | `photoinfo.py:1767-1770`; `photosdb/photosdb.py:2320` |
 | `date` | `Date` | момент (правило 2) | `photosdb/photosdb.py:2159-2167`; `photos_datetime.py:27-67` |
 | `date_added` | `DateAdded` | момент; эталон 1970-01-01T00:00:00 (умолчание upstream) = `nil` или этот момент | `photosdb/photosdb.py:2317`; `photos_datetime.py:19-21, 77-78`; `photoinfo.py:849-855` |
 | `date_modified` | `DateModified` | момент; `null` = `nil` | `photosdb/photosdb.py:2156-2157`; `photoinfo.py:165-177` |
 | `date_trashed` | `DateTrashed` | момент; `null` = `nil` | `photosdb/photosdb.py:2292-2293`; `photoinfo.py:842-847` |
 | `description` | `Description` | `null` = `""` | `photoinfo.py:592-595` |
+| `external_edit` | `ExternalEdit` | логическое | `photoinfo.py:807-810`; `photosdb/photosdb.py:2423-2439` |
 | `favorite` | `Favorite` | логическое | `photoinfo.py:812-815` |
 | `filename` | `Filename` | строгая строка | `photoinfo.py:114-140` |
 | `fingerprint` | `Fingerprint` | `null` = `""` | `photoinfo.py:1772-1775` |
 | `folders` | альбомы `album_info` | Словарь «название → `folder_names`» после правила 8: названия те же; при нескольких альбомах Go с одним названием значение эталона должно совпасть с `FolderNames` одного из них. Альбом без названия — ключ `"null"` (`json.dumps` пишет ключ `None` как `null`; смесь `None` и строк в ключах не сортируется, поэтому в эталоне тогда только этот ключ) | `photoinfo.py:2125, 2286-2288` |
 | `has_raw` | `HasRAW` | логическое | `photoinfo.py:1363-1366` |
 | `hasadjustments` | `HasAdjustments` | логическое | `photoinfo.py:738-741` |
+| `hdr` | `HDR` | логическое | `photoinfo.py:1291-1294`; `photosdb/photosdb.py:2248-2249` |
 | `height` | `Height` | целое, `null` = 0 | `photoinfo.py:1380-1383` |
 | `hidden` | `Hidden` | логическое | `photoinfo.py:827-830` |
+| `imported_by` | `[ImportedByName, ImportedByBundleID]` | пара, порядок значим, каждый `null` = `""` | `photoinfo.py:682-694`; `photosdb/photosdb.py:2070-2075, 2324-2325` |
 | `incloud` | `InCloud` | `null` = `nil`; `false` — не `null` | `photoinfo.py:958-964` |
 | `intrash` | `InTrash` | логическое | `photoinfo.py:837-840` |
 | `iscloudasset` | `IsCloudAsset` | логическое | `photoinfo.py:966-977` |
@@ -180,23 +197,30 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 | `original_height` | `OriginalHeight` | целое, `null` = 0 | `photoinfo.py:1406-1409` |
 | `original_orientation` | `OriginalOrientation` | целое, `null` = 0 | `photoinfo.py:1416-1419` |
 | `original_width` | `OriginalWidth` | целое, `null` = 0 | `photoinfo.py:1411-1414` |
+| `panorama` | `Panorama` | логическое | `photoinfo.py:1276-1279`; `photosdb/photosdb.py:2257-2258` |
 | `persons` | `HasPersons` | `true`, если в списке есть имя, отличное от `_UNKNOWN_` (человека без имени upstream называет `_UNKNOWN_`); модуль сообщает только, есть ли люди с именем | `photoinfo.py:597-603`; `photosdb/photosdb.py:1790-1796`; `_constants.py:337` |
+| `portrait` | `Portrait` | логическое | `photoinfo.py:1306-1309`; `photosdb/photosdb.py:2250-2251` |
 | `raw_original` | `RawOriginal` | логическое | `photoinfo.py:1373-1378` |
 | `saved_to_library` | `SavedToLibrary` | логическое | `photoinfo.py:1586-1599` |
 | `screen_recording` | `ScreenRecording` | логическое | `photoinfo.py:1301-1304`; `photosdb/photosdb.py:2237` |
 | `screenshot` | `Screenshot` | логическое | `photoinfo.py:1296-1299` |
+| `selfie` | `Selfie` | логическое | `photoinfo.py:1322-1325`; `photosdb/photosdb.py:2260-2261` |
 | `shared` | `Shared` | логическое | `photoinfo.py:872-879` |
 | `shared_library` | `SharedLibrary` | логическое | `photoinfo.py:1628-1632` |
+| `shared_moment` | `SharedMoment` | логическое | `photoinfo.py:1601-1604`; `photosdb/photosdb.py:2322` |
 | `slow_mo` | `SlowMo` | логическое | `photoinfo.py:1281-1284`; `photosdb/photosdb.py:2239` |
+| `spatial` | `Spatial` | целое, `null` = 0; 0 у медиатеки без `ZASSET.ZSPATIALTYPE` | `photoinfo.py:1311-1320`; `photosdb/photosdb.py:1751-1759, 2253-2255` |
 | `syndicated` | `Syndicated` | логическое | `photoinfo.py:1569-1584` |
 | `time_lapse` | `TimeLapse` | логическое | `photoinfo.py:1286-1289`; `photosdb/photosdb.py:2240` |
 | `title` | `Title` | `null` = `""` (upstream превращает `""` в `None`) | `photoinfo.py:710-717` |
+| `tzname` | `TZName` | `null` = `""` | `photoinfo.py:184-187`; `photosdb/photosdb.py:2160` |
 | `tzoffset` | `TZOffset` | целое; `null` = `nil`; `0` — не `null` | `photoinfo.py:179-182`; `photosdb/photosdb.py:2159` |
 | `uti` | `UTI` | строгая строка | `photoinfo.py:881-921` |
 | `uti_edited` | `UTIEdited` | `null` = `""` | `photoinfo.py:923-932` |
 | `uti_original` | `UTIOriginal` | строгая строка | `photoinfo.py:881-921` |
 | `uti_raw` | `UTIRaw` | `null` = `""` | `photoinfo.py:934-946` |
 | `uuid` | `UUID` | множества правила 1 | `photosdb/photosdb.py:2197-2204, 3346-3360` |
+| `visible` | `Visible` | логическое | `photoinfo.py:832-835`; `photosdb/photosdb.py:2304-2307` |
 | `width` | `Width` | целое, `null` = 0 | `photoinfo.py:1385-1388` |
 
 ### divergences.json
