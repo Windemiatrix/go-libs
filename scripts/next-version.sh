@@ -1,247 +1,303 @@
 #!/usr/bin/env bash
-# Computes the next version of the osxphotos module from PR titles, and builds
-# the release notes from the same titles.
+# Computes the next release tag of the osxphotos module from the PR titles
+# since the last tag, and writes the release notes of a tag from the same
+# titles. The title of a PR becomes the title of the squash commit on main
+# (scripts/check-pr-title.sh), so the history says what changed.
 #
-# The title of a PR becomes the title of the squash commit on main (see
-# scripts/check-pr-title.sh), so the history since the last tag says what
-# changed. Only commits that touch osxphotos/ count: the repository can later
-# hold other modules with their own tags.
+# Run:    scripts/next-version.sh [--major]      (scripts/release.sh calls it)
+#         scripts/next-version.sh --notes <tag>  ("make release" calls it in CI)
+#         from anywhere inside the repository.
+# Input:  --major        the next major version; the only way from 0.x to 1.0.0
+#         --notes <tag>  the release notes of an existing tag osxphotos/vX.Y.Z
+# Output: without --notes, stdout has the next tag and nothing else, for example
+#         osxphotos/v0.2.0; stderr lists every title with its class, the
+#         warnings and the tag. With --notes, stdout has the notes in markdown.
+# Exit:   0 done; 1 nothing to release, or a check failed; 2 wrong arguments.
 #
-# Usage, from anywhere inside the repository:
-#   scripts/next-version.sh [--major]
-#       stdout: the next tag, for example osxphotos/v0.2.0 (nothing else).
-#       stderr: the titles since the last tag with their class, warnings, the
-#       tag. Exit status 1 when there is nothing to release.
-#   scripts/next-version.sh --notes <tag>
-#       stdout: release notes in markdown for an existing tag: the titles
-#       between the previous osxphotos/v* tag and <tag>, in sections.
+# Version rule, by the titles since the last tag:
 #
-# Version rule (the same classes as the notes sections):
-#   type(scope)!: ...   before 1.0.0 -> minor, after 1.0.0 -> major
-#   feat(scope): ...    -> minor
-#   anything else, including a title outside the rule -> patch
-# There is no BREAKING CHANGE footer: the body of a squash commit is empty.
-# 1.0.0 is never derived from commits: only --major (scripts/release.sh --major)
-# moves 0.x to 1.0.0. From major 2 the module path in go.mod must end with /vN
-# (and must not end with it before that); the script checks it.
+#   type(scope)!: ...   minor before 1.0.0, major from 1.0.0
+#   feat(scope): ...    minor
+#   anything else       patch, a title outside the rule too
 #
-# A title is in the rule when it matches the PR title rule once the suffix
-# " (#N)" that GitHub appends is cut off. The length limit is not checked: it
-# applies to the PR title, the squash commit is longer by the suffix. Titles
-# are untrusted data: they are never executed and are printed with every byte
-# outside printable ASCII shown as "?".
+# Only commits that touch osxphotos/ count: the repository may later hold other
+# modules with their own tags. There is no BREAKING CHANGE footer: the body of
+# a squash commit is empty. From major version 2 on, Go requires the module
+# path in osxphotos/go.mod to end with /vN: a version that does not fit the
+# path is refused.
 #
-# Plain bash 3.2 syntax: the script also runs on macOS.
+# A title is checked against the PR title rule once the " (#N)" that GitHub
+# appends is cut off. The length limit is not checked: it applies to the PR
+# title, and the squash commit is longer by the suffix.
+#
+# Titles are untrusted data: they are never executed, and every byte outside
+# printable ASCII is printed as "?".
+#
+# bash 3.2 compatible: the script also runs on macOS.
 set -euo pipefail
 
-# C locale: a bracket range and a tr class are plain byte ranges.
+# In the C locale a bracket range and a tr class are plain byte ranges.
 export LC_ALL=C
 
 module_dir="osxphotos"
+module_go_mod="$module_dir/go.mod"
 tag_prefix="osxphotos/v"
 tag_glob="osxphotos/v[0-9]*"
 tag_re='^osxphotos/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
-# Same expression as scripts/check-pr-title.sh.
-rule_re='^(feat|fix|docs|style|refactor|test|chore)\(([a-z0-9._/-]+)\)(!?): [ -~]+$'
-pr_suffix_re='^(.*) \(#[0-9]+\)$'
+# The rule of scripts/check-pr-title.sh with the type and the "!" captured:
+# change both together.
+title_re='^(feat|fix|docs|style|refactor|test|chore)\([a-z0-9._/-]+\)(!?): [ -~]+$'
+pr_number_suffix_re='^(.*) \(#[0-9]+\)$'
+
+# Arguments.
+mode=version
+force_major=0
+notes_tag=""
+
+# The titles collected from the history: markdown list items by section, and
+# the listing and warnings shown on stderr.
+commit_count=0
+breaking_notes=""
+feature_notes=""
+fix_notes=""
+docs_notes=""
+other_notes=""
+listing=""
+warnings=""
+
+# print_section puts a blank line between sections.
+first_section=1
 
 die() {
-  echo "error: $*" >&2
+  echo "error: $1" >&2
   exit 1
 }
 
 usage() {
-  echo "usage: $0 [--major] | --notes <tag>" >&2
+  echo "usage: scripts/next-version.sh [--major] | --notes <tag>" >&2
   exit 2
 }
 
-# esc <text>: prints the text with every byte outside printable ASCII as "?".
+# esc <text>: the text with every byte outside printable ASCII shown as "?".
 esc() {
   printf '%s' "$1" | tr -c '[:print:]' '?'
 }
 
-# classify <title>: sets class to breaking, feat, fix, docs, other or invalid.
-class=""
-classify() {
-  local t="$1"
-  if [[ "$t" =~ $pr_suffix_re ]]; then
-    t="${BASH_REMATCH[1]}"
-  fi
-  class=invalid
-  if [[ "$t" =~ $rule_re ]]; then
-    if [[ -n "${BASH_REMATCH[3]}" ]]; then
-      class=breaking
-    else
-      case "${BASH_REMATCH[1]}" in
-        feat) class=feat ;;
-        fix) class=fix ;;
-        docs) class=docs ;;
-        *) class=other ;;
-      esac
-    fi
-  fi
-}
-
-# collect <revision range>: classifies the titles of the commits in the range
-# that touch the module, oldest first. Fills the globals below.
-n_commits=0
-has_breaking=0
-has_feat=0
-sec_breaking=""
-sec_feat=""
-sec_fix=""
-sec_docs=""
-sec_other=""
-listing=""
-warnings=""
-collect() {
-  local t et label
-  while IFS= read -r t; do
-    n_commits=$((n_commits + 1))
-    classify "$t"
-    et="$(esc "$t")"
-    case "$class" in
-      breaking)
-        has_breaking=1
-        sec_breaking+="- $et"$'\n'
-        label=breaking
+parse_args() {
+  while (($# > 0)); do
+    case "$1" in
+      --major)
+        force_major=1
         ;;
-      feat)
-        has_feat=1
-        sec_feat+="- $et"$'\n'
-        label=feat
-        ;;
-      fix)
-        sec_fix+="- $et"$'\n'
-        label=patch
-        ;;
-      docs)
-        sec_docs+="- $et"$'\n'
-        label=patch
+      --notes)
+        (($# >= 2)) || usage
+        mode=notes
+        notes_tag="$2"
+        shift
         ;;
       *)
-        sec_other+="- $et"$'\n'
-        label=patch
+        usage
         ;;
     esac
-    listing+="  $label  $et"$'\n'
-    if [[ "$class" == invalid ]]; then
-      warnings+="warning: title outside the PR title rule, counted as patch: $et"$'\n'
-    fi
-  done < <(git log --reverse --format=%s "$@" -- "$module_dir/")
+    shift
+  done
+  if [[ "$mode" == notes ]] && ((force_major)); then
+    usage
+  fi
 }
 
-# section <heading> <lines>: one markdown section, blank line between sections.
-first_section=1
-section() {
-  [[ -n "$2" ]] || return 0
-  if ((first_section)); then first_section=0; else echo; fi
-  printf '## %s\n\n%s' "$1" "$2"
+go_to_repository_root() {
+  local root
+  root="$(git rev-parse --show-toplevel)" || die "not inside a git repository"
+  cd "$root"
 }
 
-mode=version
-force_major=0
-notes_tag=""
-while (($# > 0)); do
-  case "$1" in
-    --major) force_major=1 ;;
-    --notes)
-      mode=notes
-      (($# >= 2)) || usage
-      notes_tag="$2"
-      shift
-      ;;
-    *) usage ;;
+# title_class <title>: prints breaking, feat, fix, docs, other or invalid.
+title_class() {
+  local title="$1"
+  if [[ "$title" =~ $pr_number_suffix_re ]]; then
+    title="${BASH_REMATCH[1]}"
+  fi
+  if ! [[ "$title" =~ $title_re ]]; then
+    echo invalid
+    return
+  fi
+
+  local commit_type="${BASH_REMATCH[1]}" breaking_mark="${BASH_REMATCH[2]}"
+  if [[ -n "$breaking_mark" ]]; then
+    echo breaking
+    return
+  fi
+  case "$commit_type" in
+    feat | fix | docs) echo "$commit_type" ;;
+    *) echo other ;;
   esac
-  shift
-done
-if [[ "$mode" == notes && "$force_major" == 1 ]]; then
-  usage
-fi
+}
 
-root="$(git rev-parse --show-toplevel)" || die "not inside a git repository"
-cd "$root"
+# listing_label <class>: breaking, feat or patch, the label shown next to the
+# title on stderr.
+listing_label() {
+  case "$1" in
+    breaking | feat) echo "$1" ;;
+    *) echo patch ;;
+  esac
+}
 
-if [[ "$mode" == notes ]]; then
-  [[ "$notes_tag" =~ $tag_re ]] || die "'$(esc "$notes_tag")' is not a tag of the form ${tag_prefix}X.Y.Z"
-  commit="$(git rev-parse -q --verify "refs/tags/$notes_tag^{commit}")" || die "tag $notes_tag does not exist"
-  # On the runner HEAD is the tagged commit: the base is searched from its
-  # parent, otherwise describe finds the release tag itself and the range is empty.
-  prev=""
+add_title() {
+  local title="$1" class shown
+  class="$(title_class "$title")"
+  shown="$(esc "$title")"
+
+  commit_count=$((commit_count + 1))
+  case "$class" in
+    breaking) breaking_notes+="- $shown"$'\n' ;;
+    feat) feature_notes+="- $shown"$'\n' ;;
+    fix) fix_notes+="- $shown"$'\n' ;;
+    docs) docs_notes+="- $shown"$'\n' ;;
+    *) other_notes+="- $shown"$'\n' ;;
+  esac
+
+  listing+="  $(listing_label "$class")  $shown"$'\n'
+  if [[ "$class" == invalid ]]; then
+    warnings+="warning: title outside the PR title rule, counted as patch: $shown"$'\n'
+  fi
+}
+
+# collect_titles <revision range>: adds the titles of the commits in the range
+# that touch the module, oldest first.
+collect_titles() {
+  local title
+  while IFS= read -r title; do
+    add_title "$title"
+  done < <(git log --reverse --format=%s "$1" -- "$module_dir/")
+}
+
+# The module tag before the commit, or nothing for the first release. The
+# search starts at the parent: from the commit itself it would find the tag
+# being released.
+previous_tag() {
+  local commit="$1"
   if git rev-parse -q --verify "$commit^" >/dev/null; then
-    prev="$(git describe --tags --abbrev=0 --match "$tag_glob" "$commit^" 2>/dev/null || true)"
+    git describe --tags --abbrev=0 --match "$tag_glob" "$commit^" 2>/dev/null || true
   fi
-  if [[ -n "$prev" ]]; then
-    collect "$prev..$commit"
+}
+
+# print_section <heading> <items>: one markdown section, nothing when there are
+# no items.
+print_section() {
+  local heading="$1" items="$2"
+  if [[ -z "$items" ]]; then
+    return
+  fi
+  if ((first_section)); then
+    first_section=0
   else
-    collect "$commit"
+    echo
   fi
-  if ((n_commits == 0)); then
+  printf '## %s\n\n%s' "$heading" "$items"
+}
+
+print_release_notes() {
+  local tag="$1" commit base
+  if ! [[ "$tag" =~ $tag_re ]]; then
+    die "'$(esc "$tag")' is not a tag of the form ${tag_prefix}X.Y.Z"
+  fi
+  commit="$(git rev-parse -q --verify "refs/tags/$tag^{commit}")" || die "tag $tag does not exist"
+
+  base="$(previous_tag "$commit")"
+  if [[ -n "$base" ]]; then
+    collect_titles "$base..$commit"
+  else
+    collect_titles "$commit"
+  fi
+
+  if ((commit_count == 0)); then
     echo "No changes in $module_dir/."
-    exit 0
+    return
   fi
-  section "Breaking changes" "$sec_breaking"
-  section "Features" "$sec_feat"
-  section "Bug fixes" "$sec_fix"
-  section "Documentation" "$sec_docs"
-  section "Other" "$sec_other"
-  exit 0
-fi
+  print_section "Breaking changes" "$breaking_notes"
+  print_section "Features" "$feature_notes"
+  print_section "Bug fixes" "$fix_notes"
+  print_section "Documentation" "$docs_notes"
+  print_section "Other" "$other_notes"
+}
 
-last="$(git describe --tags --abbrev=0 --match "$tag_glob" HEAD 2>/dev/null || true)"
-major=0
-minor=0
-patch=0
-if [[ -n "$last" ]]; then
-  [[ "$last" =~ $tag_re ]] || die "the latest tag '$(esc "$last")' is not of the form ${tag_prefix}X.Y.Z"
-  major="${BASH_REMATCH[1]}"
-  minor="${BASH_REMATCH[2]}"
-  patch="${BASH_REMATCH[3]}"
-  collect "$last..HEAD"
-else
-  collect HEAD
-fi
-
-if ((n_commits == 0)); then
-  die "no commits touching $module_dir/ since ${last:-the beginning}: nothing to release"
-fi
-
-if ((force_major)); then
-  major=$((major + 1))
-  minor=0
-  patch=0
-elif ((has_breaking)); then
-  if ((major == 0)); then
-    minor=$((minor + 1))
-    patch=0
+# next_version <major> <minor> <patch>: the version after this one, by the
+# titles collected.
+next_version() {
+  local major="$1" minor="$2" patch="$3"
+  if ((force_major)); then
+    echo "$((major + 1)).0.0"
+  elif [[ -n "$breaking_notes" ]] && ((major == 0)); then
+    # Before 1.0.0 an incompatible change is a minor version (semver 0.x).
+    echo "0.$((minor + 1)).0"
+  elif [[ -n "$breaking_notes" ]]; then
+    echo "$((major + 1)).0.0"
+  elif [[ -n "$feature_notes" ]]; then
+    echo "$major.$((minor + 1)).0"
   else
-    major=$((major + 1))
-    minor=0
-    patch=0
+    echo "$major.$minor.$((patch + 1))"
   fi
-elif ((has_feat)); then
-  minor=$((minor + 1))
-  patch=0
+}
+
+module_path() {
+  awk '$1 == "module" { gsub(/"/, "", $2); print $2; exit }' "$module_go_mod"
+}
+
+# check_module_path <major> <tag>: Go requires the module path to end with /vN
+# from major version 2 on, and to have no such suffix before that.
+check_module_path() {
+  local major="$1" tag="$2" path
+  if ! [[ -r "$module_go_mod" ]]; then
+    die "$module_go_mod not found"
+  fi
+  path="$(module_path)"
+
+  if ((major >= 2)) && [[ "$path" != *"/v$major" ]]; then
+    die "version $tag needs the module path to end with /v$major in $module_go_mod, it is '$(esc "$path")'"
+  fi
+  if ((major < 2)) && [[ "$path" =~ /v[0-9]+$ ]]; then
+    die "version $tag needs the module path without a /vN suffix in $module_go_mod, it is '$(esc "$path")'"
+  fi
+}
+
+print_next_tag() {
+  local last major=0 minor=0 patch=0 version next_major tag
+  last="$(git describe --tags --abbrev=0 --match "$tag_glob" HEAD 2>/dev/null || true)"
+  if [[ -n "$last" ]]; then
+    if ! [[ "$last" =~ $tag_re ]]; then
+      die "the latest tag '$(esc "$last")' is not of the form ${tag_prefix}X.Y.Z"
+    fi
+    major="${BASH_REMATCH[1]}"
+    minor="${BASH_REMATCH[2]}"
+    patch="${BASH_REMATCH[3]}"
+    collect_titles "$last..HEAD"
+  else
+    collect_titles HEAD
+  fi
+
+  if ((commit_count == 0)); then
+    die "no commits touching $module_dir/ since ${last:-the beginning}: nothing to release"
+  fi
+
+  version="$(next_version "$major" "$minor" "$patch")"
+  next_major="${version%%.*}"
+  tag="$tag_prefix$version"
+  {
+    echo "since ${last:-the beginning}: $commit_count commit(s) touching $module_dir/"
+    printf '%s' "$listing"
+    printf '%s' "$warnings"
+    echo "next: $tag"
+  } >&2
+
+  check_module_path "$next_major" "$tag"
+  echo "$tag"
+}
+
+parse_args "$@"
+go_to_repository_root
+if [[ "$mode" == notes ]]; then
+  print_release_notes "$notes_tag"
 else
-  patch=$((patch + 1))
+  print_next_tag
 fi
-next="${tag_prefix}${major}.${minor}.${patch}"
-
-{
-  echo "since ${last:-the beginning}: $n_commits commit(s) touching $module_dir/"
-  printf '%s' "$listing"
-  printf '%s' "$warnings"
-  echo "next: $next"
-} >&2
-
-# The module path suffix must follow the major version (Go module rules).
-mod_file="$module_dir/go.mod"
-[[ -r "$mod_file" ]] || die "$mod_file not found"
-mod_path="$(awk '$1 == "module" { gsub(/"/, "", $2); print $2; exit }' "$mod_file")"
-if ((major >= 2)); then
-  [[ "$mod_path" == *"/v$major" ]] || die "version $next needs the module path to end with /v$major in $mod_file, it is '$(esc "$mod_path")'"
-elif [[ "$mod_path" =~ /v[0-9]+$ ]]; then
-  die "version $next needs the module path without a /vN suffix in $mod_file, it is '$(esc "$mod_path")'"
-fi
-
-echo "$next"

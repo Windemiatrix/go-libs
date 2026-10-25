@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
-# Repository hygiene checks. Run from the repository root; CI runs them in the
-# repo-checks job, "make check-repo" runs them locally. Only files tracked by
-# git are examined, so build output and local junk never matter.
+# Repository hygiene checks: rules that neither the compiler nor the linter
+# enforce, plus the self-tests of the scripts that decide titles and versions.
+# Only files tracked by git are examined, so build output and local junk never
+# matter.
+#
+# Run:    make check-repo (which also runs actionlint), or
+#         bash scripts/check-repo.sh, from the repository root; CI runs it in
+#         the repo-checks job.
+# Input:  none.
+# Exit:   0 every check passed; 1 at least one failed. Every check runs, and
+#         each failure is printed as "FAIL: ..." on stderr.
 set -euo pipefail
 
 module_dir="osxphotos"
@@ -11,74 +19,112 @@ module_dir="osxphotos"
 # upgrade Go.
 max_go_minor=27
 
+# The only package that may use cgo.
+cgo_allowed_dir="$module_dir/photokit/"
+
+spike_build_tag_re='^//go:build.*[[:space:](&|]spike([[:space:])&|]|$)|^// \+build.*[[:space:]]spike'
+cgo_import_re='^import "C"$|^[[:space:]]+"C"$'
+action_use_re='uses: *[^ ]+@'
+pinned_to_full_sha_re='uses: *[^ @]+@[0-9a-f]{40}( |$)'
+go_version_re='^1\.([0-9]+)(\.[0-9]+)?$'
+
 failed=0
+
 fail() {
   echo "FAIL: $1" >&2
   failed=1
 }
 
-# 1. The license inside the module equals the repository license (pkg.go.dev
-#    and the module zip only see the module directory).
-if ! cmp LICENSE "$module_dir/LICENSE"; then
-  fail "$module_dir/LICENSE must be an exact copy of LICENSE"
-fi
-
-# 2. One source of truth for the upstream version.
-upstream_version="$(sed -n 's/^Upstream version: \([0-9][0-9.]*\)[[:space:]]*$/\1/p' "$module_dir/UPSTREAM.md")"
-golden_version="$(sed -n 's/^osxphotos==\([0-9][0-9.]*\)[[:space:]]*$/\1/p' tools/golden/requirements.txt)"
-if [[ -z "$upstream_version" || "$upstream_version" != "$golden_version" ]]; then
-  fail "version in $module_dir/UPSTREAM.md ('$upstream_version') must equal the one in tools/golden/requirements.txt ('$golden_version')"
-fi
-
-# 3. Spike code lives only in the unpublished spike branches and never reaches main.
-if git ls-files | grep -E '(^|/)internal/spike/'; then
-  fail "the internal/spike/ directory must not be committed"
-fi
-if git grep -nE '^//go:build.*[[:space:](&|]spike([[:space:])&|]|$)|^// \+build.*[[:space:]]spike' -- '*.go'; then
-  fail "files with the 'spike' build tag must not be committed"
-fi
-
-# 4. No local overrides of dependencies.
-if grep -nE '^[[:space:]]*replace([[:space:](]|$)' "$module_dir/go.mod"; then
-  fail "$module_dir/go.mod must not contain replace directives"
-fi
-if git ls-files | grep -E '(^|/)go\.work(\.sum)?$'; then
-  fail "go.work must not be committed"
-fi
-
-# 5. The Go language version is not newer than the agreed one.
-go_version="$(awk '$1 == "go" { print $2; exit }' "$module_dir/go.mod")"
-go_major="${go_version%%.*}"
-go_rest="${go_version#*.}"
-go_minor="${go_rest%%.*}"
-if [[ "$go_major" != 1 || ! "$go_minor" =~ ^[0-9]+$ || "$go_minor" -gt "$max_go_minor" ]]; then
-  fail "$module_dir/go.mod has 'go $go_version', expected 1.$max_go_minor or older"
-fi
-
-# 6. cgo only in osxphotos/photokit/.
-if git grep -lE '^import "C"$|^[[:space:]]+"C"$' -- '*.go' ':!osxphotos/photokit/'; then
-  fail "the files above import \"C\" outside osxphotos/photokit/"
-fi
-
-# 7. Every third-party action is pinned to a full commit SHA.
-if git grep -nE 'uses: *[^ ]+@' -- '.github/workflows' | grep -vE '@[0-9a-f]{40}( |$)'; then
-  fail "workflow actions must be pinned to a full 40-character commit SHA"
-fi
-
-# 8. Every checkout in a workflow drops the git credentials: no job writes
-#    through git, the release is created through the API.
-while IFS= read -r workflow; do
-  [[ -n "$workflow" ]] || continue
-  checkouts="$(grep -cE '^ *- uses: *actions/checkout@' "$workflow" || true)"
-  dropped="$(grep -cE '^ *persist-credentials: false *$' "$workflow" || true)"
-  if [[ "$checkouts" != "$dropped" ]]; then
-    fail "$workflow: every actions/checkout needs 'persist-credentials: false' ($checkouts checkouts, $dropped with it)"
+# pkg.go.dev and the module zip only see the module directory.
+check_module_license() {
+  if ! cmp LICENSE "$module_dir/LICENSE"; then
+    fail "$module_dir/LICENSE must be an exact copy of LICENSE"
   fi
-done < <(git ls-files '.github/workflows/*.yml')
+}
 
-# 9. The PR title checker and the version script themselves.
-bash scripts/check-pr-title-test.sh || failed=1
-bash scripts/next-version-test.sh || failed=1
+# UPSTREAM.md and tools/golden/requirements.txt must name the same osxphotos
+# version: the reference data is generated with the version the module claims
+# to follow.
+check_upstream_version() {
+  local upstream_version golden_version
+  upstream_version="$(sed -n 's/^Upstream version: \([0-9][0-9.]*\)[[:space:]]*$/\1/p' "$module_dir/UPSTREAM.md")"
+  golden_version="$(sed -n 's/^osxphotos==\([0-9][0-9.]*\)[[:space:]]*$/\1/p' tools/golden/requirements.txt)"
+  if [[ -z "$upstream_version" || "$upstream_version" != "$golden_version" ]]; then
+    fail "version in $module_dir/UPSTREAM.md ('$upstream_version') must equal the one in tools/golden/requirements.txt ('$golden_version')"
+  fi
+}
+
+# Spike code lives only in the unpublished spike branches and never reaches main.
+check_no_spike_code() {
+  if git ls-files | grep -E '(^|/)internal/spike/'; then
+    fail "the internal/spike/ directory must not be committed"
+  fi
+  if git grep -nE "$spike_build_tag_re" -- '*.go'; then
+    fail "files with the 'spike' build tag must not be committed"
+  fi
+}
+
+check_no_dependency_overrides() {
+  if grep -nE '^[[:space:]]*replace([[:space:](]|$)' "$module_dir/go.mod"; then
+    fail "$module_dir/go.mod must not contain replace directives"
+  fi
+  if git ls-files | grep -E '(^|/)go\.work(\.sum)?$'; then
+    fail "go.work must not be committed"
+  fi
+}
+
+check_go_version() {
+  local go_version go_minor=""
+  go_version="$(awk '$1 == "go" { print $2; exit }' "$module_dir/go.mod")"
+  if [[ "$go_version" =~ $go_version_re ]]; then
+    go_minor="${BASH_REMATCH[1]}"
+  fi
+  if [[ -z "$go_minor" ]] || ((go_minor > max_go_minor)); then
+    fail "$module_dir/go.mod has 'go $go_version', expected 1.$max_go_minor or older"
+  fi
+}
+
+check_cgo_only_where_allowed() {
+  if git grep -lE "$cgo_import_re" -- '*.go' ":!$cgo_allowed_dir"; then
+    fail "the files above import \"C\" outside $cgo_allowed_dir"
+  fi
+}
+
+check_actions_pinned() {
+  if git grep -nE "$action_use_re" -- '.github/workflows' | grep -vE "$pinned_to_full_sha_re"; then
+    fail "workflow actions must be pinned to a full 40-character commit SHA"
+  fi
+}
+
+# No job writes through git, and the release is created through the API, so
+# no checkout needs to keep the git credentials.
+check_checkouts_drop_credentials() {
+  local workflow checkouts dropped
+  while IFS= read -r workflow; do
+    [[ -n "$workflow" ]] || continue
+    checkouts="$(grep -cE '^ *(- )?uses: *actions/checkout@' "$workflow" || true)"
+    dropped="$(grep -cE '^ *persist-credentials: false *$' "$workflow" || true)"
+    if [[ "$checkouts" != "$dropped" ]]; then
+      fail "$workflow: every actions/checkout needs 'persist-credentials: false' ($checkouts checkouts, $dropped with it)"
+    fi
+  done < <(git ls-files '.github/workflows/*.yml' '.github/workflows/*.yaml')
+}
+
+# The scripts that decide titles and versions.
+run_self_tests() {
+  bash scripts/check-pr-title-test.sh || failed=1
+  bash scripts/next-version-test.sh || failed=1
+}
+
+check_module_license
+check_upstream_version
+check_no_spike_code
+check_no_dependency_overrides
+check_go_version
+check_cgo_only_where_allowed
+check_actions_pinned
+check_checkouts_drop_credentials
+run_self_tests
 
 if ((failed)); then
   exit 1

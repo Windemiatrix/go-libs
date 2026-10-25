@@ -2,6 +2,10 @@ GOLANGCI_LINT_VERSION ?= v2.15.0
 ACTIONLINT_VERSION ?= v1.7.12
 GOVULNCHECK_VERSION ?= v1.9.0
 
+# The minimum total test coverage, in percent. Not "?=": the environment must
+# not lower it.
+COVERAGE_MIN := 80
+
 .PHONY: help
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
@@ -23,7 +27,7 @@ vet: ## go vet
 .PHONY: cover
 cover: ## Tests with the race detector and the coverage threshold
 	go -C osxphotos test -race -shuffle=on -count=1 -covermode=atomic -coverprofile=coverage.out ./...
-	go -C osxphotos tool cover -func=coverage.out | awk '/^total:/ { found = 1; sub(/%/, "", $$3); print; exit ($$3 + 0 < 80) } END { if (!found) exit 1 }'
+	go -C osxphotos tool cover -func=coverage.out | awk '/^total:/ { found = 1; sub(/%/, "", $$3); print; exit ($$3 + 0 < $(COVERAGE_MIN)) } END { if (!found) exit 1 }'
 
 .PHONY: cross-build
 cross-build: ## cgo build for amd64 (macOS)
@@ -56,11 +60,14 @@ vuln: ## Known vulnerabilities in dependencies (not in "make test")
 # in testdata/golden. gh must not be older than 2.63.1 (a fix for writing
 # outside --dir in "gh run download"). The JSON files of an earlier run are
 # removed first, so that none of them survives in a library the new run lacks.
+GOLDEN_RUN_IS_MANUAL_SUCCESS := .workflowName == "golden-regen" and .event == "workflow_dispatch" \
+    and .status == "completed" and .conclusion == "success"
+
 .PHONY: golden-fetch
 golden-fetch: ## Download the reference data of a golden-regen run (make golden-fetch RUN=<run id>)
 	@case "$$RUN" in ''|*[!0-9]*) echo "usage: make golden-fetch RUN=<numeric run id>" >&2; exit 2;; esac
 	@info="$$(gh run view "$$RUN" --repo Windemiatrix/go-libs --json workflowName,event,status,conclusion,headBranch,headSha \
-		--jq 'select(.workflowName == "golden-regen" and .event == "workflow_dispatch" and .status == "completed" and .conclusion == "success") | "headBranch: \(.headBranch)\nheadSha: \(.headSha)"')" \
+		--jq 'select($(GOLDEN_RUN_IS_MANUAL_SUCCESS)) | "headBranch: \(.headBranch)\nheadSha: \(.headSha)"')" \
 		|| { echo "golden-fetch: cannot verify run $$RUN (see the gh message above)" >&2; exit 2; }; \
 	[ -n "$$info" ] || { echo "golden-fetch: run $$RUN is not a successful golden-regen run started by workflow_dispatch" >&2; exit 2; }; \
 	echo "$$info"
