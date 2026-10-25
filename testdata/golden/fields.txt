@@ -46,13 +46,17 @@ original_width
 persons
 raw_original
 saved_to_library
+screen_recording
 screenshot
 shared
 shared_library
+slow_mo
 syndicated
+time_lapse
 title
 tzoffset
 uti
+uti_edited
 uti_original
 uti_raw
 uuid

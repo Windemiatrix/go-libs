@@ -269,6 +269,81 @@ func TestLoadFields(t *testing.T) {
 	}
 }
 
+func TestLoadKindFlags(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		subtype sql.NullInt64
+		want    [3]bool // SlowMo, TimeLapse, ScreenRecording
+	}{
+		{"no subtype", nullInt(0), [3]bool{}},
+		{"panorama", nullInt(1), [3]bool{}},
+		{"live", nullInt(2), [3]bool{}},
+		{"screenshot", nullInt(10), [3]bool{}},
+		{"slow motion", nullInt(101), [3]bool{true, false, false}},
+		{"time lapse", nullInt(102), [3]bool{false, true, false}},
+		{"screen recording", nullInt(103), [3]bool{false, false, true}},
+		{"NULL", sql.NullInt64{}, [3]bool{}},
+	}
+	for _, tt := range tests {
+		a := baseAsset(1, "A-1")
+		a.KindSubtype = tt.subtype
+		p := loadOne(t, a)
+		if got := [3]bool{p.SlowMo, p.TimeLapse, p.ScreenRecording}; got != tt.want {
+			t.Errorf("%s: SlowMo, TimeLapse, ScreenRecording = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestLoadBurstDefaultPick(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		pick sql.NullInt64
+		want bool
+	}{
+		{"NULL", sql.NullInt64{}, false},
+		{"0", nullInt(0), false},
+		{"selected", nullInt(8), false},
+		{"key", nullInt(16), false},
+		{"default", nullInt(4), true},
+		{"default and key", nullInt(20), true},
+		{"default and an unknown bit", nullInt(36), true},
+	}
+	for _, tt := range tests {
+		a := baseAsset(1, "A-1")
+		a.BurstUUID, a.BurstPickType = nullString("B"), tt.pick
+		if got := loadOne(t, a).BurstDefaultPick; got != tt.want {
+			t.Errorf("%s: BurstDefaultPick = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestLoadUTIEdited(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		adjustments sql.NullInt64
+		uti         sql.NullString
+		want        string
+	}{
+		{"adjusted", nullInt(2), nullString("public.heic"), "public.heic"},
+		{"not adjusted", nullInt(0), nullString("public.heic"), ""},
+		{"adjustments NULL", sql.NullInt64{}, nullString("public.heic"), ""},
+		{"adjusted, UTI NULL", nullInt(2), sql.NullString{}, ""},
+	}
+	for _, tt := range tests {
+		a := baseAsset(1, "A-1")
+		a.Adjustments, a.UTI = tt.adjustments, tt.uti
+		if got := loadOne(t, a).UTIEdited; got != tt.want {
+			t.Errorf("%s: UTIEdited = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
+
 func timeIs(got *time.Time, want time.Time) bool {
 	return got != nil && got.Equal(want) && got.Location() == time.UTC
 }
