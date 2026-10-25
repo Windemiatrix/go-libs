@@ -95,6 +95,7 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 		photos: c.photos,
 		byUUID: c.byUUID,
 		albums: albums,
+		bursts: indexBursts(c.photos),
 
 		folders:    folders,
 		topFolders: topFolders,
