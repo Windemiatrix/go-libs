@@ -27,18 +27,15 @@ const (
 	thumbSuffix = "_4_5005_c.jpeg"
 )
 
-// Files are looked up only inside libraryPath, through os.Root: a path never
-// leaves that directory and a symbolic link is not a file. Only Lstat and
-// ReadDir are used; no file is opened for reading. An error of Lstat or
-// ReadDir makes the path "" and is not returned: its text holds names from
-// the database.
+// Errors of Lstat and ReadDir are dropped, not returned: their text holds
+// names from the database.
 func setPaths(libraryPath string, assets []sqlread.Asset, c *catalog) error {
 	root, err := os.OpenRoot(libraryPath)
 	if err != nil {
 		return fmt.Errorf("photosdb: %s: the library directory: %w", libraryPath, err)
 	}
 	defer func() { _ = root.Close() }() // opened for reading only
-	o := &originals{lib: libraryPath, root: root, fsys: root.FS(), dirs: map[string]*dirNames{}}
+	o := &libraryFiles{lib: libraryPath, root: root, fsys: root.FS(), dirs: map[string]*dirNames{}}
 	for _, a := range assets {
 		// An asset without attributes is not in c, and its ZUUID may be that
 		// of a photo.
@@ -51,7 +48,7 @@ func setPaths(libraryPath string, assets []sqlread.Asset, c *catalog) error {
 	return nil
 }
 
-type originals struct {
+type libraryFiles struct {
 	lib  string
 	root *os.Root
 	fsys fs.FS
@@ -67,7 +64,7 @@ type dirNames struct {
 // PathLive here; upstream looks for them elsewhere (photoinfo.py:211-225),
 // but not for their RAW file (photoinfo.py:532-540). The shared moment
 // directory is not searched (photoinfo.py:213-222).
-func (o *originals) set(p *photoinfo.PhotoInfo, dir string) {
+func (o *libraryFiles) set(p *photoinfo.PhotoInfo, dir string) {
 	if p.IsMissing {
 		return
 	}
@@ -89,7 +86,7 @@ func (o *originals) set(p *photoinfo.PhotoInfo, dir string) {
 
 // setLibraryFiles follows photoinfo.py:323-382, 495-512, 743-781, 1172-1274.
 // The files do not depend on IsMissing, as upstream.
-func (o *originals) setLibraryFiles(p *photoinfo.PhotoInfo) {
+func (o *libraryFiles) setLibraryFiles(p *photoinfo.PhotoInfo) {
 	// A "/" would name a file of another directory.
 	if strings.ContainsRune(p.UUID, '/') {
 		return
@@ -123,7 +120,7 @@ type derivative struct {
 // derivatives follows photoinfo.py:1172-1229, 1260-1274 and utils.py:734-779.
 // Upstream lists a directory in the order of the file system, so the order of
 // files of one size is that of the names here.
-func (o *originals) derivatives(p *photoinfo.PhotoInfo, x string) []string {
+func (o *libraryFiles) derivatives(p *photoinfo.PhotoInfo, x string) []string {
 	if p.Shared {
 		if thumb := o.found(sharedDerivativesDir + "/" + x + "/" + p.UUID + thumbSuffix); thumb != "" {
 			return []string{thumb}
@@ -141,7 +138,9 @@ func (o *originals) derivatives(p *photoinfo.PhotoInfo, x string) []string {
 	if thumb := o.found(base + "/masters/" + x + "/" + p.UUID + thumbSuffix); thumb != "" {
 		out = append(out, thumb)
 	}
-	// The poster image may be larger than the preview of the video.
+	// A photo's first preview is an image even when the video of a Live photo
+	// is larger (photoinfo.py:1221-1227; the upstream comment states the
+	// opposite of its code).
 	if p.IsPhoto && len(out) > 1 && (strings.HasSuffix(out[0], ".mov") || strings.HasSuffix(out[0], ".MOV")) {
 		out[0], out[1] = out[1], out[0]
 	}
@@ -149,7 +148,7 @@ func (o *originals) derivatives(p *photoinfo.PhotoInfo, x string) []string {
 }
 
 // previews is find_files_by_prefix of utils.py:734-779 with ".THM" ignored.
-func (o *originals) previews(dir, prefix string) []string {
+func (o *libraryFiles) previews(dir, prefix string) []string {
 	d := o.names(dir)
 	if d == nil {
 		return nil
@@ -171,7 +170,7 @@ func (o *originals) previews(dir, prefix string) []string {
 }
 
 // dir and file come from the database: a path that could leave the root is
-// refused. The name is relative to the library.
+// refused.
 func relName(dir, file string) (string, bool) {
 	name := dir + "/" + file
 	if dir == "" || file == "" || strings.ContainsRune(name, 0) || !fs.ValidPath(name) {
@@ -180,23 +179,23 @@ func relName(dir, file string) (string, bool) {
 	return originalsDir + "/" + name, true
 }
 
-func (o *originals) isFile(name string) bool {
+func (o *libraryFiles) isFile(name string) bool {
 	info, err := o.root.Lstat(name)
 	return err == nil && info.Mode().IsRegular()
 }
 
-func (o *originals) found(name string) string {
+func (o *libraryFiles) found(name string) string {
 	if !o.isFile(name) {
 		return ""
 	}
 	return o.abs(name)
 }
 
-func (o *originals) abs(name string) string {
+func (o *libraryFiles) abs(name string) string {
 	return filepath.Join(o.lib, filepath.FromSlash(name))
 }
 
-func (o *originals) names(dir string) *dirNames {
+func (o *libraryFiles) names(dir string) *dirNames {
 	d, ok := o.dirs[dir]
 	if !ok {
 		d = readNames(o.fsys, dir)
@@ -206,7 +205,7 @@ func (o *originals) names(dir string) *dirNames {
 }
 
 // rawName follows photoinfo.py:545-558 and utils.py:327-396.
-func (o *originals) rawName(dir, file string) (string, bool) {
+func (o *libraryFiles) rawName(dir, file string) (string, bool) {
 	if _, ok := relName(dir, file); !ok {
 		return "", false
 	}
