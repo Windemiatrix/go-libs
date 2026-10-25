@@ -64,11 +64,19 @@ func folderTitles(fs []*albuminfo.FolderInfo) []string {
 	return out
 }
 
+// hardenPlace is where an album lies: the UUIDs of its FolderList and its
+// FolderNames.
+type hardenPlace struct{ list, names []string }
+
+func hardenPlaceOf(db *DB, a *albuminfo.AlbumInfo) hardenPlace {
+	return hardenPlace{folderUUIDs(db.FolderList(a)), slices.Clone(a.FolderNames)}
+}
+
 func TestLoadFolders(t *testing.T) {
 	t.Parallel()
 
 	// The same title in the decomposed and in the composed form.
-	nfd, nfcForm := "Café", "Café"
+	nfd, nfcForm := "Cafe\U00000301", "Caf\U000000e9"
 	if nfd == nfcForm {
 		t.Fatal("the two forms of the title are one string")
 	}
@@ -89,6 +97,9 @@ func TestLoadFolders(t *testing.T) {
 		folderAlbum(11, "A-T", 2, nullInt(1)),
 		folderAlbum(12, "A-2", 3, nullInt(0)),
 		folderAlbum(13, "A-R", root, nullInt(0)),
+		// Albums in the folders in the trash: the folder state does not touch them.
+		folderAlbum(14, "A-FT", 5, nullInt(0)),
+		folderAlbum(15, "A-FS", 4, nullInt(0)),
 	}
 	albums, err := loadAlbums(rows, nil, nil, nil)
 	if err != nil {
@@ -117,8 +128,8 @@ func TestLoadFolders(t *testing.T) {
 		{uuid: "F-E2", title: "Same"},
 		{uuid: "F-N", title: "FN"},
 		{uuid: "F-P", title: "FP"},
-		{uuid: "F-S", title: "FS", parent: "F-1"},
-		{uuid: "F-T", title: "FT"},
+		{uuid: "F-S", title: "FS", parent: "F-1", albums: []string{"A-FS"}},
+		{uuid: "F-T", title: "FT", albums: []string{"A-FT"}},
 	}
 	var gotAll []folderShape
 	for _, f := range all {
@@ -155,7 +166,7 @@ func TestLoadFolders(t *testing.T) {
 		}
 	}
 
-	lists := map[string][]string{"A-2": {"F-1", "F-2"}, "A-1": {"F-1"}, "A-R": nil, "A-T": {"F-1"}}
+	lists := map[string][]string{"A-2": {"F-1", "F-2"}, "A-1": {"F-1"}, "A-R": nil, "A-T": {"F-1"}, "A-FT": {"F-T"}, "A-FS": {"F-1", "F-S"}}
 	for u, want := range lists {
 		got := db.FolderList(album(u))
 		if !slices.Equal(folderUUIDs(got), want) || (want == nil) != (got == nil) {
@@ -438,13 +449,23 @@ func TestFoldersTrash(t *testing.T) {
 	}
 	shapeBefore := folderRef(topBefore)
 	var subShape folderShape
+	placed := slices.Clone(topBefore.Albums)
 	if sub != "" {
 		f, ok := before.Folder(sub)
 		if !ok {
 			t.Fatal("Folder does not find the subfolder")
 		}
 		subShape = folderRef(f)
+		placed = append(placed, f.Albums...)
 	}
+	if len(placed) == 0 {
+		t.Fatal("no album in the folders to put into the trash: FolderList is not checked")
+	}
+	wantPlace := map[string]hardenPlace{}
+	for _, a := range placed {
+		wantPlace[a.UUID] = hardenPlaceOf(before, a)
+	}
+	t.Logf("%d albums in the folders to put into the trash", len(placed))
 	topsBefore := before.FolderInfo()
 	at := slices.IndexFunc(topsBefore, func(f *albuminfo.FolderInfo) bool { return f.UUID == top })
 	if at < 0 {
@@ -479,6 +500,17 @@ func TestFoldersTrash(t *testing.T) {
 	if !slices.Equal(shapeAfter.albums, shapeBefore.albums) || !slices.Equal(shapeAfter.subfolders, wantSubs) {
 		t.Errorf("the folder in the trash: albums %q, subfolders %q; want %q, %q",
 			shapeAfter.albums, shapeAfter.subfolders, shapeBefore.albums, wantSubs)
+	}
+	for _, a := range placed {
+		got, found := after.Album(a.UUID)
+		if !found {
+			t.Errorf("album %s of a folder in the trash is not found after the change", a.UUID)
+			continue
+		}
+		if place := hardenPlaceOf(after, got); !reflect.DeepEqual(place, wantPlace[a.UUID]) {
+			t.Errorf("album %s: FolderList %q and FolderNames %q after the change, want %q and %q",
+				a.UUID, place.list, place.names, wantPlace[a.UUID].list, wantPlace[a.UUID].names)
+		}
 	}
 	if sub == "" {
 		return
