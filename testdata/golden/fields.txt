@@ -1,6 +1,7 @@
 # Keys of `osxphotos query --json` (PhotoInfo.json(shallow=False),
 # osxphotos/photoinfo.py:2119-2253) kept in testdata/golden. golden-regen.yml
 # keeps only these top-level keys; nested objects (album_info) are kept whole.
+adjustment_type
 album_info
 albums
 burst
@@ -11,19 +12,23 @@ burst_key
 burst_photos
 burst_selected
 cloud_guid
+cloud_owner_hashed_id
 date
 date_added
 date_modified
 date_trashed
 description
+external_edit
 favorite
 filename
 fingerprint
 folders
 has_raw
 hasadjustments
+hdr
 height
 hidden
+imported_by
 incloud
 intrash
 iscloudasset
@@ -43,21 +48,28 @@ original_filesize
 original_height
 original_orientation
 original_width
+panorama
 persons
+portrait
 raw_original
 saved_to_library
 screen_recording
 screenshot
+selfie
 shared
 shared_library
+shared_moment
 slow_mo
+spatial
 syndicated
 time_lapse
 title
+tzname
 tzoffset
 uti
 uti_edited
 uti_original
 uti_raw
 uuid
+visible
 width

@@ -29,6 +29,7 @@ func baseAsset(pk int64, uuid string) sqlread.Asset {
 	a.HasAttributes, a.OriginalFilename, a.TZOffset = true, nullString("IMG_0001.JPG"), nullInt(0)
 	a.OriginalWidth, a.OriginalHeight, a.OriginalOrientation = nullInt(4032), nullInt(3024), nullInt(1)
 	a.OriginalFilesize, a.OriginalResourceChoice, a.SyndicationHistory = nullInt(1000), nullInt(0), nullInt(0)
+	a.HDRType, a.DepthType, a.VisibilityState, a.CameraCaptureDevice = nullInt(0), nullInt(0), nullInt(0), nullInt(0)
 	return a
 }
 
@@ -345,6 +346,64 @@ func TestLoadUTIEdited(t *testing.T) {
 		a.Adjustments, a.UTI = tt.adjustments, tt.uti
 		if got := loadOne(t, a).UTIEdited; got != tt.want {
 			t.Errorf("%s: UTIEdited = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestLoadColumns(t *testing.T) {
+	t.Parallel()
+
+	const externalEdit = "com.apple.Photos.externalEdit"
+	tests := []struct {
+		name  string
+		edit  func(a *sqlread.Asset)
+		check func(p *photoInfo) bool
+	}{
+		{"none", nil, func(p *photoInfo) bool {
+			return !p.HDR && !p.Panorama && !p.Portrait && !p.Selfie && p.Visible && p.Spatial == 0 && p.TZName == "" &&
+				p.CloudOwnerHashedID == "" && !p.SharedMoment && !p.ExternalEdit && p.ImportedByName == "" && p.ImportedByBundleID == ""
+		}},
+		{"HDR", func(a *sqlread.Asset) { a.HDRType = nullInt(3) }, func(p *photoInfo) bool { return p.HDR && !p.Panorama }},
+		{"HDR type 4", func(a *sqlread.Asset) { a.HDRType = nullInt(4) }, func(p *photoInfo) bool { return !p.HDR && !p.Panorama }},
+		{"HDR type NULL", func(a *sqlread.Asset) { a.HDRType = sql.NullInt64{} }, func(p *photoInfo) bool { return !p.HDR && !p.Panorama }},
+		{"panorama subtype", func(a *sqlread.Asset) { a.KindSubtype = nullInt(1) }, func(p *photoInfo) bool { return p.Panorama && !p.HDR }},
+		{"panorama HDR type 6 without the subtype", func(a *sqlread.Asset) { a.HDRType = nullInt(6) },
+			func(p *photoInfo) bool { return p.Panorama && !p.HDR }},
+		{"portrait", func(a *sqlread.Asset) { a.DepthType = nullInt(1) }, func(p *photoInfo) bool { return p.Portrait }},
+		// Python None != 0 (photosdb.py:2251).
+		{"portrait depth type NULL", func(a *sqlread.Asset) { a.DepthType = sql.NullInt64{} }, func(p *photoInfo) bool { return p.Portrait }},
+		{"selfie", func(a *sqlread.Asset) { a.CameraCaptureDevice = nullInt(1) }, func(p *photoInfo) bool { return p.Selfie }},
+		{"camera 2", func(a *sqlread.Asset) { a.CameraCaptureDevice = nullInt(2) }, func(p *photoInfo) bool { return !p.Selfie }},
+		{"camera NULL", func(a *sqlread.Asset) { a.CameraCaptureDevice = sql.NullInt64{} }, func(p *photoInfo) bool { return !p.Selfie }},
+		{"not visible", func(a *sqlread.Asset) { a.VisibilityState = nullInt(2) }, func(p *photoInfo) bool { return !p.Visible }},
+		{"visibility 1", func(a *sqlread.Asset) { a.VisibilityState = nullInt(1) }, func(p *photoInfo) bool { return !p.Visible }},
+		{"visibility NULL", func(a *sqlread.Asset) { a.VisibilityState = sql.NullInt64{} }, func(p *photoInfo) bool { return !p.Visible }},
+		{"spatial", func(a *sqlread.Asset) { a.SpatialType = nullInt(2) }, func(p *photoInfo) bool { return p.Spatial == 2 }},
+		{"time zone name", func(a *sqlread.Asset) { a.TZName = nullString("Europe/Paris") }, func(p *photoInfo) bool { return p.TZName == "Europe/Paris" }},
+		{"cloud owner", func(a *sqlread.Asset) { a.CloudOwnerHashedID = nullString("TEST-OWNER") },
+			func(p *photoInfo) bool { return p.CloudOwnerHashedID == "TEST-OWNER" }},
+		{"shared moment", func(a *sqlread.Asset) { a.MomentShare = nullInt(5) }, func(p *photoInfo) bool { return p.SharedMoment }},
+		{"shared moment 0", func(a *sqlread.Asset) { a.MomentShare = nullInt(0) }, func(p *photoInfo) bool { return !p.SharedMoment }},
+		{"external edit", func(a *sqlread.Asset) { a.AdjustmentFormat = nullString(externalEdit) }, func(p *photoInfo) bool { return p.ExternalEdit }},
+		{"another adjustment format", func(a *sqlread.Asset) { a.AdjustmentFormat = nullString("com.apple.photo") },
+			func(p *photoInfo) bool { return !p.ExternalEdit }},
+		{"adjustment type", func(a *sqlread.Asset) { a.Adjustments = nullInt(2) },
+			func(p *photoInfo) bool { return p.AdjustmentType != nil && *p.AdjustmentType == 2 }},
+		{"adjustment type 0", nil, func(p *photoInfo) bool { return p.AdjustmentType != nil && *p.AdjustmentType == 0 }},
+		{"adjustment type NULL", func(a *sqlread.Asset) { a.Adjustments = sql.NullInt64{} }, func(p *photoInfo) bool { return p.AdjustmentType == nil }},
+		{"imported by", func(a *sqlread.Asset) {
+			a.ImportedByName, a.ImportedByBundleID = nullString("Camera"), nullString("com.example.camera")
+		}, func(p *photoInfo) bool {
+			return p.ImportedByName == "Camera" && p.ImportedByBundleID == "com.example.camera"
+		}},
+	}
+	for _, tt := range tests {
+		a := baseAsset(1, "A-1")
+		if tt.edit != nil {
+			tt.edit(&a)
+		}
+		if p := loadOne(t, a); !tt.check(p) {
+			t.Errorf("%s: got %+v", tt.name, *p)
 		}
 	}
 }

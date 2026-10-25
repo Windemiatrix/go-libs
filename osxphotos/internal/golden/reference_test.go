@@ -13,6 +13,48 @@ import (
 
 func allKeys() []string { return slices.Sorted(maps.Keys(rules)) }
 
+var columnsKeys = []string{"adjustment_type", "cloud_owner_hashed_id", "external_edit", "hdr", "imported_by", "panorama",
+	"portrait", "selfie", "shared_moment", "spatial", "tzname", "visible"}
+
+// A key with one value everywhere does not test its rule.
+func TestColumnsKeysVary(t *testing.T) {
+	canon := func(v any, err error) string {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+		s, err := canonical(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	vals := map[string]map[string]bool{}
+	for _, key := range columnsKeys {
+		vals[key] = map[string]bool{}
+	}
+	dir := testlib.RepoDir(t, "golden")
+	total := 0
+	for _, name := range testlib.Libraries(t) {
+		ref, err := Load(dir, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, obj := range slices.Concat(ref.Query, ref.Deleted) {
+			total++
+			for _, key := range columnsKeys {
+				vals[key][canon(rules[key].ref(obj))] = true
+			}
+		}
+	}
+	for _, key := range columnsKeys {
+		t.Logf("%s: %d distinct values in %d objects", key, len(vals[key]), total)
+		if len(vals[key]) < 2 {
+			t.Errorf("%s: every object has one value", key)
+		}
+	}
+}
+
 func isoOffset(t testing.TB, s string) int {
 	t.Helper()
 	i := strings.LastIndexAny(s, "+-")

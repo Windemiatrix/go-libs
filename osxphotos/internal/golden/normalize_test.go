@@ -190,6 +190,23 @@ func TestNormalize(t *testing.T) {
 		{name: "persons name", key: "persons", raw: `["A"]`, want: `true`},
 		{name: "persons null", key: "persons", raw: `null`, wantErr: "persons: want a list of strings"},
 
+		{name: "hdr null", key: "hdr", raw: `null`, wantErr: "hdr: want a boolean"},
+		{name: "visible", key: "visible", raw: `false`, want: `false`},
+		{name: "tzname null", key: "tzname", raw: `null`, want: `""`},
+		{name: "cloud_owner_hashed_id null", key: "cloud_owner_hashed_id", raw: `null`, want: `""`},
+		{name: "spatial", key: "spatial", raw: `2`, want: `2`},
+		{name: "spatial null", key: "spatial", raw: `null`, want: `0`},
+		{name: "spatial as a float", key: "spatial", raw: `2.0`, wantErr: "spatial: want an integer"},
+		{name: "adjustment_type null", key: "adjustment_type", raw: `null`, want: `null`},
+		{name: "adjustment_type 0 is not null", key: "adjustment_type", raw: `0`, want: `0`},
+		{name: "adjustment_type as a float", key: "adjustment_type", raw: `2.0`, wantErr: "adjustment_type: want an integer or null"},
+		{name: "imported_by", key: "imported_by", raw: `["Camera", null]`, want: `["Camera",""]`},
+		{name: "imported_by nulls", key: "imported_by", raw: `[null, null]`, want: `["",""]`},
+		{name: "imported_by of one", key: "imported_by", raw: `["a"]`, wantErr: "imported_by: want a list of two strings or nulls"},
+		{name: "imported_by null", key: "imported_by", raw: `null`, wantErr: "imported_by: want a list of two strings or nulls"},
+		{name: "imported_by of three", key: "imported_by", raw: `["a", "b", "c"]`, wantErr: "imported_by: want a list of two strings or nulls"},
+		{name: "imported_by with a number", key: "imported_by", raw: `["a", 1]`, wantErr: "imported_by: want a list of two strings or nulls"},
+
 		{name: "no key", key: "title", raw: ``, wantErr: "title: want a value (the key is missing)"},
 	}
 	for _, c := range cases {
@@ -254,6 +271,7 @@ func TestNormalizeGoSide(t *testing.T) {
 			"tzoffset": `null`, "incloud": `null`, "latitude": `null`, "longitude": `null`,
 			"location": `[null,null]`, "keywords": `[]`, "burst_photos": `[]`, "title": `""`, "width": `0`,
 			"persons": `false`, "burst_default_pick": `false`,
+			"adjustment_type": `null`, "imported_by": `["",""]`, "spatial": `0`, "tzname": `""`, "visible": `false`,
 		}
 		for key, w := range want {
 			if got := goCanon(t, key, p); got != w {

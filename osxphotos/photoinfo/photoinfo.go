@@ -18,6 +18,7 @@ type PhotoInfo struct {
 
 	Date            time.Time  // the moment, in the fixed zone of TZOffset (UTC when TZOffset is nil); 1970-01-01T00:00:00Z when the database has no date, as osxphotos
 	TZOffset        *int       // seconds east of UTC; nil when unknown (osxphotos then uses UTC)
+	TZName          string     // the time zone name of Date, such as "Europe/Paris"; "" when unknown; Date does not use it
 	DateAdded       *time.Time // nil when the database has no value
 	DateModified    *time.Time // ZASSET.ZADJUSTMENTTIMESTAMP, as osxphotos; nil when the database has no value
 	DateTrashed     *time.Time // nil when the database has no value
@@ -34,6 +35,20 @@ type PhotoInfo struct {
 	IsPhoto, IsMovie, Live, HasRAW, IsRAW, RawOriginal, Screenshot bool
 
 	SlowMo, TimeLapse, ScreenRecording bool // ZKINDSUBTYPE 101, 102, 103 (photosdb.py:2237-2240)
+
+	HDR      bool // ZHDRTYPE 3 (photosdb.py:2248-2249)
+	Panorama bool // ZKINDSUBTYPE 1 or ZHDRTYPE 6 (photosdb.py:2257-2258)
+	Portrait bool // ZDEPTHTYPE not 0; NULL is a portrait too, as in osxphotos (photosdb.py:2250-2251)
+	Selfie   bool // taken with the front camera (photosdb.py:2260-2261)
+	Visible  bool // ZVISIBILITYSTATE 0; NULL is not visible (photosdb.py:2304-2307)
+	Spatial  int  // ZSPATIALTYPE: 1 a spatial capture, 2 a photo converted to spatial; 0 when NULL or the library has no such column (photoinfo.py:1311-1320)
+
+	SharedMoment       bool   // part of a shared moment (photoinfo.py:1601-1604)
+	ExternalEdit       bool   // edited in another app (photoinfo.py:807-810)
+	AdjustmentType     *int   // osxphotos adjustment_type: the value HasAdjustments is read from; nil when NULL (photoinfo.py:802-805)
+	CloudOwnerHashedID string // the hashed iCloud ID of the owner of a shared photo; "" when absent (photoinfo.py:1767-1770)
+	ImportedByName     string // osxphotos imported_by[0], such as "Camera"; "" when unknown (photoinfo.py:682-694)
+	ImportedByBundleID string // osxphotos imported_by[1], such as "com.apple.camera"; "" when unknown
 
 	Burst, BurstSelected, BurstKey bool
 	BurstUUID                      string
