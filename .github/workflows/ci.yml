@@ -1,5 +1,6 @@
-# A step that also runs locally calls one Makefile target; event values reach
-# it only through env:. "ci-ok" is the check the ruleset of main requires.
+# A step that also runs locally calls one Makefile target or the action of the
+# same tool and version; event values reach it only through env:. "ci-ok" is
+# the check the ruleset of main requires.
 # Every push to main that touches osxphotos/ is released by the "release" job.
 # The tests do not run again on that push: the ruleset of main merges only a
 # branch that is up to date with main and green, so main gets exactly the tree
@@ -10,7 +11,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened, edited]
   schedule:
     - cron: "41 3 * * 0"
   workflow_dispatch:
@@ -46,7 +46,7 @@ jobs:
         run: make pr-title
 
   linux:
-    if: github.event_name != 'push'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -67,7 +67,7 @@ jobs:
         run: make cover
 
   macos:
-    if: github.event_name != 'push'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     timeout-minutes: 40
     permissions:
@@ -83,8 +83,15 @@ jobs:
         with:
           go-version-file: osxphotos/go.mod
           cache: false
+      # The release binary instead of "go run": building golangci-lint from
+      # source took most of the job.
       - name: Lint
-        run: make lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          # Bump together with GOLANGCI_LINT_VERSION in the Makefile.
+          version: v2.15.0
+          working-directory: osxphotos
+          skip-cache: true
       - name: Vet
         run: make vet
       - name: Tests and coverage with cgo
@@ -93,7 +100,7 @@ jobs:
         run: make cross-build
 
   repo-checks:
-    if: github.event_name != 'push'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
