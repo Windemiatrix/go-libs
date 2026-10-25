@@ -60,6 +60,7 @@ type tables struct {
 	keywords  []sqlread.Keyword
 	persons   []int64 // NamedPersonAssets
 	members   []sqlread.Member
+	albums    []sqlread.Album
 }
 
 // catalog is the result of load.
