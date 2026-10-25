@@ -14,6 +14,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/golden"
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/query"
@@ -40,6 +41,16 @@ type queryRef struct {
 	Syndicated       bool            `json:"syndicated"`
 	SavedToLibrary   bool            `json:"saved_to_library"`
 	SharedLibrary    bool            `json:"shared_library"`
+	ExternalEdit     bool            `json:"external_edit"`
+	Portrait         bool            `json:"portrait"`
+	Spatial          int             `json:"spatial"`
+	ScreenRecording  bool            `json:"screen_recording"`
+	SlowMo           bool            `json:"slow_mo"`
+	TimeLapse        bool            `json:"time_lapse"`
+	HDR              bool            `json:"hdr"`
+	Selfie           bool            `json:"selfie"`
+	Panorama         bool            `json:"panorama"`
+	SharedMoment     bool            `json:"shared_moment"`
 	Keywords         []string        `json:"keywords"`
 	Title            string          `json:"title"`
 	Description      string          `json:"description"`
@@ -188,6 +199,26 @@ func queryFlagCases() []queryCase {
 			func(r queryRef) bool { return r.SavedToLibrary }, func(r queryRef) bool { return r.Syndicated }},
 		{"shared library", []string{"shared_library"}, func(o *query.Options) { o.SharedLibrary = true }, func(o *query.Options) { o.NotSharedLibrary = true },
 			func(r queryRef) bool { return r.SharedLibrary }, nil},
+		{"external edit", []string{"external_edit"}, func(o *query.Options) { o.ExternalEdit = true }, nil,
+			func(r queryRef) bool { return r.ExternalEdit }, nil},
+		{"portrait", []string{"portrait"}, func(o *query.Options) { o.Portrait = true }, func(o *query.Options) { o.NotPortrait = true },
+			func(r queryRef) bool { return r.Portrait }, nil},
+		{"spatial", []string{"spatial"}, func(o *query.Options) { o.Spatial = true }, func(o *query.Options) { o.NotSpatial = true },
+			func(r queryRef) bool { return r.Spatial != 0 }, nil},
+		{"screen recording", []string{"screen_recording"}, func(o *query.Options) { o.ScreenRecording = true },
+			func(o *query.Options) { o.NotScreenRecording = true }, func(r queryRef) bool { return r.ScreenRecording }, nil},
+		{"slow mo", []string{"slow_mo"}, func(o *query.Options) { o.SlowMo = true }, func(o *query.Options) { o.NotSlowMo = true },
+			func(r queryRef) bool { return r.SlowMo }, nil},
+		{"time lapse", []string{"time_lapse"}, func(o *query.Options) { o.TimeLapse = true }, func(o *query.Options) { o.NotTimeLapse = true },
+			func(r queryRef) bool { return r.TimeLapse }, nil},
+		{"hdr", []string{"hdr"}, func(o *query.Options) { o.HDR = true }, func(o *query.Options) { o.NotHDR = true },
+			func(r queryRef) bool { return r.HDR }, nil},
+		{"selfie", []string{"selfie"}, func(o *query.Options) { o.Selfie = true }, func(o *query.Options) { o.NotSelfie = true },
+			func(r queryRef) bool { return r.Selfie }, nil},
+		{"panorama", []string{"panorama"}, func(o *query.Options) { o.Panorama = true }, func(o *query.Options) { o.NotPanorama = true },
+			func(r queryRef) bool { return r.Panorama }, nil},
+		{"shared moment", []string{"shared_moment"}, func(o *query.Options) { o.SharedMoment = true }, func(o *query.Options) { o.NotSharedMoment = true },
+			func(r queryRef) bool { return r.SharedMoment }, nil},
 	}
 	var cases []queryCase
 	for _, f := range flags {
@@ -541,5 +572,69 @@ func TestQueryMissing(t *testing.T) {
 				t.Error("a test library has original files: Missing needs a test of its own")
 			}
 		})
+	}
+}
+
+// The groups of the signature of photosdb/photosdb.py:3411-3420 over the rows
+// of the main query of upstream, which joins ZADDITIONALASSETATTRIBUTES
+// (photosdb/photosdb.py:2086-2090, 2358-2363).
+func queryFlagsSignatureGroups(t *testing.T, lib, schemaID string) map[string][]string {
+	t.Helper()
+	i := slices.IndexFunc(schema.All(), func(s schema.Schema) bool { return s.ID == schemaID })
+	if i < 0 {
+		t.Fatalf("schema %s is not in schema.All", schemaID)
+	}
+	adjustments := schema.All()[i].AdjustmentsColumn
+	rows, err := roDB(t, lib).QueryContext(t.Context(), "SELECT group_concat(a.ZUUID, ' ') FROM ZASSET a JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK GROUP BY x.ZORIGINALFILESIZE, a.ZDATECREATED, a.ZHEIGHT, a.ZWIDTH, a.ZUNIFORMTYPEIDENTIFIER, a."+adjustments+" HAVING count(*) > 1") //nolint:gosec // G202: the column name is a constant of internal/schema
+	if err != nil {
+		t.Fatal(err)
+	}
+	groups := map[string][]string{}
+	for rows.Next() {
+		var members string
+		if err := rows.Scan(&members); err != nil {
+			t.Fatal(err)
+		}
+		group := slices.Sorted(slices.Values(strings.Fields(members)))
+		for _, u := range group {
+			groups[u] = group
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	_ = rows.Close()
+	return groups
+}
+
+func TestQueryDuplicates(t *testing.T) {
+	t.Parallel()
+
+	var mu sync.Mutex
+	withDuplicates := 0
+	t.Run("libraries", func(t *testing.T) {
+		for _, lib := range goldenLibraries(t) {
+			t.Run(lib.name, func(t *testing.T) {
+				t.Parallel()
+				db, err := Open(t.Context(), lib.path, Options{TempDir: t.TempDir()})
+				if err != nil {
+					t.Fatal(err)
+				}
+				groups := queryFlagsSignatureGroups(t, lib.path, db.Info().SchemaID)
+				for _, p := range db.photos {
+					want := slices.DeleteFunc(slices.Clone(groups[p.UUID]), func(u string) bool { return u == p.UUID })
+					if got := queryIDs(db.Duplicates(p), nil); !slices.Equal(got, want) {
+						t.Errorf("Duplicates of %s = %q, want %q", p.UUID, got, want)
+					}
+				}
+				t.Logf("%d photos with duplicates", len(groups))
+				mu.Lock()
+				defer mu.Unlock()
+				withDuplicates += len(groups)
+			})
+		}
+	})
+	if withDuplicates == 0 {
+		t.Error("no library has duplicates: the test is vacuous")
 	}
 }
