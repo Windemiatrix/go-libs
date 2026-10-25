@@ -13,7 +13,6 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
 
-// record renders one record; the pairs replace the defaults of a valid one.
 func record(pairs ...string) string {
 	m := map[string]string{
 		"library":  `"synthetic"`,
@@ -198,13 +197,11 @@ func TestDivergences(t *testing.T) {
 	})
 }
 
-// uuidLike matches a UUID, with or without a prefix: the tokens that must not be
-// in the record of a local library.
+// The tokens that must not be in the record of a local library.
 var uuidLike = regexp.MustCompile(`[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}`)
 
-// TestDivergencesFile checks the file of the repository: it loads, its records
-// name existing libraries and keys, and the records of a local library keep the
-// data of its owner out.
+// The records of a local library must keep the data of its owner out of the
+// public file.
 func TestDivergencesFile(t *testing.T) {
 	t.Parallel()
 	divs, err := LoadDivergences(filepath.Join(testlib.RepoDir(t, "golden"), "divergences.json"))
@@ -233,8 +230,6 @@ func TestDivergencesFile(t *testing.T) {
 	}
 }
 
-// diffTitle is a difference at the title of p1 in fixtureLib: the Go side has
-// no title.
 func titleDiffLib() Library {
 	lib := fixtureLib()
 	lib.Photos[0].Title = ""
@@ -304,7 +299,6 @@ func TestExplain(t *testing.T) {
 			if rep.OK() != (c.wantDiffs == 0 && c.stale == 0) {
 				t.Errorf("OK() = %v", rep.OK())
 			}
-			// The order of the records changes nothing.
 			rev := slices.Clone(c.divs)
 			slices.Reverse(rev)
 			again, err := Compare(fixtureRef(), titleDiffLib(), keys, rev)
@@ -355,8 +349,6 @@ func TestExplain(t *testing.T) {
 	})
 }
 
-// TestExplainedRecordForTwoLibraries: a record of one library does not explain
-// the difference of another.
 func TestExplainedRecordForTwoLibraries(t *testing.T) {
 	t.Parallel()
 	d := Divergence{Library: "other", UUID: p1, Field: "title", Reason: "r", Upstream: "a.py:1"}

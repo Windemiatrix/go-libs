@@ -1,7 +1,3 @@
-# Reference data for the differential tests of the osxphotos module. Runs
-# osxphotos (the version in tools/golden/requirements.txt) on every library of
-# testdata/libraries, the synthetic one included, keeps the keys listed in
-# testdata/golden/fields.txt and uploads the artifact "golden".
 # It never pushes and never opens a pull request: "make golden-fetch" downloads
 # the artifact of the latest successful run and a person commits it.
 name: golden-regen
@@ -35,13 +31,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Keeps the top-level keys listed in testdata/golden/fields.txt, in
-          # the order osxphotos writes them. $f and $k are jq variables.
+          # $f and $k are jq variables.
           # shellcheck disable=SC2016
           listed_fields='($f | split("\n") | map(select(test("^[a-z]")))) as $k
             | map(with_entries(select(.key | IN($k[]))))'
 
-          # osxphotos finds database/Photos.sqlite in the library directory.
           for lib in testdata/libraries/*/; do
             [ -f "${lib}database/Photos.sqlite" ] || continue
             name=$(basename "$lib")

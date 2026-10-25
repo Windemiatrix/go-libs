@@ -2,10 +2,9 @@
 # same tool and version; event values reach it only through env:. "ci-ok" is
 # a check the ruleset of main requires; the PR title has its own workflow,
 # pr-title.yml.
-# Every push to main that touches osxphotos/ is released by the "release" job.
-# The tests do not run again on that push: the ruleset of main merges only a
-# branch that is up to date with main and green, so main gets exactly the tree
-# the PR tested.
+# The tests do not run again on a push to main: the ruleset of main merges only
+# a branch that is up to date with main and green, so main gets exactly the
+# tree the PR tested.
 name: ci
 
 on:
@@ -154,9 +153,8 @@ jobs:
           printf '%s' "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
           printf '%s' "$NEEDS" | jq -e 'all(.[]; .result == "success" or .result == "skipped")' >/dev/null
 
-  # The version comes from the PR titles since the last tag (.svu.yml); the
-  # notes are the same titles, grouped like those of photosync (GoReleaser
-  # cannot release tags with a prefix without Pro). The GitHub Release creates
+  # The notes are the PR titles, grouped like those of photosync: GoReleaser
+  # cannot release tags with a prefix without Pro. The GitHub Release creates
   # the tag on the tested commit. No caches: they could be poisoned.
   release:
     needs: [ci-ok]
@@ -189,13 +187,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          # titles <grep option>...: the PR titles since the last tag that
-          # touch the module and match, as a markdown list.
           titles() {
             git log --reverse --format='- %s' "$range" -- osxphotos/ | grep "$@" || true
           }
 
-          # section <heading> <grep option>...
           section() {
             local items
             items="$(titles "${@:2}")"

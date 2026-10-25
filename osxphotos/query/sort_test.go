@@ -61,7 +61,6 @@ func TestSortOrder(t *testing.T) {
 			want: []string{"B", "A"},
 		},
 		{
-			// A nil DateAdded is 1970-01-01T00:00:00Z: after 1969, before 2000.
 			name: "nil DateAdded is the epoch",
 			in: []*photoinfo.PhotoInfo{
 				{UUID: "A", Date: same, DateAdded: ptr(at("2000-01-01T00:00:00Z"))},
@@ -89,8 +88,7 @@ func TestSortOrder(t *testing.T) {
 			want: []string{"A", "B", "b"},
 		},
 		{
-			// Sort does not guess a date for the zero time: year 1 sorts
-			// first. NULL dates are mapped to the epoch by the loader.
+			// NULL dates are mapped to the epoch by the loader.
 			name: "zero Date sorts as year 1",
 			in: []*photoinfo.PhotoInfo{
 				{UUID: "A", Date: time.Unix(0, 0).UTC()},
@@ -142,11 +140,9 @@ func TestSortKeepsInput(t *testing.T) {
 	}
 }
 
-// TestSortStable checks that photos with fully equal keys keep their input
-// order. The input is large and mixes several groups of equal keys: a sort
-// that is not stable keeps the order of a handful of elements (insertion
-// sort) or of a single group (no comparison says "less"), so neither would
-// be red.
+// The input is large and mixes several groups of equal keys: a sort that is not
+// stable keeps the order of a handful of elements (insertion sort) or of a
+// single group (no comparison says "less"), so neither would be red.
 func TestSortStable(t *testing.T) {
 	t.Parallel()
 
@@ -176,7 +172,7 @@ func TestSortStable(t *testing.T) {
 			position[p] = i
 		}
 		out := Sort(tt.in)
-		last := map[string]int{} // UUID -> input position of the last photo of the group seen
+		last := map[string]int{}
 		for _, p := range out {
 			if prev, ok := last[p.UUID]; ok && position[p] < prev {
 				t.Fatalf("%s (PCG seed %d, %d): Sort put the photo at input position %d after the one at %d; equal keys must keep their input order",
@@ -187,8 +183,7 @@ func TestSortStable(t *testing.T) {
 	}
 }
 
-// oracle sorts by insertion on (Date moment, DateAdded moment, UUID), written
-// independently of Sort.
+// oracle is written independently of Sort, as an insertion sort.
 func oracle(in []*photoinfo.PhotoInfo) []*photoinfo.PhotoInfo {
 	epoch := time.Unix(0, 0)
 	added := func(p *photoinfo.PhotoInfo) time.Time {

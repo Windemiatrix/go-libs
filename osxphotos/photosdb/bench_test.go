@@ -6,8 +6,6 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
 
-// TestOpenSynthetic opens a grown synthetic library, the kind that
-// BenchmarkOpen20k opens: every asset is a photo.
 func TestOpenSynthetic(t *testing.T) {
 	t.Parallel()
 	lib := testlib.Synthetic(t, 2)
@@ -20,8 +18,7 @@ func TestOpenSynthetic(t *testing.T) {
 	}
 }
 
-// BenchmarkOpen20k opens a synthetic library of 20000 assets: the copy, the
-// checks, the readers and the loading. The goal is less than 10 s per Open.
+// BenchmarkOpen20k has a goal of less than 10 s per Open.
 func BenchmarkOpen20k(b *testing.B) {
 	lib := testlib.Synthetic(b, 20)
 	tmp := b.TempDir()

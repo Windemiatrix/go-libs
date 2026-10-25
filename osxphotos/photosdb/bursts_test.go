@@ -10,7 +10,6 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// burstFrame is a frame of the burst with this BurstUUID ("" is a burst too).
 func burstFrame(uuid, burst string, pick int) *photoinfo.PhotoInfo {
 	p := &photoinfo.PhotoInfo{UUID: uuid, Burst: true, BurstUUID: burst, BurstPickType: pick}
 	p.BurstSelected = pick&photoinfo.BurstPickSelected != 0
@@ -18,7 +17,6 @@ func burstFrame(uuid, burst string, pick int) *photoinfo.PhotoInfo {
 	return p
 }
 
-// burstUUIDs lists the UUIDs of photos; no photos is nil.
 func burstUUIDs(photos []*photoinfo.PhotoInfo) []string {
 	var out []string
 	for _, p := range photos {
@@ -27,7 +25,7 @@ func burstUUIDs(photos []*photoinfo.PhotoInfo) []string {
 	return out
 }
 
-// burstDB is a DB of photos given in UUID order, as Open reads them.
+// The photos must be in UUID order, as Open reads them.
 func burstDB(photos ...*photoinfo.PhotoInfo) *DB {
 	db := &DB{photos: photos, byUUID: map[string]*photoinfo.PhotoInfo{}, bursts: indexBursts(photos)}
 	for _, p := range photos {
@@ -36,11 +34,6 @@ func burstDB(photos ...*photoinfo.PhotoInfo) *DB {
 	return db
 }
 
-// burstCatalog holds the bursts b (a key, a selected, an unselected and a
-// trashed frame), k (two key frames and a selected one), n (no key frame), ""
-// and two bursts of one frame, t (a trashed key frame and a selected one), u
-// (an unselected key frame and a selected one), a photo outside any burst, and
-// a photo that has the BurstUUID of b without Burst.
 func burstCatalog() *DB {
 	trashed := burstFrame("A4", "b", 0)
 	trashed.InTrash = true
@@ -106,7 +99,7 @@ func TestBurstKeyPhoto(t *testing.T) {
 	db := burstCatalog()
 	tests := []struct {
 		uuid string
-		want string // "" is no key photo
+		want string
 	}{
 		{"A1", "A1"},
 		{"A2", "A1"},
@@ -157,9 +150,6 @@ func TestPhotosByUUID(t *testing.T) {
 	}
 }
 
-// TestBurstsGolden compares BurstPhotos with burst_photos of the osxphotos
-// output of every object, trashed ones included, and PhotosByUUID with the
-// order of the objects.
 func TestBurstsGolden(t *testing.T) {
 	t.Parallel()
 

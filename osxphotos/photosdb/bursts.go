@@ -52,9 +52,8 @@ func (db *DB) PhotosByUUID(uuids []string) []*photoinfo.PhotoInfo {
 	return photos
 }
 
-// indexBursts groups the frames of the bursts by BurstUUID, "" included
-// (photosdb/photosdb.py:2212-2220), in the order of photos. Built once in
-// Open: a scan of the catalog per photo would be quadratic.
+// The BurstUUID "" is a burst too (photosdb/photosdb.py:2212-2220). Built once
+// in Open: a scan of the catalog per photo would be quadratic.
 func indexBursts(photos []*photoinfo.PhotoInfo) map[string][]*photoinfo.PhotoInfo {
 	bursts := map[string][]*photoinfo.PhotoInfo{}
 	for _, p := range photos {

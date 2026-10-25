@@ -15,19 +15,18 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// Synthetic identifiers of the fixtures.
 const (
-	p1 = "00000000-0000-0000-0000-000000000001" // the selected frame of a burst
-	p2 = "00000000-0000-0000-0000-000000000002" // an unselected frame of the same burst
-	p3 = "00000000-0000-0000-0000-000000000003" // a photo with empty values
+	p1 = "00000000-0000-0000-0000-000000000001"
+	p2 = "00000000-0000-0000-0000-000000000002"
+	p3 = "00000000-0000-0000-0000-000000000003"
 
-	albumA1 = "00000000-0000-0000-0000-0000000000a1" // Album A in Folder X
-	albumA2 = "00000000-0000-0000-0000-0000000000a2" // Album T, in the trash
-	albumA3 = "00000000-0000-0000-0000-0000000000a3" // Album A in Folder Y
-	albumA5 = "00000000-0000-0000-0000-0000000000a5" // Album B, not in a folder
-	albumA9 = "00000000-0000-0000-0000-0000000000a9" // an album of no photo
-	albumC1 = "00000000-0000-0000-0000-0000000000c1" // a shared album, Shared S
-	albumC2 = "00000000-0000-0000-0000-0000000000c2" // a shared album with the title Album A
+	albumA1 = "00000000-0000-0000-0000-0000000000a1"
+	albumA2 = "00000000-0000-0000-0000-0000000000a2"
+	albumA3 = "00000000-0000-0000-0000-0000000000a3"
+	albumA5 = "00000000-0000-0000-0000-0000000000a5"
+	albumA9 = "00000000-0000-0000-0000-0000000000a9"
+	albumC1 = "00000000-0000-0000-0000-0000000000c1"
+	albumC2 = "00000000-0000-0000-0000-0000000000c2"
 	folderX = "00000000-0000-0000-0000-0000000000f1"
 	folderY = "00000000-0000-0000-0000-0000000000f2"
 )
@@ -38,8 +37,6 @@ func utc(y int, mo time.Month, d, h, mi, s, ns int) time.Time {
 	return time.Date(y, mo, d, h, mi, s, ns, time.UTC)
 }
 
-// fixtureLib is the Go side of the hand-made library: a selected and an
-// unselected frame of one burst, a photo with empty values and the albums.
 // Every call returns new values, so that a test may spoil them.
 func fixtureLib() Library {
 	ist := time.FixedZone("IST", 19800)
@@ -88,7 +85,6 @@ func fixtureLib() Library {
 	}
 }
 
-// albumJSON renders an element of album_info the way osxphotos writes it.
 // Arguments are JSON values: "null", `"Album A"`, `["Folder X"]`.
 func albumJSON(uuid, title, parent, folderNames, creation, start, end, owner string) string {
 	return fmt.Sprintf(`{"creation_date": %s, "end_date": %s, "folder_list": [], "folder_names": %s, "owner": %s, `+
@@ -109,9 +105,7 @@ var (
 		`"2020-03-03T03:03:03+00:00"`, "null", "null", `"Owner A"`)
 )
 
-// refP1 is the reference object of the selected frame p1: what osxphotos
-// writes for fixtureLib()'s first photo, plus shared albums that the Go side
-// does not read. The values are raw JSON.
+// The reference has shared albums that the Go side does not read.
 func refP1() map[string]string {
 	return map[string]string{
 		"album_info":           "[" + strings.Join([]string{elemA1, elemA3, elemC1, elemC2}, ", ") + "]",
@@ -177,8 +171,6 @@ func refP1() map[string]string {
 	}
 }
 
-// refP3 is the reference object of the photo with empty values: null in
-// every key that may be null, the dates upstream gives for a missing one.
 func refP3() map[string]string {
 	return map[string]string{
 		"album_info": "[]", "albums": "[]", "burst": "false", "burst_album_info": "[]", "burst_albums": "[]",
@@ -198,7 +190,6 @@ func refP3() map[string]string {
 	}
 }
 
-// refObject builds an Object from raw JSON values; overrides replace or add keys.
 func refObj(base map[string]string, overrides ...map[string]string) Object {
 	merged := maps.Clone(base)
 	for _, o := range overrides {
@@ -211,19 +202,15 @@ func refObj(base map[string]string, overrides ...map[string]string) Object {
 	return obj
 }
 
-// refOf is a reference of the library "lib" with the given objects in query.json.
 func refOf(query ...Object) *Reference {
 	return &Reference{Library: "lib", Query: query}
 }
 
-// fixtureRef is the reference of fixtureLib(): p1 and p3 (p2 is an unselected
-// frame, which osxphotos does not return).
+// p2 is an unselected frame, which osxphotos does not return.
 func fixtureRef() *Reference { return refOf(refObj(refP1()), refObj(refP3())) }
 
-// everyKey is the list of keys for Compare: all of fields.txt.
 func everyKey() []string { return slices.Concat(PhotoKeys(), AlbumKeys()) }
 
-// compare runs Compare on every key and fails the test on an error.
 func compare(t *testing.T, ref *Reference, lib Library, divs ...Divergence) *Report {
 	t.Helper()
 	rep, err := Compare(ref, lib, everyKey(), divs)
@@ -233,7 +220,6 @@ func compare(t *testing.T, ref *Reference, lib Library, divs ...Divergence) *Rep
 	return rep
 }
 
-// diffKeys returns the sorted distinct fields of the unexplained differences.
 func diffKeys(rep *Report) []string {
 	set := map[string]bool{}
 	for _, d := range rep.Diffs {
@@ -242,7 +228,6 @@ func diffKeys(rep *Report) []string {
 	return slices.Sorted(maps.Keys(set))
 }
 
-// fieldsTxt reads fields.txt of the repository.
 func fieldsTxt(t testing.TB) []string {
 	t.Helper()
 	keys, err := ReadFields(filepath.Join(testlib.RepoDir(t, "golden"), "fields.txt"))

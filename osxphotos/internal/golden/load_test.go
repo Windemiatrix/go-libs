@@ -19,8 +19,6 @@ func writeFile(t testing.TB, path, content string) {
 	}
 }
 
-// pair writes query.json and deleted.json into a new directory and returns
-// the two paths.
 func pair(t testing.TB, query, deleted string) (queryPath, deletedPath string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -103,8 +101,8 @@ func TestLoad(t *testing.T) {
 	cases := []struct {
 		name           string
 		query, deleted string
-		want           string // part of the error; "" is success
-		wantNot        string // must not be in the error
+		want           string
+		wantNot        string
 		noQueryFile    bool
 		noDeletedFile  bool
 	}{
@@ -211,7 +209,6 @@ func TestLoadFiles(t *testing.T) {
 	}
 }
 
-// object renders an object of the reference with a date, a date_added and a uuid.
 func object(date, added, uuid string) Object {
 	o := Object{"uuid": json.RawMessage(`"` + uuid + `"`), "date": json.RawMessage(`"` + date + `"`)}
 	if added == "" {
@@ -248,15 +245,15 @@ func TestReferenceOrder(t *testing.T) {
 	cases := []struct {
 		name  string
 		query []Object
-		want  string // "" is ordered
+		want  string
 	}{
 		{"empty", nil, ""},
 		{"one object", []Object{object("2020-01-01T00:00:00+00:00", "", u1)}, ""},
 		{"by date", []Object{object("2020-01-01T00:00:00+00:00", "", u1), object("2020-01-01T00:00:01+00:00", "", u1+"0")}, ""},
 		{"swapped by date", []Object{object("2020-01-01T00:00:01+00:00", "", u1), object("2020-01-01T00:00:00+00:00", "", u2)}, "query.json: element 2 is out of order"},
 		{"dates are moments, not strings", []Object{
-			object("2020-01-01T10:00:00+05:00", "", u2), // 05:00 UTC
-			object("2020-01-01T01:00:00-05:00", "", u1), // 06:00 UTC
+			object("2020-01-01T10:00:00+05:00", "", u2),
+			object("2020-01-01T01:00:00-05:00", "", u1),
 		}, ""},
 		{"same moment in other offsets is a tie", []Object{
 			object("2020-01-01T10:00:00+05:00", "2020-01-01T00:00:00+00:00", u1),
@@ -305,7 +302,7 @@ func TestReferenceOrder(t *testing.T) {
 		t.Parallel()
 		ref := &Reference{
 			Query:   []Object{object("2020-01-02T00:00:00+00:00", "", u2)},
-			Deleted: []Object{object("2020-01-01T00:00:00+00:00", "", u1)}, // earlier than query.json: fine
+			Deleted: []Object{object("2020-01-01T00:00:00+00:00", "", u1)},
 		}
 		if err := ref.CheckOrder(); err != nil {
 			t.Errorf("CheckOrder = %v, want nil: the files are ordered separately", err)

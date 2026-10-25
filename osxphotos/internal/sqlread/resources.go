@@ -14,8 +14,7 @@ type Resource struct {
 	Fingerprint   sql.NullString // ZFINGERPRINT
 }
 
-// resourceSelect is the select list of Resources, in the order of the scan.
-// ZCOMPACTUTI is not read: it holds a small code, not a UTI, and upstream
+// The order is that of the Scan in Resources. ZCOMPACTUTI is not read: it holds a small code, not a UTI, and upstream
 // does not use it for Photos 7 and later (photosdb.py:2454, 2490).
 func resourceSelect() []column {
 	r := func(name string) column { return column{"r", "ZINTERNALRESOURCE", name} }

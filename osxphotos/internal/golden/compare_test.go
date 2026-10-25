@@ -14,8 +14,6 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// TestFixtureKeys: the literals of the fixtures have exactly the keys of
-// fields.txt, so that they do not rot when a key is added.
 func TestFixtureKeys(t *testing.T) {
 	t.Parallel()
 	want := slices.Sorted(slices.Values(fieldsTxt(t)))
@@ -43,7 +41,7 @@ func TestCompareNoDifferences(t *testing.T) {
 type mutation struct {
 	name   string
 	mutate func(l *Library)
-	want   string // the keys of the differences, separated by spaces; "" is none
+	want   string
 }
 
 func photo(f func(p *photoinfo.PhotoInfo)) func(l *Library) {
@@ -63,11 +61,9 @@ func album(uuid string, f func(a *albuminfo.AlbumInfo)) func(l *Library) {
 	return func(l *Library) { f(albumOf(l, uuid)) }
 }
 
-// photoMutations spoil the selected frame p1 in one place each.
 func photoMutations() []mutation {
 	p := photo
 	return []mutation{
-		// Booleans.
 		{"Favorite", p(func(x *photoinfo.PhotoInfo) { x.Favorite = false }), "favorite"},
 		{"Hidden", p(func(x *photoinfo.PhotoInfo) { x.Hidden = false }), "hidden"},
 		{"InTrash", p(func(x *photoinfo.PhotoInfo) { x.InTrash = true }), "intrash"},
@@ -94,7 +90,6 @@ func photoMutations() []mutation {
 		{"ScreenRecording", p(func(x *photoinfo.PhotoInfo) { x.ScreenRecording = false }), "screen_recording"},
 		{"Burst", p(func(x *photoinfo.PhotoInfo) { x.Burst = false }), "burst burst_photos"},
 
-		// Strings.
 		{"CloudMasterGUID", p(func(x *photoinfo.PhotoInfo) { x.CloudMasterGUID = "" }), "cloud_guid"},
 		{"Description", p(func(x *photoinfo.PhotoInfo) { x.Description = "" }), "description"},
 		{"Filename", p(func(x *photoinfo.PhotoInfo) { x.Filename += "x" }), "filename"},
@@ -106,7 +101,6 @@ func photoMutations() []mutation {
 		{"UTIRaw", p(func(x *photoinfo.PhotoInfo) { x.UTIRaw = "" }), "uti_raw"},
 		{"UTIEdited", p(func(x *photoinfo.PhotoInfo) { x.UTIEdited = "" }), "uti_edited"},
 
-		// Integers.
 		{"Width", p(func(x *photoinfo.PhotoInfo) { x.Width++ }), "width"},
 		{"Height", p(func(x *photoinfo.PhotoInfo) { x.Height++ }), "height"},
 		{"OriginalWidth", p(func(x *photoinfo.PhotoInfo) { x.OriginalWidth++ }), "original_width"},
@@ -117,7 +111,6 @@ func photoMutations() []mutation {
 		{"TZOffset", p(func(x *photoinfo.PhotoInfo) { x.TZOffset = ptr(0) }), "tzoffset"},
 		{"TZOffset nil", p(func(x *photoinfo.PhotoInfo) { x.TZOffset = nil }), "tzoffset"},
 
-		// Dates: a moment, to the nanosecond; the offset of the value is not compared.
 		{"Date plus 1us", p(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.Add(time.Microsecond) }), "date"},
 		{"Date minus 1us", p(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.Add(-time.Microsecond) }), "date"},
 		{"Date plus 1ns", p(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.Add(time.Nanosecond) }), "date"},
@@ -128,7 +121,6 @@ func photoMutations() []mutation {
 		{"DateModified", p(func(x *photoinfo.PhotoInfo) { x.DateModified = ptr(x.DateModified.Add(time.Microsecond)) }), "date_modified"},
 		{"DateTrashed nil", p(func(x *photoinfo.PhotoInfo) { x.DateTrashed = nil }), "date_trashed"},
 
-		// Optional values: null is nil, not false or 0.
 		{"InCloud false", p(func(x *photoinfo.PhotoInfo) { x.InCloud = ptr(false) }), "incloud"},
 		{"InCloud nil", p(func(x *photoinfo.PhotoInfo) { x.InCloud = nil }), "incloud"},
 		{"Latitude", p(func(x *photoinfo.PhotoInfo) { x.Latitude = ptr(1.0) }), "latitude location"},
@@ -137,14 +129,12 @@ func photoMutations() []mutation {
 		{"Longitude", p(func(x *photoinfo.PhotoInfo) { x.Longitude = ptr(1.0) }), "location longitude"},
 		{"Longitude nil", p(func(x *photoinfo.PhotoInfo) { x.Longitude = nil }), "location longitude"},
 
-		// Lists.
 		{"Keywords swapped", p(func(x *photoinfo.PhotoInfo) { x.Keywords = []string{"beta", "alpha"} }), "keywords"},
 		{"Keywords shorter", p(func(x *photoinfo.PhotoInfo) { x.Keywords = []string{"alpha"} }), "keywords"},
 		{"Keywords with a repeat", p(func(x *photoinfo.PhotoInfo) { x.Keywords = []string{"alpha", "beta", "beta"} }), "keywords"},
 		{"Keywords nil", p(func(x *photoinfo.PhotoInfo) { x.Keywords = nil }), "keywords"},
 		{"HasPersons", p(func(x *photoinfo.PhotoInfo) { x.HasPersons = false }), "persons"},
 
-		// Bursts.
 		{"BurstUUID of the other frame", func(l *Library) { l.Photos[1].BurstUUID = "BURST-B" }, "burst_photos"},
 		// The other frame is then a plain photo, which osxphotos would return.
 		{"the other frame is not a burst frame", func(l *Library) { l.Photos[1].Burst = false }, "burst_photos uuid"},
@@ -153,7 +143,6 @@ func photoMutations() []mutation {
 			l.Photos = append(l.Photos, &photoinfo.PhotoInfo{UUID: "00000000-0000-0000-0000-000000000004", Burst: true, BurstUUID: "BURST-A", InTrash: true})
 		}, "burst_photos"},
 
-		// Albums.
 		{"AlbumUUIDs empty", p(func(x *photoinfo.PhotoInfo) { x.AlbumUUIDs = nil }), "album_info albums folders"},
 		{"AlbumUUIDs without Album A in Folder X", p(func(x *photoinfo.PhotoInfo) { x.AlbumUUIDs = []string{albumA3, albumA2} }), "album_info"},
 		{"AlbumUUIDs without Album A in Folder Y", p(func(x *photoinfo.PhotoInfo) { x.AlbumUUIDs = []string{albumA1} }), "album_info folders"},
@@ -174,9 +163,7 @@ func photoMutations() []mutation {
 	}
 }
 
-// TestCompareEachKey: the fixture has no differences, and each spoiled place
-// gives the differences of exactly the keys that read it. The expectations
-// are literals and the reference is a literal, not computed by the package.
+// The expectations and the reference are literals, not computed by the package.
 func TestCompareEachKey(t *testing.T) {
 	t.Parallel()
 	cases := photoMutations()
@@ -214,8 +201,8 @@ func TestCompareEachKey(t *testing.T) {
 	}
 }
 
-// TestCompareNFD: the comparison does not normalize strings. The reference is
-// in NFC; a Go string in NFD is another string, a difference to be fixed in the port.
+// The reference is in NFC; a Go string in NFD is a difference to be fixed in
+// the port, so the comparison must not normalize strings.
 func TestCompareNFD(t *testing.T) {
 	t.Parallel()
 	nfc := "Caf" + string(rune(0xe9))
@@ -238,7 +225,6 @@ func TestCompareNFD(t *testing.T) {
 	}
 }
 
-// TestCompareValues pins the canonical form that Diff carries.
 func TestCompareValues(t *testing.T) {
 	t.Parallel()
 	lib := fixtureLib()
@@ -275,7 +261,6 @@ func TestCompareValues(t *testing.T) {
 	}
 }
 
-// TestCompareEquivalent: different Go values that mean what the reference says.
 func TestCompareEquivalent(t *testing.T) {
 	t.Parallel()
 	cases := []mutation{
@@ -332,7 +317,6 @@ func TestCompareEquivalent(t *testing.T) {
 	})
 }
 
-// TestCompareKeepsInput: Compare does not change what it is given.
 func TestCompareKeepsInput(t *testing.T) {
 	t.Parallel()
 	spoil := func(l Library) Library {
@@ -353,8 +337,6 @@ func TestCompareKeepsInput(t *testing.T) {
 	}
 }
 
-// TestCompareNulls spoils the photo with empty values (p3), whose nulls the
-// rules turn into zero values, in one place each.
 func TestCompareNulls(t *testing.T) {
 	t.Parallel()
 	p3m := func(f func(x *photoinfo.PhotoInfo)) func(l *Library) { return func(l *Library) { f(l.Photos[2]) } }
@@ -419,7 +401,7 @@ func TestCompareSets(t *testing.T) {
 		name  string
 		ref   func() *Reference
 		lib   func() Library
-		diffs []Diff // want
+		diffs []Diff
 	}
 	cases := []setCase{
 		{"an object only in the reference",
@@ -639,12 +621,10 @@ func TestCompareErrors(t *testing.T) {
 	})
 }
 
-// TestCompareAlbumRules covers the rules of album_info, albums, folders.
 func TestCompareAlbumRules(t *testing.T) {
 	t.Parallel()
 	albumKeys := AlbumKeys()
-	// run compares the album keys of one object with the photo of the same
-	// uuid, so that the other photos of the library are not differences.
+	// The other photos of the library would be differences.
 	run := func(t *testing.T, ref Object, lib Library) *Report {
 		t.Helper()
 		id, _ := decode[string](ref, "uuid", false, "")
@@ -765,7 +745,6 @@ func TestCompareAlbumRules(t *testing.T) {
 		if rep := run(t, ref, lib); !rep.OK() {
 			t.Errorf("differences %+v, want none", rep.Diffs)
 		}
-		// The order of UTF-16 units is a difference.
 		swapped := refObj(refP3(), map[string]string{"albums": `["😀", "～"]`})
 		lib.Albums = lib.Albums[:2]
 		rep, err := Compare(refOf(swapped), lib, []string{"albums"}, nil)
@@ -794,7 +773,7 @@ func TestCompareBurstPhotos(t *testing.T) {
 		}
 	}
 	a, b, c := frame(q1), frame(q2), frame(q3)
-	a.Burst, b.Burst = true, true // BurstUUID "" for both; c is not a burst frame
+	a.Burst, b.Burst = true, true
 	ref := refOf(
 		refObj(refP3(), map[string]string{"uuid": `"` + q1 + `"`, "burst": "true", "burst_photos": `["` + q2 + `"]`}),
 		refObj(refP3(), map[string]string{"uuid": `"` + q2 + `"`, "burst": "true", "burst_photos": `["` + q1 + `"]`}),
@@ -807,7 +786,6 @@ func TestCompareBurstPhotos(t *testing.T) {
 	if !rep.OK() {
 		t.Errorf("differences %+v, want none", rep.Diffs)
 	}
-	// A frame lists the others and not itself.
 	own := refOf(
 		refObj(refP3(), map[string]string{"uuid": `"` + q1 + `"`, "burst": "true", "burst_photos": `["` + q1 + `", "` + q2 + `"]`}),
 	)
@@ -818,7 +796,6 @@ func TestCompareBurstPhotos(t *testing.T) {
 	if got := diffKeys(rep); !slices.Equal(got, []string{"burst_photos", "uuid"}) { // uuid: q2 is not in the reference
 		t.Errorf("differences in %v, want burst_photos: the frame must not list itself", got)
 	}
-	// Sorted by bytes.
 	b.UUID = "Z"
 	c.UUID, c.Burst = "a", true
 	a.UUID = "B"

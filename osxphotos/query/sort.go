@@ -23,8 +23,7 @@ func Sort(in []*photoinfo.PhotoInfo) []*photoinfo.PhotoInfo {
 // epoch is DEFAULT_DATE of osxphotos, the sort key of a nil DateAdded.
 var epoch = time.Unix(0, 0).UTC()
 
-// comparePhotos orders by the moments of Date and DateAdded, then by UUID
-// byte by byte (as Python compares ASCII strings).
+// UUIDs compare byte by byte, as Python compares ASCII strings.
 func comparePhotos(a, b *photoinfo.PhotoInfo) int {
 	if c := a.Date.Compare(b.Date); c != 0 {
 		return c

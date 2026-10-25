@@ -14,7 +14,6 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// albumRow is a row of sqlread.Albums without dates, title, GUID and state.
 func albumRow(pk int64, uuid string, kind int64, parent sql.NullInt64) sqlread.Album {
 	return sqlread.Album{PK: pk, UUID: uuid, Kind: kind, Parent: parent}
 }
@@ -24,8 +23,6 @@ func withTitle(a sqlread.Album, title string) sqlread.Album {
 	return a
 }
 
-// sameTime reports two optional moments as equal: both nil, or the same
-// instant.
 func sameTime(a, b *time.Time) bool {
 	if a == nil || b == nil {
 		return a == b
@@ -33,7 +30,6 @@ func sameTime(a, b *time.Time) bool {
 	return a.Equal(*b)
 }
 
-// sameStrings compares two lists, nil and empty told apart.
 func sameStrings(a, b []string) bool {
 	return (a == nil) == (b == nil) && slices.Equal(a, b)
 }
@@ -68,7 +64,7 @@ func TestLoadAlbums(t *testing.T) {
 		albumRow(ft, "F-T", sqlread.KindFolder, nullInt(root)),
 		deep, top, noParent, underFN, noTitle, same1, same2,
 	}
-	skippedDup := sqlread.Asset{PK: 103, UUID: nullString("P-1")} // no attributes row, the UUID of a photo
+	skippedDup := sqlread.Asset{PK: 103, UUID: nullString("P-1")}
 	assets := []sqlread.Asset{
 		{PK: 100, UUID: nullString("P-1"), HasAttributes: true},
 		{PK: 101, UUID: nullString("P-2"), HasAttributes: true},
@@ -151,7 +147,6 @@ func TestLoadAlbumsErrors(t *testing.T) {
 	}
 }
 
-// TestAlbums checks Albums against direct SQL on the test libraries.
 func TestAlbums(t *testing.T) {
 	t.Parallel()
 
@@ -235,8 +230,6 @@ func TestAlbums(t *testing.T) {
 	}
 }
 
-// TestAlbumsCloudGUID reads the GUIDs that the migrations album-cloud-guid
-// and album-cloud-guid-null set.
 func TestAlbumsCloudGUID(t *testing.T) {
 	t.Parallel()
 
@@ -274,9 +267,7 @@ func TestAlbumsCloudGUID(t *testing.T) {
 	}
 }
 
-// TestAlbumsTrash puts two albums with members into the trash, one with
-// ZTRASHEDSTATE 1 and one with NULL, which upstream also reads as trashed
-// (photosdb.py:1936): both stay in Albums() and in AlbumUUIDs.
+// ZTRASHEDSTATE NULL is read as trashed by upstream too (photosdb.py:1936).
 func TestAlbumsTrash(t *testing.T) {
 	t.Parallel()
 
@@ -348,8 +339,6 @@ func TestAlbumsTrash(t *testing.T) {
 	}
 }
 
-// TestOpenAlbumParents breaks the folder tree of a copy: Open fails, names
-// no UUID of the albums and removes the copy.
 func TestOpenAlbumParents(t *testing.T) {
 	t.Parallel()
 
@@ -391,7 +380,6 @@ func TestOpenAlbumParents(t *testing.T) {
 	}
 }
 
-// albumUUIDs returns every ZUUID of ZGENERICALBUM of the library.
 func albumUUIDs(t *testing.T, lib string) []string {
 	t.Helper()
 	rows, err := roDB(t, lib).QueryContext(t.Context(), "SELECT ZUUID FROM ZGENERICALBUM WHERE ZUUID IS NOT NULL")

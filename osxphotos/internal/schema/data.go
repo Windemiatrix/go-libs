@@ -1,8 +1,7 @@
 package schema
 
-// schemas is the table of supported schemas in ascending model order. Model
-// ranges are _constants.py:59-68, names are _DB_TABLE_NAMES of
-// _constants.py:129-264.
+// Ascending model order. Model ranges are _constants.py:59-68, names are
+// _DB_TABLE_NAMES of _constants.py:129-264.
 //
 // Not supported, so not in the table: models below 16320 (Photos 7 and
 // earlier, and the Ventura previews 16000-16319 without the shared library

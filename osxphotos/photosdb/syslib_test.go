@@ -18,7 +18,6 @@ const (
 	containerLibrary = "/Users/someone/Pictures/Container.photoslibrary"
 )
 
-// libraryPlist is an XML plist with SystemLibraryPath set to the XML value v.
 func libraryPlist(v string) []byte {
 	return xmlPlist("<dict><key>Other</key><integer>1</integer><key>SystemLibraryPath</key>" + v + "</dict>")
 }
@@ -27,8 +26,6 @@ func pathPlist(path string) []byte {
 	return libraryPlist("<string>" + path + "</string>")
 }
 
-// sizedPathPlist is a valid XML plist of exactly size bytes with
-// SystemLibraryPath set to path, padded by a string under another key.
 func sizedPathPlist(size int, path string) []byte {
 	body := func(pad string) []byte {
 		return xmlPlist("<dict><key>Pad</key><string>" + pad + "</string><key>SystemLibraryPath</key><string>" + path + "</string></dict>")
@@ -36,11 +33,10 @@ func sizedPathPlist(size int, path string) []byte {
 	return body(strings.Repeat("x", size-len(body(""))))
 }
 
-// file is one preferences file of a test home; the zero value means no file.
 type file struct {
 	data       []byte
-	unreadable bool // mode 0000
-	isDir      bool // a directory in place of the file
+	unreadable bool
+	isDir      bool
 }
 
 func writeHome(t *testing.T, group, container file) string {
@@ -78,7 +74,7 @@ func TestSystemLibraryPath(t *testing.T) {
 		name             string
 		group, container file
 		want             string
-		errText          []string // "" want: error wrapping ErrLibraryNotFound with these
+		errText          []string
 	}{
 		{name: "group file first", group: file{data: pathPlist(groupLibrary)}, container: file{data: pathPlist(containerLibrary)}, want: groupLibrary},
 		{name: "group only", group: file{data: pathPlist(groupLibrary)}, container: none, want: groupLibrary},

@@ -1,14 +1,9 @@
 #!/usr/bin/env bash
-# Repository hygiene checks: rules that neither the compiler nor the linter
-# enforce, plus the self-test of the PR title check.
-# Only files tracked by git are examined, so build output and local junk never
-# matter.
+# Rules that neither the compiler nor the linter enforce. Only files tracked by
+# git are examined, so build output and local junk never matter. Runs from the
+# repository root.
 #
-# Run:    make check-repo (which also runs actionlint), or
-#         bash scripts/check-repo.sh, from the repository root; CI runs it in
-#         the repo-checks job.
-# Input:  none.
-# Exit:   0 every check passed; 1 at least one failed. Every check runs, and
+# Exit:0 every check passed; 1 at least one failed. Every check runs, and
 #         each failure is printed as "FAIL: ..." on stderr.
 set -euo pipefail
 
@@ -19,7 +14,6 @@ module_dir="osxphotos"
 # upgrade Go.
 max_go_minor=27
 
-# The only package that may use cgo.
 cgo_allowed_dir="$module_dir/photokit/"
 
 spike_build_tag_re='^//go:build.*[[:space:](&|]spike([[:space:])&|]|$)|^// \+build.*[[:space:]]spike'

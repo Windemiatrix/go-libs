@@ -50,8 +50,6 @@ func TestCoreDataTime(t *testing.T) {
 	}
 }
 
-// oracleMicros is the exact Unix time in microseconds of f (the float64 sum
-// ts + 978307200) rounded half to even, computed with math/big.
 func oracleMicros(f float64) int64 {
 	r := new(big.Rat).SetFloat64(f)
 	r.Mul(r, big.NewRat(1_000_000, 1))
@@ -64,9 +62,7 @@ func oracleMicros(f float64) int64 {
 	return q.Int64()
 }
 
-// randomTimestamps returns timestamps of about ±34 years around 2001, with
-// binary and with decimal fractions. They are made from integers by one
-// division, never by x*y + z.
+// The values are made from integers by one division, never by x*y + z.
 func randomTimestamps(n int) []float64 {
 	r := rand.New(rand.NewPCG(1, 2)) //nolint:gosec // G404: deterministic test data
 	out := make([]float64, 0, n)
@@ -93,7 +89,6 @@ func TestCoreDataTimeOracle(t *testing.T) {
 		if want := oracleMicros(f); got.UnixMicro() != want || got.Nanosecond()%1000 != 0 {
 			t.Fatalf("coreDataTime(%v) = %v (%d µs), want %d µs", v, got, got.UnixMicro(), want)
 		}
-		// The result is within half a microsecond of f.
 		exact := new(big.Rat).SetFloat64(f)
 		diff := new(big.Rat).Sub(new(big.Rat).SetFrac64(got.UnixNano(), 1_000_000_000), exact)
 		if diff.Abs(diff).Cmp(big.NewRat(1, 2_000_000)) > 0 {
@@ -196,8 +191,6 @@ func TestOptionalTime(t *testing.T) {
 	}
 }
 
-// TestCoreDataTimeGolden converts ZADDEDDATE of three assets of Test-13.0.0
-// and compares the moments with date_added of the osxphotos output.
 func TestCoreDataTimeGolden(t *testing.T) {
 	t.Parallel()
 
@@ -240,7 +233,6 @@ func TestCoreDataTimeGolden(t *testing.T) {
 	}
 }
 
-// roDB opens database/Photos.sqlite of the library read-only.
 func roDB(t *testing.T, lib string) *sql.DB {
 	t.Helper()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(lib, "database", "Photos.sqlite")+"?mode=ro")

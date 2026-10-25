@@ -10,8 +10,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// TestMissingKey: a rule asks for its key, and a reference without it is a
-// mistake of the input for every rule, not a null.
+// A reference without the key is a mistake of the input for every rule, not a null.
 func TestMissingKey(t *testing.T) {
 	t.Parallel()
 	for _, key := range allKeys() {
@@ -46,12 +45,9 @@ func TestMissingKey(t *testing.T) {
 	})
 }
 
-// TestAlbumShape: an element of album_info that has not the form osxphotos writes.
 func TestAlbumShape(t *testing.T) {
 	t.Parallel()
 	const good = `{"creation_date": "2020-01-01T00:00:00+00:00", "end_date": null, "folder_list": [], "folder_names": [], "owner": null, "parent": null, "sort_order": null, "start_date": null, "title": "T", "uuid": "U"}`
-	// replace returns good with the key set to value, or without the key when
-	// value is "".
 	replace := func(key, value string) string {
 		var o Object
 		if err := json.Unmarshal([]byte(good), &o); err != nil {
@@ -123,8 +119,6 @@ func TestAlbumShape(t *testing.T) {
 	})
 }
 
-// TestAlbumsMissingOnTheGoSide: an album that a photo lists and Library does
-// not have is an error for each of the keys that read the albums.
 func TestAlbumsMissingOnTheGoSide(t *testing.T) {
 	t.Parallel()
 	for _, key := range AlbumKeys() {

@@ -7,14 +7,11 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
 )
 
-// personSelect is the select list of NamedPersonAssets, in the order of the
-// scan.
+// The order is that of the Scan in NamedPersonAssets.
 func personSelect(s schema.Schema) []column {
 	return []column{{"f", "ZDETECTEDFACE", s.FaceAssetColumn}}
 }
 
-// personColumns are the columns of NamedPersonAssets: the select list and
-// the join and filter columns.
 func personColumns(s schema.Schema) []column {
 	return append(personSelect(s),
 		column{"f", "ZDETECTEDFACE", s.FacePersonColumn},

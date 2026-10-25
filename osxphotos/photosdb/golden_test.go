@@ -11,9 +11,8 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
 
-// goldenLibrary is a library of testdata/golden and the path of a pristine
-// copy of it: the osxphotos output was made from the libraries without
-// migrations.
+// The path is a pristine copy: the osxphotos output was made from the
+// libraries without migrations.
 type goldenLibrary struct{ name, path string }
 
 func goldenLibraries(t *testing.T) []goldenLibrary {
@@ -25,9 +24,6 @@ func goldenLibraries(t *testing.T) []goldenLibrary {
 	return libs
 }
 
-// TestGolden compares every key of the osxphotos output, those of the albums
-// of a photo included, with what Open reads, for the test libraries and the
-// synthetic library.
 func TestGolden(t *testing.T) {
 	t.Parallel()
 
@@ -75,15 +71,12 @@ func TestGolden(t *testing.T) {
 	}
 }
 
-// rawPairs is the number of RAW+JPEG pairs of the synthetic library.
 const rawPairs = 40
 
 // TestGoldenHasRAW is the independent condition of the has_raw record of the
-// synthetic library in divergences.json: without records, the has_raw
-// differences are exactly the assets that have a resource of subtype 3 and
-// resource type 4 and none of subtype 17, which Go reads as RAW and upstream
-// does not (photosdb/photosdb.py:2537-2551). With the records, all of them
-// are explained.
+// synthetic library in divergences.json: Go reads an asset with a resource of
+// subtype 3 and resource type 4 and none of subtype 17 as RAW, upstream does
+// not (photosdb/photosdb.py:2537-2551).
 func TestGoldenHasRAW(t *testing.T) {
 	t.Parallel()
 
@@ -156,9 +149,7 @@ func TestGoldenHasRAW(t *testing.T) {
 	}
 }
 
-// TestGoldenOrder checks the order of Photos against the order of the
-// osxphotos output (photoquery.py:888-898): the UUIDs of Photos that are in
-// query.json, and those in deleted.json, come in the order of the file.
+// The order of the osxphotos output: photoquery.py:888-898.
 func TestGoldenOrder(t *testing.T) {
 	t.Parallel()
 

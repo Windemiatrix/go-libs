@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// TestKeysCoverFields: a key added to fields.txt without a rule is red.
 func TestKeysCoverFields(t *testing.T) {
 	t.Parallel()
 	fields := fieldsTxt(t)

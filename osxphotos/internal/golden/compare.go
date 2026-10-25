@@ -32,21 +32,20 @@ type Diff struct {
 // Report is the result of Compare for one library.
 type Report struct {
 	Library   string
-	Objects   int            // objects of the reference (query.json + deleted.json)
-	Keys      []string       // the compared keys
-	Diffs     []Diff         // not explained by a divergence, sorted by Field, then UUID
-	Explained map[string]int // explained differences per key
-	Stale     []Divergence   // records of this library and of Keys that explained nothing
+	Objects   int // objects of the reference (query.json + deleted.json)
+	Keys      []string
+	Diffs     []Diff // not explained by a divergence, sorted by Field, then UUID
+	Explained map[string]int
+	Stale     []Divergence // records of this library and of Keys that explained nothing
 }
 
 // OK reports no unexplained differences and no stale records.
 func (r *Report) OK() bool { return len(r.Diffs) == 0 && len(r.Stale) == 0 }
 
-// env holds what the rules need from the Go side besides the photo itself.
 type env struct {
 	albums map[string]*albuminfo.AlbumInfo
-	elems  map[string]map[string]any // album_info element of the Go side per album uuid
-	bursts map[string][]string       // sorted uuids of the burst frames per BurstUUID
+	elems  map[string]map[string]any
+	bursts map[string][]string
 }
 
 var errAlbumMissing = errors.New("an album of a photo is missing from Library.Albums")
@@ -83,8 +82,6 @@ func newEnv(lib Library) (*env, error) {
 	return e, nil
 }
 
-// userAlbums returns the albums of a photo that the reference lists: no
-// trashed ones, each once.
 func (e *env) userAlbums(uuids []string) ([]*albuminfo.AlbumInfo, error) {
 	var out []*albuminfo.AlbumInfo
 	seen := map[string]bool{}
@@ -102,19 +99,17 @@ func (e *env) userAlbums(uuids []string) ([]*albuminfo.AlbumInfo, error) {
 	return out, nil
 }
 
-// refObject is an object of the reference with its place in the files.
 type refObject struct {
 	obj  Object
 	uuid string
-	file string // query.json or deleted.json
-	n    int    // from 1
+	file string
+	n    int
 }
 
 func (o refObject) where(library string) string {
 	return fmt.Sprintf("golden: %s: %s element %d", library, o.file, o.n)
 }
 
-// indexRef lists the objects of Query and Deleted and refuses a repeated uuid.
 func indexRef(ref *Reference) ([]refObject, error) {
 	var out []refObject
 	first := map[string]refObject{}
@@ -142,14 +137,13 @@ func indexRef(ref *Reference) ([]refObject, error) {
 	return out, nil
 }
 
-// inGoSet reports whether upstream photos() would return the photo: not an
-// unselected burst frame (photosdb.py:3346-3353) and a photo or a movie, as
-// the others have no type (photosdb.py:2197-2204, 3355-3360).
+// Upstream photos() skips unselected burst frames (photosdb.py:3346-3353) and
+// objects that are neither a photo nor a movie, as they have no type
+// (photosdb.py:2197-2204, 3355-3360).
 func inGoSet(p *photoinfo.PhotoInfo) bool {
 	return !p.BurstUnselected() && (p.IsPhoto || p.IsMovie)
 }
 
-// selectRules returns the rules of keys, each once, in the order of the keys.
 func selectRules(keys []string) (selected []rule, names []string, err error) {
 	names = slices.Clone(keys)
 	slices.Sort(names)
@@ -166,8 +160,7 @@ func selectRules(keys []string) (selected []rule, names []string, err error) {
 
 // Compare compares lib with ref on keys (each in PhotoKeys or AlbumKeys).
 // The sets of objects (key uuid) are compared always, whether or not keys
-// lists uuid; the Go set is the photos of lib.Photos that are not unselected
-// burst frames and are a photo or a movie, as upstream photos() returns them
+// lists uuid; the Go set is what upstream photos() returns
 // (photosdb/photosdb.py:3346-3360). An error is a problem of the input, not
 // a difference: an unknown key, a reference value of the wrong shape, an
 // album UUID missing from lib.Albums, a UUID repeated in ref (Query and
@@ -223,8 +216,6 @@ func Compare(ref *Reference, lib Library, keys []string, divs []Divergence) (*Re
 	return rep, nil
 }
 
-// indexGo returns the photos of the Go set by uuid and refuses a uuid
-// repeated anywhere in lib.Photos.
 func indexGo(lib Library) (map[string]*photoinfo.PhotoInfo, error) {
 	all := make(map[string]bool, len(lib.Photos))
 	set := map[string]*photoinfo.PhotoInfo{}
@@ -240,8 +231,6 @@ func indexGo(lib Library) (map[string]*photoinfo.PhotoInfo, error) {
 	return set, nil
 }
 
-// compareKey compares one key of one object. p is nil for an object the Go
-// side does not have: only the form of the reference value is checked.
 func compareKey(e *env, r rule, ro refObject, p *photoinfo.PhotoInfo, library string) (*Diff, error) {
 	fail := func(err error) error {
 		return fmt.Errorf("%s: key %s: %w", ro.where(library), r.key, err)
@@ -277,9 +266,6 @@ func compareKey(e *env, r rule, ro refObject, p *photoinfo.PhotoInfo, library st
 	return &Diff{UUID: ro.uuid, Field: r.key, Want: ws, Got: gs}, nil
 }
 
-// explain removes from diffs what a record of divs of this library explains,
-// counts it in rep.Explained and returns the rest, sorted, with the records of
-// the library and of the compared keys (or uuid) that explained nothing.
 func explain(rep *Report, diffs []Diff, divs []Divergence, keys []string) (open []Diff, stale []Divergence) {
 	used := make([]bool, len(divs))
 	for _, diff := range diffs {
@@ -310,9 +296,6 @@ func explain(rep *Report, diffs []Diff, divs []Divergence, keys []string) (open 
 	return open, stale
 }
 
-// explains reports whether the record covers the difference: the same
-// library and field, the same object (or all of them), and the values when
-// the record has them.
 func (d Divergence) explains(library string, diff Diff) bool {
 	return d.Library == library && d.Field == diff.Field &&
 		(d.UUID == "*" || d.UUID == diff.UUID) &&
@@ -320,9 +303,7 @@ func (d Divergence) explains(library string, diff Diff) bool {
 		(len(d.Got) == 0 || string(d.Got) == diff.Got)
 }
 
-// Summary is the aggregate view: objects, differences and explained
-// differences per key, stale records — numbers and key names only, never a
-// UUID or a value.
+// Summary returns numbers and key names only, never a UUID or a value.
 func (r *Report) Summary() string {
 	open := map[string]int{}
 	for _, d := range r.Diffs {

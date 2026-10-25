@@ -12,7 +12,6 @@ import (
 	_ "modernc.org/sqlite" // the "sqlite" database/sql driver
 )
 
-// attempts is the number of copies Open makes before it gives up.
 const attempts = 3
 
 // DB is an open, checked, read-only copy of a Photos.sqlite database.
@@ -21,10 +20,8 @@ type DB struct {
 	dir string // the copy directory, removed by Close
 }
 
-// afterCopy, when not nil, is called by Open after each copy is written and
-// before it is opened, with the attempt number from 1 and the path of the
-// copied database. Tests use it to damage one attempt; production code never
-// sets it.
+// Tests set afterCopy to damage one attempt (attempts count from 1);
+// production code never sets it.
 var afterCopy func(attempt int, copyPath string)
 
 // Open copies dbPath and its -wal (when present) into a new directory under
@@ -75,8 +72,8 @@ func Open(ctx context.Context, dbPath, tempDir string) (*DB, error) {
 	return nil, fmt.Errorf("sqlread: %s: quick_check failed after %d attempts: %w", dbPath, attempts, last)
 }
 
-// source returns dbPath with symbolic links resolved: SQLite keeps the -wal
-// next to the real file, so the copy takes it from there.
+// SQLite keeps the -wal next to the real file, so the copy takes it from
+// there.
 func source(dbPath string) (string, error) {
 	src, err := RealPath(dbPath)
 	if err != nil {
@@ -95,7 +92,6 @@ func RealPath(path string) (string, error) {
 	return filepath.EvalSymlinks(abs)
 }
 
-// openChecked opens the copy at path read-only and runs quick_check on it.
 // The DSN is a URI built by net/url, so that a space, "#", "?" or "%" in the
 // path cannot end the path or add parameters. The database comes from
 // outside, so trusted_schema is off: functions named in its views, triggers
@@ -113,10 +109,8 @@ func openChecked(ctx context.Context, path string) (*sql.DB, error) {
 	return db, nil
 }
 
-// readRows runs query and calls scan for each row. A failed scan is
-// reported with the number of the row (from 1) and without the error of
-// database/sql, whose text holds the value. The rows are checked with
-// rows.Err and rows.Close: a result read only in part is an error.
+// A failed scan is reported with the number of the row and without the error
+// of database/sql, whose text holds the value.
 func (d *DB) readRows(ctx context.Context, reader, query string, scan func(*sql.Rows) error, args ...any) error {
 	rows, err := d.db.QueryContext(ctx, query, args...)
 	if err != nil {

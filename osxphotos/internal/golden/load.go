@@ -37,8 +37,7 @@ func ReadFields(path string) ([]string, error) {
 	return keys, nil
 }
 
-// readFile reads a file and, on failure, names it by its base name and keeps
-// the cause (not the whole path, which may be the owner's).
+// A failed file is named by its base name only: the whole path may be the owner's.
 func readFile(path string) ([]byte, error) {
 	data, err := os.ReadFile(path) //nolint:gosec // G304: a file of testdata/golden or a path the caller names
 	if err != nil {
@@ -51,8 +50,6 @@ func readFile(path string) ([]byte, error) {
 	return data, nil
 }
 
-// readArray reads a file that holds one JSON array and nothing after it.
-// name is how the file is called in errors.
 func readArray(path, name string) ([]json.RawMessage, error) {
 	data, err := readFile(path)
 	if err != nil {
@@ -109,7 +106,6 @@ func LoadFiles(library, queryPath, deletedPath string, fields []string) (*Refere
 	return ref, nil
 }
 
-// loadObjects reads one file. name is how the file is called in errors.
 func loadObjects(path, name string, keep []string) ([]Object, error) {
 	items, err := readArray(path, name)
 	if err != nil {
@@ -173,8 +169,7 @@ func (a orderKey) less(b orderKey) bool {
 	return a.uuid < b.uuid
 }
 
-// orderKeyOf reads the sort key of an object; a null date_added is
-// 1970-01-01T00:00:00Z, as in the sort key of upstream.
+// A null date_added is 1970-01-01T00:00:00Z, as in the sort key of upstream.
 func orderKeyOf(obj Object) (orderKey, error) {
 	date, err := refTime(obj, "date", false)
 	if err != nil {

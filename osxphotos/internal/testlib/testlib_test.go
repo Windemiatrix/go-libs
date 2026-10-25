@@ -16,21 +16,18 @@ import (
 	"testing"
 )
 
-// libCase is what the migrations of one library must leave in its copy.
 type libCase struct {
-	assets  []string // markers in ZADDITIONALASSETATTRIBUTES.ZTITLE, without the "mig:" prefix
-	albums  []string // markers in ZGENERICALBUM.ZTITLE, without the "mig:" prefix
-	skipped int      // assets that lose their ZADDITIONALASSETATTRIBUTES row
+	assets  []string
+	albums  []string
+	skipped int
 	checks  []check
 }
 
-// check is a query that returns one value; NULL is rendered as "NULL".
 type check struct {
 	query string
 	want  string
 }
 
-// pk is the ZASSET primary key of the asset marked "mig:<marker>".
 func pk(marker string) string {
 	return "(SELECT ZASSET FROM ZADDITIONALASSETATTRIBUTES WHERE ZTITLE = 'mig:" + marker + "')"
 }
@@ -68,7 +65,6 @@ func fingerprintChecks(column string) []check {
 	}
 }
 
-// burstChecks takes the album membership table of the schema and its album column.
 func burstChecks(table, albumColumn string) []check {
 	pick := func(marker string) string {
 		return "SELECT ZAVALANCHEPICKTYPE FROM ZASSET WHERE Z_PK = " + pk(marker)
@@ -113,8 +109,6 @@ func rawChecks() []check {
 	}
 }
 
-// expected lists every library that has migrations. A library that is not
-// here must have no migrations directory and gets no markers.
 var expected = map[string]libCase{
 	"Test-13.0.0": {
 		assets: slices.Concat(assetCloudGUIDMarkers, fingerprintMarkers, burstMarkers),
@@ -196,8 +190,6 @@ const (
 		"(SELECT 1 FROM ZADDITIONALASSETATTRIBUTES x WHERE x.ZASSET = a.Z_PK)"
 )
 
-// TestMigrations applies the migrations of every test library to a copy and
-// checks the markers and values they leave.
 func TestMigrations(t *testing.T) {
 	dir := RepoDir(t, "libraries")
 	names := Libraries(t)
@@ -241,8 +233,6 @@ func TestMigrations(t *testing.T) {
 
 func dbFile(lib string) string { return filepath.Join(lib, "database", "Photos.sqlite") }
 
-// TestSynthetic grows the synthetic library to three times its assets and
-// checks that every copy of an asset has its own rows.
 func TestSynthetic(t *testing.T) {
 	t.Parallel()
 	base := OpenDB(t, dbFile(OpenPristine(t, "synthetic")))
@@ -266,11 +256,8 @@ func TestSynthetic(t *testing.T) {
 	}
 }
 
-// TestPinnedSynthetic pins the content of the synthetic library, its
-// reference/*.sql applied: the reference data in testdata/golden/synthetic was
-// made from it. Change the
-// values only together with a new golden-regen run and the data of
-// testdata/golden/synthetic.
+// The reference data in testdata/golden/synthetic was made from this content:
+// change the hashes only together with a new golden-regen run and that data.
 func TestPinnedSynthetic(t *testing.T) {
 	t.Parallel()
 	db := OpenDB(t, dbFile(OpenPristine(t, "synthetic")))
@@ -312,7 +299,6 @@ func TestPinnedSynthetic(t *testing.T) {
 	}
 }
 
-// hashRows returns the SHA-256 of the rows of query, every value with its type.
 func hashRows(t *testing.T, db *sql.DB, query string) string {
 	t.Helper()
 	rows, err := db.QueryContext(t.Context(), query)
@@ -354,9 +340,6 @@ var (
 	insertWord    = regexp.MustCompile(`(?i)\binsert\b`)
 )
 
-// TestMigrationFiles checks the layout of every migrations and reference
-// directory: only files NNN_<case>.sql numbered from 001 without gaps, no
-// INSERT, and each file parses into at least one statement.
 func TestMigrationFiles(t *testing.T) {
 	dir := RepoDir(t, "libraries")
 	for _, name := range Libraries(t) {
@@ -424,7 +407,6 @@ func TestParse(t *testing.T) {
 	want := []statement{
 		{sql: "UPDATE t SET v = 1\nWHERE id = 1;", line: 3},
 		{sql: "DELETE FROM t WHERE id = 2;", line: 6, anyRows: true},
-		// "-- rows: any" counts only on the line right before the statement.
 		{sql: "DELETE FROM t WHERE id = 3;", line: 9},
 		{sql: "DELETE FROM t WHERE id = 4;", line: 12},
 	}
@@ -437,14 +419,12 @@ func TestParse(t *testing.T) {
 	}
 }
 
-// TestMigrate runs migrate on a small database whose trigger calls the Core
-// Data functions, so it also checks that their stand-ins are registered.
 func TestMigrate(t *testing.T) {
 	tests := []struct {
 		name    string
 		files   map[string]string
-		wantErr string // empty: no error
-		want    string // value of t.v after migrate
+		wantErr string
+		want    string
 	}{
 		{
 			name: "applies files in name order",
@@ -493,8 +473,8 @@ func TestMigrate(t *testing.T) {
 	}
 }
 
-// newTestDB creates a database with one row and a trigger like the ones in
-// Photos.sqlite that call Core Data functions.
+// The trigger of newTestDB calls the Core Data functions like those of
+// Photos.sqlite, so TestMigrate also covers their stand-ins.
 func newTestDB(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.sqlite")
@@ -523,8 +503,6 @@ func newTestDB(t *testing.T) string {
 	return path
 }
 
-// writeFiles writes the files into a temporary directory and returns their
-// paths in name order.
 func writeFiles(t *testing.T, files map[string]string) []string {
 	t.Helper()
 	dir := t.TempDir()

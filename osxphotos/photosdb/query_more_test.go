@@ -16,8 +16,6 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/query"
 )
 
-// queryMoreRef is what the date, size and burst options read from an object
-// of the reference.
 type queryMoreRef struct {
 	UUID             string   `json:"uuid"`
 	Date             string   `json:"date"`
@@ -43,8 +41,8 @@ func queryMoreRefs(t *testing.T, objs []golden.Object) []queryMoreRef {
 	return out
 }
 
-// queryMoreYear is date.year of Python: the first four digits of the ISO
-// string, which is the wall clock of the zone of the date.
+// date.year of Python is the wall clock of the zone of the date, which the
+// ISO string gives.
 func queryMoreYear(t *testing.T, r queryMoreRef) int {
 	t.Helper()
 	if len(r.Date) < 4 {
@@ -57,9 +55,8 @@ func queryMoreYear(t *testing.T, r queryMoreRef) int {
 	return year
 }
 
-// queryMoreClock is date.time() of Python in seconds: the wall clock of the
-// ISO string of the date, characters 11-19. A threshold of whole seconds
-// splits the dates with a fraction of a second as it splits their seconds.
+// date.time() of Python in seconds. A threshold of whole seconds splits the
+// dates with a fraction of a second as it splits their seconds.
 func queryMoreClock(t *testing.T, r queryMoreRef) time.Duration {
 	t.Helper()
 	if len(r.Date) < 19 {
@@ -73,8 +70,8 @@ func queryMoreClock(t *testing.T, r queryMoreRef) time.Duration {
 	return time.Duration(h)*time.Hour + time.Duration(m)*time.Minute + time.Duration(s)*time.Second
 }
 
-// queryMoreAdded is date_added of the reference as Sort reads it: null is
-// 1970-01-01T00:00:00Z, the documented deviation from upstream.
+// Sort reads a null date_added as 1970-01-01T00:00:00Z, the documented
+// deviation from upstream.
 func queryMoreAdded(t *testing.T, r queryMoreRef) time.Time {
 	t.Helper()
 	if r.DateAdded == nil {
@@ -87,8 +84,7 @@ func queryMoreAdded(t *testing.T, r queryMoreRef) time.Time {
 	return moment
 }
 
-// queryMoreSample keeps about 20 of the sorted values, evenly: a case per
-// value would be thousands for a large library.
+// A case per value would be thousands for a large library.
 func queryMoreSample[T any](sorted []T) []T {
 	var out []T
 	for i := 0; i < len(sorted); i += max(1, len(sorted)/20) {
@@ -152,9 +148,6 @@ func queryMoreCases(t *testing.T, refs []queryMoreRef) []queryMoreCase {
 	return cases
 }
 
-// TestQueryMoreGolden checks Year, FromTime, ToTime, AddedAfter, AddedBefore,
-// MinSize and MaxSize against the values of the reference, as TestQueryGolden
-// checks the other options.
 func TestQueryMoreGolden(t *testing.T) {
 	t.Parallel()
 
@@ -208,12 +201,9 @@ func TestQueryMoreGolden(t *testing.T) {
 	t.Logf("expected photos per family, all libraries: %v", expected)
 }
 
-// TestQueryMoreBurstPhotos checks that the result of Burst with BurstPhotos
-// is the burst photos of query.json and the burst_photos of their objects,
-// without the missing ones unless MissingBursts is set. The reference holds
-// the selected photos only: for a frame it does not hold, IsMissing is read
-// from the library under test, so the path that adds a frame because it is not
-// missing is held by TestMoreBurstPhotos, not by this test.
+// The reference holds the selected photos only: for a frame it does not hold,
+// IsMissing is read from the library under test, so the path that adds a frame
+// because it is not missing is held by TestMoreBurstPhotos, not by this test.
 func TestQueryMoreBurstPhotos(t *testing.T) {
 	t.Parallel()
 

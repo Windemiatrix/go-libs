@@ -45,7 +45,7 @@ type Asset struct {
 	CloudMasterGUID sql.NullString // ZCLOUDMASTER.ZCLOUDMASTERGUID
 }
 
-// assetSelect is the select list of Assets, in the order of the scan.
+// The order is that of the Scan in Assets.
 func assetSelect(s schema.Schema) []column {
 	a := func(name string) column { return column{"a", "ZASSET", name} }
 	x := func(name string) column { return column{"x", "ZADDITIONALASSETATTRIBUTES", name} }
@@ -65,8 +65,6 @@ func assetSelect(s schema.Schema) []column {
 	}
 }
 
-// assetColumns are the columns of Assets: the select list and the join
-// columns.
 func assetColumns(s schema.Schema) []column {
 	return append(assetSelect(s),
 		column{"a", "ZASSET", "ZMASTER"},

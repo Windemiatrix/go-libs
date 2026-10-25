@@ -10,9 +10,8 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// uesc writes JSON escapes of UTF-16 units: uesc("d83d", "de00") is the text
-// backslash-u-d83d backslash-u-de00. It is built, not written, so that the
-// source has no such escape that an editor or a tool might turn into a character.
+// The escape is built, not written, so that the source has no such escape that
+// an editor or a tool might turn into a character.
 func uesc(units ...string) string {
 	var s string
 	for _, u := range units {
@@ -21,7 +20,6 @@ func uesc(units ...string) string {
 	return s
 }
 
-// refCanon is the canonical form of the reference value raw of the rule key.
 func refCanon(key string, raw string, more ...string) (string, error) {
 	o := Object{key: []byte(raw)}
 	for i := 0; i+1 < len(more); i += 2 {
@@ -34,7 +32,6 @@ func refCanon(key string, raw string, more ...string) (string, error) {
 	return canonical(v)
 }
 
-// goCanon is the canonical form of the Go value of the rule key.
 func goCanon(t *testing.T, key string, p *photoinfo.PhotoInfo) string {
 	t.Helper()
 	v, err := rules[key].got(&env{}, p, nil)
@@ -89,16 +86,14 @@ func TestParseMoment(t *testing.T) {
 	}
 }
 
-// TestNormalize pins the forms of values that the rules accept and refuse.
 func TestNormalize(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name, key, raw string
 		more           []string
-		want           string // canonical form
-		wantErr        string // part of the error
+		want           string
+		wantErr        string
 	}{
-		// Dates are moments; the offset of the string is not compared.
 		{name: "date", key: "date", raw: `"2020-06-06T14:15:24.725564+00:00"`, want: `"2020-06-06T14:15:24.725564Z"`},
 		{name: "date in another offset", key: "date", raw: `"2020-06-06T19:45:24.725564+05:30"`, want: `"2020-06-06T14:15:24.725564Z"`},
 		{name: "date in -07:00", key: "date", raw: `"2020-06-06T07:15:24.725564-07:00"`, want: `"2020-06-06T14:15:24.725564Z"`},
@@ -111,7 +106,6 @@ func TestNormalize(t *testing.T) {
 		{name: "date_modified null", key: "date_modified", raw: `null`, want: `null`},
 		{name: "date_trashed", key: "date_trashed", raw: `"2120-06-10T16:24:47.685857+00:00"`, want: `"2120-06-10T16:24:47.685857Z"`},
 
-		// null ↔ the zero value, where the table says so.
 		{name: "title null", key: "title", raw: `null`, want: `""`},
 		{name: "title", key: "title", raw: `"A"`, want: `"A"`},
 		{name: "title number", key: "title", raw: `5`, wantErr: "title: want a string or null"},
@@ -147,7 +141,6 @@ func TestNormalize(t *testing.T) {
 		{name: "latitude null", key: "latitude", raw: `null`, want: `null`},
 		{name: "longitude null", key: "longitude", raw: `null`, want: `null`},
 
-		// Booleans: null is a mistake of the form.
 		{name: "favorite", key: "favorite", raw: `true`, want: `true`},
 		{name: "favorite null", key: "favorite", raw: `null`, wantErr: "favorite: want a boolean"},
 		{name: "favorite string", key: "favorite", raw: `"SECRET-F"`, wantErr: "favorite: want a boolean"},
@@ -156,7 +149,6 @@ func TestNormalize(t *testing.T) {
 		{name: "burst null", key: "burst", raw: `null`, wantErr: "burst: want a boolean"},
 		{name: "shared_library null", key: "shared_library", raw: `null`, wantErr: "want a boolean"},
 
-		// Integers are exact.
 		{name: "width", key: "width", raw: `3024`, want: `3024`},
 		{name: "width as a float", key: "width", raw: `3024.0`, wantErr: "width: want an integer"},
 		{name: "width in exponent form", key: "width", raw: `3e3`, wantErr: "width: want an integer"},
@@ -167,7 +159,6 @@ func TestNormalize(t *testing.T) {
 		{name: "width negative", key: "width", raw: `-1`, want: `-1`},
 		{name: "width true", key: "width", raw: `true`, wantErr: "want an integer"},
 
-		// Floats are exact doubles.
 		{name: "latitude", key: "latitude", raw: `48.8566`, want: `48.8566`},
 		{name: "latitude 0", key: "latitude", raw: `0`, want: `0`},
 		{name: "latitude 0.0", key: "latitude", raw: `0.0`, want: `0`},
@@ -185,8 +176,7 @@ func TestNormalize(t *testing.T) {
 		{name: "location null", key: "location", raw: `null`, wantErr: "location: want a list of two"},
 		{name: "location with a string", key: "location", raw: `[1, "x"]`, wantErr: "location: want a list of two numbers or nulls"},
 
-		// Lists.
-		{name: "keywords", key: "keywords", raw: `["b", "a", "a"]`, want: `["b","a","a"]`}, // a list, in the order of the reference, repeats kept
+		{name: "keywords", key: "keywords", raw: `["b", "a", "a"]`, want: `["b","a","a"]`},
 		{name: "keywords with null", key: "keywords", raw: `[null, "a"]`, want: `["","a"]`},
 		{name: "keywords null", key: "keywords", raw: `null`, wantErr: "keywords: want a list of strings"},
 		{name: "keywords with a number", key: "keywords", raw: `["a", 1]`, wantErr: "keywords: want a list of strings"},
@@ -200,7 +190,6 @@ func TestNormalize(t *testing.T) {
 		{name: "persons name", key: "persons", raw: `["A"]`, want: `true`},
 		{name: "persons null", key: "persons", raw: `null`, wantErr: "persons: want a list of strings"},
 
-		// A key that is missing is a mistake of the input, not null.
 		{name: "no key", key: "title", raw: ``, wantErr: "title: want a value (the key is missing)"},
 	}
 	for _, c := range cases {
@@ -237,7 +226,6 @@ func TestNormalize(t *testing.T) {
 	}
 }
 
-// TestNormalizeGoSide: how the Go side is written.
 func TestNormalizeGoSide(t *testing.T) {
 	t.Parallel()
 	ist := time.FixedZone("IST", 19800)
@@ -285,7 +273,6 @@ func TestNormalizeGoSide(t *testing.T) {
 	})
 }
 
-// TestOrientationSkip: the rule that skips the key for an adjusted photo.
 func TestOrientationSkip(t *testing.T) {
 	t.Parallel()
 	skip := rules["orientation"].skip

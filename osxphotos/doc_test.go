@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-// UPSTREAM.md carries the version of osxphotos that the port follows. CI and
-// tooling read it as plain text, so its format is part of the contract.
+// CI and tooling read UPSTREAM.md as plain text, so its format is part of the
+// contract.
 func TestUpstreamRecord(t *testing.T) {
 	t.Parallel()
 
@@ -23,7 +23,6 @@ func TestUpstreamRecord(t *testing.T) {
 	}
 }
 
-// lineValue returns the single capture group of the one line "<key>: <pattern>".
 func lineValue(t *testing.T, data []byte, key, pattern string) string {
 	t.Helper()
 

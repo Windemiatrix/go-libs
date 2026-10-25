@@ -44,7 +44,6 @@ func (db *DB) FolderList(a *albuminfo.AlbumInfo) []*albuminfo.FolderInfo {
 	return list
 }
 
-// findFolder looks for a UUID among folders ordered by UUID.
 func findFolder(folders []*albuminfo.FolderInfo, uuid string) (*albuminfo.FolderInfo, bool) {
 	i, ok := slices.BinarySearchFunc(folders, uuid, func(f *albuminfo.FolderInfo, u string) int {
 		return strings.Compare(f.UUID, u)
@@ -55,10 +54,6 @@ func findFolder(folders []*albuminfo.FolderInfo, uuid string) (*albuminfo.Folder
 	return folders[i], true
 }
 
-// loadFolders builds every folder of rows as osxphotos FolderInfo and returns
-// them, and the folders of folder_info, in UUID order. rows and albums are
-// those that loadAlbums accepted and returned.
-//
 // The chain of parents of every folder, not only of one above an album, must
 // end below the root folder or at a row without a parent: a cycle of folders
 // without albums would otherwise reach the caller as a graph of Subfolders

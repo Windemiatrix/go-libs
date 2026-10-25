@@ -75,10 +75,9 @@ func (db *DB) BurstAlbumTitlesOf(p *photoinfo.PhotoInfo) []string {
 	return sortedTitles(db.BurstAlbumInfoOf(p))
 }
 
-// albumsOf returns the albums of a photo's UUID list that are outside the
-// trash, ordered as osxphotos sorts them by title (photoinfo.py:658-662); the
-// UUID breaks ties, where upstream keeps the order of the membership rows. A
-// UUID that is not an album is skipped: Open leaves none in the lists.
+// albumsOf sorts by title as osxphotos does (photoinfo.py:658-662); the UUID
+// breaks ties, where upstream keeps the order of the membership rows. Open
+// leaves no UUID that is not an album in the lists.
 func (db *DB) albumsOf(uuids []string) []*albuminfo.AlbumInfo {
 	var out []*albuminfo.AlbumInfo
 	for _, u := range uuids { // photoinfo.py:2029-2034
@@ -92,8 +91,7 @@ func (db *DB) albumsOf(uuids []string) []*albuminfo.AlbumInfo {
 	return out
 }
 
-// sortedTitles returns the titles of albums, sorted by bytes, each once:
-// upstream makes a set of them (photosdb.py:3224-3225, photoinfo.py:640-643).
+// Upstream makes a set of the titles (photosdb.py:3224-3225, photoinfo.py:640-643).
 func sortedTitles(albums []*albuminfo.AlbumInfo) []string {
 	var titles []string
 	for _, a := range albums {

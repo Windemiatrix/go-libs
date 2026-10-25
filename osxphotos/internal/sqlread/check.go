@@ -7,11 +7,10 @@ import (
 	"fmt"
 )
 
-// quickCheck runs quick_check on every ordinary table of db, the shadow
-// tables of a virtual table included. The check of the whole database is not
-// used: since SQLite 3.44 it also connects to virtual tables, and fails on a
-// full-text index whose tokenizer this SQLite does not have, such as the one
-// that exists only inside the Photos app (TestQuickCheckVirtualTable).
+// The check of the whole database is not used: since SQLite 3.44 it also
+// connects to virtual tables, and fails on a full-text index whose tokenizer
+// this SQLite does not have, such as the one that exists only inside the
+// Photos app (TestQuickCheckVirtualTable).
 func quickCheck(ctx context.Context, db *sql.DB) error {
 	tables, err := ordinaryTables(ctx, db)
 	if err != nil {

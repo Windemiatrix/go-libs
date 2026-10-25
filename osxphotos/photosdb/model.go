@@ -17,12 +17,10 @@ import (
 // real database and the photolibraryd preferences are a few KiB.
 const maxPlistSize = 1 << 20
 
-// modelKey is the key of the model version in Z_METADATA.Z_PLIST.
 const modelKey = "PLModelVersion"
 
-// detectSchema returns PLModelVersion from data (the Z_PLIST of the
-// Z_METADATA row with the highest Z_VERSION, photosdb_utils.py:88-118) and
-// the schema of that model. Every failure wraps ErrUnsupportedSchema.
+// data is the Z_PLIST of the Z_METADATA row with the highest Z_VERSION
+// (photosdb_utils.py:88-118). Every failure wraps ErrUnsupportedSchema.
 //
 // Unlike osxphotos, which takes the latest schema when the model is missing
 // or unknown (photosdb_utils.py:131-136, 160-163), an unknown model is an
@@ -49,13 +47,11 @@ func detectSchema(data []byte) (model int, s schema.Schema, err error) {
 	return model, s, nil
 }
 
-// metadata is the part of Z_PLIST that detectSchema reads. A root that is
-// not a dictionary decodes as one without PLModelVersion.
+// A root that is not a dictionary decodes as one without PLModelVersion.
 type metadata struct {
 	model modelField
 }
 
-// UnmarshalPlist implements plist.Unmarshaler.
 func (m *metadata) UnmarshalPlist(unmarshal func(any) error) error {
 	var dict struct {
 		Model modelField `plist:"PLModelVersion"`
@@ -75,8 +71,7 @@ type modelField struct {
 	value   any // as decoded into any; nil when not a number or a string
 }
 
-// UnmarshalPlist implements plist.Unmarshaler. The probes only tell a scalar
-// from a container; the value itself is decoded into any, as before.
+// The probes only tell a scalar from a container.
 func (f *modelField) UnmarshalPlist(unmarshal func(any) error) error {
 	f.present = true
 	var (
@@ -90,10 +85,9 @@ func (f *modelField) UnmarshalPlist(unmarshal func(any) error) error {
 	return nil
 }
 
-// modelVersion converts the value of PLModelVersion: an integer, or a string
-// of ASCII decimal digits as upstream int() of a str (photosdb_utils.py:137)
-// but without its sign, spaces and non-ASCII digits. howett.net/plist
-// decodes integers as uint64 or int64. A number outside int32, far beyond
+// A string of ASCII decimal digits is accepted as upstream int() of a str
+// (photosdb_utils.py:137), but without its sign, spaces and non-ASCII digits.
+// howett.net/plist decodes integers as uint64 or int64. A number outside int32, far beyond
 // every known model, is an unknown model, not a type error.
 func modelVersion(v any) (int, error) {
 	switch n := v.(type) {
@@ -157,8 +151,8 @@ var (
 	errBinaryObjects = fmt.Errorf("binary property list has more than %d objects", maxBinaryObjects)
 )
 
-// decodePlist decodes an XML or a binary property list into v, the two
-// formats that osxphotos reads with plistlib. The text formats that
+// Only XML and binary lists are accepted, the two formats that osxphotos reads
+// with plistlib. The text formats that
 // howett.net/plist also accepts (OpenStep, GNUstep) are refused: in them
 // almost any text, such as "garbage", is a valid string. An input that does
 // not start as binary or XML is refused before the parser, which would read
@@ -188,8 +182,6 @@ func decodePlist(data []byte, v any) error {
 	return nil
 }
 
-// startsAsXML reports whether the first byte of data after an optional UTF-8
-// byte order mark and XML whitespace is "<".
 func startsAsXML(data []byte) bool {
 	data = bytes.TrimPrefix(data, []byte("\xEF\xBB\xBF"))
 	data = bytes.TrimLeft(data, " \t\r\n")
@@ -203,14 +195,14 @@ const (
 	bplistTrailer = 32
 )
 
-// checkBinaryTrailer refuses a binary property list whose trailer does not
-// fit the input, before the parser allocates anything from it: a trailer of
-// a few bytes can declare 2^40 objects. Every object takes at least one byte
+// A binary property list whose trailer does not fit the input is refused
+// before the parser allocates anything from it: a trailer of a few bytes can
+// declare 2^40 objects. Every object takes at least one byte
 // and one offset table entry, so a real input has fewer objects than bytes.
 // The bounds come from the input alone and do not depend on how a version
 // of howett.net/plist checks the trailer. A list of more than
 // maxBinaryObjects objects is refused as well, so that parsing it is cheap
-// however deep it nests. Other inputs are left to the parser.
+// however deep it nests.
 func checkBinaryTrailer(data []byte) error {
 	if !bytes.HasPrefix(data, []byte("bplist")) {
 		return nil

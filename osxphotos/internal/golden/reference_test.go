@@ -11,11 +11,8 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
 
-// allKeys returns the keys of all rules, sorted.
 func allKeys() []string { return slices.Sorted(maps.Keys(rules)) }
 
-// isoOffset returns the UTC offset of an ISO 8601 string of isoformat, in
-// seconds, for the log of TestReferenceParses.
 func isoOffset(t testing.TB, s string) int {
 	t.Helper()
 	i := strings.LastIndexAny(s, "+-")
@@ -37,8 +34,6 @@ func isoOffset(t testing.TB, s string) int {
 	return n
 }
 
-// TestReferenceParses: the reference side of every rule parses every object
-// of every library, and the data keep the properties the rules rely on.
 func TestReferenceParses(t *testing.T) {
 	dir := testlib.RepoDir(t, "golden")
 	epoch := time.Unix(0, 0)

@@ -7,10 +7,9 @@ import (
 	"strings"
 )
 
-// table maps an extension, as written in utiCSV, to its UTI. It is read as
-// csv.DictReader of uti.py:521-526 reads it: the first line is the header,
-// the number of fields is not checked, and of two lines with one extension
-// the last one wins.
+// Read as csv.DictReader of uti.py:521-526 reads it: the first line is the
+// header, the number of fields is not checked, and of two lines with one
+// extension the last one wins.
 var table = func() map[string]string {
 	r := csv.NewReader(strings.NewReader(utiCSV))
 	r.FieldsPerRecord = -1

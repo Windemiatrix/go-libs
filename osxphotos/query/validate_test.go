@@ -87,8 +87,7 @@ func TestValidateCompatible(t *testing.T) {
 	}
 }
 
-// TestValidateFirstPair checks the order of photoquery.py:285-318: the first
-// pair of the list is the one named.
+// The pairs are checked in the order of photoquery.py:285-318.
 func TestValidateFirstPair(t *testing.T) {
 	t.Parallel()
 

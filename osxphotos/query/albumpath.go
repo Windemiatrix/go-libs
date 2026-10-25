@@ -13,8 +13,7 @@ import (
 // with the same one, a path that holds it means what it means upstream.
 const escapedSlash = "\x00ESCAPED_SLASH\x00"
 
-// albumPaths are the paths of Album or Folder, each split into titles,
-// outermost first; several paths are "or" (photoquery.py:927-993).
+// albumPaths follows photoquery.py:927-993.
 type albumPaths struct {
 	paths [][]string
 	fold  caseFold
@@ -28,8 +27,7 @@ func parseAlbumPaths(paths []string, fold caseFold) albumPaths {
 	return ps
 }
 
-// parseAlbumPath splits a path at "/"; "//" stands for a "/" inside a title
-// (photoquery.py:930-941).
+// parseAlbumPath follows photoquery.py:930-941.
 func parseAlbumPath(s string, fold caseFold) []string {
 	parts := strings.Split(strings.ReplaceAll(s, "//", escapedSlash), "/")
 	for i, part := range parts {
@@ -38,8 +36,7 @@ func parseAlbumPath(s string, fold caseFold) []string {
 	return parts
 }
 
-// name reports a path to the album: its folders, then its title
-// (photoquery.py:973-988).
+// name follows photoquery.py:973-988.
 func (ps albumPaths) name(a *albuminfo.AlbumInfo) bool {
 	n := len(a.FolderNames)
 	return slices.ContainsFunc(ps.paths, func(p []string) bool {
@@ -47,8 +44,7 @@ func (ps albumPaths) name(a *albuminfo.AlbumInfo) bool {
 	})
 }
 
-// enclose reports a path of folders that the album lies in, directly or in a
-// subfolder (photoquery.py:954-972).
+// enclose follows photoquery.py:954-972.
 func (ps albumPaths) enclose(a *albuminfo.AlbumInfo) bool {
 	return slices.ContainsFunc(ps.paths, func(p []string) bool { return ps.prefix(p, a.FolderNames) })
 }

@@ -118,7 +118,6 @@ func fileSize(t *testing.T, path string) int64 {
 // walLibraries are the test libraries with a -wal file (testdata/libraries/SOURCES.md).
 var walLibraries = []string{"Test-14.6.0", "Test-15.4.1", "Test-16.0.0-beta", "Test-27.0_DevBeta", "Test-Cloud-13.1"}
 
-// commonColumns exist in every schema of the test libraries.
 var commonColumns = map[string][]string{
 	"Z_METADATA": {"Z_PLIST", "Z_UUID", "Z_VERSION"},
 	"ZASSET":     {"Z_PK", "ZUUID"},
@@ -199,8 +198,7 @@ func TestOpenCorrupt(t *testing.T) {
 	}
 }
 
-// TestOpenRetry damages chosen attempts through afterCopy; it sets a package
-// variable, so it is not parallel.
+// TestOpenRetry sets a package variable (afterCopy), so it is not parallel.
 func TestOpenRetry(t *testing.T) {
 	t.Cleanup(func() { afterCopy = nil })
 	for _, tc := range []struct {
@@ -221,7 +219,6 @@ func TestOpenRetry(t *testing.T) {
 				if attempt != len(paths)+1 {
 					t.Errorf("attempt %d, want %d", attempt, len(paths)+1)
 				}
-				// The copy of a failed attempt is gone before the next one.
 				if n := names(t, tempDir); len(n) != 1 || n[0] != filepath.Base(filepath.Dir(copyPath)) {
 					t.Errorf("attempt %d: %s holds %q, want only the current copy", attempt, tempDir, n)
 				}
@@ -245,7 +242,7 @@ func TestOpenRetry(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			copyDir(t, tempDir) // the damaged copies are gone
+			copyDir(t, tempDir)
 			if n := count(t, d.db, "SELECT COUNT(*) FROM t"); n != 2000 {
 				t.Errorf("%d rows, want 2000", n)
 			}
@@ -257,9 +254,7 @@ func TestOpenRetry(t *testing.T) {
 	}
 }
 
-// TestOpenCanceledDuringCheck cancels the context after the first copy: Open
-// returns the context error at once instead of retrying. It sets afterCopy,
-// so it is not parallel.
+// TestOpenCanceledDuringCheck sets afterCopy, so it is not parallel.
 func TestOpenCanceledDuringCheck(t *testing.T) {
 	t.Cleanup(func() { afterCopy = nil })
 	src := pagedDB(t)
@@ -348,7 +343,7 @@ func TestOpenSweeps(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = d1.Close() }()
-	first := copyDir(t, tempDir) // the orphan is gone, the own copy is there
+	first := copyDir(t, tempDir)
 
 	// Copies of this process are never swept.
 	d2, err := Open(t.Context(), src, tempDir)
@@ -488,7 +483,6 @@ func TestOpenErrors(t *testing.T) {
 	})
 }
 
-// TestOpenDefaultTempDir covers tempDir "": the copy goes to os.TempDir().
 func TestOpenDefaultTempDir(t *testing.T) {
 	t.Parallel()
 	d, err := Open(t.Context(), syntheticDB(t), "")

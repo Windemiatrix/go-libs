@@ -15,9 +15,8 @@ const (
 	walFrameHeader = 24 // bytes of a frame header
 )
 
-// commitEnds returns the offsets right after each commit frame of a WAL with
-// the given page size: a frame header holds the database size in pages at
-// bytes 4–7, non-zero only in a commit frame.
+// A frame header holds the database size in pages at bytes 4–7, non-zero only
+// in a commit frame.
 func commitEnds(t *testing.T, wal []byte, pageSize int) []int {
 	t.Helper()
 	if len(wal) < walHeader {
@@ -37,9 +36,8 @@ func commitEnds(t *testing.T, wal []byte, pageSize int) []int {
 	return ends
 }
 
-// TestTruncatedWAL opens a database with every prefix of its -wal: SQLite
-// ignores an incomplete tail of the log, so each prefix gives the state after
-// the last whole commit in it and never an error.
+// SQLite ignores an incomplete tail of the log, so each prefix of the -wal
+// gives the state after the last whole commit in it and never an error.
 func TestTruncatedWAL(t *testing.T) {
 	t.Parallel()
 	const (

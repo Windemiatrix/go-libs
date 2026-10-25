@@ -16,29 +16,22 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
 
-// xmlHead is an XML property list up to its first value.
 const xmlHead = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">`
 
-// xmlPlist wraps body (one plist value) into an XML property list.
 func xmlPlist(body string) []byte {
 	return []byte(xmlHead + body + "</plist>\n")
 }
 
-// fill is head followed by as many copies of unit as fit in maxPlistSize
-// bytes: the largest such input that reaches the parser.
 func fill(head, unit string) []byte {
 	return []byte(head + strings.Repeat(unit, (maxPlistSize-len(head))/len(unit)))
 }
 
-// modelPlist is an XML plist whose PLModelVersion is the XML value v.
 func modelPlist(v string) []byte {
 	return xmlPlist("<dict><key>PLModelVersion</key>" + v + "</dict>")
 }
 
-// paddedPlist is a valid XML plist of exactly size bytes with PLModelVersion
-// 19607, padded by a string under another key.
 func paddedPlist(size int) []byte {
 	head := xmlPlist("<dict><key>PLModelVersion</key><integer>19607</integer><key>Pad</key><string></string></dict>")
 	pad := size - len(head)
@@ -46,12 +39,10 @@ func paddedPlist(size int) []byte {
 		strings.Repeat("x", pad) + "</string></dict>")
 }
 
-// nestedArrays is an XML plist of depth nested arrays at the root.
 func nestedArrays(depth int) []byte {
 	return xmlPlist(strings.Repeat("<array>", depth) + strings.Repeat("</array>", depth))
 }
 
-// cutAfter returns data up to and including the first marker.
 func cutAfter(data []byte, marker string) []byte {
 	i := bytes.Index(data, []byte(marker))
 	if i < 0 {
@@ -60,9 +51,6 @@ func cutAfter(data []byte, marker string) []byte {
 	return data[:i+len(marker)]
 }
 
-// binaryPlist assembles a binary property list (bplist00) from encoded
-// objects; object 0 is the root. size is the width in bytes of object
-// references and of offsets.
 func binaryPlist(objects [][]byte, size int) []byte {
 	out := []byte("bplist00")
 	offsets := make([]uint64, len(objects))
@@ -82,7 +70,6 @@ func binaryPlist(objects [][]byte, size int) []byte {
 	return binary.BigEndian.AppendUint64(out, table)
 }
 
-// appendSized appends v big-endian in size bytes.
 func appendSized(b []byte, v uint64, size int) []byte {
 	for i := size - 1; i >= 0; i-- {
 		b = append(b, byte(v>>(8*i)))
@@ -90,8 +77,8 @@ func appendSized(b []byte, v uint64, size int) []byte {
 	return b
 }
 
-// bpRefs encodes an array (marker 0xA) or a dictionary (marker 0xD) of
-// fewer than 15 entries; a dictionary takes its key references first.
+// The count is the low nibble of the marker, so it is under 15; a dictionary
+// takes its key references first.
 func bpRefs(marker byte, count, size int, refs ...int) []byte {
 	o := []byte{marker<<4 | byte(count)}
 	for _, r := range refs {
@@ -100,9 +87,7 @@ func bpRefs(marker byte, count, size int, refs ...int) []byte {
 	return o
 }
 
-// chain returns depth arrays starting at object first, followed by the
-// integer 0: each array holds width references to the next object, so with
-// width 2 every array is reachable along 2^k paths.
+// With width 2 every array is reachable along 2^k paths.
 func chain(first, depth, width, size int) [][]byte {
 	objects := make([][]byte, 0, depth+1)
 	for k := range depth {
@@ -115,16 +100,13 @@ func chain(first, depth, width, size int) [][]byte {
 	return append(objects, []byte{0x10, 0x00})
 }
 
-// modelChain is a binary plist whose PLModelVersion is a chain.
 func modelChain(depth, width, size int) []byte {
 	key := append([]byte{0x50 | byte(len(modelKey))}, modelKey...)
 	objects := [][]byte{bpRefs(0xD, 1, size, 1, 2), key}
 	return binaryPlist(append(objects, chain(2, depth, width, size)...), size)
 }
 
-// flat is a binary plist of n objects (n ≥ 2, few enough for two-byte
-// offsets) and depth 1: a root array that holds n-1 integers, with two-byte
-// offsets and references.
+// n ≥ 2 and few enough for two-byte offsets.
 func flat(n int) []byte {
 	root := []byte{0xAF, 0x11} // array, count in the two-byte integer after it
 	root = binary.BigEndian.AppendUint16(root, uint16(n-1))
@@ -137,13 +119,10 @@ func flat(n int) []byte {
 	return binaryPlist(objects, 2)
 }
 
-// emptyDictBinary is the smallest binary plist: an empty dictionary, with
-// one-byte offsets and references.
 func emptyDictBinary() []byte {
 	return binaryPlist([][]byte{bpRefs(0xD, 0, 1)}, 1)
 }
 
-// Offsets of the fields in a binary plist trailer.
 const (
 	trOffsetSize = 6
 	trRefSize    = 7
@@ -152,19 +131,14 @@ const (
 	trTable      = 24
 )
 
-// setTrailer returns a copy of data with the trailer field at offset field
-// set to v, big-endian in width bytes.
 func setTrailer(data []byte, field, width int, v uint64) []byte {
 	out := bytes.Clone(data)
 	copy(out[len(out)-bplistTrailer+field:], appendSized(nil, v, width))
 	return out
 }
 
-// TestCheckBinaryTrailer checks that a trailer that does not fit the input,
-// or declares more than maxBinaryObjects objects, is refused before the
-// parser, through detectSchema as well, and that the valid inputs of the
-// other tests, the reference cases among them, pass the check and so still
-// test the parser.
+// The valid inputs of the other tests, the reference cases among them, must
+// pass the check: otherwise they would no longer test the parser.
 func TestCheckBinaryTrailer(t *testing.T) {
 	t.Parallel()
 	base := emptyDictBinary()
@@ -190,7 +164,6 @@ func TestCheckBinaryTrailer(t *testing.T) {
 		{"offset table at MaxUint64", setTrailer(base, trTable, 8, math.MaxUint64), errBinaryTrailer},
 		{"offset table runs into the trailer", setTrailer(base, trObjects, 8, 2), errBinaryTrailer},
 		{"wide offsets run into the trailer", setTrailer(base, trOffsetSize, 1, 2), errBinaryTrailer},
-		// Consistent trailers: only the number of objects is refused.
 		{"one object over the limit", flat(maxBinaryObjects + 1), errBinaryObjects},
 		// 900 KB, under the size limit; the parser took 2.5 s on them.
 		{"100000 nested arrays at the root", binaryPlist(chain(0, 100_000, 1, 4), 4), errBinaryObjects},
@@ -238,10 +211,8 @@ func TestCheckBinaryTrailer(t *testing.T) {
 	}
 }
 
-// TestDecodePlistFormat checks that an input that is neither binary nor XML
-// is refused with errPlistFormat before the parser, which would otherwise
-// read it as a text property list, and that XML after a byte order mark and
-// whitespace is still read.
+// Without the check the parser would read an input that is neither binary
+// nor XML as a text property list.
 func TestDecodePlistFormat(t *testing.T) {
 	t.Parallel()
 	const good = "<plist><dict><key>PLModelVersion</key><integer>19607</integer></dict></plist>"
@@ -284,13 +255,10 @@ func TestDecodePlistFormat(t *testing.T) {
 	}
 }
 
-// referenceCases are inputs under the size limit that a parser may find
-// expensive. Binary: objects referenced along many paths, and arrays nested
-// as deep as maxBinaryObjects allows (chain adds an integer, modelChain a
-// dictionary and a key); they pass checkBinaryTrailer and so reach the
-// parser. Text: one byte per level of nesting, up to the size limit. XML:
-// containers left open up to the size limit. The parser may refuse them; it
-// must not take long.
+// The inputs are under the size limit and a parser may find them expensive: it
+// may refuse them, but must not take long. The binary ones pass
+// checkBinaryTrailer and so reach the parser; chain adds an integer to the
+// nesting maxBinaryObjects allows, modelChain a dictionary and a key.
 func referenceCases() []detectCase {
 	return []detectCase{
 		{name: "shared references at the root", plist: binaryPlist(chain(0, 40, 2, 1), 1), errText: []string{msgNoKey, msgNotPlist}},
@@ -306,10 +274,9 @@ func referenceCases() []detectCase {
 	}
 }
 
-// TestDetectSchemaReferences checks that the reference cases end with an
-// error. A decoder that copies a shared object once per path runs out of
-// memory, and one quadratic in the depth of nesting takes minutes for a
-// megabyte; go test -timeout stops such a run.
+// A decoder that copies a shared object once per path runs out of memory, and
+// one quadratic in the depth of nesting takes minutes for a megabyte; go test
+// -timeout stops such a run.
 func TestDetectSchemaReferences(t *testing.T) {
 	t.Parallel()
 	for _, tt := range referenceCases() {
@@ -330,8 +297,6 @@ const (
 	msgNotInteger = "PLModelVersion is not an integer"
 )
 
-// detectCase is one input of detectSchema: either a model and schema or an
-// error that wraps ErrUnsupportedSchema and contains one of errText.
 type detectCase struct {
 	name      string
 	plist     []byte
@@ -423,7 +388,6 @@ func TestDetectSchema(t *testing.T) {
 	}
 }
 
-// marshal encodes v as a property list in format.
 func marshal(t testing.TB, v any, format int) []byte {
 	t.Helper()
 	data, err := plist.Marshal(v, format)
@@ -433,8 +397,7 @@ func marshal(t testing.TB, v any, format int) []byte {
 	return data
 }
 
-// binaryCases are the typed values of PLModelVersion, encoded by
-// howett.net/plist in both formats (a real Z_PLIST is binary).
+// A real Z_PLIST is binary, so the values are encoded in both formats.
 func binaryCases(t testing.TB) []detectCase {
 	t.Helper()
 	values := []struct {
@@ -499,9 +462,6 @@ func TestDetectSchemaFormats(t *testing.T) {
 	}
 }
 
-// FuzzDetectSchema checks that no input panics, that every error wraps
-// ErrUnsupportedSchema and that a result is the schema of its model. The
-// seeds are the Z_PLIST of every test library and the cases above.
 func FuzzDetectSchema(f *testing.F) {
 	for _, name := range testlib.Libraries(f) {
 		f.Add(readZPlist(f, testlib.OpenPristine(f, name)))
@@ -528,8 +488,6 @@ func FuzzDetectSchema(f *testing.F) {
 	})
 }
 
-// readZPlist reads Z_PLIST of the Z_METADATA row with the highest Z_VERSION
-// of the library at path.
 func readZPlist(t testing.TB, path string) []byte {
 	t.Helper()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(path, "database", "Photos.sqlite")+"?mode=ro")
@@ -545,8 +503,7 @@ func readZPlist(t testing.TB, path string) []byte {
 	return data
 }
 
-// libraryModels is the model and schema of each test library, from the
-// public values of testdata/libraries/SOURCES.md.
+// The values are the public ones of testdata/libraries/SOURCES.md.
 var libraryModels = map[string]struct {
 	model int
 	id    string
@@ -562,10 +519,7 @@ var libraryModels = map[string]struct {
 	"synthetic":         {19607, "photos11_1"},
 }
 
-// TestDetectSchemaLibraries checks the schema table against real databases:
-// the model of each test library and of the synthetic library selects the
-// expected schema, and every name of that schema exists in the database.
-// The selected names are those of the expected schema, not of the detected
+// The names checked are those of the expected schema, not of the detected
 // one, so a wrong name is red even when detection is wrong as well.
 func TestDetectSchemaLibraries(t *testing.T) {
 	t.Parallel()
@@ -618,8 +572,7 @@ func schemaByID(t *testing.T, id string) schema.Schema {
 	return schema.Schema{}
 }
 
-// checkNames checks that every table and column of s exists in db. In these
-// databases the column of the other era (ZMASTERFINGERPRINT against
+// In these databases the column of the other era (ZMASTERFINGERPRINT against
 // ZORIGINALSTABLEHASH, ZHASADJUSTMENTS against ZADJUSTMENTSSTATE, ZPERSON
 // against ZPERSONFORFACE, ZASSET against ZASSETFORFACE) does not exist, so
 // existence catches a name of the wrong era. It does not catch two names of
@@ -652,7 +605,6 @@ func checkNames(t *testing.T, db *sql.DB, lib string, s schema.Schema) {
 	}
 }
 
-// columns returns the column names of table; empty when there is no table.
 func columns(t *testing.T, db *sql.DB, table string) map[string]bool {
 	t.Helper()
 	rows, err := db.QueryContext(t.Context(), "SELECT name FROM pragma_table_info(?)", table)

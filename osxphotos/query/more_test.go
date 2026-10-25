@@ -15,8 +15,7 @@ type morePhotos = []*photoinfo.PhotoInfo
 func TestMoreYear(t *testing.T) {
 	t.Parallel()
 
-	// The same moment is 2019 on the wall clock of -05 and 2020 on that of +03:
-	// the year is read in the zone of Date, not in UTC.
+	// The same moment is 2019 on the wall clock of -05 and 2020 on that of +03.
 	moment := at("2019-12-31T23:30:00Z")
 	photos := morePhotos{
 		{UUID: "A", IsPhoto: true, Date: moment},
@@ -188,7 +187,6 @@ func TestMoreFunction(t *testing.T) {
 		t.Errorf("Function received %q, want %q", got, want)
 	}
 
-	// The functions run before the frames of the bursts are added.
 	bursts := morePhotos{
 		{UUID: "B1", IsPhoto: true, Burst: true, BurstUUID: "X", BurstPickType: 8, Date: moreDay(2)},
 		{UUID: "B2", IsPhoto: true, Burst: true, BurstUUID: "X", BurstPickType: 2, Date: moreDay(1)},
