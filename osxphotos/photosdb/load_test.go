@@ -284,6 +284,8 @@ func TestLoadKindFlags(t *testing.T) {
 		{"slow motion", nullInt(101), [3]bool{true, false, false}},
 		{"time lapse", nullInt(102), [3]bool{false, true, false}},
 		{"screen recording", nullInt(103), [3]bool{false, false, true}},
+		{"100", nullInt(100), [3]bool{}},
+		{"104", nullInt(104), [3]bool{}},
 		{"NULL", sql.NullInt64{}, [3]bool{}},
 	}
 	for _, tt := range tests {
@@ -300,21 +302,27 @@ func TestLoadBurstDefaultPick(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name string
-		pick sql.NullInt64
-		want bool
+		name  string
+		pick  sql.NullInt64
+		burst bool
+		want  bool
 	}{
-		{"NULL", sql.NullInt64{}, false},
-		{"0", nullInt(0), false},
-		{"selected", nullInt(8), false},
-		{"key", nullInt(16), false},
-		{"default", nullInt(4), true},
-		{"default and key", nullInt(20), true},
-		{"default and an unknown bit", nullInt(36), true},
+		// burst_default_pick does not look at the burst (photoinfo.py:1021-1029).
+		{"default, not in a burst", nullInt(4), false, true},
+		{"NULL", sql.NullInt64{}, true, false},
+		{"0", nullInt(0), true, false},
+		{"selected", nullInt(8), true, false},
+		{"key", nullInt(16), true, false},
+		{"default", nullInt(4), true, true},
+		{"default and key", nullInt(20), true, true},
+		{"default and an unknown bit", nullInt(36), true, true},
 	}
 	for _, tt := range tests {
 		a := baseAsset(1, "A-1")
-		a.BurstUUID, a.BurstPickType = nullString("B"), tt.pick
+		a.BurstPickType = tt.pick
+		if tt.burst {
+			a.BurstUUID = nullString("B")
+		}
 		if got := loadOne(t, a).BurstDefaultPick; got != tt.want {
 			t.Errorf("%s: BurstDefaultPick = %v, want %v", tt.name, got, tt.want)
 		}
