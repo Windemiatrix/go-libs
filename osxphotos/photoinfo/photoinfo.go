@@ -32,6 +32,10 @@ type PhotoInfo struct {
 	UTIEdited                string // UTI when HasAdjustments, otherwise "" (photoinfo.py:929-930)
 	Path, PathLive, PathRaw  string // inside the library; "" when the file is not on disk
 
+	PathEdited, PathEditedLive               string   // the edited version and its Live video inside the library; "" when there is no file (photoinfo.py:323-382, 495-512)
+	AdjustmentsPath, OriginalAdjustmentsPath string   // the adjustments plist and the original .aae inside the library; "" when there is no file (photoinfo.py:743-781)
+	PathDerivatives                          []string // previews inside the library, the largest first; nil when there are none (photoinfo.py:1172-1274)
+
 	IsPhoto, IsMovie, Live, HasRAW, IsRAW, RawOriginal, Screenshot bool
 
 	SlowMo, TimeLapse, ScreenRecording bool // ZKINDSUBTYPE 101, 102, 103 (photosdb.py:2237-2240)

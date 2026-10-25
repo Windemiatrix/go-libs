@@ -1,13 +1,15 @@
 package photosdb
 
 import (
-	"errors"
+	"cmp"
 	"fmt"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
 
@@ -16,20 +18,24 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-const originalsDir = "originals"
+const (
+	originalsDir = "originals"
 
-// Files are looked up only inside libraryPath/originals, through os.Root: a
-// path never leaves that directory and a symbolic link is not a file. Only
-// Lstat and ReadDir are used; no file is opened for reading. An error of
-// Lstat or ReadDir makes the path "" and is not returned: its text holds
-// names from the database.
+	// _constants.py:352.
+	sharedDerivativesDir = "scopes/cloudsharing/resources/derivatives/masters"
+
+	thumbSuffix = "_4_5005_c.jpeg"
+)
+
+// Files are looked up only inside libraryPath, through os.Root: a path never
+// leaves that directory and a symbolic link is not a file. Only Lstat and
+// ReadDir are used; no file is opened for reading. An error of Lstat or
+// ReadDir makes the path "" and is not returned: its text holds names from
+// the database.
 func setPaths(libraryPath string, assets []sqlread.Asset, c *catalog) error {
-	root, err := os.OpenRoot(filepath.Join(libraryPath, originalsDir))
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
+	root, err := os.OpenRoot(libraryPath)
 	if err != nil {
-		return fmt.Errorf("photosdb: %s: the originals directory: %w", libraryPath, err)
+		return fmt.Errorf("photosdb: %s: the library directory: %w", libraryPath, err)
 	}
 	defer func() { _ = root.Close() }() // opened for reading only
 	o := &originals{lib: libraryPath, root: root, fsys: root.FS(), dirs: map[string]*dirNames{}}
@@ -37,7 +43,9 @@ func setPaths(libraryPath string, assets []sqlread.Asset, c *catalog) error {
 		// An asset without attributes is not in c, and its ZUUID may be that
 		// of a photo.
 		if a.HasAttributes {
-			o.set(c.byUUID[a.UUID.String], a.Directory.String)
+			p := c.byUUID[a.UUID.String]
+			o.set(p, a.Directory.String)
+			o.setLibraryFiles(p)
 		}
 	}
 	return nil
@@ -79,14 +87,97 @@ func (o *originals) set(p *photoinfo.PhotoInfo, dir string) {
 	}
 }
 
+// setLibraryFiles follows photoinfo.py:323-382, 495-512, 743-781, 1172-1274.
+// The files do not depend on IsMissing, as upstream.
+func (o *originals) setLibraryFiles(p *photoinfo.PhotoInfo) {
+	// A "/" would name a file of another directory.
+	if strings.ContainsRune(p.UUID, '/') {
+		return
+	}
+	r, _ := utf8.DecodeRuneInString(p.UUID)
+	x := string(r)
+	render := "resources/renders/" + x + "/" + p.UUID
+	if p.HasAdjustments {
+		switch {
+		case p.IsPhoto && p.UTI == "public.heic":
+			p.PathEdited = o.found(render + "_1_201_a.heic")
+		case p.IsPhoto:
+			p.PathEdited = o.found(render + "_1_201_a.jpeg")
+		case p.IsMovie:
+			p.PathEdited = o.found(render + "_2_0_a.mov")
+		}
+		p.AdjustmentsPath = o.found(render + ".plist")
+		if p.Live {
+			p.PathEditedLive = o.found(render + "_2_100_a.mov")
+		}
+	}
+	p.OriginalAdjustmentsPath = o.found(originalsDir + "/" + x + "/" + p.UUID + "_5.aae")
+	p.PathDerivatives = o.derivatives(p, x)
+}
+
+type derivative struct {
+	path string
+	size int64
+}
+
+// derivatives follows photoinfo.py:1172-1229, 1260-1274 and utils.py:734-779.
+// Upstream lists a directory in the order of the file system, so the order of
+// files of one size is that of the names here.
+func (o *originals) derivatives(p *photoinfo.PhotoInfo, x string) []string {
+	if p.Shared {
+		if thumb := o.found(sharedDerivativesDir + "/" + x + "/" + p.UUID + thumbSuffix); thumb != "" {
+			return []string{thumb}
+		}
+		return nil
+	}
+	base := "resources/derivatives"
+	switch {
+	case p.SharedMoment:
+		base = "scopes/momentshared/resources/derivatives"
+	case p.Syndicated && !p.SavedToLibrary:
+		base = "scopes/syndication/resources/derivatives"
+	}
+	out := o.previews(base+"/"+x, p.UUID)
+	if thumb := o.found(base + "/masters/" + x + "/" + p.UUID + thumbSuffix); thumb != "" {
+		out = append(out, thumb)
+	}
+	// The poster image may be larger than the preview of the video.
+	if p.IsPhoto && len(out) > 1 && (strings.HasSuffix(out[0], ".mov") || strings.HasSuffix(out[0], ".MOV")) {
+		out[0], out[1] = out[1], out[0]
+	}
+	return out
+}
+
+// previews is find_files_by_prefix of utils.py:734-779 with ".THM" ignored.
+func (o *originals) previews(dir, prefix string) []string {
+	d := o.names(dir)
+	if d == nil {
+		return nil
+	}
+	var files []derivative
+	i, _ := slices.BinarySearch(d.names, prefix) // the names are sorted
+	for ; i < len(d.names) && strings.HasPrefix(d.names[i], prefix); i++ {
+		name := dir + "/" + d.names[i]
+		if info, err := o.root.Lstat(name); err == nil && info.Mode().IsRegular() && !strings.EqualFold(path.Ext(name), ".THM") {
+			files = append(files, derivative{o.abs(name), info.Size()})
+		}
+	}
+	slices.SortStableFunc(files, func(a, b derivative) int { return cmp.Compare(b.size, a.size) })
+	var out []string
+	for _, f := range files {
+		out = append(out, f.path)
+	}
+	return out
+}
+
 // dir and file come from the database: a path that could leave the root is
-// refused.
+// refused. The name is relative to the library.
 func relName(dir, file string) (string, bool) {
 	name := dir + "/" + file
 	if dir == "" || file == "" || strings.ContainsRune(name, 0) || !fs.ValidPath(name) {
 		return "", false
 	}
-	return name, true
+	return originalsDir + "/" + name, true
 }
 
 func (o *originals) isFile(name string) bool {
@@ -94,8 +185,24 @@ func (o *originals) isFile(name string) bool {
 	return err == nil && info.Mode().IsRegular()
 }
 
+func (o *originals) found(name string) string {
+	if !o.isFile(name) {
+		return ""
+	}
+	return o.abs(name)
+}
+
 func (o *originals) abs(name string) string {
-	return filepath.Join(o.lib, originalsDir, filepath.FromSlash(name))
+	return filepath.Join(o.lib, filepath.FromSlash(name))
+}
+
+func (o *originals) names(dir string) *dirNames {
+	d, ok := o.dirs[dir]
+	if !ok {
+		d = readNames(o.fsys, dir)
+		o.dirs[dir] = d
+	}
+	return d
 }
 
 // rawName follows photoinfo.py:545-558 and utils.py:327-396.
@@ -103,18 +210,15 @@ func (o *originals) rawName(dir, file string) (string, bool) {
 	if _, ok := relName(dir, file); !ok {
 		return "", false
 	}
-	d, ok := o.dirs[dir]
-	if !ok {
-		d = readNames(o.fsys, dir)
-		o.dirs[dir] = d
-	}
+	full := originalsDir + "/" + dir
+	d := o.names(full)
 	if d == nil {
 		return "", false
 	}
 	prefix := fold(stem(file) + "_4")
 	for i, f := range d.folded {
 		if strings.HasPrefix(f, prefix) {
-			return dir + "/" + d.names[i], true
+			return full + "/" + d.names[i], true
 		}
 	}
 	return "", false
