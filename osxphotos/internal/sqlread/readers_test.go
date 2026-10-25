@@ -274,13 +274,13 @@ func TestReadersRows(t *testing.T) {
 			}
 			var sums [3]int64
 			for _, a := range albums {
-				sums[0] += a.SortKey.Int64
-				sums[1] += a.SortAscending.Int64
-				sums[2] += a.ListOrder.Int64
+				sums[0] += a.SortKey.Int64 * a.PK
+				sums[1] += a.SortAscending.Int64 * a.PK
+				sums[2] += a.ListOrder.Int64 * a.PK
 			}
 			for i, col := range []string{"ZCUSTOMSORTKEY", "ZCUSTOMSORTASCENDING", "Z_FOK_PARENTFOLDER"} {
-				if want := count(t, ro, "SELECT COALESCE(SUM("+col+"), 0) FROM ZGENERICALBUM WHERE ZKIND IN (2, 3999, 4000) AND ZUUID IS NOT NULL"); sums[i] != want {
-					t.Errorf("Albums: sum of %s %d, want %d", col, sums[i], want)
+				if want := count(t, ro, "SELECT COALESCE(SUM("+col+" * Z_PK), 0) FROM ZGENERICALBUM WHERE ZKIND IN (2, 3999, 4000) AND ZUUID IS NOT NULL"); sums[i] != want {
+					t.Errorf("Albums: sum of %s * Z_PK %d, want %d", col, sums[i], want)
 				}
 			}
 
@@ -391,6 +391,7 @@ func TestReaderValueType(t *testing.T) {
 		{"member asset", "UPDATE Z_33ASSETS SET Z_3ASSETS = 'SECRET-M' WHERE rowid = (SELECT MIN(rowid) FROM Z_33ASSETS)", readers[4].run},
 		{"album parent", "UPDATE ZGENERICALBUM SET ZPARENTFOLDER = 'SECRET-P' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
 		{"album sort key", "UPDATE ZGENERICALBUM SET ZCUSTOMSORTKEY = 'SECRET-K' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
+		{"album sort ascending", "UPDATE ZGENERICALBUM SET ZCUSTOMSORTASCENDING = 'SECRET-A' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
 		{"album list order", "UPDATE ZGENERICALBUM SET Z_FOK_PARENTFOLDER = 'SECRET-O' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
 	}
 	for _, tt := range tests {

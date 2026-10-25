@@ -230,7 +230,7 @@ func sortStrings(order []int) []string {
 	return out
 }
 
-func sortCheckLibrary(t *testing.T, lib string, seen map[albuminfo.AlbumSortOrder]int) {
+func sortCheckLibrary(t *testing.T, lib string, seen map[albuminfo.AlbumSortOrder]int) (chains int) {
 	t.Helper()
 	db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
 	if err != nil {
@@ -245,6 +245,9 @@ func sortCheckLibrary(t *testing.T, lib string, seen map[albuminfo.AlbumSortOrde
 		if want := testlib.Rows(t, src, sortChain(a.UUID)); !slices.Equal(sortStrings(a.LibraryListOrder), want) {
 			t.Errorf("album %s: LibraryListOrder %v, want %q", a.UUID, a.LibraryListOrder, want)
 		}
+		if n := len(a.LibraryListOrder); n > 2 || (n > 1 && slices.Contains(a.LibraryListOrder, noListOrder)) {
+			chains++
+		}
 	}
 	for _, u := range testlib.Rows(t, src, "SELECT ZUUID FROM ZGENERICALBUM WHERE ZKIND = 4000 AND ZUUID IS NOT NULL") {
 		f, ok := db.Folder(u)
@@ -256,17 +259,18 @@ func sortCheckLibrary(t *testing.T, lib string, seen map[albuminfo.AlbumSortOrde
 			t.Errorf("folder %s: LibraryListOrder %v, want %q", u, f.LibraryListOrder, want)
 		}
 	}
+	return chains
 }
 
-// TestAlbumsOrder checks SortOrder and LibraryListOrder against direct SQL.
-// The reference cannot: osxphotos prints sort_order as null and has no
-// library_list_order.
+// The reference cannot check these: osxphotos prints sort_order as null and has
+// no library_list_order.
 func TestAlbumsOrder(t *testing.T) {
 	t.Parallel()
 
 	seen := map[albuminfo.AlbumSortOrder]int{}
+	chains := 0
 	for _, name := range testlib.Libraries(t) {
-		t.Run(name, func(t *testing.T) { sortCheckLibrary(t, testlib.OpenPristine(t, name), seen) })
+		t.Run(name, func(t *testing.T) { chains += sortCheckLibrary(t, testlib.OpenPristine(t, name), seen) })
 	}
 	t.Run("synthetic with every sort order and some orders removed", func(t *testing.T) {
 		lib := testlib.OpenPristine(t, "synthetic")
@@ -276,9 +280,13 @@ func TestAlbumsOrder(t *testing.T) {
 				"ZCUSTOMSORTASCENDING = CASE Z_PK % 6 WHEN 0 THEN 0 WHEN 1 THEN 1 WHEN 4 THEN 2 END WHERE ZKIND = 2",
 			"UPDATE ZGENERICALBUM SET Z_FOK_PARENTFOLDER = NULL WHERE ZKIND IN (2, 4000) AND Z_PK % 5 = 3",
 		)
-		sortCheckLibrary(t, lib, seen)
+		chains += sortCheckLibrary(t, lib, seen)
 	})
-	t.Logf("sort orders of all albums: %v", seen)
+	t.Logf("sort orders of all albums: %v; %d albums with a deep chain or a missing order above", seen, chains)
+	// Without them the SQL oracle says nothing about the drop of the folders above a row without an order.
+	if chains == 0 {
+		t.Error("no album has a chain deeper than one folder or an enclosing folder without an order")
+	}
 	for _, o := range []albuminfo.AlbumSortOrder{
 		albuminfo.AlbumSortUnknown, albuminfo.AlbumSortManual, albuminfo.AlbumSortNewestFirst,
 		albuminfo.AlbumSortOldestFirst, albuminfo.AlbumSortTitle,
