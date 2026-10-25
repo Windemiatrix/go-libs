@@ -12,3 +12,11 @@ import (
 func (db *DB) Query(o query.Options) []*photoinfo.PhotoInfo {
 	return query.Apply(o, db.photos, db.albums)
 }
+
+// Duplicates is query.Duplicates over every photo of the library, those in
+// the trash and the unselected burst frames included, in ZUUID order, as
+// osxphotos PhotoInfo.duplicates (photoinfo.py:1426-1439); it reads the whole
+// catalog on every call. The values are shared: do not modify them.
+func (db *DB) Duplicates(p *photoinfo.PhotoInfo) []*photoinfo.PhotoInfo {
+	return query.Duplicates(p, db.photos)
+}

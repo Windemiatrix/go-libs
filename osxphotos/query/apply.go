@@ -22,13 +22,17 @@ type photo = photoinfo.PhotoInfo
 // BurstPhotos is off; its elements are the pointers of photos. photos and
 // albums are not modified.
 func Apply(o Options, photos []*photoinfo.PhotoInfo, albums []*albuminfo.AlbumInfo) []*photoinfo.PhotoInfo {
-	fs := filters(o, newPhotoAlbums(albums))
+	before, after := filters(o, newPhotoAlbums(albums))
 	var out []*photo
 	for _, p := range photos {
-		if inSelection(o, p) && !slices.ContainsFunc(fs, func(f filter) bool { return !f(p) }) {
+		if inSelection(o, p) && passes(before, p) {
 			out = append(out, p)
 		}
 	}
+	if o.Duplicate {
+		out = withDuplicates(out, photos, o)
+	}
+	out = slices.DeleteFunc(out, func(p *photo) bool { return !passes(after, p) })
 	for _, f := range o.Function {
 		out = f(out)
 	}
@@ -65,9 +69,14 @@ func inTrashSelection(o Options, p *photo) bool {
 
 type filter func(*photo) bool
 
-// The conditions are in the order of photo_query (photoquery.py:447-857). A
-// pair X/NotX is "if X … elif NotX": X wins.
-func filters(o Options, in photoAlbums) []filter {
+func passes(fs []filter, p *photo) bool {
+	return !slices.ContainsFunc(fs, func(f filter) bool { return !f(p) })
+}
+
+// The conditions are in the order of photo_query (photoquery.py:447-857),
+// split where the duplicate step runs (photoquery.py:754-771). A pair X/NotX
+// is "if X … elif NotX": X wins.
+func filters(o Options, in photoAlbums) (before, after []filter) {
 	fold := caseFold(o.IgnoreCase)
 	var fs []filter
 	when := func(set bool, f filter) {
@@ -95,6 +104,7 @@ func filters(o Options, in photoAlbums) []filter {
 	text(searchValues(o.Title, fold), o.NoTitle, func(p *photo) string { return p.Title })
 	text(searchValues(o.Description, fold), o.NoDescription, func(p *photo) string { return p.Description })
 	pair(o.Edited, o.NotEdited, func(p *photo) bool { return p.HasAdjustments })
+	when(o.ExternalEdit, func(p *photo) bool { return p.ExternalEdit })
 	pair(o.Favorite, o.NotFavorite, func(p *photo) bool { return p.Favorite })
 	pair(o.Hidden, o.NotHidden, func(p *photo) bool { return p.Hidden })
 	pair(o.Missing, o.NotMissing, func(p *photo) bool { return p.Path == "" })
@@ -102,7 +112,15 @@ func filters(o Options, in photoAlbums) []filter {
 	when(o.UTI != "", func(p *photo) bool { return strings.Contains(p.UTIOriginal, o.UTI) })
 	pair(o.Burst, o.NotBurst, func(p *photo) bool { return p.Burst })
 	pair(o.Live, o.NotLive, func(p *photo) bool { return p.Live })
+	pair(o.Portrait, o.NotPortrait, func(p *photo) bool { return p.Portrait })
+	pair(o.Spatial, o.NotSpatial, func(p *photo) bool { return p.Spatial != 0 })
 	pair(o.Screenshot, o.NotScreenshot, func(p *photo) bool { return p.Screenshot })
+	pair(o.ScreenRecording, o.NotScreenRecording, func(p *photo) bool { return p.ScreenRecording })
+	pair(o.SlowMo, o.NotSlowMo, func(p *photo) bool { return p.SlowMo })
+	pair(o.TimeLapse, o.NotTimeLapse, func(p *photo) bool { return p.TimeLapse })
+	pair(o.HDR, o.NotHDR, func(p *photo) bool { return p.HDR })
+	pair(o.Selfie, o.NotSelfie, func(p *photo) bool { return p.Selfie })
+	pair(o.Panorama, o.NotPanorama, func(p *photo) bool { return p.Panorama })
 	pair(o.CloudAsset, o.NotCloudAsset, func(p *photo) bool { return p.IsCloudAsset })
 	pair(o.InCloud, o.NotInCloud, func(p *photo) bool { return p.InCloud != nil && *p.InCloud })
 	when(o.InCloud || o.NotInCloud, func(p *photo) bool { return !p.Shared }) // photoquery.py:648-651
@@ -116,6 +134,7 @@ func filters(o Options, in photoAlbums) []filter {
 	when(len(names) > 0, func(p *photo) bool { return containsAny(fold.apply(p.OriginalFilename), names) })
 	when(o.MinSize != 0, func(p *photo) bool { return p.OriginalFilesize >= o.MinSize })
 	when(o.MaxSize != 0, func(p *photo) bool { return p.OriginalFilesize <= o.MaxSize })
+	before, fs = fs, nil
 	pair(o.Location, o.NoLocation, func(p *photo) bool { return p.Latitude != nil || p.Longitude != nil })
 	when(!o.AddedAfter.IsZero(), func(p *photo) bool { return dateAdded(p).After(o.AddedAfter) })
 	when(!o.AddedBefore.IsZero(), func(p *photo) bool { return dateAdded(p).Before(o.AddedBefore) })
@@ -126,8 +145,9 @@ func filters(o Options, in photoAlbums) []filter {
 	pair(o.Syndicated, o.NotSyndicated, func(p *photo) bool { return p.Syndicated })
 	pair(o.SavedToLibrary, o.NotSavedToLibrary, func(p *photo) bool { return p.SavedToLibrary })
 	when(o.SavedToLibrary || o.NotSavedToLibrary, func(p *photo) bool { return p.Syndicated }) // photoquery.py:844-847
+	pair(o.SharedMoment, o.NotSharedMoment, func(p *photo) bool { return p.SharedMoment })
 	pair(o.SharedLibrary, o.NotSharedLibrary, func(p *photo) bool { return p.SharedLibrary })
-	return fs
+	return before, fs
 }
 
 // timeOfDay is date.time() of Python: the wall clock in the zone of d
