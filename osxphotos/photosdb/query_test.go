@@ -496,7 +496,7 @@ func TestQueryGolden(t *testing.T) {
 	for _, c := range flagCases {
 		switch {
 		case slices.Contains(never, c.name) && exercised[c.name]:
-			t.Logf("flag %q is exercised: remove it from never", c.name)
+			t.Errorf("flag %q is exercised: remove it from never", c.name)
 		case slices.Contains(never, c.name) || exercised[c.name]:
 		default:
 			t.Errorf("flag %q: no library expects a proper subset of its objects; the case is vacuous", c.name)
