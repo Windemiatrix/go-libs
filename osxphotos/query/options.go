@@ -1,6 +1,10 @@
 package query
 
-import "time"
+import (
+	"time"
+
+	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+)
 
 // Options is osxphotos QueryOptions (photoquery.py:47-241), field by field;
 // UPSTREAM.md lists the fields that are not here. The zero value is
@@ -44,6 +48,20 @@ type Options struct {
 	Syndicated, NotSyndicated         bool
 	SavedToLibrary, NotSavedToLibrary bool // of the Syndicated photos (photoquery.py:844-847)
 	SharedLibrary, NotSharedLibrary   bool
+
+	Year                       []int          // year: Date.Year() in the zone of Date (photoquery.py:682-683)
+	FromTime, ToTime           *time.Duration // from_time, to_time: the time of day of Date since midnight, in its zone; nil is not set, as midnight is a value (photoquery.py:676-680)
+	AddedAfter, AddedBefore    time.Time      // added_after (DateAdded after), added_before (DateAdded before); strict, the zero time is not set (photoquery.py:822-832)
+	AddedInLast                time.Duration  // added_in_last: DateAdded after now minus it; 0 is not set (photoquery.py:834-837)
+	MinSize, MaxSize           int64          // min_size, max_size: OriginalFilesize at least, at most, in bytes; 0 is not set (photoquery.py:722-730)
+	BurstPhotos, MissingBursts bool           // burst_photos: add the other frames of the bursts of the result; missing_bursts: the frames that are IsMissing too (photoquery.py:863-883)
+
+	// function: run in order on the result of the filters (photoquery.py:859-861).
+	// The first gets the filtered photos in the order of the photos given to
+	// Apply. Their values are shared with the DB: a function must not modify
+	// them. Apply sorts the slice it returns in place, the one a function
+	// returns included.
+	Function []func([]*photoinfo.PhotoInfo) []*photoinfo.PhotoInfo
 
 	NewestFirst bool // newest_first: the order of Sort, reversed (photoquery.py:888-898)
 }
