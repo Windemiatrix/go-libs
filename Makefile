@@ -64,25 +64,17 @@ vuln: ## Known vulnerabilities in dependencies (not in "make test")
 
 ##@ Reference data
 
-# RUN is read from the environment of the recipe ($$RUN), not substituted into
-# the text of a command. The run must be a successful golden-regen started by
-# hand, otherwise an artifact named "golden" of another workflow could end up
-# in testdata/golden. gh must not be older than 2.63.1 (a fix for writing
-# outside --dir in "gh run download"). The JSON files of an earlier run are
-# removed first, so that none of them survives in a library the new run lacks.
-GOLDEN_RUN_IS_MANUAL_SUCCESS := .workflowName == "golden-regen" and .event == "workflow_dispatch" \
-    and .status == "completed" and .conclusion == "success"
-
+# Only a run of golden-regen.yml: an artifact named "golden" of another
+# workflow must not end up in testdata/golden. The old files go first, so that
+# none survives for a library the new run lacks. gh must not be older than
+# 2.63.1 (a fix for writing outside --dir in "gh run download").
 .PHONY: golden-fetch
-golden-fetch: ## Download the reference data of a golden-regen run (make golden-fetch RUN=<run id>)
-	@case "$$RUN" in ''|*[!0-9]*) echo "usage: make golden-fetch RUN=<numeric run id>" >&2; exit 2;; esac
-	@info="$$(gh run view "$$RUN" --repo Windemiatrix/go-libs --json workflowName,event,status,conclusion,headBranch,headSha \
-		--jq 'select($(GOLDEN_RUN_IS_MANUAL_SUCCESS)) | "headBranch: \(.headBranch)\nheadSha: \(.headSha)"')" \
-		|| { echo "golden-fetch: cannot verify run $$RUN (see the gh message above)" >&2; exit 2; }; \
-	[ -n "$$info" ] || { echo "golden-fetch: run $$RUN is not a successful golden-regen run started by workflow_dispatch" >&2; exit 2; }; \
-	echo "$$info"
-	rm -f testdata/golden/*/query.json testdata/golden/*/deleted.json
-	gh run download "$$RUN" --repo Windemiatrix/go-libs --name golden --dir testdata/golden
+golden-fetch: ## Download the reference data of the latest successful golden-regen run
+	@run=$$(gh run list --repo Windemiatrix/go-libs --workflow golden-regen.yml --event workflow_dispatch --status success --limit 1 --json databaseId --jq '.[0].databaseId'); \
+	test -n "$$run" || { echo "golden-fetch: no successful golden-regen run" >&2; exit 1; }; \
+	echo "golden-fetch: run $$run"; \
+	rm -f testdata/golden/*/query.json testdata/golden/*/deleted.json; \
+	gh run download "$$run" --repo Windemiatrix/go-libs --name golden --dir testdata/golden
 
 ##@ Pull requests
 
