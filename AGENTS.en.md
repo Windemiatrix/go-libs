@@ -2,7 +2,7 @@
 
 **English** | [Русский](AGENTS.md)
 
-This file is for AI agents (Claude Code and others) working in the repository on the maintainer's behalf. General rules for people and agents are in [CONTRIBUTING.en.md](CONTRIBUTING.en.md); this file covers what applies to agents.
+This file is for AI agents (Claude Code and others) working in the repository on the maintainer's behalf. General rules for people and agents are in [CONTRIBUTING.en.md](CONTRIBUTING.en.md); this file covers what applies to agents. The procedure for following a new osxphotos release is the skill [`.claude/skills/osxphotos-update`](.claude/skills/osxphotos-update/SKILL.md).
 
 ## Boundaries
 
