@@ -2,7 +2,7 @@
 
 [English](AGENTS.en.md) | **Русский**
 
-Файл для ИИ-агентов (Claude Code и других), которые работают в репозитории от имени мейнтейнера. Общие правила для людей и агентов — в [CONTRIBUTING.md](CONTRIBUTING.md); здесь то, что относится к агентам. Порядок обновления на новую версию osxphotos — в `osxphotos/AGENTS.md` (файл будет создан).
+Файл для ИИ-агентов (Claude Code и других), которые работают в репозитории от имени мейнтейнера. Общие правила для людей и агентов — в [CONTRIBUTING.md](CONTRIBUTING.md); здесь то, что относится к агентам. Порядок обновления на новый выпуск osxphotos — скилл [`.claude/skills/osxphotos-update`](.claude/skills/osxphotos-update/SKILL.md).
 
 ## Границы действий
 

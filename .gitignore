@@ -37,6 +37,9 @@ _sync/
 !/testdata/libraries/*/database/Photos.sqlite
 !/testdata/libraries/*/database/Photos.sqlite-wal
 
+# Upstream clone of the osxphotos-update skill
+/.cache/
+
 # Editors and OS
 .idea/
 .vscode/
