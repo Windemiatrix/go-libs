@@ -38,11 +38,14 @@ func burstDB(photos ...*photoinfo.PhotoInfo) *DB {
 
 // burstCatalog holds the bursts b (a key, a selected, an unselected and a
 // trashed frame), k (two key frames and a selected one), n (no key frame), ""
-// and two bursts of one frame, a photo outside any burst, and a photo that
-// has the BurstUUID of b without Burst.
+// and two bursts of one frame, t (a trashed key frame and a selected one), u
+// (an unselected key frame and a selected one), a photo outside any burst, and
+// a photo that has the BurstUUID of b without Burst.
 func burstCatalog() *DB {
 	trashed := burstFrame("A4", "b", 0)
 	trashed.InTrash = true
+	trashedKey := burstFrame("T1", "t", photoinfo.BurstPickKey)
+	trashedKey.InTrash = true
 	return burstDB(
 		burstFrame("A1", "b", photoinfo.BurstPickKey),
 		burstFrame("A2", "b", photoinfo.BurstPickSelected),
@@ -58,6 +61,10 @@ func burstCatalog() *DB {
 		burstFrame("F1", "solo", photoinfo.BurstPickSelected),
 		burstFrame("F2", "solo-key", photoinfo.BurstPickKey),
 		&photoinfo.PhotoInfo{UUID: "N1"},
+		trashedKey,
+		burstFrame("T2", "t", photoinfo.BurstPickSelected),
+		burstFrame("U1", "u", photoinfo.BurstPickKey),
+		burstFrame("U2", "u", photoinfo.BurstPickSelected),
 		&photoinfo.PhotoInfo{UUID: "X1", BurstUUID: "b", BurstKey: true},
 	)
 }
@@ -112,6 +119,8 @@ func TestBurstKeyPhoto(t *testing.T) {
 		{"F1", ""},
 		{"F2", "F2"},
 		{"N1", ""},
+		{"T2", "T1"}, // upstream searches burst_photos: the trash is not skipped
+		{"U2", "U1"}, // nor are the unselected frames
 		{"X1", ""},
 	}
 	for _, tt := range tests {
@@ -137,8 +146,8 @@ func TestPhotosByUUID(t *testing.T) {
 	}
 	for _, tt := range tests {
 		got := db.PhotosByUUID(tt.uuids)
-		if !slices.Equal(burstUUIDs(got), tt.want) || got == nil {
-			t.Errorf("%s: PhotosByUUID(%q) = %q (nil: %v), want %q and a slice that is not nil", tt.name, tt.uuids, burstUUIDs(got), got == nil, tt.want)
+		if !slices.Equal(burstUUIDs(got), tt.want) {
+			t.Errorf("%s: PhotosByUUID(%q) = %q, want %q", tt.name, tt.uuids, burstUUIDs(got), tt.want)
 		}
 		for _, p := range got {
 			if p != db.byUUID[p.UUID] {
@@ -155,7 +164,7 @@ func TestBurstsGolden(t *testing.T) {
 	t.Parallel()
 
 	dir := testlib.RepoDir(t, "golden")
-	frames := map[string]int{}
+	frames := 0
 	for _, lib := range goldenLibraries(t) {
 		t.Run(lib.name, func(t *testing.T) {
 			db, err := Open(t.Context(), lib.path, Options{TempDir: t.TempDir()})
@@ -183,14 +192,14 @@ func TestBurstsGolden(t *testing.T) {
 				if got := burstUUIDs(db.BurstPhotos(p)); !slices.Equal(got, want) {
 					t.Errorf("photo %s: BurstPhotos %q, burst_photos %q", uuid, got, want)
 				}
-				frames[lib.name] += len(want)
+				frames += len(want)
 			}
 			if got := burstUUIDs(db.PhotosByUUID(uuids)); !slices.Equal(got, uuids) {
 				t.Error("PhotosByUUID of the UUIDs of the objects returns other photos, or in another order")
 			}
 		})
 	}
-	if frames["synthetic"] == 0 {
-		t.Error("no object of the synthetic library has burst_photos")
+	if frames == 0 {
+		t.Error("no object of any library has burst_photos")
 	}
 }

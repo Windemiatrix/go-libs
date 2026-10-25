@@ -39,11 +39,11 @@ func (db *DB) BurstKeyPhoto(p *photoinfo.PhotoInfo) (*photoinfo.PhotoInfo, bool)
 }
 
 // PhotosByUUID returns the photos with these UUIDs in their order, unknown
-// ones left out, repeats kept, those in the trash included: osxphotos
-// photos_by_uuid (photosdb/photosdb.py:3378-3394). The values are shared: do
-// not modify them.
+// ones left out, repeats kept, those in the trash included; nil when there are
+// none: osxphotos photos_by_uuid (photosdb/photosdb.py:3378-3394). The values
+// are shared: do not modify them.
 func (db *DB) PhotosByUUID(uuids []string) []*photoinfo.PhotoInfo {
-	photos := make([]*photoinfo.PhotoInfo, 0, len(uuids))
+	var photos []*photoinfo.PhotoInfo
 	for _, u := range uuids {
 		if p, ok := db.byUUID[u]; ok {
 			photos = append(photos, p)
