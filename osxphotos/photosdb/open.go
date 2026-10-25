@@ -13,11 +13,12 @@ import (
 )
 
 // Open reads the Photos library at libraryPath into memory. libraryPath is
-// the .photoslibrary directory, or its database file, Photos.sqlite or
-// photos.db (the latter stands for the Photos.sqlite beside it); the library
-// of a database file is the parent of its directory, unless o.LibraryPath is
-// set (photosdb/photosdb.py:349-385, 452-458). Any other file, a missing path
-// and a photos.db without Photos.sqlite are errors.
+// the .photoslibrary directory or a database file: a file named photos.db, in
+// any letter case, stands for the Photos.sqlite beside it. Any other file is
+// read as the database; a missing path and a photos.db without Photos.sqlite
+// beside it are errors. The library of a database file is the parent of its
+// directory, unless o.LibraryPath is set (photosdb/photosdb.py:349-385,
+// 452-458).
 //
 // Open reads a copy of the database with its -wal file, made in a new
 // directory under o.TempDir, never the original. -shm is not copied: SQLite
@@ -26,26 +27,34 @@ import (
 // removed before Open returns, after an error as well; nothing of the copy or
 // of the library stays open in the DB.
 //
-// A TempDir that is the library or the directory of the database, or lies
-// inside either, is refused before any copy is made: the copy would become
-// part of the library.
+// A TempDir inside the library derived from libraryPath, inside
+// o.LibraryPath or inside the library of the database file with its symbolic
+// links resolved is refused before any copy is made: the copy would become
+// part of a library. A database outside a .photoslibrary therefore needs a
+// TempDir outside the grandparent directory of the file, which is taken as a
+// library even when o.LibraryPath is set.
 //
 // The copy holds the whole database. The caller cancels ctx on SIGINT and
 // SIGTERM (signal.NotifyContext), so that an interrupted Open still removes
 // it.
 func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error) {
-	dbPath, library, err := locate(libraryPath)
+	dbPath, located, err := locate(libraryPath)
 	if err != nil {
 		return nil, err
 	}
+	library := located
 	if o.LibraryPath != "" {
 		library = o.LibraryPath
+	}
+	resolved, err := sqlread.RealPath(dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("photosdb: %w", err)
 	}
 	tmp := o.TempDir
 	if tmp == "" {
 		tmp = os.TempDir()
 	}
-	if err := checkTempDir(tmp, library, filepath.Dir(dbPath)); err != nil {
+	if err := checkTempDir(tmp, located, library, filepath.Dir(filepath.Dir(resolved))); err != nil {
 		return nil, err
 	}
 	src, err := sqlread.Open(ctx, dbPath, tmp)
@@ -112,9 +121,7 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 	}, nil
 }
 
-// Upstream makes the path absolute and resolves it (photosdb.py:349-350); here
-// links are kept, and the library is a directory as given
-// (Info.LibraryPath), but the parent of an absolute database path otherwise.
+// Upstream resolves symbolic links (photosdb.py:349-350); they are kept here.
 func locate(path string) (dbPath, library string, err error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -124,14 +131,13 @@ func locate(path string) (dbPath, library string, err error) {
 	if err != nil {
 		return "", "", fmt.Errorf("photosdb: %w", err)
 	}
-	switch {
-	case fi.IsDir():
+	if fi.IsDir() {
 		return filepath.Join(abs, "database", "Photos.sqlite"), path, nil
-	case strings.EqualFold(fi.Name(), "Photos.sqlite"), strings.EqualFold(fi.Name(), "photos.db"):
-		dbPath = filepath.Join(filepath.Dir(abs), "Photos.sqlite")
-		return dbPath, filepath.Dir(filepath.Dir(dbPath)), nil
 	}
-	return "", "", fmt.Errorf("photosdb: %s is neither a library directory nor Photos.sqlite or photos.db", path)
+	if strings.ToLower(fi.Name()) == "photos.db" {
+		abs = filepath.Join(filepath.Dir(abs), "Photos.sqlite")
+	}
+	return abs, filepath.Dir(filepath.Dir(abs)), nil
 }
 
 // The directories are compared as files (os.SameFile), not as path strings,

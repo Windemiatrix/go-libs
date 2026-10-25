@@ -83,6 +83,9 @@ func TestPhotosVersion(t *testing.T) {
 		"photos11_1":   11.1,
 		"photos12":     12,
 	}
+	if len(All()) != len(want) {
+		t.Errorf("All() has %d schemas, the literal table %d: add the version of each new schema", len(All()), len(want))
+	}
 	for _, s := range All() {
 		if v, ok := want[s.ID]; !ok || s.PhotosVersion != v {
 			t.Errorf("%s.PhotosVersion = %v, want %v (listed: %v)", s.ID, s.PhotosVersion, v, ok)

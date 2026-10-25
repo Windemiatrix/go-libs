@@ -149,9 +149,10 @@ func TestOpenLibraries(t *testing.T) {
 			assertTree(t, lib.name, before, snapshotTree(t, lib.path))
 			assertNoCopies(t, tmp)
 			info := db.Info()
-			if info.ModelVersion != lib.model || info.SchemaID != lib.id || !uuidForm.MatchString(info.LibraryUUID) ||
-				info.LibraryPath != lib.path {
-				t.Errorf("Info = %+v, want model %d, schema %s, a library UUID", info, lib.model, lib.id)
+			version := schemaByID(t, lib.id).PhotosVersion
+			if info.ModelVersion != lib.model || info.SchemaID != lib.id || info.PhotosVersion != version ||
+				!uuidForm.MatchString(info.LibraryUUID) || info.LibraryPath != lib.path {
+				t.Errorf("Info = %+v, want model %d, schema %s, Photos version %v, a library UUID", info, lib.model, lib.id, version)
 			}
 			src := roDB(t, lib.path)
 			skipped := count(t, src, withoutAttributes)
@@ -268,12 +269,14 @@ func TestOpenPaths(t *testing.T) {
 		{"library directory", func(lib string) string { return lib }},
 		{"Photos.sqlite", openPathDatabase},
 		{"photos.db", func(lib string) string { return filepath.Join(lib, "database", "photos.db") }},
+		{"PHOTOS.DB", func(lib string) string { return filepath.Join(lib, "database", "PHOTOS.DB") }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			lib := testlib.OpenPristine(t, "synthetic")
 			writeFile(t, filepath.Join(lib, "database", "photos.db"))
+			writeFile(t, filepath.Join(lib, "database", "PHOTOS.DB"))
 			info := openPathDB(t, tt.input(lib), Options{}).Info()
 			if info.LibraryPath != lib || info.DBPath != openPathDatabase(lib) {
 				t.Errorf("LibraryPath, DBPath = %q, %q; want %q, %q", info.LibraryPath, info.DBPath, lib, openPathDatabase(lib))
@@ -282,8 +285,22 @@ func TestOpenPaths(t *testing.T) {
 	}
 }
 
-// A relative path to a database is made absolute for DBPath and for the
-// library derived from it; a library directory stays as given.
+// photosdb.py:377-385, 455.
+func TestOpenPathsOtherName(t *testing.T) {
+	t.Parallel()
+
+	lib := testlib.OpenPristine(t, "synthetic")
+	db := filepath.Join(lib, "database", "db.sqlite")
+	if err := os.Rename(openPathDatabase(lib), db); err != nil {
+		t.Fatal(err)
+	}
+	info := openPathDB(t, db, Options{}).Info()
+	if info.LibraryPath != lib || info.DBPath != db {
+		t.Errorf("LibraryPath, DBPath = %q, %q; want %q, %q", info.LibraryPath, info.DBPath, lib, db)
+	}
+}
+
+// photosdb.py:349-350, 455.
 func TestOpenPathsRelative(t *testing.T) {
 	lib := testlib.OpenPristine(t, "synthetic")
 
@@ -304,56 +321,78 @@ func TestOpenPathsRelative(t *testing.T) {
 func TestOpenPathsRefused(t *testing.T) {
 	t.Parallel()
 
-	lib := testlib.OpenPristine(t, "synthetic")
-	other := filepath.Join(lib, "database", "notes.txt")
-	writeFile(t, other)
-	legacy := filepath.Join(t.TempDir(), "photos.db")
+	layout := filepath.Join(t.TempDir(), "lib", "database")
+	legacy := filepath.Join(layout, "photos.db")
 	writeFile(t, legacy)
-	tests := []struct{ name, path string }{
-		{"a missing path", filepath.Join(t.TempDir(), "missing")},
-		{"another file", other},
-		{"photos.db without Photos.sqlite", legacy},
-		{"a directory without a database", t.TempDir()},
+	other := filepath.Join(layout, "notes.txt")
+	writeFile(t, other)
+	tests := []struct {
+		name, path string
+		options    Options
+		want       error
+	}{
+		{"a missing path", filepath.Join(t.TempDir(), "missing"), Options{}, fs.ErrNotExist},
+		{"photos.db without Photos.sqlite", legacy, Options{}, fs.ErrNotExist},
+		{"a directory without a database", t.TempDir(), Options{}, fs.ErrNotExist},
+		{"Options.LibraryPath missing", testlib.OpenPristine(t, "synthetic"),
+			Options{LibraryPath: filepath.Join(t.TempDir(), "missing")}, fs.ErrNotExist},
+		{"a file that is not a database", other, Options{}, nil},
 	}
 	for _, tt := range tests {
 		tmp := t.TempDir()
-		db, err := Open(t.Context(), tt.path, Options{TempDir: tmp})
-		if err == nil || db != nil {
-			t.Errorf("%s: Open = %v, %v; want nil and an error", tt.name, db, err)
+		tt.options.TempDir = tmp
+		db, err := Open(t.Context(), tt.path, tt.options)
+		if db != nil || err == nil || (tt.want != nil && !errors.Is(err, tt.want)) || strings.Contains(err.Error(), "inside the library") {
+			t.Errorf("%s: Open = %v, %v; want nil and an error of %v, not about the temporary directory", tt.name, db, err, tt.want)
 		}
 		assertNoCopies(t, tmp)
 	}
 }
 
-// A copy of the database next to the database, or inside the library of
-// Options.LibraryPath, would become part of a library as well.
+// A copy of the database inside any library that the paths name would become
+// part of that library.
 func TestOpenPathsTempDir(t *testing.T) {
 	t.Parallel()
 
 	read := testlib.OpenPristine(t, "synthetic")
 	elsewhere := testlib.OpenPristine(t, "synthetic")
+	realElsewhere, err := filepath.EvalSymlinks(elsewhere)
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := openPathDatabase(filepath.Join(t.TempDir(), "link.photoslibrary"))
+	if err := os.MkdirAll(filepath.Dir(link), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(openPathDatabase(elsewhere), link); err != nil {
+		t.Fatal(err)
+	}
 	tests := []struct {
 		name, path string
 		options    Options
+		library    string
 	}{
 		{"the directory of a database read from elsewhere", openPathDatabase(read),
-			Options{LibraryPath: elsewhere, TempDir: filepath.Join(read, "database")}},
-		{"Options.LibraryPath", openPathDatabase(read), Options{LibraryPath: elsewhere, TempDir: elsewhere}},
-		{"the library derived from Photos.sqlite", openPathDatabase(read), Options{TempDir: read}},
+			Options{LibraryPath: elsewhere, TempDir: filepath.Join(read, "database")}, read},
+		{"Options.LibraryPath", openPathDatabase(read), Options{LibraryPath: elsewhere, TempDir: elsewhere}, elsewhere},
+		{"the library derived from Photos.sqlite", openPathDatabase(read), Options{TempDir: read}, read},
+		{"the library read while Options.LibraryPath is set", read, Options{LibraryPath: elsewhere, TempDir: read}, read},
+		{"the library of Photos.sqlite read while Options.LibraryPath is set", openPathDatabase(read),
+			Options{LibraryPath: elsewhere, TempDir: read}, read},
+		{"the library a linked Photos.sqlite points into", link, Options{TempDir: filepath.Join(elsewhere, "database")}, realElsewhere},
 	}
 	for _, tt := range tests {
 		before, beforeElsewhere := snapshotTree(t, read), snapshotTree(t, elsewhere)
 		_, err := Open(t.Context(), tt.path, tt.options)
-		if err == nil || !strings.Contains(err.Error(), "inside the library") {
-			t.Errorf("%s: Open error %v, want one about a temporary directory inside the library", tt.name, err)
+		if err == nil || !strings.HasSuffix(err.Error(), "inside the library "+tt.library) {
+			t.Errorf("%s: Open error %v, want one about a temporary directory inside the library %s", tt.name, err, tt.library)
 		}
 		assertTree(t, tt.name, before, snapshotTree(t, read))
 		assertTree(t, tt.name, beforeElsewhere, snapshotTree(t, elsewhere))
 	}
 }
 
-// The database is read from one library and the originals are searched in
-// another (photosdb.py:456-458).
+// photosdb.py:456-458.
 func TestOpenLibraryPath(t *testing.T) {
 	t.Parallel()
 
@@ -380,37 +419,6 @@ func TestOpenLibraryPath(t *testing.T) {
 			t.Errorf("%s: LibraryPath, DBPath, Path = %q, %q, %q; want %q, %q, %q",
 				tt.name, info.LibraryPath, info.DBPath, p.Path, tt.wantLibrary, openPathDatabase(read), tt.wantPath)
 		}
-	}
-}
-
-// The literals of photosdb_utils.py:138-159 for the models in libraryModels.
-var openPathVersions = map[string]float64{
-	"Test-13.0.0":       8,
-	"Test-Cloud-13.1":   8,
-	"Test-14.0.0":       9,
-	"Test-14.6.0":       9.6,
-	"Test-15.4.1":       10,
-	"Test-16.0.0-beta":  11,
-	"Test-26.1":         11.1,
-	"Test-27.0_DevBeta": 12,
-	"synthetic":         11.1,
-}
-
-func TestOpenPhotosVersion(t *testing.T) {
-	t.Parallel()
-
-	for _, name := range testlib.Libraries(t) {
-		want, ok := openPathVersions[name]
-		if !ok {
-			t.Fatalf("test library %s is not in openPathVersions", name)
-		}
-		path := testlib.OpenPristine(t, name)
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			if got := openPathDB(t, path, Options{}).Info().PhotosVersion; got != want {
-				t.Errorf("PhotosVersion = %v, want %v", got, want)
-			}
-		})
 	}
 }
 
