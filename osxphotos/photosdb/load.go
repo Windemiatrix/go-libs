@@ -160,8 +160,8 @@ func photo(a sqlread.Asset, res []sqlread.Resource, fingerprintColumn string) *p
 
 		IsPhoto:     a.Kind.Valid && a.Kind.Int64 == kindPhoto,
 		IsMovie:     a.Kind.Valid && a.Kind.Int64 == kindMovie,
-		Live:        a.KindSubtype.Valid && a.KindSubtype.Int64 == subtypeLive,
-		Screenshot:  a.KindSubtype.Valid && a.KindSubtype.Int64 == subtypeScreen,
+		Live:        is(a.KindSubtype, subtypeLive),
+		Screenshot:  is(a.KindSubtype, subtypeScreen),
 		RawOriginal: is(a.OriginalResourceChoice, rawOriginalChoice),
 
 		SlowMo:          is(a.KindSubtype, subtypeSlowMo),
