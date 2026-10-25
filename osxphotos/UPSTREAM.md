@@ -52,6 +52,7 @@ If you only read three things: (1) models outside the supported table return `Er
 - A photo that matches several values of `Title` or `Description` is returned once; upstream returns it once per value (`photoquery.py:480-516`).
 - `IgnoreCase` folds case with `strings.ToLower`; Python `str.lower` gives another result for a few characters, such as U+0130 (`photoquery.py:484-491`).
 - `NULL` in the pick type of a burst frame is 0. Upstream fails on `None & int` (`photosdb/photosdb.py:3347-3351`).
+- `BurstPhotos` is in UUID order, and `BurstKeyPhoto` of a burst with several key photos is the first of them by UUID; upstream iterates a set (`photoinfo.py:1009-1044`).
 - The second original of a RAW+JPEG pair is a resource of subtype 17, or of subtype 3 with resource type 4. Upstream looks for subtype 17 only (`photosdb/photosdb.py:2537-2551`). None of the test libraries has a resource of subtype 3 with type 4; the rule is checked only on the synthetic library.
 - `IsMissing` looks for the resource with the fingerprint of the asset only among the resources of the asset, and of several the one with the highest `Z_PK` decides. Upstream takes such a resource of any asset, and the last row read decides (`photosdb/photosdb.py:2498-2516`).
 - `Date` is in the fixed zone of `TZOffset`; `ZTIMEZONENAME` is not used (`photos_datetime.py:53-62`).
@@ -139,6 +140,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - Фото, которое подходит под несколько значений `Title` или `Description`, возвращается один раз; upstream возвращает его по разу на значение (`photoquery.py:480-516`).
 - `IgnoreCase` сравнивает без учёта регистра через `strings.ToLower`; `str.lower` в Python для нескольких символов даёт другой результат, например для U+0130 (`photoquery.py:484-491`).
 - `NULL` в отметке кадра серии — 0. Upstream падает на `None & int` (`photosdb/photosdb.py:3347-3351`).
+- `BurstPhotos` идёт по UUID, а `BurstKeyPhoto` серии с несколькими ключевыми кадрами — первый из них по UUID; upstream обходит множество (`photoinfo.py:1009-1044`).
 - Второй оригинал пары RAW+JPEG — ресурс подтипа 17 или ресурс подтипа 3 с типом ресурса 4. Upstream ищет только подтип 17 (`photosdb/photosdb.py:2537-2551`). Ни в одной тестовой медиатеке нет ресурса подтипа 3 с типом 4; правило проверено только на синтетической медиатеке.
 - `IsMissing` ищет ресурс с отпечатком объекта только среди ресурсов этого объекта, а из нескольких решает ресурс с наибольшим `Z_PK`. Upstream берёт такой ресурс любого объекта, и решает последняя прочитанная строка (`photosdb/photosdb.py:2498-2516`).
 - `Date` — в фиксированной зоне смещения `TZOffset`; `ZTIMEZONENAME` не используется (`photos_datetime.py:53-62`).
