@@ -1,0 +1,479 @@
+package photosdb
+
+import (
+	"database/sql"
+	"encoding/json"
+	"maps"
+	"path/filepath"
+	"slices"
+	"testing"
+
+	"golang.org/x/text/unicode/norm"
+
+	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/golden"
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
+	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+)
+
+// lookupUUIDs lists the UUIDs of albums, for messages and for set checks.
+func lookupUUIDs(albums []*albuminfo.AlbumInfo) []string {
+	out := make([]string, len(albums))
+	for i, a := range albums {
+		out[i] = a.UUID
+	}
+	return out
+}
+
+// lookupTexts runs a query of one nullable text column and returns the values
+// in NFC, NULL as "".
+func lookupTexts(t *testing.T, src *sql.DB, q string, args ...any) []string {
+	t.Helper()
+	rows, err := src.QueryContext(t.Context(), q, args...)
+	if err != nil {
+		t.Fatalf("%s: %v", q, err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []string
+	for rows.Next() {
+		var s sql.NullString
+		if err := rows.Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, norm.NFC.String(s.String))
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+// lookupCounts counts, straight from the tables, the photos of each album of
+// ZKIND 2 outside the trash: the distinct members with a
+// ZADDITIONALASSETATTRIBUTES row, summed by NFC title.
+func lookupCounts(t *testing.T, src *sql.DB, table, albumCol, assetCol string) map[string]int {
+	t.Helper()
+	q := "SELECT g.ZTITLE, (SELECT COUNT(DISTINCT m." + assetCol + ") FROM " + table + " m " + //nolint:gosec // G202: the membership table and columns of internal/schema
+		"JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = m." + assetCol + " WHERE m." + albumCol + " = g.Z_PK) " +
+		"FROM ZGENERICALBUM g WHERE g.ZKIND = 2 AND g.ZUUID IS NOT NULL AND g.ZTRASHEDSTATE = 0"
+	rows, err := src.QueryContext(t.Context(), q)
+	if err != nil {
+		t.Fatalf("%s: %v", q, err)
+	}
+	defer func() { _ = rows.Close() }()
+	out := map[string]int{}
+	for rows.Next() {
+		var title sql.NullString
+		var n int
+		if err := rows.Scan(&title, &n); err != nil {
+			t.Fatal(err)
+		}
+		out[norm.NFC.String(title.String)] += n
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+// TestAlbumLookupUnit checks the rules on literal albums, without a database.
+func TestAlbumLookupUnit(t *testing.T) {
+	t.Parallel()
+
+	album := func(uuid, title string, inTrash bool, photos ...string) *albuminfo.AlbumInfo {
+		return &albuminfo.AlbumInfo{UUID: uuid, Title: title, InTrash: inTrash, PhotoUUIDs: photos}
+	}
+	a1, a2, a3 := album("A-1", "B", false), album("A-2", "B", false), album("A-3", "", false)
+	a4 := album("A-4", "A", true)
+	a5, a6 := album("A-5", "C", false, "P-1", "P-2"), album("A-6", "C", false, "P-3")
+	a7 := album("A-7", "D", false)
+	all := []*albuminfo.AlbumInfo{a1, a2, a3, a4, a5, a6, a7}
+	db := &DB{albums: slices.Clone(all)}
+
+	p := &photoinfo.PhotoInfo{
+		AlbumUUIDs:      []string{"A-1", "A-2", "A-3", "A-4", "A-UNKNOWN"},
+		BurstAlbumUUIDs: []string{"A-5", "A-1"},
+	}
+	reversed := &photoinfo.PhotoInfo{AlbumUUIDs: []string{"A-2", "A-1"}}
+	hidden := &photoinfo.PhotoInfo{AlbumUUIDs: []string{"A-4", "A-UNKNOWN"}, BurstAlbumUUIDs: []string{"A-4"}}
+
+	albumsCases := []struct {
+		name string
+		got  []*albuminfo.AlbumInfo
+		want []*albuminfo.AlbumInfo
+	}{
+		{"AlbumInfoOf", db.AlbumInfoOf(p), []*albuminfo.AlbumInfo{a3, a1, a2}},
+		{"AlbumInfoOf equal titles by UUID", db.AlbumInfoOf(reversed), []*albuminfo.AlbumInfo{a1, a2}},
+		{"BurstAlbumInfoOf", db.BurstAlbumInfoOf(p), []*albuminfo.AlbumInfo{a1, a5}},
+		{"BurstAlbumInfoOf without BurstAlbumUUIDs", db.BurstAlbumInfoOf(reversed), nil},
+		{"AlbumInfoOf trashed and unknown only", db.AlbumInfoOf(hidden), nil},
+		{"BurstAlbumInfoOf trashed only", db.BurstAlbumInfoOf(hidden), nil},
+		{"AlbumInfo", db.AlbumInfo(), []*albuminfo.AlbumInfo{a1, a2, a3, a5, a6, a7}},
+	}
+	for _, tt := range albumsCases {
+		if !slices.Equal(tt.got, tt.want) || (tt.got == nil) != (tt.want == nil) {
+			t.Errorf("%s = %q, want %q", tt.name, lookupUUIDs(tt.got), lookupUUIDs(tt.want))
+		}
+	}
+
+	titlesCases := []struct {
+		name      string
+		got, want []string
+	}{
+		{"AlbumTitlesOf", db.AlbumTitlesOf(p), []string{"", "B"}},
+		{"BurstAlbumTitlesOf", db.BurstAlbumTitlesOf(p), []string{"B", "C"}},
+		{"AlbumTitlesOf trashed and unknown only", db.AlbumTitlesOf(hidden), nil},
+		{"BurstAlbumTitlesOf trashed only", db.BurstAlbumTitlesOf(hidden), nil},
+		{"AlbumTitles", db.AlbumTitles(), []string{"", "B", "C", "D"}},
+	}
+	for _, tt := range titlesCases {
+		if !sameStrings(tt.got, tt.want) {
+			t.Errorf("%s = %q, want %q", tt.name, tt.got, tt.want)
+		}
+	}
+
+	if want := map[string]int{"": 0, "B": 0, "C": 3, "D": 0}; !maps.Equal(db.AlbumCounts(), want) {
+		t.Errorf("AlbumCounts = %v, want %v", db.AlbumCounts(), want)
+	}
+
+	for _, a := range all {
+		if got, ok := db.Album(a.UUID); !ok || got != a {
+			t.Errorf("Album(%s) = %p, %v; want the album itself", a.UUID, got, ok)
+		}
+	}
+	if a, ok := db.Album("A-4"); !ok || !a.InTrash {
+		t.Errorf("Album(A-4) = %v, %v; want the album in the trash", a, ok)
+	}
+	// Before the first, between two, after the last, empty.
+	for _, u := range []string{"", "A-0", "A-10", "A-8", "a-1", "B-1"} {
+		if a, ok := db.Album(u); ok || a != nil {
+			t.Errorf("Album(%q) = %v, %v; want nil, false", u, a, ok)
+		}
+	}
+
+	empty := &DB{}
+	if a, ok := empty.Album("A-1"); ok || a != nil || empty.AlbumInfo() != nil || empty.AlbumTitles() != nil ||
+		empty.AlbumInfoOf(p) != nil || empty.BurstAlbumInfoOf(p) != nil {
+		t.Errorf("a library without albums gave an album or a non-nil empty list")
+	}
+	if counts := empty.AlbumCounts(); counts == nil || len(counts) != 0 {
+		t.Errorf("AlbumCounts of a library without albums = %#v, want an empty map", counts)
+	}
+
+	// Writing into a result must not show in the next call or in the albums.
+	db.AlbumInfo()[0] = nil
+	db.AlbumInfoOf(p)[0] = nil
+	db.BurstAlbumInfoOf(p)[0] = nil
+	db.AlbumTitles()[0] = "changed"
+	db.AlbumTitlesOf(p)[0] = "changed"
+	db.BurstAlbumTitlesOf(p)[0] = "changed"
+	counts := db.AlbumCounts()
+	counts["C"] = 99
+	delete(counts, "D")
+	if !slices.Equal(db.albums, all) {
+		t.Errorf("a write into a result changed the albums of the database: %q", lookupUUIDs(db.albums))
+	}
+	if got := db.AlbumInfo(); len(got) != 6 || got[0] != a1 {
+		t.Errorf("AlbumInfo after a write into a result = %q", lookupUUIDs(got))
+	}
+	if got := db.AlbumInfoOf(p); !slices.Equal(got, []*albuminfo.AlbumInfo{a3, a1, a2}) {
+		t.Errorf("AlbumInfoOf after a write into a result = %q", lookupUUIDs(got))
+	}
+	if got := db.BurstAlbumInfoOf(p); !slices.Equal(got, []*albuminfo.AlbumInfo{a1, a5}) {
+		t.Errorf("BurstAlbumInfoOf after a write into a result = %q", lookupUUIDs(got))
+	}
+	if got := db.AlbumTitles(); !slices.Equal(got, []string{"", "B", "C", "D"}) {
+		t.Errorf("AlbumTitles after a write into a result = %q", got)
+	}
+	if got := db.AlbumTitlesOf(p); !slices.Equal(got, []string{"", "B"}) {
+		t.Errorf("AlbumTitlesOf after a write into a result = %q", got)
+	}
+	if got := db.BurstAlbumTitlesOf(p); !slices.Equal(got, []string{"B", "C"}) {
+		t.Errorf("BurstAlbumTitlesOf after a write into a result = %q", got)
+	}
+	if want := map[string]int{"": 0, "B": 0, "C": 3, "D": 0}; !maps.Equal(db.AlbumCounts(), want) {
+		t.Errorf("AlbumCounts after a write into a result = %v, want %v", db.AlbumCounts(), want)
+	}
+}
+
+// TestAlbumLookup checks the lookups of the library against direct SQL on the
+// test libraries.
+func TestAlbumLookup(t *testing.T) {
+	t.Parallel()
+
+	outside, withPhotos, others := 0, 0, 0
+	for _, name := range testlib.Libraries(t) {
+		t.Run(name, func(t *testing.T) {
+			lib := testlib.OpenPristine(t, name)
+			db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
+			if err != nil {
+				t.Fatal(err)
+			}
+			src := roDB(t, lib)
+			n := schemaByID(t, libraryModels[name].id)
+			const user = " FROM ZGENERICALBUM WHERE ZKIND = 2 AND ZUUID IS NOT NULL AND ZTRASHEDSTATE = 0"
+
+			info := db.AlbumInfo()
+			outside += len(info)
+			if want := count(t, src, "SELECT COUNT(*)"+user); len(info) != want {
+				t.Errorf("%d albums outside the trash, want %d", len(info), want)
+			}
+			for _, a := range info {
+				if a.InTrash {
+					t.Errorf("album %s in the trash is in AlbumInfo", a.UUID)
+				}
+			}
+
+			for _, a := range db.Albums() {
+				if got, ok := db.Album(a.UUID); !ok || got != a {
+					t.Errorf("Album(%s) = %p, %v; want the album of Albums()", a.UUID, got, ok)
+				}
+			}
+			// The root folder (ZKIND 3999) and the folders (4000) are not albums.
+			notAlbums := lookupTexts(t, src, "SELECT ZUUID FROM ZGENERICALBUM WHERE ZKIND IN (3999, 4000) AND ZUUID IS NOT NULL")
+			if len(notAlbums) == 0 {
+				t.Error("no root folder or folder to look up")
+			}
+			others += len(notAlbums)
+			for _, u := range notAlbums {
+				if a, ok := db.Album(u); ok || a != nil {
+					t.Errorf("Album(%s) found a folder", u)
+				}
+			}
+
+			titles := lookupTexts(t, src, "SELECT ZTITLE"+user)
+			slices.Sort(titles)
+			if want := slices.Compact(titles); !slices.Equal(db.AlbumTitles(), want) {
+				t.Errorf("AlbumTitles has %d titles, want %d", len(db.AlbumTitles()), len(want))
+			}
+
+			counts := db.AlbumCounts()
+			want := lookupCounts(t, src, n.MemberTable, n.MemberAlbumColumn, n.MemberAssetColumn)
+			if !maps.Equal(counts, want) {
+				t.Errorf("AlbumCounts has %d titles, %d photos in all; want %d titles, %d photos", len(counts), lookupSum(counts), len(want), lookupSum(want))
+			}
+			withPhotos += lookupSum(counts)
+		})
+	}
+	if outside == 0 || withPhotos == 0 || others == 0 {
+		t.Errorf("%d albums outside the trash, %d photos in them, %d folders in all libraries; want some of each", outside, withPhotos, others)
+	}
+}
+
+func lookupSum(m map[string]int) int {
+	total := 0
+	for _, n := range m {
+		total += n
+	}
+	return total
+}
+
+// lookupKey ties a key of the reference for the albums of a photo to its
+// Go side; titles is the key of the titles of the same albums.
+type lookupKey struct {
+	info, titles string
+	infoOf       func(*DB, *photoinfo.PhotoInfo) []*albuminfo.AlbumInfo
+	titlesOf     func(*DB, *photoinfo.PhotoInfo) []string
+}
+
+var lookupKeys = []lookupKey{
+	{"album_info", "albums", (*DB).AlbumInfoOf, (*DB).AlbumTitlesOf},
+	{"burst_album_info", "burst_albums", (*DB).BurstAlbumInfoOf, (*DB).BurstAlbumTitlesOf},
+}
+
+// lookupElem is an element of album_info or burst_album_info of the reference.
+type lookupElem struct {
+	UUID  string  `json:"uuid"`
+	Title *string `json:"title"`
+	Owner any     `json:"owner"`
+}
+
+// lookupDiverges reports a record of divergences.json for the key of the
+// photo (or of every photo) of the library.
+func lookupDiverges(divs []golden.Divergence, library, uuid, key string) bool {
+	return slices.ContainsFunc(divs, func(d golden.Divergence) bool {
+		return d.Library == library && d.Field == key && (d.UUID == "*" || d.UUID == uuid)
+	})
+}
+
+// lookupCompare compares the albums of one photo with the reference by one
+// lookupKey and returns the number of albums found. Shared albums of the
+// reference (owner not null) are dropped by general rule 8 of NORMALIZATION.md,
+// and with them their titles, unless a user album has the same title. Messages
+// carry UUIDs and keys, never values of the reference.
+func lookupCompare(t *testing.T, db *DB, o golden.Object, p *photoinfo.PhotoInfo, k lookupKey, library string, divs []golden.Divergence) int {
+	t.Helper()
+	var elems []lookupElem
+	if json.Unmarshal(o[k.info], &elems) != nil || elems == nil {
+		t.Fatalf("photo %s: key %s is not a list of albums", p.UUID, k.info)
+	}
+	var wantUUIDs []string
+	kept, dropped := map[string]bool{}, map[string]bool{}
+	for _, e := range elems {
+		title := ""
+		if e.Title != nil {
+			title = *e.Title
+		}
+		if e.Owner != nil {
+			dropped[title] = true
+			continue
+		}
+		kept[title] = true
+		wantUUIDs = append(wantUUIDs, e.UUID)
+	}
+	slices.Sort(wantUUIDs)
+	wantUUIDs = slices.Compact(wantUUIDs)
+
+	got := k.infoOf(db, p)
+	for i := 1; i < len(got); i++ {
+		if got[i-1].Title > got[i].Title {
+			t.Errorf("photo %s: %s: albums %d and %d are not in the order of titles", p.UUID, k.info, i, i+1)
+		}
+	}
+	if !lookupDiverges(divs, library, p.UUID, k.info) {
+		gotUUIDs := lookupUUIDs(got)
+		slices.Sort(gotUUIDs)
+		if !slices.Equal(gotUUIDs, wantUUIDs) {
+			t.Errorf("photo %s: %s has %d albums, the reference %d; or they differ", p.UUID, k.info, len(gotUUIDs), len(wantUUIDs))
+		}
+	}
+
+	var refTitles []*string
+	if json.Unmarshal(o[k.titles], &refTitles) != nil || refTitles == nil {
+		t.Fatalf("photo %s: key %s is not a list of titles", p.UUID, k.titles)
+	}
+	var wantTitles []string
+	for _, s := range refTitles {
+		title := ""
+		if s != nil {
+			title = *s
+		}
+		if dropped[title] && !kept[title] {
+			continue
+		}
+		wantTitles = append(wantTitles, title)
+	}
+	slices.Sort(wantTitles)
+	wantTitles = slices.Compact(wantTitles)
+
+	gotTitles := k.titlesOf(db, p)
+	if !slices.IsSorted(gotTitles) {
+		t.Errorf("photo %s: %s are not sorted", p.UUID, k.titles)
+	}
+	if !lookupDiverges(divs, library, p.UUID, k.titles) && !slices.Equal(gotTitles, wantTitles) {
+		t.Errorf("photo %s: %s has %d titles, the reference %d; or they differ", p.UUID, k.titles, len(gotTitles), len(wantTitles))
+	}
+	return len(got)
+}
+
+// TestAlbumLookupGolden compares the albums of a photo with album_info,
+// albums, burst_album_info and burst_albums of the osxphotos output.
+func TestAlbumLookupGolden(t *testing.T) {
+	t.Parallel()
+
+	dir := testlib.RepoDir(t, "golden")
+	divs, err := golden.LoadDivergences(filepath.Join(dir, "divergences.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	total := 0
+	for _, lib := range goldenLibraries(t) {
+		t.Run(lib.name, func(t *testing.T) {
+			db, err := Open(t.Context(), lib.path, Options{TempDir: t.TempDir()})
+			if err != nil {
+				t.Fatal(err)
+			}
+			ref, err := golden.Load(dir, lib.name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			objects, albums := 0, 0
+			for _, o := range slices.Concat(ref.Query, ref.Deleted) {
+				var uuid string
+				if json.Unmarshal(o["uuid"], &uuid) != nil || uuid == "" {
+					t.Fatalf("an object of %s has no uuid", lib.name)
+				}
+				p, ok := db.Photo(uuid)
+				if !ok {
+					t.Errorf("photo %s of the reference is not in the database", uuid)
+					continue
+				}
+				objects++
+				for _, k := range lookupKeys {
+					albums += lookupCompare(t, db, o, p, k, lib.name, divs)
+				}
+			}
+			t.Logf("%d objects, %d albums of photos in album_info and burst_album_info", objects, albums)
+			total += albums
+		})
+	}
+	if total == 0 {
+		t.Error("no album of any photo in any library: nothing was compared")
+	}
+}
+
+// TestAlbumLookupTrash puts an album with photos into the trash on a copy:
+// Album still finds it, and no list leaves it in.
+func TestAlbumLookupTrash(t *testing.T) {
+	t.Parallel()
+
+	const name = "Test-15.4.1"
+	lib := testlib.OpenPristine(t, name)
+	n := schemaByID(t, libraryModels[name].id)
+	src := roDB(t, lib)
+	var picked string
+	err := src.QueryRowContext(t.Context(), "SELECT g.ZUUID FROM ZGENERICALBUM g WHERE g.ZKIND = 2 AND g.ZUUID IS NOT NULL AND g.ZTRASHEDSTATE = 0 AND "+
+		"EXISTS (SELECT 1 FROM "+n.MemberTable+" m WHERE m."+n.MemberAlbumColumn+" = g.Z_PK) ORDER BY g.ZUUID LIMIT 1").Scan(&picked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Decided on the pristine rows: does another album outside the trash have the title?
+	otherTitles := lookupTexts(t, src, "SELECT ZTITLE FROM ZGENERICALBUM WHERE ZKIND = 2 AND ZUUID IS NOT NULL AND ZTRASHEDSTATE = 0 AND ZUUID != ?", picked)
+
+	before, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, ok := before.Album(picked)
+	if !ok || a.InTrash || len(a.PhotoUUIDs) == 0 {
+		t.Fatalf("album %s before the change: found %v, want an album outside the trash with photos", picked, ok)
+	}
+	title, members := a.Title, slices.Clone(a.PhotoUUIDs)
+	for _, u := range members {
+		p, found := before.Photo(u)
+		if !found || !slices.Contains(lookupUUIDs(before.AlbumInfoOf(p)), picked) {
+			t.Fatalf("photo %s: not found or without album %s in AlbumInfoOf before the change", u, picked)
+		}
+	}
+	wantCounts, wantTitles := before.AlbumCounts(), before.AlbumTitles()
+
+	change(t, lib, "UPDATE ZGENERICALBUM SET ZTRASHEDSTATE = 1 WHERE ZUUID = '"+picked+"'")
+	after, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, found := after.Album(picked); !found || !got.InTrash {
+		t.Errorf("Album(%s) after the change = %v, %v; want the album in the trash", picked, got, found)
+	}
+	if slices.Contains(lookupUUIDs(after.AlbumInfo()), picked) {
+		t.Errorf("album %s in the trash is in AlbumInfo", picked)
+	}
+	for _, p := range after.Photos() {
+		if slices.Contains(lookupUUIDs(after.AlbumInfoOf(p)), picked) || slices.Contains(lookupUUIDs(after.BurstAlbumInfoOf(p)), picked) {
+			t.Errorf("photo %s lists the album %s in the trash", p.UUID, picked)
+		}
+	}
+
+	if slices.Contains(otherTitles, title) {
+		wantCounts[title] -= len(members)
+	} else {
+		delete(wantCounts, title)
+		wantTitles = slices.DeleteFunc(wantTitles, func(s string) bool { return s == title })
+	}
+	if got := after.AlbumCounts(); !maps.Equal(got, wantCounts) {
+		t.Errorf("AlbumCounts after the change has %d titles and %d photos, want %d and %d", len(got), lookupSum(got), len(wantCounts), lookupSum(wantCounts))
+	}
+	if got := after.AlbumTitles(); !slices.Equal(got, wantTitles) {
+		t.Errorf("AlbumTitles after the change has %d titles, want %d", len(got), len(wantTitles))
+	}
+}

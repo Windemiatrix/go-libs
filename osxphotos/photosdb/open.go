@@ -77,6 +77,10 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 	if err != nil {
 		return nil, err
 	}
+	folders, topFolders, err := loadFolders(t.albums, albums)
+	if err != nil {
+		return nil, err
+	}
 	if err := setPaths(libraryPath, t.assets, c); err != nil {
 		return nil, err
 	}
@@ -91,6 +95,9 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 		photos: c.photos,
 		byUUID: c.byUUID,
 		albums: albums,
+
+		folders:    folders,
+		topFolders: topFolders,
 	}, nil
 }
 

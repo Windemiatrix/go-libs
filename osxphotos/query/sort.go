@@ -1,5 +1,5 @@
-// Package query orders photos in memory as osxphotos query does. It does no
-// I/O.
+// Package query selects and orders photos in memory as osxphotos query does.
+// It does no I/O.
 package query
 
 import (

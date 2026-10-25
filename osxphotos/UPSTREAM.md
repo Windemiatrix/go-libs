@@ -30,8 +30,8 @@ Only what is ported so far. Templates, export and PhotoKit appear together with 
 | `sqlite_utils.py` | `internal/sqlread` |
 | `photosdb/_photosdb_process_shared_library.py` | `photosdb` |
 | `photosdb/_photosdb_process_syndicationinfo.py` | `photosdb` |
-| `photoinfo.py` | `photoinfo` |
-| `albuminfo.py` | `albuminfo` |
+| `photoinfo.py` | `photoinfo`, `photosdb` |
+| `albuminfo.py` | `albuminfo`, `photosdb` |
 | `photoquery.py` | `query` |
 | `photos_datetime.py` | `photosdb` |
 | `unicode.py` | `photosdb` |
@@ -40,14 +40,17 @@ Only what is ported so far. Templates, export and PhotoKit appear together with 
 
 ## Intentional differences
 
-If you only read three things: (1) models outside the supported table return `ErrUnsupportedSchema` instead of guessing; (2) the database is always read from a copy; (3) `Photos()` applies no implicit filters, so filter the result yourself to get what `osxphotos query` returns.
+If you only read three things: (1) models outside the supported table return `ErrUnsupportedSchema` instead of guessing; (2) the database is always read from a copy; (3) `Photos()` applies no implicit filters; `Query(query.Options{})` returns what `osxphotos query` returns.
 
 - A model from 13000 to 16319 (Photos 5-7 and the pre-release builds 16000-16319) or from 18000 to 18200 gives `ErrUnsupportedSchema`. Upstream reads all of these with their own schemas (`_constants.py:56-62`).
 - Any other model that is not in the schema table also gives `ErrUnsupportedSchema`: below 13000, 19000-19062, 20000-269999999, above 270999999, or a missing `PLModelVersion`. Upstream assumes the latest schema for a model outside all of its ranges and for a missing one (`photosdb/photosdb_utils.py:131-136`, `photosdb/photosdb_utils.py:160-163`).
 - A string `PLModelVersion` is accepted only as ASCII decimal digits. Upstream `int()` also accepts a sign, surrounding spaces and non-ASCII digits (`photosdb/photosdb_utils.py:137`).
 - `Z_PLIST` over 1 MiB, or a binary property list with more than 4096 objects, gives `ErrUnsupportedSchema`. `SystemLibraryPath` skips a preferences file over 1 MiB or one that is not a property list. Upstream `plistlib` has no such limits (`photosdb/photosdb_utils.py:114`, `utils.py:193`).
 - The database is always read from a copy that includes the `-wal` file. Upstream copies the database only when it is locked (`photosdb/photosdb.py:438-443`, `sqlite_utils.py:125-137`).
-- `Photos()` has no implicit filters: it returns trashed photos and unselected burst frames as well. The selection of osxphotos `photos()` is made by the caller: `!p.InTrash && !p.BurstUnselected() && (p.IsPhoto || p.IsMovie)` (`photosdb/photosdb.py:3269-3276`, `photosdb/photosdb.py:3346-3353`, `photosdb/photosdb.py:3355-3358`).
+- `Photos()` has no implicit filters: it returns trashed photos and unselected burst frames as well. `Query` makes the selection of osxphotos `photos()`, `!p.InTrash && !p.BurstUnselected() && (p.IsPhoto || p.IsMovie)`, as `PhotosDB.query` does (`photosdb/photosdb.py:3269-3276`, `photosdb/photosdb.py:3346-3353`, `photosdb/photosdb.py:3355-3358`, `photoquery.py:426-445`).
+- `query.Options` ports `QueryOptions` field by field (`photoquery.py:147-241`). Not ported: `exif` (exiftool), `label` (the search index), `place` and `no_place` (reverse geolocation), `query_eval` (Python expressions), `regex` (templates), `selected` (the selection in the Photos app, through AppleScript), `has_comment`, `no_comment`, `has_likes` and `no_likes` (comments of shared albums). Not ported yet: `added_after`, `added_before`, `added_in_last`, `burst_photos`, `duplicate`, `external_edit`, `from_time`, `function`, `hdr`, `max_size`, `min_size`, `missing_bursts`, `panorama`, `person`, `portrait`, `screen_recording`, `selfie`, `shared_moment`, `slow_mo`, `spatial`, `time_lapse`, `to_time`, `year` and the `not_` fields of these.
+- A photo that matches several values of `Title` or `Description` is returned once; upstream returns it once per value (`photoquery.py:480-516`).
+- `IgnoreCase` folds case with `strings.ToLower`; Python `str.lower` gives another result for a few characters, such as U+0130 (`photoquery.py:484-491`).
 - `NULL` in the pick type of a burst frame is 0. Upstream fails on `None & int` (`photosdb/photosdb.py:3347-3351`).
 - The second original of a RAW+JPEG pair is a resource of subtype 17, or of subtype 3 with resource type 4. Upstream looks for subtype 17 only (`photosdb/photosdb.py:2537-2551`). None of the test libraries has a resource of subtype 3 with type 4; the rule is checked only on the synthetic library.
 - `IsMissing` looks for the resource with the fingerprint of the asset only among the resources of the asset, and of several the one with the highest `Z_PK` decides. Upstream takes such a resource of any asset, and the last row read decides (`photosdb/photosdb.py:2498-2516`).
@@ -56,11 +59,16 @@ If you only read three things: (1) models outside the supported table return `Er
 - `Orientation` of an edited asset is the database column. Upstream reads it from the property list of the edit (`photoinfo.py:1396-1404`).
 - The UTI of an extension comes only from the table of `uti.py`, without `mdls` (`uti.py:642-653`).
 - A repeated or missing `ZUUID` of an asset with a `ZADDITIONALASSETATTRIBUTES` row is an error of `Open`; assets without that row are left out unchecked, as upstream drops them (`photosdb/photosdb.py:2086-2090`). Upstream keeps the last row (`photosdb/photosdb.py:2356`).
+- A chain of `ZPARENTFOLDER` of an album or a folder that does not reach the root folder or a row without a parent (a missing parent or a cycle) is an error of `Open`; a parent row without `ZUUID`, or of a `ZKIND` other than 2, 3999 and 4000, counts as missing. Upstream fails on a missing parent of any row (`photosdb/photosdb.py:1977-1980`) and on a cycle above an album (`photosdb/photosdb.py:2944-2965`), and accepts a cycle of folders that holds no album.
+- `FolderInfo()`, `FolderTitles()` and the `Subfolders` and `Albums` of a folder are in UUID order; upstream keeps the order in which SQLite returns the rows of `ZGENERICALBUM` (`photosdb/photosdb.py:570-610`, `albuminfo.py:421-491`).
 - A `TZOffset` outside (-86400, 86400) seconds always gives `Date` 1970-01-01T00:00:00Z. Upstream gives the same date (`ValueError`), but for an offset outside the range of `timedelta` it fails with an uncaught `OverflowError` (`photos_datetime.py:64-67`).
-- Shared albums (`ZKIND` 1505) are not in `AlbumUUIDs` and `BurstAlbumUUIDs`. Upstream includes them in `album_info` and `albums` (`photoinfo.py:2023-2034`, `_constants.py:364-365`).
+- Shared albums (`ZKIND` 1505) are not in `AlbumUUIDs` and `BurstAlbumUUIDs`, and the album fields of `query.Options` (`Album`, `Folder`, `InAlbum`, `NotInAlbum`) do not see them. Upstream includes them in `album_info` and `albums` (`photoinfo.py:2023-2034`, `_constants.py:364-365`, `photoquery.py:671-674`, `photoquery.py:948-993`).
 - An empty GUID string means no GUID, as `NULL` does.
-- `Albums()` and `AlbumUUIDs` include albums in the trash; filter by `AlbumInfo.InTrash` to get osxphotos `album_info` of the library (`photosdb/photosdb.py:3199-3209`) and of a photo (`photoinfo.py:2029-2034`).
-- `Albums()` returns every album of `ZKIND` 2. Upstream `album_info` also requires an empty `ZCLOUDOWNERHASHEDPERSONID` (`photosdb/photosdb.py:3206`); no album of `ZKIND` 2 in the test libraries has one.
+- `AlbumUUIDs` and `BurstAlbumUUIDs` include albums in the trash; `AlbumInfoOf`, `AlbumTitlesOf`, `BurstAlbumInfoOf` and `BurstAlbumTitlesOf` leave them out, as osxphotos `album_info`, `albums`, `burst_album_info` and `burst_albums` of a photo do (`photoinfo.py:633-671`, `photoinfo.py:2029-2034`).
+- `AlbumInfo()` returns every album of `ZKIND` 2 outside the trash. Upstream `album_info` also requires an empty `ZCLOUDOWNERHASHEDPERSONID` (`photosdb/photosdb.py:3206`); no album of `ZKIND` 2 in the test libraries has one.
+- `AlbumInfo()` is in UUID order, `AlbumTitles()` and `AlbumTitlesOf` are sorted, `AlbumInfoOf` sorts by title, then by UUID. Upstream keeps the order of the rows of `ZGENERICALBUM`, of a Python set and of the membership rows (`photosdb/photosdb.py:612-650`, `photosdb/photosdb.py:3212-3225`, `photoinfo.py:655-662`).
+- `BurstAlbumInfoOf` lists an album once. Upstream lists it twice when both the photo and the key photo of its burst are in it: it makes a set of `AlbumInfo` objects, which have no equality (`photoinfo.py:664-671`).
+- `AlbumCounts` counts the photos of each album that `Photos()` returns, and an empty album adds 0. Upstream counts the membership rows, members without a `ZADDITIONALASSETATTRIBUTES` row included, sets the count of a title to 0 when an empty album of that title comes after another, and returns a dictionary ordered by the count, which a Go map does not keep (`photosdb/photosdb.py:511-526`, `photosdb/photosdb.py:1873-1901`).
 - The order of photos in an album is not stored: `PhotoUUIDs` is a set.
 - `SystemLibraryPath` has no PhotoKit fallback (`utils.py:206-228`). When neither photolibraryd preferences file holds an absolute path without NUL, it returns `ErrLibraryNotFound`. Upstream returns any value of the key as is (`utils.py:180-206`).
 
@@ -69,6 +77,7 @@ If you only read three things: (1) models outside the supported table return `Er
 Exported names that have no counterpart in osxphotos. Each is marked `// extension: not in osxphotos` in the code, and a test keeps this list and the code in agreement.
 
 - `albuminfo.AlbumInfo.CloudGUID`
+- `albuminfo.AlbumInfo.InTrash`
 - `albuminfo.FolderInfo.CloudGUID`
 - `photoinfo.PhotoInfo.BurstAlbumUUIDs`
 - `photoinfo.PhotoInfo.BurstUnselected()`
@@ -80,6 +89,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `photoinfo.PhotoInfo.LibraryScopeShareState`
 - `photoinfo.PhotoInfo.Resources`
 - `photoinfo.Resource`
+- `photosdb.DB.Albums()`
 - `photosdb.Info.LibraryUUID`
 - `photosdb.Info.SkippedAssets`
 
@@ -107,8 +117,8 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 | `sqlite_utils.py` | `internal/sqlread` |
 | `photosdb/_photosdb_process_shared_library.py` | `photosdb` |
 | `photosdb/_photosdb_process_syndicationinfo.py` | `photosdb` |
-| `photoinfo.py` | `photoinfo` |
-| `albuminfo.py` | `albuminfo` |
+| `photoinfo.py` | `photoinfo`, `photosdb` |
+| `albuminfo.py` | `albuminfo`, `photosdb` |
 | `photoquery.py` | `query` |
 | `photos_datetime.py` | `photosdb` |
 | `unicode.py` | `photosdb` |
@@ -117,14 +127,17 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 
 ### Намеренные отличия
 
-Если читать только три пункта: (1) модели вне таблицы поддерживаемых дают `ErrUnsupportedSchema`, а не догадку; (2) база всегда читается из копии; (3) `Photos()` без неявных фильтров, поэтому результат фильтруйте сами, чтобы получить то, что отдаёт `osxphotos query`.
+Если читать только три пункта: (1) модели вне таблицы поддерживаемых дают `ErrUnsupportedSchema`, а не догадку; (2) база всегда читается из копии; (3) `Photos()` без неявных фильтров; `Query(query.Options{})` отдаёт то же, что `osxphotos query`.
 
 - Номер модели от 13000 до 16319 (Photos 5-7 и предварительные сборки 16000-16319) или от 18000 до 18200 даёт `ErrUnsupportedSchema`. Upstream читает все эти модели по их собственным схемам (`_constants.py:56-62`).
 - Любой другой номер модели, которого нет в таблице схем, тоже даёт `ErrUnsupportedSchema`: меньше 13000, 19000-19062, 20000-269999999, больше 270999999 или отсутствующий `PLModelVersion`. Upstream для номера вне всех своих диапазонов и для отсутствующего берёт последнюю схему (`photosdb/photosdb_utils.py:131-136`, `photosdb/photosdb_utils.py:160-163`).
 - Строковый `PLModelVersion` принимается, только если это десятичные цифры ASCII. `int()` в upstream принимает ещё знак, пробелы по краям и цифры других алфавитов (не ASCII) (`photosdb/photosdb_utils.py:137`).
 - `Z_PLIST` больше 1 МиБ или двоичный список свойств с более чем 4096 объектами даёт `ErrUnsupportedSchema`. `SystemLibraryPath` пропускает файл настроек больше 1 МиБ или не являющийся списком свойств. В `plistlib` upstream таких ограничений нет (`photosdb/photosdb_utils.py:114`, `utils.py:193`).
 - База всегда читается из копии вместе с файлом `-wal`. Upstream копирует базу, только когда она заблокирована (`photosdb/photosdb.py:438-443`, `sqlite_utils.py:125-137`).
-- `Photos()` без неявных фильтров: возвращает и фото из корзины, и невыбранные кадры серий. Выборку `photos()` из osxphotos делает вызывающий: `!p.InTrash && !p.BurstUnselected() && (p.IsPhoto || p.IsMovie)` (`photosdb/photosdb.py:3269-3276`, `photosdb/photosdb.py:3346-3353`, `photosdb/photosdb.py:3355-3358`).
+- `Photos()` без неявных фильтров: возвращает и фото из корзины, и невыбранные кадры серий. Выборку `photos()` из osxphotos, `!p.InTrash && !p.BurstUnselected() && (p.IsPhoto || p.IsMovie)`, делает `Query`, как `PhotosDB.query` (`photosdb/photosdb.py:3269-3276`, `photosdb/photosdb.py:3346-3353`, `photosdb/photosdb.py:3355-3358`, `photoquery.py:426-445`).
+- `query.Options` переносит `QueryOptions` поле за полем (`photoquery.py:147-241`). Не переносятся: `exif` (exiftool), `label` (индекс поиска), `place` и `no_place` (обратное геокодирование), `query_eval` (выражения Python), `regex` (шаблоны), `selected` (выделение в приложении «Фото» через AppleScript), `has_comment`, `no_comment`, `has_likes` и `no_likes` (комментарии общих альбомов). Пока не перенесены: `added_after`, `added_before`, `added_in_last`, `burst_photos`, `duplicate`, `external_edit`, `from_time`, `function`, `hdr`, `max_size`, `min_size`, `missing_bursts`, `panorama`, `person`, `portrait`, `screen_recording`, `selfie`, `shared_moment`, `slow_mo`, `spatial`, `time_lapse`, `to_time`, `year` и их поля `not_`.
+- Фото, которое подходит под несколько значений `Title` или `Description`, возвращается один раз; upstream возвращает его по разу на значение (`photoquery.py:480-516`).
+- `IgnoreCase` сравнивает без учёта регистра через `strings.ToLower`; `str.lower` в Python для нескольких символов даёт другой результат, например для U+0130 (`photoquery.py:484-491`).
 - `NULL` в отметке кадра серии — 0. Upstream падает на `None & int` (`photosdb/photosdb.py:3347-3351`).
 - Второй оригинал пары RAW+JPEG — ресурс подтипа 17 или ресурс подтипа 3 с типом ресурса 4. Upstream ищет только подтип 17 (`photosdb/photosdb.py:2537-2551`). Ни в одной тестовой медиатеке нет ресурса подтипа 3 с типом 4; правило проверено только на синтетической медиатеке.
 - `IsMissing` ищет ресурс с отпечатком объекта только среди ресурсов этого объекта, а из нескольких решает ресурс с наибольшим `Z_PK`. Upstream берёт такой ресурс любого объекта, и решает последняя прочитанная строка (`photosdb/photosdb.py:2498-2516`).
@@ -133,11 +146,16 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `Orientation` правленого объекта — колонка базы. Upstream читает её из списка свойств правки (`photoinfo.py:1396-1404`).
 - UTI по расширению берётся только из таблицы `uti.py`, без `mdls` (`uti.py:642-653`).
 - Повтор или отсутствие `ZUUID` у объекта со строкой `ZADDITIONALASSETATTRIBUTES` — ошибка `Open`; объекты без этой строки отбрасываются без проверки, как в upstream (`photosdb/photosdb.py:2086-2090`). Upstream оставляет последнюю строку (`photosdb/photosdb.py:2356`).
+- Цепочка `ZPARENTFOLDER` альбома или папки, которая не доходит до корневой папки или до строки без родителя (родителя нет или цикл), — ошибка `Open`; родительская строка без `ZUUID` или с `ZKIND`, отличным от 2, 3999 и 4000, считается отсутствующей. Upstream падает на отсутствующем родителе любой строки (`photosdb/photosdb.py:1977-1980`) и на цикле над альбомом (`photosdb/photosdb.py:2944-2965`), а цикл папок без альбомов принимает.
+- `FolderInfo()`, `FolderTitles()`, а также `Subfolders` и `Albums` папки идут по UUID; upstream сохраняет порядок, в котором SQLite отдаёт строки `ZGENERICALBUM` (`photosdb/photosdb.py:570-610`, `albuminfo.py:421-491`).
 - `TZOffset` вне диапазона (-86400, 86400) секунд всегда даёт `Date` 1970-01-01T00:00:00Z. Upstream даёт ту же дату (`ValueError`), но на смещении вне диапазона `timedelta` падает с непойманным `OverflowError` (`photos_datetime.py:64-67`).
-- Общие альбомы (`ZKIND` 1505) не входят в `AlbumUUIDs` и `BurstAlbumUUIDs`. Upstream включает их в `album_info` и `albums` (`photoinfo.py:2023-2034`, `_constants.py:364-365`).
+- Общие альбомы (`ZKIND` 1505) не входят в `AlbumUUIDs` и `BurstAlbumUUIDs`, и поля альбомов `query.Options` (`Album`, `Folder`, `InAlbum`, `NotInAlbum`) их не видят. Upstream включает их в `album_info` и `albums` (`photoinfo.py:2023-2034`, `_constants.py:364-365`, `photoquery.py:671-674`, `photoquery.py:948-993`).
 - Пустая строка GUID означает отсутствие GUID, как и `NULL`.
-- `Albums()` и `AlbumUUIDs` включают альбомы в корзине; фильтр по `AlbumInfo.InTrash` даёт `album_info` из osxphotos для медиатеки (`photosdb/photosdb.py:3199-3209`) и для фото (`photoinfo.py:2029-2034`).
-- `Albums()` возвращает все альбомы с `ZKIND` 2. `album_info` в upstream требует ещё пустого `ZCLOUDOWNERHASHEDPERSONID` (`photosdb/photosdb.py:3206`); ни у одного альбома с `ZKIND` 2 в тестовых медиатеках его нет.
+- `AlbumUUIDs` и `BurstAlbumUUIDs` включают альбомы в корзине; `AlbumInfoOf`, `AlbumTitlesOf`, `BurstAlbumInfoOf` и `BurstAlbumTitlesOf` их не берут, как `album_info`, `albums`, `burst_album_info` и `burst_albums` фото в osxphotos (`photoinfo.py:633-671`, `photoinfo.py:2029-2034`).
+- `AlbumInfo()` возвращает все альбомы с `ZKIND` 2 вне корзины. `album_info` в upstream требует ещё пустого `ZCLOUDOWNERHASHEDPERSONID` (`photosdb/photosdb.py:3206`); ни у одного альбома с `ZKIND` 2 в тестовых медиатеках его нет.
+- `AlbumInfo()` идёт по UUID, `AlbumTitles()` и `AlbumTitlesOf` отсортированы, `AlbumInfoOf` сортирует по названию, затем по UUID. Upstream сохраняет порядок строк `ZGENERICALBUM`, множества Python и строк членства (`photosdb/photosdb.py:612-650`, `photosdb/photosdb.py:3212-3225`, `photoinfo.py:655-662`).
+- `BurstAlbumInfoOf` называет альбом один раз. Upstream называет его дважды, если в нём и само фото, и ключевой кадр его серии: это множество объектов `AlbumInfo`, у которых нет равенства (`photoinfo.py:664-671`).
+- `AlbumCounts` считает фото каждого альбома из тех, что отдаёт `Photos()`; пустой альбом добавляет 0. Upstream считает строки членства, включая объекты без строки `ZADDITIONALASSETATTRIBUTES`, обнуляет счёт названия, если пустой альбом с этим названием идёт после другого, и отдаёт словарь по убыванию счёта, а у `map` Go порядка нет (`photosdb/photosdb.py:511-526`, `photosdb/photosdb.py:1873-1901`).
 - Порядок фото в альбоме не хранится: `PhotoUUIDs` — множество.
 - У `SystemLibraryPath` нет запасного пути через PhotoKit (`utils.py:206-228`). Если ни один из двух файлов настроек photolibraryd не содержит абсолютный путь без NUL, возвращается `ErrLibraryNotFound`. Upstream возвращает любое значение ключа как есть (`utils.py:180-206`).
 
@@ -146,6 +164,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 Экспортируемые имена, у которых нет пары в osxphotos. Каждое помечено в коде `// extension: not in osxphotos`, а тест проверяет, что список совпадает с кодом.
 
 - `albuminfo.AlbumInfo.CloudGUID`
+- `albuminfo.AlbumInfo.InTrash`
 - `albuminfo.FolderInfo.CloudGUID`
 - `photoinfo.PhotoInfo.BurstAlbumUUIDs`
 - `photoinfo.PhotoInfo.BurstUnselected()`
@@ -157,5 +176,6 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `photoinfo.PhotoInfo.LibraryScopeShareState`
 - `photoinfo.PhotoInfo.Resources`
 - `photoinfo.Resource`
+- `photosdb.DB.Albums()`
 - `photosdb.Info.LibraryUUID`
 - `photosdb.Info.SkippedAssets`
