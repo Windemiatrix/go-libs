@@ -24560,128 +24560,6 @@
     "adjustment_type": 0,
     "album_info": [
       {
-        "creation_date": "2025-06-22T11:02:38+00:00",
-        "end_date": "2025-10-27T00:07:53.308000+00:00",
-        "folder_list": [
-          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
-        ],
-        "folder_names": [
-          "Отпуск 1"
-        ],
-        "owner": null,
-        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
-        "sort_order": null,
-        "start_date": "2010-01-21T19:16:14+00:00",
-        "title": "2010/09-12 - Море 3",
-        "uuid": "5690B50E-22CA-4DE3-9A67-6DA38EF69175"
-      }
-    ],
-    "albums": [
-      "2010/09-12 - Море 3"
-    ],
-    "burst": false,
-    "burst_album_info": [
-      {
-        "creation_date": "2025-06-22T11:02:38+00:00",
-        "end_date": "2025-10-27T00:07:53.308000+00:00",
-        "folder_list": [
-          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
-        ],
-        "folder_names": [
-          "Отпуск 1"
-        ],
-        "owner": null,
-        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
-        "sort_order": null,
-        "start_date": "2010-01-21T19:16:14+00:00",
-        "title": "2010/09-12 - Море 3",
-        "uuid": "5690B50E-22CA-4DE3-9A67-6DA38EF69175"
-      }
-    ],
-    "burst_albums": [
-      "2010/09-12 - Море 3"
-    ],
-    "burst_default_pick": false,
-    "burst_key": false,
-    "burst_photos": [],
-    "burst_selected": false,
-    "cloud_guid": "31CA5FAB-84BA-46C4-B441-E25DE02A5F58",
-    "cloud_owner_hashed_id": null,
-    "date": "2013-07-29T23:57:06.993000+00:00",
-    "date_added": "2015-12-08T21:28:00.993000+00:00",
-    "date_modified": null,
-    "date_trashed": null,
-    "description": null,
-    "external_edit": false,
-    "favorite": false,
-    "filename": "026D496B-F4B9-42C1-A871-A8369C1D7E3F.jpeg",
-    "fingerprint": "AUZSg0OcpkMNsTkbxHvIunMWUyDy",
-    "folders": {
-      "2010/09-12 - Море 3": [
-        "Отпуск 1"
-      ]
-    },
-    "has_raw": false,
-    "hasadjustments": false,
-    "hdr": false,
-    "height": 4284,
-    "hidden": false,
-    "imported_by": [
-      null,
-      null
-    ],
-    "incloud": true,
-    "intrash": false,
-    "iscloudasset": true,
-    "ismissing": true,
-    "ismovie": false,
-    "isphoto": true,
-    "israw": false,
-    "isreference": false,
-    "keywords": [],
-    "latitude": 51.129861000000005,
-    "live_photo": false,
-    "location": [
-      51.129861000000005,
-      25.646105000000006
-    ],
-    "longitude": 25.646105000000006,
-    "orientation": 1,
-    "original_filename": "IMG_0023.JPG",
-    "original_filesize": 4503892,
-    "original_height": 4284,
-    "original_orientation": 1,
-    "original_width": 5712,
-    "panorama": false,
-    "persons": [],
-    "portrait": false,
-    "raw_original": false,
-    "saved_to_library": false,
-    "screen_recording": false,
-    "screenshot": false,
-    "selfie": false,
-    "shared": false,
-    "shared_library": true,
-    "shared_moment": false,
-    "slow_mo": false,
-    "spatial": 0,
-    "syndicated": false,
-    "time_lapse": false,
-    "title": null,
-    "tzname": "GMT",
-    "tzoffset": 0,
-    "uti": "public.jpeg",
-    "uti_edited": null,
-    "uti_original": "public.jpeg",
-    "uti_raw": null,
-    "uuid": "026D496B-F4B9-42C1-A871-A8369C1D7E3F",
-    "visible": true,
-    "width": 5712
-  },
-  {
-    "adjustment_type": 0,
-    "album_info": [
-      {
         "creation_date": "2026-05-06T18:28:08+00:00",
         "end_date": "2024-07-19T13:17:43.324000+00:00",
         "folder_list": [
@@ -41961,6 +41839,128 @@
     "uuid": "A117F2EC-E775-4B1A-88FB-12937C665CF5",
     "visible": true,
     "width": 4032
+  },
+  {
+    "adjustment_type": 0,
+    "album_info": [
+      {
+        "creation_date": "2025-06-22T11:02:38+00:00",
+        "end_date": "2025-10-27T00:07:53.308000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-01-21T19:16:14+00:00",
+        "title": "2010/09-12 - Море 3",
+        "uuid": "5690B50E-22CA-4DE3-9A67-6DA38EF69175"
+      }
+    ],
+    "albums": [
+      "2010/09-12 - Море 3"
+    ],
+    "burst": false,
+    "burst_album_info": [
+      {
+        "creation_date": "2025-06-22T11:02:38+00:00",
+        "end_date": "2025-10-27T00:07:53.308000+00:00",
+        "folder_list": [
+          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
+        ],
+        "folder_names": [
+          "Отпуск 1"
+        ],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2010-01-21T19:16:14+00:00",
+        "title": "2010/09-12 - Море 3",
+        "uuid": "5690B50E-22CA-4DE3-9A67-6DA38EF69175"
+      }
+    ],
+    "burst_albums": [
+      "2010/09-12 - Море 3"
+    ],
+    "burst_default_pick": false,
+    "burst_key": false,
+    "burst_photos": [],
+    "burst_selected": false,
+    "cloud_guid": "31CA5FAB-84BA-46C4-B441-E25DE02A5F58",
+    "cloud_owner_hashed_id": null,
+    "date": "2015-11-25T00:52:39.904000+00:00",
+    "date_added": "2015-12-08T21:28:00.993000+00:00",
+    "date_modified": null,
+    "date_trashed": null,
+    "description": null,
+    "external_edit": false,
+    "favorite": false,
+    "filename": "026D496B-F4B9-42C1-A871-A8369C1D7E3F.jpeg",
+    "fingerprint": "AUZSg0OcpkMNsTkbxHvIunMWUyDy",
+    "folders": {
+      "2010/09-12 - Море 3": [
+        "Отпуск 1"
+      ]
+    },
+    "has_raw": false,
+    "hasadjustments": false,
+    "hdr": false,
+    "height": 6048,
+    "hidden": false,
+    "imported_by": [
+      null,
+      null
+    ],
+    "incloud": true,
+    "intrash": false,
+    "iscloudasset": true,
+    "ismissing": true,
+    "ismovie": false,
+    "isphoto": true,
+    "israw": false,
+    "isreference": false,
+    "keywords": [],
+    "latitude": 51.129861000000005,
+    "live_photo": false,
+    "location": [
+      51.129861000000005,
+      25.646105000000006
+    ],
+    "longitude": 25.646105000000006,
+    "orientation": 1,
+    "original_filename": "IMG_0023.JPG",
+    "original_filesize": 2341656,
+    "original_height": 4284,
+    "original_orientation": 1,
+    "original_width": 5712,
+    "panorama": false,
+    "persons": [],
+    "portrait": false,
+    "raw_original": false,
+    "saved_to_library": false,
+    "screen_recording": false,
+    "screenshot": false,
+    "selfie": false,
+    "shared": false,
+    "shared_library": true,
+    "shared_moment": false,
+    "slow_mo": false,
+    "spatial": 0,
+    "syndicated": false,
+    "time_lapse": false,
+    "title": null,
+    "tzname": "GMT",
+    "tzoffset": 0,
+    "uti": "public.heic",
+    "uti_edited": null,
+    "uti_original": "public.jpeg",
+    "uti_raw": null,
+    "uuid": "026D496B-F4B9-42C1-A871-A8369C1D7E3F",
+    "visible": true,
+    "width": 8064
   },
   {
     "adjustment_type": 0,
