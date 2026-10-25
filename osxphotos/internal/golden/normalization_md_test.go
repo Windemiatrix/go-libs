@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
 
 var (
@@ -21,8 +23,7 @@ var (
 // public.
 func TestNormalizationDoc(t *testing.T) {
 	t.Parallel()
-	dir := Dir(t)
-	raw, err := readFile(filepath.Join(dir, "NORMALIZATION.md"))
+	raw, err := readFile(filepath.Join(testlib.RepoDir(t, "golden"), "NORMALIZATION.md"))
 	if err != nil {
 		t.Fatal(err)
 	}

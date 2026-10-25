@@ -3,11 +3,12 @@ package photosdb
 import (
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"howett.net/plist"
 )
 
 // libraryPreferences are the photolibraryd preferences that may record the
@@ -57,35 +58,22 @@ func systemLibraryPath(home string) (string, error) {
 }
 
 // recordedLibraryPath returns the SystemLibraryPath value of the
-// preferences file, or "" when the file is missing, not a regular file,
-// larger than maxPlistSize, not a property list, or has no usable value. The
-// error is that of reading the file, if any.
+// preferences file, or "" when the file cannot be read, is larger than
+// maxPlistSize, is not a property list, or has no usable value. The error is
+// that of reading the file, if any.
 func recordedLibraryPath(file string) (string, error) {
-	// Stat first: opening a FIFO in place of the file would block.
-	info, err := os.Stat(file)
-	if err != nil || !info.Mode().IsRegular() {
-		return "", err
-	}
-	f, err := os.Open(file) //nolint:gosec // G304: fixed path under the home directory
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = f.Close() }() // read only
-	data, err := io.ReadAll(io.LimitReader(f, maxPlistSize+1))
+	data, err := os.ReadFile(file) //nolint:gosec // G304: fixed path under the home directory
 	if err != nil || len(data) > maxPlistSize {
 		return "", err
 	}
-	// A root that is not a dictionary, or a value that is not a string, fails
-	// to decode into this struct; other keys are not decoded.
 	var prefs struct {
 		Path string `plist:"SystemLibraryPath"`
 	}
-	if decodePlist(data, &prefs) != nil {
+	if _, err := plist.Unmarshal(data, &prefs); err != nil {
 		return "", nil // a broken file is skipped like a missing one, as upstream
 	}
-	path := prefs.Path
-	if !filepath.IsAbs(path) || strings.ContainsRune(path, 0) {
+	if !filepath.IsAbs(prefs.Path) || strings.ContainsRune(prefs.Path, 0) {
 		return "", nil
 	}
-	return path, nil
+	return prefs.Path, nil
 }

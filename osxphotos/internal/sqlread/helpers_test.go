@@ -12,22 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Windemiatrix/go-libs/osxphotos/internal/gen"
-	_ "github.com/Windemiatrix/go-libs/osxphotos/internal/testlib" // stand-ins for the Core Data functions of the triggers
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
 
-// genDB writes a gen library with the given number of assets and returns the
-// path of its database. gen leaves the database in the rollback journal mode,
-// without a -wal file.
-func genDB(t *testing.T, assets int) string {
+// syntheticDB returns the path of the database of a copy of the synthetic
+// library, in the rollback journal mode, without a -wal file.
+func syntheticDB(t *testing.T) string {
 	t.Helper()
-	cfg := gen.DefaultConfig()
-	cfg.Assets = assets
-	lib := filepath.Join(t.TempDir(), "lib")
-	if err := gen.Generate(t.Context(), lib, cfg); err != nil {
-		t.Fatal(err)
-	}
-	return filepath.Join(lib, "database", "Photos.sqlite")
+	return filepath.Join(testlib.OpenPristine(t, "synthetic"), "database", "Photos.sqlite")
 }
 
 // openWriter opens path for writing with one connection: PRAGMA page_size,

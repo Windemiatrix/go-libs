@@ -18,7 +18,7 @@ var uuidForm = regexp.MustCompile(`^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}
 
 func TestMetadataGen(t *testing.T) {
 	t.Parallel()
-	d, err := Open(t.Context(), genDB(t, 0), t.TempDir())
+	d, err := Open(t.Context(), syntheticDB(t), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Windemiatrix/go-libs/osxphotos/internal/gen"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/golden"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
@@ -23,7 +22,7 @@ func goldenLibraries(t *testing.T) []goldenLibrary {
 	for _, name := range testlib.Libraries(t) {
 		libs = append(libs, goldenLibrary{name, testlib.OpenPristine(t, name)})
 	}
-	return append(libs, goldenLibrary{"synthetic", genLibrary(t, gen.DefaultConfig())})
+	return libs
 }
 
 // TestGolden compares every photo key of the osxphotos output with what Open
@@ -31,7 +30,7 @@ func goldenLibraries(t *testing.T) []goldenLibrary {
 func TestGolden(t *testing.T) {
 	t.Parallel()
 
-	dir := golden.Dir(t)
+	dir := testlib.RepoDir(t, "golden")
 	divs, err := golden.LoadDivergences(filepath.Join(dir, "divergences.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -74,8 +73,7 @@ func TestGolden(t *testing.T) {
 	}
 }
 
-// rawPairs is the number of RAW+JPEG pairs of gen.DefaultConfig(): 4% of
-// 1000 assets, fixed by TestPinnedDefault of internal/gen.
+// rawPairs is the number of RAW+JPEG pairs of the synthetic library.
 const rawPairs = 40
 
 // TestGoldenHasRAW is the independent condition of the has_raw record of the
@@ -87,8 +85,8 @@ const rawPairs = 40
 func TestGoldenHasRAW(t *testing.T) {
 	t.Parallel()
 
-	dir := golden.Dir(t)
-	lib := genLibrary(t, gen.DefaultConfig())
+	dir := testlib.RepoDir(t, "golden")
+	lib := testlib.OpenPristine(t, "synthetic")
 	candidates := map[string]bool{}
 	rows, err := roDB(t, lib).QueryContext(t.Context(), "SELECT a.ZUUID FROM ZASSET a WHERE "+
 		"EXISTS (SELECT 1 FROM ZINTERNALRESOURCE r WHERE r.ZASSET = a.Z_PK AND r.ZDATASTORESUBTYPE = 3 AND r.ZRESOURCETYPE = 4) "+
@@ -162,7 +160,7 @@ func TestGoldenHasRAW(t *testing.T) {
 func TestGoldenOrder(t *testing.T) {
 	t.Parallel()
 
-	dir := golden.Dir(t)
+	dir := testlib.RepoDir(t, "golden")
 	for _, lib := range goldenLibraries(t) {
 		t.Run(lib.name, func(t *testing.T) {
 			t.Parallel()

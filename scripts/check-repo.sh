@@ -11,11 +11,6 @@ module_dir="osxphotos"
 # upgrade Go.
 max_go_minor=27
 
-# Packages that may use cgo ('import "C"'), as path prefixes.
-cgo_allowed=(
-  "osxphotos/photokit/"
-)
-
 failed=0
 fail() {
   echo "FAIL: $1" >&2
@@ -60,17 +55,10 @@ if [[ "$go_major" != 1 || ! "$go_minor" =~ ^[0-9]+$ || "$go_minor" -gt "$max_go_
   fail "$module_dir/go.mod has 'go $go_version', expected 1.$max_go_minor or older"
 fi
 
-# 6. cgo only where it is allowed.
-while IFS= read -r file; do
-  [[ -n "$file" ]] || continue
-  allowed=0
-  for prefix in "${cgo_allowed[@]}"; do
-    [[ "$file" == "$prefix"* ]] && allowed=1
-  done
-  if [[ "$allowed" == 0 ]]; then
-    fail "$file imports \"C\" outside the packages allowed to use cgo"
-  fi
-done < <(git grep -lE '^import "C"$' -- '*.go' || true)
+# 6. cgo only in osxphotos/photokit/.
+if git grep -lE '^import "C"$|^[[:space:]]+"C"$' -- '*.go' ':!osxphotos/photokit/'; then
+  fail "the files above import \"C\" outside osxphotos/photokit/"
+fi
 
 # 7. Every third-party action is pinned to a full commit SHA.
 if git grep -nE 'uses: *[^ ]+@' -- '.github/workflows' | grep -vE '@[0-9a-f]{40}( |$)'; then

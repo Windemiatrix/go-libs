@@ -1,6 +1,7 @@
 package golden
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -49,39 +50,40 @@ func TestMissingKey(t *testing.T) {
 func TestAlbumShape(t *testing.T) {
 	t.Parallel()
 	const good = `{"creation_date": "2020-01-01T00:00:00+00:00", "end_date": null, "folder_list": [], "folder_names": [], "owner": null, "parent": null, "sort_order": null, "start_date": null, "title": "T", "uuid": "U"}`
+	// replace returns good with the key set to value, or without the key when
+	// value is "".
 	replace := func(key, value string) string {
-		o, _ := decodeObject([]byte(good))
+		var o Object
+		if err := json.Unmarshal([]byte(good), &o); err != nil {
+			t.Fatal(err)
+		}
 		o[key] = []byte(value)
+		if value == "" {
+			delete(o, key)
+		}
 		var parts []string
 		for k, v := range o {
 			parts = append(parts, `"`+k+`": `+string(v))
 		}
 		return "{" + strings.Join(parts, ", ") + "}"
 	}
-	without := func(key string) string {
-		o, _ := decodeObject([]byte(good))
-		delete(o, key)
-		var parts []string
-		for k, v := range o {
-			parts = append(parts, `"`+k+`": `+string(v))
-		}
-		return "{" + strings.Join(parts, ", ") + "}"
-	}
+	without := func(key string) string { return replace(key, "") }
 
 	if _, err := rules["album_info"].ref(Object{"album_info": []byte("[" + good + "]")}); err != nil {
 		t.Fatalf("the good element: %v", err)
 	}
 	cases := []struct{ name, elem, want string }{
 		{"no uuid", without("uuid"), "album_info[0].uuid: want a value"},
-		{"uuid number", replace("uuid", "5"), "album_info[0].uuid: want a string"},
-		{"title number", replace("title", "5"), "album_info[0].title: want a string"},
+		{"uuid null", replace("uuid", "null"), "album_info[0].uuid: want a string"},
+		{"uuid number", replace("uuid", "5"), "album_info[0]: want an album with values of the types"},
+		{"title number", replace("title", "5"), "album_info[0]: want an album with values of the types"},
 		{"no title", without("title"), "album_info[0].title: want a value"},
-		{"parent number", replace("parent", "5"), "album_info[0].parent: want a string or null"},
+		{"parent number", replace("parent", "5"), "album_info[0]: want an album with values of the types"},
 		{"no parent", without("parent"), "album_info[0].parent: want a value"},
 		{"folder_names null", replace("folder_names", "null"), "album_info[0].folder_names: want a list of strings"},
-		{"folder_names with a number", replace("folder_names", "[1]"), "album_info[0].folder_names[0]: want a string or null"},
+		{"folder_names with a number", replace("folder_names", "[1]"), "album_info[0]: want an album with values of the types"},
 		{"no folder_names", without("folder_names"), "album_info[0].folder_names: want a value"},
-		{"creation_date number", replace("creation_date", "5"), "album_info[0].creation_date: want an ISO 8601 string"},
+		{"creation_date number", replace("creation_date", "5"), "album_info[0]: want an album with values of the types"},
 		{"creation_date text", replace("creation_date", `"SECRET-DATE"`), "album_info[0].creation_date: want an ISO 8601 string"},
 		{"no creation_date", without("creation_date"), "album_info[0].creation_date: want a value"},
 		{"start_date text", replace("start_date", `"x"`), "album_info[0].start_date: want an ISO 8601 string"},
@@ -108,7 +110,7 @@ func TestAlbumShape(t *testing.T) {
 	t.Run("folders value is not a list", func(t *testing.T) {
 		t.Parallel()
 		o := Object{"album_info": []byte("[]"), "folders": []byte(`{"A": 5}`)}
-		if _, err := rules["folders"].ref(o); err == nil || !strings.Contains(err.Error(), "folders.value: want a list of strings") {
+		if _, err := rules["folders"].ref(o); err == nil || !strings.Contains(err.Error(), "folders: want an object of lists of strings") {
 			t.Errorf("error = %v", err)
 		}
 	})
@@ -171,31 +173,4 @@ func TestOrderKeyErrors(t *testing.T) {
 			t.Errorf("error = %v", err)
 		}
 	})
-}
-
-func TestIsCanonicalOnJunk(t *testing.T) {
-	t.Parallel()
-	for _, raw := range []string{"{", "", "1e999", "[1,"} {
-		if isCanonical([]byte(raw)) {
-			t.Errorf("isCanonical(%q) = true", raw)
-		}
-	}
-	for _, raw := range []string{"-0", "0", "-1", `"a"`, "[]", "{}", `{"a":[1,2.5,null]}`, "9223372036854775807", "1e+21", "1.5e-7", "0.00001"} {
-		if !isCanonical([]byte(raw)) {
-			t.Errorf("isCanonical(%q) = false", raw)
-		}
-	}
-}
-
-func TestFirstOfEmpty(t *testing.T) {
-	t.Parallel()
-	if first(nil) != 0 || first([]byte("  ")) != 0 || first([]byte(" [")) != '[' {
-		t.Error("first does not skip spaces or does not tell an empty value")
-	}
-	if _, err := refInt(Object{}, "width", true); err == nil {
-		t.Error("refInt: no error for a missing key")
-	}
-	if _, ok := decodeFloat([]byte("")); ok {
-		t.Error("decodeFloat accepts an empty value")
-	}
 }

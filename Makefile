@@ -23,7 +23,7 @@ vet: ## go vet
 .PHONY: cover
 cover: ## Tests with the race detector and the coverage threshold
 	go -C osxphotos test -race -shuffle=on -count=1 -covermode=atomic -coverprofile=coverage.out ./...
-	cd osxphotos && bash ../scripts/check-coverage.sh coverage.out
+	go -C osxphotos tool cover -func=coverage.out | awk '/^total:/ { found = 1; sub(/%/, "", $$3); print; exit ($$3 + 0 < 80) } END { if (!found) exit 1 }'
 
 .PHONY: cross-build
 cross-build: ## cgo build for amd64 (macOS)
@@ -77,8 +77,6 @@ pr-title: ## PR_TITLE follows the title convention (PR_TITLE='...' make pr-title
 
 .PHONY: release
 release: ## GitHub Release for TAG with grouped notes, then the Go proxy warm-up (needs GH_TOKEN)
-	@notes="$$(mktemp "$${RUNNER_TEMP:-$${TMPDIR:-/tmp}}/osxphotos-notes.XXXXXX")" && \
-	bash scripts/next-version.sh --notes "$$TAG" >"$$notes" && \
-	gh release create "$$TAG" --verify-tag --title "$$TAG" --notes-file "$$notes"; \
-	status=$$?; rm -f "$$notes"; exit $$status
+	@notes="$$(bash scripts/next-version.sh --notes "$$TAG")" && \
+	gh release create "$$TAG" --verify-tag --title "$$TAG" --notes "$$notes"
 	GOPROXY=https://proxy.golang.org go list -m "github.com/Windemiatrix/go-libs/osxphotos@$${TAG#osxphotos/}"

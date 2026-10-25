@@ -8,10 +8,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
-	"testing"
 	"time"
 )
 
@@ -21,25 +19,8 @@ const (
 	fieldsFile  = "fields.txt"
 )
 
-// Dir returns testdata/golden of the repository, found relative to this
-// source file (as internal/testlib finds testdata/libraries). It skips t
-// when the directory is not available, for example in the module zip.
-func Dir(t testing.TB) string {
-	t.Helper()
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Skip("golden: cannot locate the package source")
-	}
-	dir := filepath.Join(filepath.Dir(file), "..", "..", "..", "testdata", "golden")
-	if _, err := os.Stat(dir); err != nil {
-		t.Skipf("golden: reference data is not available (%v); it is in the repository, not in the module zip", err)
-	}
-	return dir
-}
-
 // ReadFields returns the keys of a fields.txt in file order: one key per
-// line, "#" comments and empty lines skipped. The format itself is checked
-// by the layout test of internal/testlib.
+// line, "#" comments and empty lines skipped.
 func ReadFields(path string) ([]string, error) {
 	data, err := readFile(path)
 	if err != nil {
@@ -70,6 +51,20 @@ func readFile(path string) ([]byte, error) {
 	return data, nil
 }
 
+// readArray reads a file that holds one JSON array and nothing after it.
+// name is how the file is called in errors.
+func readArray(path, name string) ([]json.RawMessage, error) {
+	data, err := readFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var items []json.RawMessage
+	if data = bytes.TrimSpace(data); len(data) == 0 || data[0] != '[' || json.Unmarshal(data, &items) != nil {
+		return nil, fmt.Errorf("golden: %s: not one JSON array", name)
+	}
+	return items, nil
+}
+
 // Object is one element of query.json or deleted.json: key → raw JSON value.
 type Object map[string]json.RawMessage
 
@@ -84,9 +79,9 @@ type Reference struct {
 // keys of dir/fields.txt. library must be one directory name (not empty, no
 // "/", not "." or ".."), checked before any file is opened. Each file must
 // hold one JSON array of objects and nothing after it; each object must have
-// every key of fields.txt and a non-empty string uuid; a uuid may appear only
-// once in query.json and deleted.json together. Errors name the file, the
-// element number and the key, never a UUID or a value.
+// every key of fields.txt and uuid. The form of uuid is checked by Compare.
+// Errors name the file, the element number and the key, never a UUID or a
+// value.
 func Load(dir, library string) (*Reference, error) {
 	if library == "" || library == "." || library == ".." || strings.ContainsAny(library, `/\`) {
 		return nil, errors.New("golden: the library must be one directory name")
@@ -105,57 +100,35 @@ func LoadFiles(library, queryPath, deletedPath string, fields []string) (*Refere
 	keep := append(slices.Clone(fields), "uuid")
 	ref := &Reference{Library: library}
 	var err error
-	seen := map[string]string{} // uuid → "<file> element <n>"
-	if ref.Query, err = loadObjects(queryPath, queryFile, keep, seen); err != nil {
+	if ref.Query, err = loadObjects(queryPath, queryFile, keep); err != nil {
 		return nil, err
 	}
-	if ref.Deleted, err = loadObjects(deletedPath, deletedFile, keep, seen); err != nil {
+	if ref.Deleted, err = loadObjects(deletedPath, deletedFile, keep); err != nil {
 		return nil, err
 	}
 	return ref, nil
 }
 
 // loadObjects reads one file. name is how the file is called in errors.
-func loadObjects(path, name string, keep []string, seen map[string]string) ([]Object, error) {
-	data, err := readFile(path)
+func loadObjects(path, name string, keep []string) ([]Object, error) {
+	items, err := readArray(path, name)
 	if err != nil {
 		return nil, err
 	}
-	data = bytes.TrimSpace(data)
-	switch {
-	case len(data) == 0:
-		return nil, fmt.Errorf("golden: %s: the file is empty", name)
-	case !json.Valid(data):
-		return nil, fmt.Errorf("golden: %s: not one valid JSON value", name)
-	case data[0] != '[':
-		return nil, fmt.Errorf("golden: %s: not a JSON array", name)
-	}
-	var items []json.RawMessage
-	_ = json.Unmarshal(data, &items) // cannot fail: data is one valid JSON array
 	out := make([]Object, 0, len(items))
 	for i, item := range items {
-		n := i + 1
-		full, ok := decodeObject(item)
-		if !ok {
-			return nil, fmt.Errorf("golden: %s: element %d is not an object", name, n)
+		var full Object
+		if json.Unmarshal(item, &full) != nil {
+			return nil, fmt.Errorf("golden: %s: element %d is not an object", name, i+1)
 		}
 		obj := make(Object, len(keep))
 		for _, k := range keep {
 			v, ok := full[k]
 			if !ok {
-				return nil, fmt.Errorf("golden: %s: element %d: missing key %s", name, n, k)
+				return nil, fmt.Errorf("golden: %s: element %d: missing key %s", name, i+1, k)
 			}
 			obj[k] = v
 		}
-		id, ok := decodeString(obj["uuid"])
-		if !ok || id == "" {
-			return nil, fmt.Errorf("golden: %s: element %d: uuid is not a non-empty string", name, n)
-		}
-		here := fmt.Sprintf("%s element %d", name, n)
-		if prev, dup := seen[id]; dup {
-			return nil, fmt.Errorf("golden: %s: element %d: the uuid repeats that of %s", name, n, prev)
-		}
-		seen[id] = here
 		out = append(out, obj)
 	}
 	return out, nil
@@ -200,30 +173,23 @@ func (a orderKey) less(b orderKey) bool {
 	return a.uuid < b.uuid
 }
 
+// orderKeyOf reads the sort key of an object; a null date_added is
+// 1970-01-01T00:00:00Z, as in the sort key of upstream.
 func orderKeyOf(obj Object) (orderKey, error) {
-	var k orderKey
-	var err error
-	if k.date, err = momentOf(obj, "date", false); err != nil {
-		return k, err
-	}
-	if k.added, err = momentOf(obj, "date_added", true); err != nil {
-		return k, err
-	}
-	if k.uuid, err = refString(obj, "uuid", false); err != nil {
-		return k, err
-	}
-	return k, nil
-}
-
-// momentOf reads a date key as a time; null is 1970-01-01T00:00:00Z when
-// nullOK, as the sort key of upstream does.
-func momentOf(obj Object, key string, nullOK bool) (time.Time, error) {
-	raw, err := field(obj, key)
+	date, err := refTime(obj, "date", false)
 	if err != nil {
-		return time.Time{}, err
+		return orderKey{}, err
 	}
-	if nullOK && isNull(raw) {
-		return defaultDateAdded, nil
+	added, err := refTime(obj, "date_added", true)
+	if err != nil {
+		return orderKey{}, err
 	}
-	return parseRefMoment(raw, key)
+	if added == nil {
+		added = &defaultDateAdded
+	}
+	uuid, err := decode[string](obj, "uuid", false, "a string")
+	if err != nil {
+		return orderKey{}, err
+	}
+	return orderKey{date: *date, added: *added, uuid: uuid}, nil
 }

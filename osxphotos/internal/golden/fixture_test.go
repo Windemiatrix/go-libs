@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
@@ -238,9 +239,19 @@ func diffKeys(rep *Report) []string {
 // fieldsTxt reads fields.txt of the repository.
 func fieldsTxt(t testing.TB) []string {
 	t.Helper()
-	keys, err := ReadFields(filepath.Join(Dir(t), "fields.txt"))
+	keys, err := ReadFields(filepath.Join(testlib.RepoDir(t, "golden"), "fields.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return keys
+}
+
+func jsonString(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
+}
+
+func jsonStrings(list []string) string {
+	b, _ := json.Marshal(list)
+	return string(b)
 }

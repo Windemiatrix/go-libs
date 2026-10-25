@@ -1,4 +1,6 @@
 # A tag osxphotos/vX.Y.Z pushed by scripts/release.sh publishes the Release.
+# The tests are not repeated here: scripts/release.sh tags only a commit of
+# main with a green ci.yml run.
 # A step that also runs locally calls one Makefile target; the tag reaches
 # every step only through env:.
 # No caches: they could be poisoned.
@@ -13,9 +15,6 @@ permissions: {}
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
-
-env:
-  TZ: Asia/Kolkata
 
 jobs:
   verify:
@@ -42,38 +41,11 @@ jobs:
           fi
           git fetch origin main
           git merge-base --is-ancestor HEAD origin/main
-      - name: Vet
-        run: make vet
-      - name: Tests and coverage
-        run: make cover
       - name: govulncheck
         run: make vuln
 
-  verify-macos:
-    runs-on: macos-15
-    timeout-minutes: 40
-    permissions:
-      contents: read
-    env:
-      CGO_ENABLED: "1"
-      MACOSX_DEPLOYMENT_TARGET: "13.0"
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: osxphotos/go.mod
-          cache: false
-      - name: Vet
-        run: make vet
-      - name: Tests and coverage with cgo
-        run: make cover
-      - name: Cross-build for amd64
-        run: make cross-build
-
   publish:
-    needs: [verify, verify-macos]
+    needs: [verify]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

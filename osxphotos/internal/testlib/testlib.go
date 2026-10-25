@@ -2,9 +2,9 @@
 // of this module.
 //
 // The libraries live in testdata/libraries of the repository, outside the
-// module, and are copies of the osxphotos test libraries. They are never
-// opened for writing: Open copies a database into a temporary directory and
-// applies the SQL migrations of that library to the copy (see
+// module: copies of the osxphotos test libraries and the synthetic library.
+// They are never opened for writing: Open copies a database into a temporary
+// directory and applies the SQL migrations of that library to the copy (see
 // testdata/libraries/SOURCES.md for the rules of a migration file).
 package testlib
 
@@ -14,12 +14,12 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -53,7 +53,7 @@ func init() {
 // cache.
 func Libraries(t testing.TB) []string {
 	t.Helper()
-	dir := librariesDir(t)
+	dir := RepoDir(t, "libraries")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatalf("testlib: %v", err)
@@ -80,7 +80,7 @@ func Libraries(t testing.TB) []string {
 func Open(t testing.TB, name string) string {
 	t.Helper()
 	lib := OpenPristine(t, name)
-	files, err := filepath.Glob(filepath.Join(librariesDir(t), name, "migrations", "*.sql"))
+	files, err := filepath.Glob(filepath.Join(RepoDir(t, "libraries"), name, "migrations", "*.sql"))
 	if err != nil {
 		t.Fatalf("testlib: %s: %v", name, err)
 	}
@@ -101,16 +101,19 @@ func OpenPristine(t testing.TB, name string) string {
 	if name == "" || name != filepath.Base(name) || name == "." || name == ".." {
 		t.Fatalf("testlib: invalid library name %q", name)
 	}
-	src := filepath.Join(librariesDir(t), name, "database")
+	src := filepath.Join(RepoDir(t, "libraries"), name, "database")
 	lib := filepath.Join(t.TempDir(), name+".photoslibrary")
 	dst := filepath.Join(lib, "database")
 	if err := os.MkdirAll(dst, 0o700); err != nil {
 		t.Fatalf("testlib: %v", err)
 	}
 	for _, file := range []string{"Photos.sqlite", "Photos.sqlite-wal"} {
-		err := copyFile(filepath.Join(src, file), filepath.Join(dst, file))
+		data, err := os.ReadFile(filepath.Join(src, file)) //nolint:gosec // G304: a database file of a test library in testdata
 		if file != "Photos.sqlite" && errors.Is(err, fs.ErrNotExist) {
 			continue
+		}
+		if err == nil {
+			err = os.WriteFile(filepath.Join(dst, file), data, 0o600) //nolint:gosec // G703: dst is the test's temporary directory, file one of two fixed names
 		}
 		if err != nil {
 			t.Fatalf("testlib: %s: %v", name, err)
@@ -119,39 +122,152 @@ func OpenPristine(t testing.TB, name string) string {
 	return lib
 }
 
-// librariesDir is testdata/libraries of the repository, found relative to
-// this source file.
-func librariesDir(t testing.TB) string {
+// Synthetic returns a copy of the synthetic library, made as OpenPristine
+// makes it, that holds copies times its assets: every further copy of an
+// asset has its own Z_PK and ZUUID and its own rows in
+// ZADDITIONALASSETATTRIBUTES, ZCLOUDMASTER and ZINTERNALRESOURCE. Any failure
+// is t.Fatal.
+func Synthetic(t testing.TB, copies int) string {
+	t.Helper()
+	lib := OpenPristine(t, "synthetic")
+	if err := grow(t.Context(), filepath.Join(lib, "database", "Photos.sqlite"), copies); err != nil {
+		t.Fatalf("testlib: synthetic: %v", err)
+	}
+	return lib
+}
+
+func grow(ctx context.Context, dbPath string, copies int) error {
+	return inTx(ctx, dbPath, func(tx *sql.Tx) error {
+		var asset, attrs, master, resource int64
+		if err := tx.QueryRowContext(ctx, "SELECT (SELECT MAX(Z_PK) FROM ZASSET), (SELECT MAX(Z_PK) FROM ZADDITIONALASSETATTRIBUTES), "+
+			"(SELECT MAX(Z_PK) FROM ZCLOUDMASTER), (SELECT MAX(Z_PK) FROM ZINTERNALRESOURCE)").Scan(&asset, &attrs, &master, &resource); err != nil {
+			return err
+		}
+		stmts := []string{
+			"CREATE TEMP TABLE a AS SELECT * FROM ZASSET",
+			"CREATE TEMP TABLE x AS SELECT * FROM ZADDITIONALASSETATTRIBUTES",
+			"CREATE TEMP TABLE m AS SELECT * FROM ZCLOUDMASTER",
+			"CREATE TEMP TABLE r AS SELECT * FROM ZINTERNALRESOURCE",
+		}
+		for i := 1; i < copies; i++ {
+			stmts = append(stmts,
+				fmt.Sprintf("UPDATE temp.a SET Z_PK = Z_PK + %d, ZUUID = printf('%%08X-0000-0000-0000-%%012X', %d, Z_PK), "+
+					"ZADDITIONALATTRIBUTES = ZADDITIONALATTRIBUTES + %d, ZMASTER = ZMASTER + %d", asset, i, attrs, master),
+				fmt.Sprintf("UPDATE temp.x SET Z_PK = Z_PK + %d, ZASSET = ZASSET + %d", attrs, asset),
+				fmt.Sprintf("UPDATE temp.m SET Z_PK = Z_PK + %d", master),
+				fmt.Sprintf("UPDATE temp.r SET Z_PK = Z_PK + %d, ZASSET = ZASSET + %d", resource, asset),
+				"INSERT INTO ZASSET SELECT * FROM temp.a",
+				"INSERT INTO ZADDITIONALASSETATTRIBUTES SELECT * FROM temp.x",
+				"INSERT INTO ZCLOUDMASTER SELECT * FROM temp.m",
+				"INSERT INTO ZINTERNALRESOURCE SELECT * FROM temp.r",
+			)
+		}
+		for _, stmt := range stmts {
+			if _, err := tx.ExecContext(ctx, stmt); err != nil {
+				return fmt.Errorf("%s: %w", stmt, err)
+			}
+		}
+		return nil
+	})
+}
+
+// RepoDir returns testdata/<name> of the repository, found relative to this
+// source file. It skips the test when the directory is not available, for
+// example in the module zip.
+func RepoDir(t testing.TB, name string) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Skip("testlib: cannot locate the package source")
 	}
-	dir := filepath.Join(filepath.Dir(file), "..", "..", "..", "testdata", "libraries")
+	dir := filepath.Join(filepath.Dir(file), "..", "..", "..", "testdata", name)
 	if _, err := os.Stat(dir); err != nil {
-		t.Skipf("testlib: test libraries are not available (%v); they are in the repository, not in the module zip", err)
+		t.Skipf("testlib: testdata/%s is not available (%v); it is in the repository, not in the module zip", name, err)
 	}
 	return dir
 }
 
-func copyFile(src, dst string) (err error) {
-	in, err := os.Open(src) //nolint:gosec // G304: a database file of a test library in testdata
+// OpenDB opens the database file dbPath for reading and writing and closes it
+// at the end of the test.
+func OpenDB(t testing.TB, dbPath string) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
-	defer func() { _ = in.Close() }()
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) //nolint:gosec // G304: a file in t.TempDir()
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	return db
+}
+
+// Scalar returns the single value of query; NULL is "NULL", no row is "<no row>".
+func Scalar(t testing.TB, db *sql.DB, query string) string {
+	t.Helper()
+	var v sql.NullString
+	err := db.QueryRowContext(t.Context(), query).Scan(&v)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return "<no row>"
+	case err != nil:
+		t.Fatalf("%s: %v", query, err)
+	case !v.Valid:
+		return "NULL"
+	}
+	return v.String
+}
+
+// Count returns the single integer value of query.
+func Count(t testing.TB, db *sql.DB, query string) int {
+	t.Helper()
+	s := Scalar(t, db, query)
+	n, err := strconv.Atoi(s)
 	if err != nil {
-		return err
+		t.Fatalf("%s: %q is not a number", query, s)
 	}
-	defer func() { err = errors.Join(err, out.Close()) }()
-	_, err = io.Copy(out, in)
-	return err
+	return n
+}
+
+// Rows returns the first column of every row of query.
+func Rows(t testing.TB, db *sql.DB, query string) []string {
+	t.Helper()
+	rows, err := db.QueryContext(t.Context(), query)
+	if err != nil {
+		t.Fatalf("%s: %v", query, err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			t.Fatalf("%s: %v", query, err)
+		}
+		out = append(out, s)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("%s: %v", query, err)
+	}
+	return out
 }
 
 // migrate applies the migration files to the database in one transaction,
 // then checkpoints the WAL and checks the database.
-func migrate(ctx context.Context, dbPath string, files []string) (err error) {
+func migrate(ctx context.Context, dbPath string, files []string) error {
+	return inTx(ctx, dbPath, func(tx *sql.Tx) error {
+		for _, file := range files {
+			if err := applyFile(ctx, tx, file); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// inTx runs fn in one transaction on the database, then checkpoints the WAL
+// and checks the database.
+func inTx(ctx context.Context, dbPath string, fn func(*sql.Tx) error) (err error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return err
@@ -164,10 +280,8 @@ func migrate(ctx context.Context, dbPath string, files []string) (err error) {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }() // no-op after Commit
-	for _, file := range files {
-		if err := applyFile(ctx, tx, file); err != nil {
-			return err
-		}
+	if err := fn(tx); err != nil {
+		return err
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit: %w", err)

@@ -75,20 +75,9 @@ func Open(ctx context.Context, dbPath, tempDir string) (*DB, error) {
 	return nil, fmt.Errorf("sqlread: %s: quick_check failed after %d attempts: %w", dbPath, attempts, last)
 }
 
-// source checks that dbPath is a regular file of non-zero length (SQLite
-// would open an empty file as an empty database) and returns its absolute
-// path with symbolic links resolved, the file SQLite itself would open.
+// source returns dbPath with symbolic links resolved: SQLite keeps the -wal
+// next to the real file, so the copy takes it from there.
 func source(dbPath string) (string, error) {
-	info, err := os.Stat(dbPath)
-	if err != nil {
-		return "", fmt.Errorf("sqlread: %w", err)
-	}
-	if !info.Mode().IsRegular() {
-		return "", fmt.Errorf("sqlread: %s: not a regular file", dbPath)
-	}
-	if info.Size() == 0 {
-		return "", fmt.Errorf("sqlread: %s: empty file", dbPath)
-	}
 	src, err := RealPath(dbPath)
 	if err != nil {
 		return "", fmt.Errorf("sqlread: %w", err)

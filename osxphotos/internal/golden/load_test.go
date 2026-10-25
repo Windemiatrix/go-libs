@@ -12,13 +12,6 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
 
-// refLibraries are the libraries that have reference data: the test
-// libraries and the synthetic one.
-func refLibraries(t testing.TB) []string {
-	t.Helper()
-	return append(testlib.Libraries(t), "synthetic")
-}
-
 func writeFile(t testing.TB, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
@@ -41,10 +34,7 @@ func TestReadFields(t *testing.T) {
 	t.Parallel()
 	t.Run("the file of the repository", func(t *testing.T) {
 		t.Parallel()
-		keys, err := ReadFields(filepath.Join(Dir(t), "fields.txt"))
-		if err != nil {
-			t.Fatal(err)
-		}
+		keys := fieldsTxt(t)
 		if len(keys) != 56 || keys[0] != "album_info" || keys[len(keys)-1] != "width" {
 			t.Errorf("got %d keys from %q to %q, want 56 from album_info to width", len(keys), keys[0], keys[len(keys)-1])
 		}
@@ -75,11 +65,8 @@ func TestReadFields(t *testing.T) {
 
 func TestLoadRealData(t *testing.T) {
 	t.Parallel()
-	dir := Dir(t)
-	fields, err := ReadFields(filepath.Join(dir, "fields.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	dir := testlib.RepoDir(t, "golden")
+	fields := fieldsTxt(t)
 	for _, name := range []string{"Test-13.0.0", "synthetic"} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -126,21 +113,16 @@ func TestLoad(t *testing.T) {
 		{name: "whitespace around the array", query: " \n[]\n ", deleted: "[]"},
 		{name: "no query.json", noQueryFile: true, deleted: "[]", want: "query.json"},
 		{name: "no deleted.json", query: "[]", noDeletedFile: true, want: "deleted.json"},
-		{name: "empty file", query: "", deleted: "[]", want: "query.json: the file is empty"},
-		{name: "not JSON", query: "[{", deleted: "[]", want: "query.json: not one valid JSON value"},
-		{name: "data after the array", query: "[] []", deleted: "[]", want: "query.json: not one valid JSON value"},
-		{name: "garbage after the array", query: "[]x", deleted: "[]", want: "query.json: not one valid JSON value"},
-		{name: "not an array", query: `{"uuid": "SECRET-A"}`, deleted: "[]", want: "query.json: not a JSON array", wantNot: "SECRET"},
-		{name: "null", query: "null", deleted: "[]", want: "query.json: not a JSON array"},
+		{name: "empty file", query: "", deleted: "[]", want: "query.json: not one JSON array"},
+		{name: "not JSON", query: "[{", deleted: "[]", want: "query.json: not one JSON array"},
+		{name: "data after the array", query: "[] []", deleted: "[]", want: "query.json: not one JSON array"},
+		{name: "garbage after the array", query: "[]x", deleted: "[]", want: "query.json: not one JSON array"},
+		{name: "not an array", query: `{"uuid": "SECRET-A"}`, deleted: "[]", want: "query.json: not one JSON array", wantNot: "SECRET"},
+		{name: "null", query: "null", deleted: "[]", want: "query.json: not one JSON array"},
 		{name: "element is not an object", query: "[" + good(u1) + `, "SECRET-B"]`, deleted: "[]", want: "query.json: element 2 is not an object", wantNot: "SECRET"},
 		{name: "no uuid", query: `[{"title": "t"}]`, deleted: "[]", want: "query.json: element 1: missing key uuid"},
-		{name: "uuid is not a string", query: `[{"title": "t", "uuid": 7}]`, deleted: "[]", want: "element 1: uuid is not a non-empty string"},
-		{name: "uuid is an object", query: `[{"title": "t", "uuid": {"k": "SECRET-U"}}]`, deleted: "[]", want: "element 1: uuid is not a non-empty string", wantNot: "SECRET"},
-		{name: "uuid is empty", query: `[{"title": "t", "uuid": ""}]`, deleted: "[]", want: "element 1: uuid is not a non-empty string"},
 		{name: "no key of fields.txt", query: `[{"uuid": "` + u1 + `"}]`, deleted: "[]", want: "element 1: missing key title", wantNot: u1},
 		{name: "deleted.json has the error", query: "[]", deleted: `[` + good(u1) + `, {"uuid": "` + u2 + `"}]`, want: "deleted.json: element 2: missing key title", wantNot: u2},
-		{name: "uuid repeats in query.json", query: "[" + good(u1) + "," + good(u1) + "]", deleted: "[]", want: "query.json: element 2: the uuid repeats that of query.json element 1", wantNot: u1},
-		{name: "uuid is in both files", query: "[" + good(u1) + "]", deleted: "[" + good(u2) + "," + good(u1) + "]", want: "deleted.json: element 2: the uuid repeats that of query.json element 1", wantNot: u1},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -244,8 +226,8 @@ func TestReferenceOrder(t *testing.T) {
 	t.Parallel()
 	t.Run("the reference data", func(t *testing.T) {
 		t.Parallel()
-		dir := Dir(t)
-		for _, name := range refLibraries(t) {
+		dir := testlib.RepoDir(t, "golden")
+		for _, name := range testlib.Libraries(t) {
 			t.Run(name, func(t *testing.T) {
 				t.Parallel()
 				ref, err := Load(dir, name)

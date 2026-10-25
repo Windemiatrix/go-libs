@@ -9,11 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"howett.net/plist"
 
-	"github.com/Windemiatrix/go-libs/osxphotos/internal/gen"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
@@ -308,11 +306,10 @@ func referenceCases() []detectCase {
 	}
 }
 
-// TestDetectSchemaReferences checks that the reference cases end, with an
-// error, within a bound. A decoder that copies a shared object once per path
-// runs out of memory instead, and parsing deep nesting takes time quadratic
-// in the depth: minutes or more for a megabyte. The bound catches that, not
-// speed: under the race detector on a busy CI runner a case took over 5 s.
+// TestDetectSchemaReferences checks that the reference cases end with an
+// error. A decoder that copies a shared object once per path runs out of
+// memory, and one quadratic in the depth of nesting takes minutes for a
+// megabyte; go test -timeout stops such a run.
 func TestDetectSchemaReferences(t *testing.T) {
 	t.Parallel()
 	for _, tt := range referenceCases() {
@@ -321,22 +318,7 @@ func TestDetectSchemaReferences(t *testing.T) {
 			if len(tt.plist) > maxPlistSize {
 				t.Fatalf("input is %d bytes, over the size limit: it would test the limit, not the parser", len(tt.plist))
 			}
-			type result struct {
-				model int
-				s     schema.Schema
-				err   error
-			}
-			done := make(chan result, 1)
-			go func() {
-				model, s, err := detectSchema(tt.plist)
-				done <- result{model, s, err}
-			}()
-			select {
-			case r := <-done:
-				checkDetectResult(t, tt, r.model, r.s, r.err)
-			case <-time.After(60 * time.Second):
-				t.Fatalf("detectSchema of %d bytes did not return within 60 s", len(tt.plist))
-			}
+			checkDetect(t, tt)
 		})
 	}
 }
@@ -407,11 +389,6 @@ func detectCases() []detectCase {
 func checkDetect(t *testing.T, tt detectCase) {
 	t.Helper()
 	model, s, err := detectSchema(tt.plist)
-	checkDetectResult(t, tt, model, s, err)
-}
-
-func checkDetectResult(t *testing.T, tt detectCase, model int, s schema.Schema, err error) {
-	t.Helper()
 	if tt.errText == nil {
 		if err != nil || model != tt.wantModel || s.ID != tt.wantID {
 			t.Errorf("detectSchema = %d, %q, %v; want %d, %q, nil", model, s.ID, err, tt.wantModel, tt.wantID)
@@ -582,6 +559,7 @@ var libraryModels = map[string]struct {
 	"Test-16.0.0-beta":  {19063, "photos11"},
 	"Test-26.1":         {19320, "photos11_1"},
 	"Test-27.0_DevBeta": {270008501, "photos12"},
+	"synthetic":         {19607, "photos11_1"},
 }
 
 // TestDetectSchemaLibraries checks the schema table against real databases:
@@ -605,13 +583,11 @@ func TestDetectSchemaLibraries(t *testing.T) {
 		}
 		libs = append(libs, library{name, testlib.OpenPristine(t, name), want.model, want.id})
 	}
-	synthetic := filepath.Join(t.TempDir(), "synthetic.photoslibrary")
-	cfg := gen.DefaultConfig()
-	cfg.Assets = 0
-	if err := gen.Generate(t.Context(), synthetic, cfg); err != nil {
-		t.Fatalf("gen.Generate: %v", err)
+	// TestGolden and the other tests take whatever libraries exist, so a
+	// deleted library is caught here.
+	if len(libs) != len(libraryModels) {
+		t.Fatalf("%d test libraries in testdata/libraries, %d in libraryModels", len(libs), len(libraryModels))
 	}
-	libs = append(libs, library{"gen " + cfg.Schema, synthetic, 19607, "photos11_1"})
 
 	for _, lib := range libs {
 		t.Run(lib.name, func(t *testing.T) {

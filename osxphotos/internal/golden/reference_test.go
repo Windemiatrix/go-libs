@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
 
 // allKeys returns the keys of all rules, sorted.
@@ -38,9 +40,9 @@ func isoOffset(t testing.TB, s string) int {
 // TestReferenceParses: the reference side of every rule parses every object
 // of every library, and the data keep the properties the rules rely on.
 func TestReferenceParses(t *testing.T) {
-	dir := Dir(t)
+	dir := testlib.RepoDir(t, "golden")
 	epoch := time.Unix(0, 0)
-	for _, name := range refLibraries(t) {
+	for _, name := range testlib.Libraries(t) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			ref, err := Load(dir, name)
@@ -63,27 +65,27 @@ func TestReferenceParses(t *testing.T) {
 							nulls[key]++
 						}
 					}
-					if got, _ := refBool(obj, "intrash"); got != part.trash {
+					if got, _ := decode[bool](obj, "intrash", false, ""); got != part.trash {
 						t.Errorf("%s element %d: intrash = %v, want %v", part.file, i+1, got, part.trash)
 					}
 					// golden-regen runs with TZ=UTC: the dates of the database are in +00:00.
 					for _, key := range []string{"date_added", "date_modified", "date_trashed"} {
-						if s, ok := decodeString(obj[key]); ok && !strings.HasSuffix(s, "+00:00") {
+						if s, _ := decode[string](obj, key, true, ""); s != "" && !strings.HasSuffix(s, "+00:00") {
 							t.Errorf("%s element %d: %s is not in +00:00", part.file, i+1, key)
 						}
 					}
 					// The premise of the orientation rule.
-					if adj, _ := refBool(obj, "hasadjustments"); adj {
+					if adj, _ := decode[bool](obj, "hasadjustments", false, ""); adj {
 						adjusted++
-						if o, ok := decodeInt(obj["orientation"]); !ok || o != 0 {
+						if o, err := decode[int64](obj, "orientation", false, ""); err != nil || o != 0 {
 							t.Errorf("%s element %d: hasadjustments is true and orientation is not 0", part.file, i+1)
 						}
 					}
 					// The offset of the string `date` is not compared; count where it differs
 					// from tzoffset (outside the default date).
-					s, _ := decodeString(obj["date"])
+					s, _ := decode[string](obj, "date", false, "")
 					if m, ok := parseMoment(s); ok && !m.Equal(epoch) {
-						tz, _ := decodeInt(obj["tzoffset"])
+						tz, _ := decode[int64](obj, "tzoffset", true, "")
 						if int64(isoOffset(t, s)) != tz {
 							offsetDiffers++
 						}

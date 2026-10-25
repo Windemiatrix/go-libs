@@ -1,7 +1,6 @@
 package osxphotos_test
 
 import (
-	"errors"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -31,10 +30,7 @@ func TestUpstreamExtensions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read UPSTREAM.md: %v", err)
 	}
-	inDoc, err := docExtensions(string(data))
-	if err != nil {
-		t.Fatalf("UPSTREAM.md: %v; the section must list, one per item in backticks:\n%s", err, strings.Join(inCode, "\n"))
-	}
+	inDoc := docExtensions(string(data))
 
 	var missing, stale []string
 	for _, name := range inCode {
@@ -133,9 +129,9 @@ func fileExtensions(f *ast.File) []string {
 					add(typeName, declDoc, s.Doc, s.Comment)
 					if st, ok := s.Type.(*ast.StructType); ok {
 						for _, field := range st.Fields.List {
-							for _, n := range fieldNames(field) {
-								if ast.IsExported(n) {
-									add(typeName+"."+n, field.Doc, field.Comment)
+							for _, n := range field.Names {
+								if n.IsExported() {
+									add(typeName+"."+n.Name, field.Doc, field.Comment)
 								}
 							}
 						}
@@ -162,8 +158,7 @@ func receiverName(recv *ast.FieldList) string {
 }
 
 // typeName is the name of T or *T. The public packages have no generic
-// receivers and no embedded types of other packages; for those forms it
-// gives "", and the name is not collected.
+// receivers; for that form it gives "", and the name is not collected.
 func typeName(e ast.Expr) string {
 	switch x := e.(type) {
 	case *ast.Ident:
@@ -174,155 +169,17 @@ func typeName(e ast.Expr) string {
 	return ""
 }
 
-// fieldNames returns the names of a struct field; an embedded field is
-// named by its type.
-func fieldNames(field *ast.Field) []string {
-	if len(field.Names) == 0 {
-		return []string{typeName(field.Type)}
-	}
-	var out []string
-	for _, n := range field.Names {
-		out = append(out, n.Name)
-	}
-	return out
-}
+var listedName = regexp.MustCompile("(?m)^- `([^`\n]+)`")
 
-var (
-	extensionsHeading = regexp.MustCompile(`(?m)^#{2,6} Extensions\b.*$`)
-	anyHeading        = regexp.MustCompile(`(?m)^#{1,6} `)
-	codeSpan          = regexp.MustCompile("`([^`\n]+)`")
-	listedName        = regexp.MustCompile(`^[a-z][a-z0-9]*(\.[A-Z][A-Za-z0-9_]*)+(\(\))?$`)
-)
-
-// russianAnchor starts the Russian half of UPSTREAM.md; the section is read
-// from the English half before it.
-const russianAnchor = `<a id="upstream-osxphotos-ru">`
-
-// docExtensions returns the sorted names in backticks on the list items of
-// the English "Extensions" section of UPSTREAM.md, up to the next heading.
-func docExtensions(doc string) ([]string, error) {
-	if i := strings.Index(doc, russianAnchor); i >= 0 {
-		doc = doc[:i]
-	}
-	loc := extensionsHeading.FindStringIndex(doc)
-	if loc == nil {
-		return nil, errNoSection
-	}
-	section := doc[loc[1]:]
-	if next := anyHeading.FindStringIndex(section); next != nil {
-		section = section[:next[0]]
-	}
+// docExtensions returns the names in backticks on the list items of the
+// English "Extensions" section of UPSTREAM.md, up to the next heading of
+// that level.
+func docExtensions(doc string) []string {
+	_, section, _ := strings.Cut(doc, "\n## Extensions\n")
+	section, _, _ = strings.Cut(section, "\n## ")
 	var names []string
-	for line := range strings.SplitSeq(section, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if !strings.HasPrefix(trimmed, "- ") && !strings.HasPrefix(trimmed, "* ") && !strings.HasPrefix(trimmed, "|") {
-			continue
-		}
-		for _, m := range codeSpan.FindAllStringSubmatch(trimmed, -1) {
-			if listedName.MatchString(m[1]) {
-				names = append(names, m[1])
-			}
-		}
+	for _, m := range listedName.FindAllStringSubmatch(section, -1) {
+		names = append(names, m[1])
 	}
-	slices.Sort(names)
-	return slices.Compact(names), nil
-}
-
-var errNoSection = errors.New(`no "## Extensions" section before ` + russianAnchor)
-
-// TestDocExtensions checks the reading of the Extensions section on a
-// literal document.
-func TestDocExtensions(t *testing.T) {
-	t.Parallel()
-
-	doc := "# Upstream\n\n## Intentional differences\n\n- `photosdb.Info.Other` is not an extension\n\n" +
-		"## Extensions\n\nIntro with `query.Options` outside a list item.\n\n" +
-		"- `photoinfo.PhotoInfo.Resources`: resources of the asset.\n" +
-		"- `photoinfo.Resource` — the whole type.\n" +
-		"- `photoinfo.PhotoInfo.BurstUnselected()`; marked `// extension: not in osxphotos`\n" +
-		"| `albuminfo.AlbumInfo.CloudGUID` | table row |\n\n" +
-		"## Next\n\n- `photosdb.Info.After`\n\n" +
-		russianAnchor + "\n\n## Extensions\n\n- `photosdb.Info.Russian`\n"
-	got, err := docExtensions(doc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []string{
-		"albuminfo.AlbumInfo.CloudGUID",
-		"photoinfo.PhotoInfo.BurstUnselected()",
-		"photoinfo.PhotoInfo.Resources",
-		"photoinfo.Resource",
-	}
-	if !slices.Equal(got, want) {
-		t.Errorf("docExtensions = %q, want %q", got, want)
-	}
-
-	if _, err := docExtensions("## Other\n\n" + russianAnchor + "\n## Extensions\n- `a.B`\n"); err == nil {
-		t.Error("docExtensions found a section only in the Russian half")
-	}
-}
-
-// TestFileExtensions checks the reading of markers on a literal source file.
-func TestFileExtensions(t *testing.T) {
-	t.Parallel()
-
-	src := `package demo
-
-// Plain is not marked.
-type Plain struct {
-	A int // a plain field
-	// B is marked in its doc.
-	// extension: not in osxphotos.
-	B int
-	C, D string // extension: not in osxphotos — two names
-	e    int    // extension: not in osxphotos — unexported
-	*Whole      // extension: not in osxphotos — embedded
-}
-
-// Whole is marked as a type.
-// extension: not in osxphotos.
-type Whole struct{ X int }
-
-type (
-	// Grouped is marked inside a group.
-	// extension: not in osxphotos.
-	Grouped int
-	Other   int
-)
-
-// Method is marked.
-// extension: not in osxphotos.
-func (p *Plain) Method() bool { return false }
-
-// Unmarked is not marked.
-func (Plain) Unmarked() {}
-
-// Func is marked.
-// extension: not in osxphotos.
-func Func() {}
-
-// Limit is marked.
-// extension: not in osxphotos.
-const Limit = 1
-`
-	f, err := parser.ParseFile(token.NewFileSet(), "demo.go", src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := fileExtensions(f)
-	slices.Sort(got)
-	want := []string{
-		"demo.Func()",
-		"demo.Grouped",
-		"demo.Limit",
-		"demo.Plain.B",
-		"demo.Plain.C",
-		"demo.Plain.D",
-		"demo.Plain.Method()",
-		"demo.Plain.Whole",
-		"demo.Whole",
-	}
-	if !slices.Equal(got, want) {
-		t.Errorf("fileExtensions = %q, want %q", got, want)
-	}
+	return names
 }

@@ -15,7 +15,7 @@ import (
 
 func TestOpenCopy(t *testing.T) {
 	t.Parallel()
-	src := genDB(t, 50)
+	src := syntheticDB(t)
 	srcNames := names(t, filepath.Dir(src))
 	tempDir := t.TempDir()
 
@@ -25,8 +25,8 @@ func TestOpenCopy(t *testing.T) {
 	}
 	dir := copyDir(t, tempDir)
 	assertFiles(t, dir, "Photos.sqlite")
-	if n := count(t, d.db, "SELECT COUNT(*) FROM ZASSET"); n != 50 {
-		t.Errorf("ZASSET has %d rows, want 50", n)
+	if n := count(t, d.db, "SELECT COUNT(*) FROM ZASSET"); n != 1000 {
+		t.Errorf("ZASSET has %d rows, want 1000", n)
 	}
 	for _, stmt := range []string{"CREATE TABLE x(a)", "UPDATE ZASSET SET ZFAVORITE = 1"} {
 		if _, err := d.db.ExecContext(t.Context(), stmt); err == nil || !strings.Contains(err.Error(), "readonly") {
@@ -333,7 +333,7 @@ func TestSourceUnchanged(t *testing.T) {
 
 func TestOpenSweeps(t *testing.T) {
 	t.Parallel()
-	src := genDB(t, 0)
+	src := syntheticDB(t)
 	tempDir := t.TempDir()
 	orphan := filepath.Join(tempDir, "osxphotos-sqlread-1073741824-x")
 	if err := os.Mkdir(orphan, 0o700); err != nil {
@@ -371,15 +371,15 @@ func TestOpenSweeps(t *testing.T) {
 		t.Fatalf("%q after closing %s, want the two other copies", n, filepath.Base(first))
 	}
 	for _, d := range []*DB{d2, d3} {
-		if n := count(t, d.db, "SELECT COUNT(*) FROM ZASSET"); n != 0 {
-			t.Errorf("%d assets, want 0", n)
+		if n := count(t, d.db, "SELECT COUNT(*) FROM ZASSET"); n != 1000 {
+			t.Errorf("%d assets, want 1000", n)
 		}
 	}
 }
 
 func TestOpenPathChars(t *testing.T) {
 	t.Parallel()
-	src := genDB(t, 50) // gen refuses a path with "?"
+	src := syntheticDB(t)
 	for _, name := range []string{"a b#c?d%e", "x?mode=rwc&y"} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -391,8 +391,8 @@ func TestOpenPathChars(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if n := count(t, d.db, "SELECT COUNT(*) FROM ZASSET"); n != 50 {
-				t.Errorf("%d assets, want 50", n)
+			if n := count(t, d.db, "SELECT COUNT(*) FROM ZASSET"); n != 1000 {
+				t.Errorf("%d assets, want 1000", n)
 			}
 			if _, err := d.db.ExecContext(t.Context(), "CREATE TABLE x(a)"); err == nil || !strings.Contains(err.Error(), "readonly") {
 				t.Errorf("CREATE TABLE: error %v, want readonly", err)
@@ -408,17 +408,13 @@ func TestOpenPathChars(t *testing.T) {
 
 func TestOpenErrors(t *testing.T) {
 	t.Parallel()
-	src := genDB(t, 0)
+	src := syntheticDB(t)
 	dbDir := filepath.Dir(src)
 	srcSum := sha(t, src)
 	srcNames := names(t, dbDir)
 
 	text := filepath.Join(t.TempDir(), "Photos.sqlite")
 	if err := os.WriteFile(text, []byte(strings.Repeat("not a database\n", 70)), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	empty := filepath.Join(t.TempDir(), "Photos.sqlite")
-	if err := os.WriteFile(empty, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	walDir := makeDB(t, "CREATE TABLE t(a)")
@@ -444,10 +440,9 @@ func TestOpenErrors(t *testing.T) {
 		is      error
 	}{
 		{name: "missing source", src: filepath.Join(t.TempDir(), "Photos.sqlite"), is: os.ErrNotExist},
-		{name: "directory source", src: t.TempDir(), want: "not a regular file"},
-		{name: "empty source", src: empty, want: "empty file"},
+		{name: "directory source", src: t.TempDir(), want: "is a directory"},
 		{name: "not a database", src: text, want: "quick_check failed after 3 attempts"},
-		{name: "wal is a directory", src: walDir, want: "not a regular file"},
+		{name: "wal is a directory", src: walDir, want: "is a directory"},
 		{name: "wal unreadable", src: walUnreadable, is: os.ErrPermission},
 		{name: "missing temporary directory", src: src, tempDir: filepath.Join(t.TempDir(), "none"), is: os.ErrNotExist},
 		{name: "temporary directory is a file", src: src, tempDir: text, want: "not a directory"},
@@ -496,7 +491,7 @@ func TestOpenErrors(t *testing.T) {
 // TestOpenDefaultTempDir covers tempDir "": the copy goes to os.TempDir().
 func TestOpenDefaultTempDir(t *testing.T) {
 	t.Parallel()
-	d, err := Open(t.Context(), genDB(t, 0), "")
+	d, err := Open(t.Context(), syntheticDB(t), "")
 	if err != nil {
 		t.Fatal(err)
 	}
