@@ -228,16 +228,18 @@ func queryTextCases(refs []queryRef) []queryCase {
 	var cases []queryCase
 	keywords := queryValues(refs, func(r queryRef) []string { return r.Keywords })
 	for i, k := range keywords {
+		cases = append(cases, queryCase{fmt.Sprintf("keyword %d", i), "keywords", []string{"keywords"}, query.Options{Keyword: []string{k}},
+			func(r queryRef) bool { return slices.Contains(r.Keywords, norm.NFC.String(k)) }})
 		upper := strings.ToUpper(k)
+		if upper == k { // a caseless value cannot catch an ignored IgnoreCase
+			continue
+		}
 		folded := strings.ToLower(norm.NFC.String(upper))
-		cases = append(cases,
-			queryCase{fmt.Sprintf("keyword %d", i), "keywords", []string{"keywords"}, query.Options{Keyword: []string{k}},
-				func(r queryRef) bool { return slices.Contains(r.Keywords, norm.NFC.String(k)) }},
-			queryCase{fmt.Sprintf("keyword %d in upper case, ignore case", i), "keywords", []string{"keywords"},
-				query.Options{Keyword: []string{upper}, IgnoreCase: true},
-				func(r queryRef) bool {
-					return slices.ContainsFunc(r.Keywords, func(x string) bool { return strings.ToLower(x) == folded })
-				}})
+		cases = append(cases, queryCase{fmt.Sprintf("keyword %d in upper case, ignore case", i), "keywords", []string{"keywords"},
+			query.Options{Keyword: []string{upper}, IgnoreCase: true},
+			func(r queryRef) bool {
+				return slices.ContainsFunc(r.Keywords, func(x string) bool { return strings.ToLower(x) == folded })
+			}})
 	}
 	cases = append(cases, queryCase{"no keyword", "keywords", []string{"keywords"}, query.Options{NoKeyword: true},
 		func(r queryRef) bool { return len(r.Keywords) == 0 }})
@@ -262,6 +264,9 @@ func queryTextCases(refs []queryRef) []queryCase {
 			cases = append(cases, queryCase{fmt.Sprintf("%s %d", f.name, i), "texts", []string{f.key}, f.option([]string{v}, false),
 				func(r queryRef) bool { return f.field(r) != "" && strings.Contains(f.field(r), norm.NFC.String(v)) }})
 			upper := strings.ToUpper(v)
+			if upper == v { // a caseless value cannot catch an ignored IgnoreCase
+				continue
+			}
 			folded := strings.ToLower(norm.NFC.String(upper))
 			ignoreCase := f.option([]string{upper}, false)
 			ignoreCase.IgnoreCase = true
@@ -337,6 +342,9 @@ func queryAlbumCases(refs []queryRef) []queryCase {
 			func(r queryRef) bool {
 				return slices.ContainsFunc(r.userAlbums(), func(a queryRefAlbum) bool { return slices.Equal(a.path(), parts) })
 			}})
+		if strings.ToUpper(path) == path { // a caseless value cannot catch an ignored IgnoreCase
+			continue
+		}
 		folded := make([]string, len(parts))
 		for j, p := range albums[path] {
 			folded[j] = strings.ToLower(norm.NFC.String(strings.ToUpper(p)))
@@ -449,7 +457,7 @@ func TestQueryGolden(t *testing.T) {
 					want := queryRefIDs(inQuery, skip, c.want)
 					queryCompare(t, c.name, queryIDs(db.Query(c.o), skip), want)
 					counts[c.family] += len(want)
-					if c.family == "flags" && len(want) > 0 {
+					if c.family == "flags" && len(want) > 0 && len(want) < len(queryRefIDs(inQuery, skip, func(queryRef) bool { return true })) {
 						hit[c.name] = true
 					}
 				}
@@ -470,17 +478,28 @@ func TestQueryGolden(t *testing.T) {
 	}
 	t.Logf("expected photos per family, all libraries: %v", expected)
 
-	// The committed libraries hold photos for these; a change that loses one
-	// of them must not leave its case comparing two empty sets.
-	known := []string{"edited", "not edited", "favorite", "not favorite", "location", "not location",
-		"not hidden", "not burst", "not live", "not screenshot"}
-	for _, c := range queryFlagCases() {
+	// A flag case counts only when some library expects a proper subset of its
+	// objects: a case that expects none or all of them passes a mutation that
+	// ignores the flag. The committed libraries hold no syndicated photo, and
+	// these cloud cases select all or none of the objects of each library, so
+	// only these cases may stay unexercised.
+	never := []string{
+		"syndicated", "not syndicated", "saved to library", "not saved to library",
+		"cloud asset", "not cloud asset", "not in cloud",
+	}
+	flagCases := queryFlagCases()
+	for _, name := range never {
+		if !slices.ContainsFunc(flagCases, func(c queryCase) bool { return c.name == name }) {
+			t.Errorf("flag %q in never is not a flag case", name)
+		}
+	}
+	for _, c := range flagCases {
 		switch {
-		case exercised[c.name]:
-		case slices.Contains(known, c.name):
-			t.Errorf("flag %q: no library expects a photo; the case is vacuous", c.name)
+		case slices.Contains(never, c.name) && exercised[c.name]:
+			t.Logf("flag %q is exercised: remove it from never", c.name)
+		case slices.Contains(never, c.name) || exercised[c.name]:
 		default:
-			t.Logf("flag %q is never exercised: no library expects a photo", c.name)
+			t.Errorf("flag %q: no library expects a proper subset of its objects; the case is vacuous", c.name)
 		}
 	}
 }

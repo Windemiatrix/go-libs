@@ -91,17 +91,19 @@ func TestApplySelection(t *testing.T) {
 		// In the trash, a burst frame that photos() leaves out (photosdb.py:3347-3351):
 		// the deleted selections do not bring it back.
 		{UUID: "E", IsPhoto: true, InTrash: true, Burst: true, BurstPickType: 2, Date: at("2018-01-01T00:00:00Z")},
+		// G is a selected frame (pick 8), not a key frame; H is a key frame.
 		{UUID: "G", IsPhoto: true, InTrash: true, Burst: true, BurstPickType: photoinfo.BurstPickSelected, Date: at("2018-06-01T00:00:00Z")},
+		{UUID: "H", IsPhoto: true, InTrash: true, Burst: true, BurstPickType: photoinfo.BurstPickKey, Date: at("2018-09-01T00:00:00Z")},
 	}
 	applyRun(t, []applyCase{
 		{"zero", Options{}, photos, []string{"A", "B"}},
-		{"deleted", Options{Deleted: true}, photos, []string{"G", "C", "A", "B", "D"}},
-		{"deleted only", Options{DeletedOnly: true}, photos, []string{"G", "C", "D"}},
-		{"deleted and deleted only", Options{Deleted: true, DeletedOnly: true}, photos, []string{"G", "C", "D"}},
+		{"deleted", Options{Deleted: true}, photos, []string{"G", "H", "C", "A", "B", "D"}},
+		{"deleted only", Options{DeletedOnly: true}, photos, []string{"G", "H", "C", "D"}},
+		{"deleted and deleted only", Options{Deleted: true, DeletedOnly: true}, photos, []string{"G", "H", "C", "D"}},
 		{"only photos", Options{OnlyPhotos: true}, photos, []string{"A"}},
 		{"only movies", Options{OnlyMovies: true}, photos, []string{"B"}},
 		{"only photos and only movies", Options{OnlyPhotos: true, OnlyMovies: true}, photos, nil},
-		{"only photos with deleted", Options{OnlyPhotos: true, Deleted: true}, photos, []string{"G", "C", "A"}},
+		{"only photos with deleted", Options{OnlyPhotos: true, Deleted: true}, photos, []string{"G", "H", "C", "A"}},
 		{"uuid with an unknown one", Options{UUID: []string{"B", "X"}}, photos, []string{"B"}},
 		{"uuid in the trash", Options{UUID: []string{"C"}}, photos, nil},
 		{"uuid in the trash with deleted", Options{UUID: []string{"C"}, Deleted: true}, photos, []string{"C"}},
@@ -323,6 +325,15 @@ func TestApplyAlbums(t *testing.T) {
 		{"not in album", Options{NotInAlbum: true}, photos, []string{"P05", "P07", "P08"}},
 		{"in album and not in album", Options{InAlbum: true, NotInAlbum: true}, photos, inAlbum},
 	}, albums)
+
+	// A trashed album does not hide a live one with the same title and folders.
+	twins := []*albuminfo.AlbumInfo{
+		{UUID: "T1", Title: "Twin", FolderNames: []string{"F1"}, InTrash: true},
+		{UUID: "T2", Title: "Twin", FolderNames: []string{"F1"}},
+	}
+	applyRun(t, []applyCase{
+		{"album twin of a trashed album", Options{Album: []string{"F1/Twin"}}, []*photoinfo.PhotoInfo{in("Q1", "T1", "T2"), in("Q2", "T1")}, []string{"Q1"}},
+	}, twins)
 }
 
 func TestApplyOrder(t *testing.T) {

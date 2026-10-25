@@ -60,7 +60,7 @@ func resource(subtype, typ int64, local sql.NullInt64) sqlread.Resource {
 func TestLoadFields(t *testing.T) {
 	t.Parallel()
 
-	const nfd, nfcForm = "Café", "Café"
+	const nfd, nfcForm = "Cafe\U00000301", "Caf\U000000e9"
 	tests := []struct {
 		name  string
 		edit  func(a *sqlread.Asset)
@@ -276,7 +276,7 @@ func timeIs(got *time.Time, want time.Time) bool {
 func TestLoadKeywordsAlbumsPersons(t *testing.T) {
 	t.Parallel()
 
-	const nfd = "Café"
+	const nfd = "Cafe\U00000301"
 	in := tables{
 		assets: []sqlread.Asset{baseAsset(1, "A-1"), baseAsset(2, "A-2")},
 		keywords: []sqlread.Keyword{
@@ -296,7 +296,7 @@ func TestLoadKeywordsAlbumsPersons(t *testing.T) {
 	p1, p2 := c.byUUID["A-1"], c.byUUID["A-2"]
 	// Upstream keeps a repeated keyword (photosdb.py:2005-2010) and sorts the
 	// list (photoinfo.py:705-708); NULL is "".
-	if want := []string{"", "B", "Café", "b", "b"}; !slices.Equal(p1.Keywords, want) {
+	if want := []string{"", "B", "Caf\U000000e9", "b", "b"}; !slices.Equal(p1.Keywords, want) {
 		t.Errorf("Keywords = %q, want %q", p1.Keywords, want)
 	}
 	if want := []string{"AL-1", "AL-2"}; !slices.Equal(p1.AlbumUUIDs, want) || !slices.Equal(p1.BurstAlbumUUIDs, want) {

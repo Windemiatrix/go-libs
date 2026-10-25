@@ -458,6 +458,9 @@ func TestFoldersTrash(t *testing.T) {
 		subShape = folderRef(f)
 		placed = append(placed, f.Albums...)
 	}
+	if len(placed) == 0 {
+		t.Fatal("no album in the folders to put into the trash: FolderList is not checked")
+	}
 	wantPlace := map[string]hardenPlace{}
 	for _, a := range placed {
 		wantPlace[a.UUID] = hardenPlaceOf(before, a)

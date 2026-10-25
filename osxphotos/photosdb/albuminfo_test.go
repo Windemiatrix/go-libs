@@ -461,24 +461,28 @@ func TestAlbumLookupTrash(t *testing.T) {
 		t.Fatalf("album %s: its path is ambiguous in Query", picked)
 	}
 	album := query.Options{Album: []string{path}}
-	if len(before.Query(album)) == 0 {
+	albumBefore, inBefore := before.Query(album), before.Query(query.Options{InAlbum: true})
+	if len(albumBefore) == 0 {
 		t.Fatalf("album %s: Query by its path selects no photo before the change", picked)
 	}
-	var wantAlbum []string
-	for _, p := range before.Query(album) {
+	var wantAlbum, moved []string
+	for _, p := range albumBefore {
 		if slices.ContainsFunc(before.AlbumInfoOf(p), func(o *albuminfo.AlbumInfo) bool {
 			return o.UUID != picked && o.Title == title && slices.Equal(o.FolderNames, a.FolderNames)
 		}) {
 			wantAlbum = append(wantAlbum, p.UUID)
 		}
 	}
-	inBefore, notBefore, moved := len(before.Query(query.Options{InAlbum: true})), len(before.Query(query.Options{NotInAlbum: true})), 0
-	for _, p := range before.Query(query.Options{InAlbum: true}) {
+	for _, p := range inBefore {
 		if !slices.ContainsFunc(before.AlbumInfoOf(p), func(o *albuminfo.AlbumInfo) bool { return o.UUID != picked }) {
-			moved++
+			moved = append(moved, p.UUID)
 		}
 	}
-	t.Logf("%d photos leave InAlbum for NotInAlbum, %d stay in an album of the same path", moved, len(wantAlbum))
+	if len(moved) == 0 {
+		t.Fatalf("album %s: no photo is in it alone, so NotInAlbum is not checked", picked)
+	}
+	wantIn := slices.DeleteFunc(queryIDs(inBefore, nil), func(u string) bool { return slices.Contains(moved, u) })
+	t.Logf("%d photos leave InAlbum for NotInAlbum, %d stay in an album of the same path", len(moved), len(wantAlbum))
 
 	change(t, lib, "UPDATE ZGENERICALBUM SET ZTRASHEDSTATE = 1 WHERE ZUUID = '"+picked+"'")
 	after, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
@@ -513,10 +517,16 @@ func TestAlbumLookupTrash(t *testing.T) {
 	if got := queryIDs(after.Query(album), nil); !slices.Equal(got, wantAlbum) {
 		t.Errorf("Query by the path of the album in the trash selects %d photos, want %d", len(got), len(wantAlbum))
 	}
-	if got := len(after.Query(query.Options{InAlbum: true})); got != inBefore-moved {
-		t.Errorf("InAlbum selects %d photos after the change, want %d", got, inBefore-moved)
+	gotIn := queryIDs(after.Query(query.Options{InAlbum: true}), nil)
+	slices.Sort(gotIn)
+	slices.Sort(wantIn)
+	if !slices.Equal(gotIn, wantIn) {
+		t.Errorf("InAlbum selects %d photos after the change, want %d; or they differ", len(gotIn), len(wantIn))
 	}
-	if got := len(after.Query(query.Options{NotInAlbum: true})); got != notBefore+moved {
-		t.Errorf("NotInAlbum selects %d photos after the change, want %d", got, notBefore+moved)
+	notIn := queryIDs(after.Query(query.Options{NotInAlbum: true}), nil)
+	for _, u := range moved {
+		if !slices.Contains(notIn, u) {
+			t.Errorf("photo %s was only in the album %s, and NotInAlbum after the change lacks it", u, picked)
+		}
 	}
 }
