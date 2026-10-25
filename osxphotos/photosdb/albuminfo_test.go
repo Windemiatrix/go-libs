@@ -14,6 +14,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/golden"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/query"
 )
 
 // lookupUUIDs lists the UUIDs of albums, for messages and for set checks.
@@ -51,6 +52,12 @@ func lookupTexts(t *testing.T, src *sql.DB, q string, args ...any) []string {
 // lookupCounts counts, straight from the tables, the photos of each album of
 // ZKIND 2 outside the trash: the distinct members with a
 // ZADDITIONALASSETATTRIBUTES row, summed by NFC title.
+//
+// COUNT DISTINCT with the join to the attributes equals upstream
+// len(_dbalbums_album[album]) (photosdb/photosdb.py:1873-1901) because the
+// composite primary key (album, asset) of the membership table rules out a
+// repeated member. Members without an attributes row are left out here and are
+// the AlbumCounts line of UPSTREAM.md.
 func lookupCounts(t *testing.T, src *sql.DB, table, albumCol, assetCol string) map[string]int {
 	t.Helper()
 	q := "SELECT g.ZTITLE, (SELECT COUNT(DISTINCT m." + assetCol + ") FROM " + table + " m " + //nolint:gosec // G202: the membership table and columns of internal/schema
@@ -447,6 +454,32 @@ func TestAlbumLookupTrash(t *testing.T) {
 	}
 	wantCounts, wantTitles := before.AlbumCounts(), before.AlbumTitles()
 
+	// Query through the album: what stays is the photos of another album with
+	// the same path; the photos with no other album leave InAlbum.
+	path, ok := queryPath(append(slices.Clone(a.FolderNames), title))
+	if !ok {
+		t.Fatalf("album %s: its path is ambiguous in Query", picked)
+	}
+	album := query.Options{Album: []string{path}}
+	if len(before.Query(album)) == 0 {
+		t.Fatalf("album %s: Query by its path selects no photo before the change", picked)
+	}
+	var wantAlbum []string
+	for _, p := range before.Query(album) {
+		if slices.ContainsFunc(before.AlbumInfoOf(p), func(o *albuminfo.AlbumInfo) bool {
+			return o.UUID != picked && o.Title == title && slices.Equal(o.FolderNames, a.FolderNames)
+		}) {
+			wantAlbum = append(wantAlbum, p.UUID)
+		}
+	}
+	inBefore, notBefore, moved := len(before.Query(query.Options{InAlbum: true})), len(before.Query(query.Options{NotInAlbum: true})), 0
+	for _, p := range before.Query(query.Options{InAlbum: true}) {
+		if !slices.ContainsFunc(before.AlbumInfoOf(p), func(o *albuminfo.AlbumInfo) bool { return o.UUID != picked }) {
+			moved++
+		}
+	}
+	t.Logf("%d photos leave InAlbum for NotInAlbum, %d stay in an album of the same path", moved, len(wantAlbum))
+
 	change(t, lib, "UPDATE ZGENERICALBUM SET ZTRASHEDSTATE = 1 WHERE ZUUID = '"+picked+"'")
 	after, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
 	if err != nil {
@@ -475,5 +508,15 @@ func TestAlbumLookupTrash(t *testing.T) {
 	}
 	if got := after.AlbumTitles(); !slices.Equal(got, wantTitles) {
 		t.Errorf("AlbumTitles after the change has %d titles, want %d", len(got), len(wantTitles))
+	}
+
+	if got := queryIDs(after.Query(album), nil); !slices.Equal(got, wantAlbum) {
+		t.Errorf("Query by the path of the album in the trash selects %d photos, want %d", len(got), len(wantAlbum))
+	}
+	if got := len(after.Query(query.Options{InAlbum: true})); got != inBefore-moved {
+		t.Errorf("InAlbum selects %d photos after the change, want %d", got, inBefore-moved)
+	}
+	if got := len(after.Query(query.Options{NotInAlbum: true})); got != notBefore+moved {
+		t.Errorf("NotInAlbum selects %d photos after the change, want %d", got, notBefore+moved)
 	}
 }

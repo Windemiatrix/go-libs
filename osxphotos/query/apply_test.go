@@ -37,8 +37,8 @@ func applyRun(t *testing.T, tests []applyCase, albums []*albuminfo.AlbumInfo) {
 // keeps titles and keywords in NFC, and photo_query normalizes the values
 // it searches for (photoquery.py:447-455).
 const (
-	applyNFD = "Café"
-	applyNFC = "Café"
+	applyNFD = "Cafe\U00000301"
+	applyNFC = "Caf\U000000e9"
 )
 
 func applyCheckNFD(t *testing.T) {
@@ -88,16 +88,20 @@ func TestApplySelection(t *testing.T) {
 		{UUID: "A", IsPhoto: true, Date: at("2020-01-01T00:00:00Z").In(minus5)},
 		{UUID: "D", IsMovie: true, InTrash: true, Date: at("2022-01-01T00:00:00Z")},
 		{UUID: "C", IsPhoto: true, InTrash: true, Date: at("2019-01-01T00:00:00Z")},
+		// In the trash, a burst frame that photos() leaves out (photosdb.py:3347-3351):
+		// the deleted selections do not bring it back.
+		{UUID: "E", IsPhoto: true, InTrash: true, Burst: true, BurstPickType: 2, Date: at("2018-01-01T00:00:00Z")},
+		{UUID: "G", IsPhoto: true, InTrash: true, Burst: true, BurstPickType: photoinfo.BurstPickSelected, Date: at("2018-06-01T00:00:00Z")},
 	}
 	applyRun(t, []applyCase{
 		{"zero", Options{}, photos, []string{"A", "B"}},
-		{"deleted", Options{Deleted: true}, photos, []string{"C", "A", "B", "D"}},
-		{"deleted only", Options{DeletedOnly: true}, photos, []string{"C", "D"}},
-		{"deleted and deleted only", Options{Deleted: true, DeletedOnly: true}, photos, []string{"C", "D"}},
+		{"deleted", Options{Deleted: true}, photos, []string{"G", "C", "A", "B", "D"}},
+		{"deleted only", Options{DeletedOnly: true}, photos, []string{"G", "C", "D"}},
+		{"deleted and deleted only", Options{Deleted: true, DeletedOnly: true}, photos, []string{"G", "C", "D"}},
 		{"only photos", Options{OnlyPhotos: true}, photos, []string{"A"}},
 		{"only movies", Options{OnlyMovies: true}, photos, []string{"B"}},
 		{"only photos and only movies", Options{OnlyPhotos: true, OnlyMovies: true}, photos, nil},
-		{"only photos with deleted", Options{OnlyPhotos: true, Deleted: true}, photos, []string{"C", "A"}},
+		{"only photos with deleted", Options{OnlyPhotos: true, Deleted: true}, photos, []string{"G", "C", "A"}},
 		{"uuid with an unknown one", Options{UUID: []string{"B", "X"}}, photos, []string{"B"}},
 		{"uuid in the trash", Options{UUID: []string{"C"}}, photos, nil},
 		{"uuid in the trash with deleted", Options{UUID: []string{"C"}, Deleted: true}, photos, []string{"C"}},

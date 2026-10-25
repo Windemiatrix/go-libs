@@ -261,6 +261,14 @@ func queryTextCases(refs []queryRef) []queryCase {
 		for i, v := range values {
 			cases = append(cases, queryCase{fmt.Sprintf("%s %d", f.name, i), "texts", []string{f.key}, f.option([]string{v}, false),
 				func(r queryRef) bool { return f.field(r) != "" && strings.Contains(f.field(r), norm.NFC.String(v)) }})
+			upper := strings.ToUpper(v)
+			folded := strings.ToLower(norm.NFC.String(upper))
+			ignoreCase := f.option([]string{upper}, false)
+			ignoreCase.IgnoreCase = true
+			cases = append(cases, queryCase{fmt.Sprintf("%s %d in upper case, ignore case", f.name, i), "texts", []string{f.key}, ignoreCase,
+				func(r queryRef) bool {
+					return f.field(r) != "" && strings.Contains(strings.ToLower(f.field(r)), folded)
+				}})
 		}
 		cases = append(cases, queryCase{"no " + f.name, "texts", []string{f.key}, f.option(nil, true),
 			func(r queryRef) bool { return f.field(r) == "" }})
@@ -328,6 +336,17 @@ func queryAlbumCases(refs []queryRef) []queryCase {
 		cases = append(cases, queryCase{fmt.Sprintf("album %d", i), "albums", keys, query.Options{Album: []string{path}},
 			func(r queryRef) bool {
 				return slices.ContainsFunc(r.userAlbums(), func(a queryRefAlbum) bool { return slices.Equal(a.path(), parts) })
+			}})
+		folded := make([]string, len(parts))
+		for j, p := range albums[path] {
+			folded[j] = strings.ToLower(norm.NFC.String(strings.ToUpper(p)))
+		}
+		cases = append(cases, queryCase{fmt.Sprintf("album %d in upper case, ignore case", i), "albums", keys,
+			query.Options{Album: []string{strings.ToUpper(path)}, IgnoreCase: true},
+			func(r queryRef) bool {
+				return slices.ContainsFunc(r.userAlbums(), func(a queryRefAlbum) bool {
+					return slices.EqualFunc(a.path(), folded, func(title, want string) bool { return strings.ToLower(title) == want })
+				})
 			}})
 	}
 	for i, path := range slices.Sorted(maps.Keys(folders)) {
@@ -406,7 +425,7 @@ func TestQueryGolden(t *testing.T) {
 	}
 	libs := goldenLibraries(t)
 	var mu sync.Mutex
-	expected := map[string]int{}
+	expected, exercised := map[string]int{}, map[string]bool{}
 	t.Run("libraries", func(t *testing.T) {
 		for _, lib := range libs {
 			t.Run(lib.name, func(t *testing.T) {
@@ -424,12 +443,15 @@ func TestQueryGolden(t *testing.T) {
 
 				cases := slices.Concat(queryFlagCases(), queryTextCases(inQuery), queryAlbumCases(inQuery),
 					queryDateCases(t, db, inQuery), queryOtherCases(inQuery, inDeleted))
-				counts := map[string]int{}
+				counts, hit := map[string]int{}, map[string]bool{}
 				for _, c := range cases {
 					skip := querySkip(divs, lib.name, c.keys)
 					want := queryRefIDs(inQuery, skip, c.want)
 					queryCompare(t, c.name, queryIDs(db.Query(c.o), skip), want)
 					counts[c.family] += len(want)
+					if c.family == "flags" && len(want) > 0 {
+						hit[c.name] = true
+					}
 				}
 				t.Logf("%d cases; expected photos per family: %v", len(cases), counts)
 				mu.Lock()
@@ -437,6 +459,7 @@ func TestQueryGolden(t *testing.T) {
 				for f, n := range counts {
 					expected[f] += n
 				}
+				maps.Copy(exercised, hit)
 			})
 		}
 	})
@@ -446,6 +469,20 @@ func TestQueryGolden(t *testing.T) {
 		}
 	}
 	t.Logf("expected photos per family, all libraries: %v", expected)
+
+	// The committed libraries hold photos for these; a change that loses one
+	// of them must not leave its case comparing two empty sets.
+	known := []string{"edited", "not edited", "favorite", "not favorite", "location", "not location",
+		"not hidden", "not burst", "not live", "not screenshot"}
+	for _, c := range queryFlagCases() {
+		switch {
+		case exercised[c.name]:
+		case slices.Contains(known, c.name):
+			t.Errorf("flag %q: no library expects a photo; the case is vacuous", c.name)
+		default:
+			t.Logf("flag %q is never exercised: no library expects a photo", c.name)
+		}
+	}
 }
 
 // querySelection checks the selections whose order the files give: query.json
