@@ -17,10 +17,10 @@ import (
 )
 
 type libCase struct {
-	assetMarkers            []string
-	albumMarkers            []string
-	assetsWithoutAttributes int
-	checks                  []check
+	assetMarkers           []string
+	albumMarkers           []string
+	assetsLosingAttributes int
+	checks                 []check
 }
 
 type check struct {
@@ -159,8 +159,8 @@ var expected = map[string]libCase{
 		},
 	},
 	"Test-16.0.0-beta": {
-		assetMarkers:            []string{"date-modified-raw-value", "date-modified-raw-null"},
-		assetsWithoutAttributes: 1,
+		assetMarkers:           []string{"date-modified-raw-value", "date-modified-raw-null"},
+		assetsLosingAttributes: 1,
 		checks: []check{
 			{"SELECT ZMODIFICATIONDATE || '|' || ZADJUSTMENTTIMESTAMP FROM ZASSET WHERE Z_PK = " +
 				pk("date-modified-raw-value"), "694224000|694310400"},
@@ -183,10 +183,10 @@ var expected = map[string]libCase{
 }
 
 const (
-	assetMarkersQuery = "SELECT substr(ZTITLE, 5) FROM ZADDITIONALASSETATTRIBUTES WHERE ZTITLE LIKE 'mig:%' ORDER BY 1"
-	albumMarkersQuery = "SELECT substr(ZTITLE, 5) FROM ZGENERICALBUM WHERE ZTITLE LIKE 'mig:%' ORDER BY 1"
-	assetCountQuery   = "SELECT COUNT(*) FROM ZASSET"
-	skippedQuery      = "SELECT COUNT(*) FROM ZASSET a WHERE NOT EXISTS " +
+	assetMarkersQuery      = "SELECT substr(ZTITLE, 5) FROM ZADDITIONALASSETATTRIBUTES WHERE ZTITLE LIKE 'mig:%' ORDER BY 1"
+	albumMarkersQuery      = "SELECT substr(ZTITLE, 5) FROM ZGENERICALBUM WHERE ZTITLE LIKE 'mig:%' ORDER BY 1"
+	assetCountQuery        = "SELECT COUNT(*) FROM ZASSET"
+	withoutAttributesQuery = "SELECT COUNT(*) FROM ZASSET a WHERE NOT EXISTS " +
 		"(SELECT 1 FROM ZADDITIONALASSETATTRIBUTES x WHERE x.ZASSET = a.Z_PK)"
 )
 
@@ -218,9 +218,9 @@ func TestMigrations(t *testing.T) {
 			if got, was := Count(t, db, assetCountQuery), Count(t, pristine, assetCountQuery); got != was {
 				t.Errorf("assets: %d after migrations, %d before", got, was)
 			}
-			if got, was := Count(t, db, skippedQuery), Count(t, pristine, skippedQuery); got != was+want.assetsWithoutAttributes {
+			if got, was := Count(t, db, withoutAttributesQuery), Count(t, pristine, withoutAttributesQuery); got != was+want.assetsLosingAttributes {
 				t.Errorf("assets without additional attributes: %d after migrations, %d before, want %d more",
-					got, was, want.assetsWithoutAttributes)
+					got, was, want.assetsLosingAttributes)
 			}
 			for _, c := range want.checks {
 				if got := Scalar(t, db, c.query); got != c.want {
@@ -407,6 +407,7 @@ func TestParse(t *testing.T) {
 	want := []statement{
 		{sql: "UPDATE t SET v = 1\nWHERE id = 1;", line: 3},
 		{sql: "DELETE FROM t WHERE id = 2;", line: 6, anyRows: true},
+		// "-- rows: any" counts only on the line right before the statement.
 		{sql: "DELETE FROM t WHERE id = 3;", line: 9},
 		{sql: "DELETE FROM t WHERE id = 4;", line: 12},
 	}

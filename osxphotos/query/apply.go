@@ -86,12 +86,12 @@ func filters(o Options, in photoAlbums) []filter {
 	albums, folders := parseAlbumPaths(o.Album, fold), parseAlbumPaths(o.Folder, fold)
 	keywords, names := searchValues(o.Keyword, fold), searchValues(o.Name, fold)
 
-	when(len(albums.paths) > 0, func(p *photo) bool { return in.has(p, albums.matchAnyAlbum) })
+	when(len(albums.paths) > 0, func(p *photo) bool { return in.has(p, albums.namesAlbum) })
 	when(len(keywords) > 0, func(p *photo) bool {
 		return slices.ContainsFunc(p.Keywords, func(k string) bool { return slices.Contains(keywords, fold.apply(k)) })
 	})
 	when(len(keywords) == 0 && o.NoKeyword, func(p *photo) bool { return len(p.Keywords) == 0 })
-	when(len(folders.paths) > 0, func(p *photo) bool { return in.has(p, folders.matchAnyFolder) })
+	when(len(folders.paths) > 0, func(p *photo) bool { return in.has(p, folders.enclosesAlbum) })
 	text(searchValues(o.Title, fold), o.NoTitle, func(p *photo) string { return p.Title })
 	text(searchValues(o.Description, fold), o.NoDescription, func(p *photo) string { return p.Description })
 	pair(o.Edited, o.NotEdited, func(p *photo) bool { return p.HasAdjustments })

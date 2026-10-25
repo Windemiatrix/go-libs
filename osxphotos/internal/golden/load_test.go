@@ -99,28 +99,28 @@ func TestLoad(t *testing.T) {
 	)
 
 	cases := []struct {
-		name           string
-		query, deleted string
-		want           string
-		wantNot        string
-		noQueryFile    bool
-		noDeletedFile  bool
+		name              string
+		query, deleted    string
+		wantErr           string
+		errMustNotContain string
+		noQueryFile       bool
+		noDeletedFile     bool
 	}{
 		{name: "valid", query: "[" + good(u1) + "]", deleted: "[" + good(u2) + "]"},
 		{name: "empty arrays", query: "[]", deleted: "[]"},
 		{name: "whitespace around the array", query: " \n[]\n ", deleted: "[]"},
-		{name: "no query.json", noQueryFile: true, deleted: "[]", want: "query.json"},
-		{name: "no deleted.json", query: "[]", noDeletedFile: true, want: "deleted.json"},
-		{name: "empty file", query: "", deleted: "[]", want: "query.json: not one JSON array"},
-		{name: "not JSON", query: "[{", deleted: "[]", want: "query.json: not one JSON array"},
-		{name: "data after the array", query: "[] []", deleted: "[]", want: "query.json: not one JSON array"},
-		{name: "garbage after the array", query: "[]x", deleted: "[]", want: "query.json: not one JSON array"},
-		{name: "not an array", query: `{"uuid": "SECRET-A"}`, deleted: "[]", want: "query.json: not one JSON array", wantNot: "SECRET"},
-		{name: "null", query: "null", deleted: "[]", want: "query.json: not one JSON array"},
-		{name: "element is not an object", query: "[" + good(u1) + `, "SECRET-B"]`, deleted: "[]", want: "query.json: element 2 is not an object", wantNot: "SECRET"},
-		{name: "no uuid", query: `[{"title": "t"}]`, deleted: "[]", want: "query.json: element 1: missing key uuid"},
-		{name: "no key of fields.txt", query: `[{"uuid": "` + u1 + `"}]`, deleted: "[]", want: "element 1: missing key title", wantNot: u1},
-		{name: "deleted.json has the error", query: "[]", deleted: `[` + good(u1) + `, {"uuid": "` + u2 + `"}]`, want: "deleted.json: element 2: missing key title", wantNot: u2},
+		{name: "no query.json", noQueryFile: true, deleted: "[]", wantErr: "query.json"},
+		{name: "no deleted.json", query: "[]", noDeletedFile: true, wantErr: "deleted.json"},
+		{name: "empty file", query: "", deleted: "[]", wantErr: "query.json: not one JSON array"},
+		{name: "not JSON", query: "[{", deleted: "[]", wantErr: "query.json: not one JSON array"},
+		{name: "data after the array", query: "[] []", deleted: "[]", wantErr: "query.json: not one JSON array"},
+		{name: "garbage after the array", query: "[]x", deleted: "[]", wantErr: "query.json: not one JSON array"},
+		{name: "not an array", query: `{"uuid": "SECRET-A"}`, deleted: "[]", wantErr: "query.json: not one JSON array", errMustNotContain: "SECRET"},
+		{name: "null", query: "null", deleted: "[]", wantErr: "query.json: not one JSON array"},
+		{name: "element is not an object", query: "[" + good(u1) + `, "SECRET-B"]`, deleted: "[]", wantErr: "query.json: element 2 is not an object", errMustNotContain: "SECRET"},
+		{name: "no uuid", query: `[{"title": "t"}]`, deleted: "[]", wantErr: "query.json: element 1: missing key uuid"},
+		{name: "no key of fields.txt", query: `[{"uuid": "` + u1 + `"}]`, deleted: "[]", wantErr: "element 1: missing key title", errMustNotContain: u1},
+		{name: "deleted.json has the error", query: "[]", deleted: `[` + good(u1) + `, {"uuid": "` + u2 + `"}]`, wantErr: "deleted.json: element 2: missing key title", errMustNotContain: u2},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -138,7 +138,7 @@ func TestLoad(t *testing.T) {
 				writeFile(t, filepath.Join(lib, "deleted.json"), c.deleted)
 			}
 			ref, err := Load(dir, "lib")
-			if c.want == "" {
+			if c.wantErr == "" {
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -155,11 +155,11 @@ func TestLoad(t *testing.T) {
 			if err == nil {
 				t.Fatal("no error")
 			}
-			if !strings.Contains(err.Error(), c.want) {
-				t.Errorf("error %q does not contain %q", err, c.want)
+			if !strings.Contains(err.Error(), c.wantErr) {
+				t.Errorf("error %q does not contain %q", err, c.wantErr)
 			}
-			if c.wantNot != "" && strings.Contains(err.Error(), c.wantNot) {
-				t.Errorf("error %q repeats %q", err, c.wantNot)
+			if c.errMustNotContain != "" && strings.Contains(err.Error(), c.errMustNotContain) {
+				t.Errorf("error %q repeats %q", err, c.errMustNotContain)
 			}
 		})
 	}
@@ -243,9 +243,9 @@ func TestReferenceOrder(t *testing.T) {
 		u2 = "00000000-0000-0000-0000-000000000002"
 	)
 	cases := []struct {
-		name  string
-		query []Object
-		want  string
+		name    string
+		query   []Object
+		wantErr string
 	}{
 		{"empty", nil, ""},
 		{"one object", []Object{object("2020-01-01T00:00:00+00:00", "", u1)}, ""},
@@ -287,10 +287,10 @@ func TestReferenceOrder(t *testing.T) {
 			t.Parallel()
 			err := (&Reference{Query: c.query}).CheckOrder()
 			switch {
-			case c.want == "" && err != nil:
+			case c.wantErr == "" && err != nil:
 				t.Errorf("CheckOrder = %v, want nil", err)
-			case c.want != "" && (err == nil || !strings.Contains(err.Error(), c.want)):
-				t.Errorf("CheckOrder = %v, want an error with %q", err, c.want)
+			case c.wantErr != "" && (err == nil || !strings.Contains(err.Error(), c.wantErr)):
+				t.Errorf("CheckOrder = %v, want an error with %q", err, c.wantErr)
 			}
 			if err != nil && strings.Contains(err.Error(), "SECRET") {
 				t.Errorf("the error repeats the value: %v", err)

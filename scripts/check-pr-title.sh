@@ -3,7 +3,7 @@
 # release job of ci.yml computes the next version from those titles
 # (.svu.yml), so a bad title is stopped before the merge.
 #
-# Input:the title as the first argument, otherwise the PR_TITLE variable. CI
+# Input:  the title as the first argument, otherwise the PR_TITLE variable. CI
 #         passes it through the environment, never through ${{ }} inside a run
 #         script: the title of a pull request from a fork is untrusted input.
 # Exit:   0 the title is valid; 1 it is not, the reason and the rule are on

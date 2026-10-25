@@ -187,17 +187,20 @@ func TestMoreFunction(t *testing.T) {
 		t.Errorf("Function received %q, want %q", got, want)
 	}
 
-	bursts := morePhotos{
-		{UUID: "B1", IsPhoto: true, Burst: true, BurstUUID: "X", BurstPickType: 8, Date: moreDay(2)},
-		{UUID: "B2", IsPhoto: true, Burst: true, BurstUUID: "X", BurstPickType: 2, Date: moreDay(1)},
-		{UUID: "Y1", IsPhoto: true, Burst: true, BurstUUID: "Y", BurstPickType: 8, Date: moreDay(3)},
-	}
-	o := Options{Burst: true, Function: fns(func(ps morePhotos) morePhotos { return ps[len(ps)-1:] }), BurstPhotos: true}
-	if got, want := uuids(Apply(o, bursts, nil)), []string{"Y1"}; !slices.Equal(got, want) {
-		t.Errorf("Apply = %q, want %q", got, want)
-	}
-	o.Function = fns(func(ps morePhotos) morePhotos { return ps[:1] })
-	if got, want := uuids(Apply(o, bursts, nil)), []string{"B2", "B1"}; !slices.Equal(got, want) {
-		t.Errorf("Apply = %q, want %q", got, want)
-	}
+	t.Run("functions run before the burst frames are added", func(t *testing.T) {
+		t.Parallel()
+		bursts := morePhotos{
+			{UUID: "B1", IsPhoto: true, Burst: true, BurstUUID: "X", BurstPickType: 8, Date: moreDay(2)},
+			{UUID: "B2", IsPhoto: true, Burst: true, BurstUUID: "X", BurstPickType: 2, Date: moreDay(1)},
+			{UUID: "Y1", IsPhoto: true, Burst: true, BurstUUID: "Y", BurstPickType: 8, Date: moreDay(3)},
+		}
+		o := Options{Burst: true, Function: fns(func(ps morePhotos) morePhotos { return ps[len(ps)-1:] }), BurstPhotos: true}
+		if got, want := uuids(Apply(o, bursts, nil)), []string{"Y1"}; !slices.Equal(got, want) {
+			t.Errorf("Apply = %q, want %q", got, want)
+		}
+		o.Function = fns(func(ps morePhotos) morePhotos { return ps[:1] })
+		if got, want := uuids(Apply(o, bursts, nil)), []string{"B2", "B1"}; !slices.Equal(got, want) {
+			t.Errorf("Apply = %q, want %q", got, want)
+		}
+	})
 }

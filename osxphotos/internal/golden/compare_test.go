@@ -339,33 +339,33 @@ func TestCompareKeepsInput(t *testing.T) {
 
 func TestCompareNulls(t *testing.T) {
 	t.Parallel()
-	p3m := func(f func(x *photoinfo.PhotoInfo)) func(l *Library) { return func(l *Library) { f(l.Photos[2]) } }
+	onEmptyPhoto := func(f func(x *photoinfo.PhotoInfo)) func(l *Library) { return func(l *Library) { f(l.Photos[2]) } }
 	cases := []mutation{
-		{"nothing", p3m(func(*photoinfo.PhotoInfo) {}), ""},
-		{"Title", p3m(func(x *photoinfo.PhotoInfo) { x.Title = "x" }), "title"},
-		{"Description", p3m(func(x *photoinfo.PhotoInfo) { x.Description = "x" }), "description"},
-		{"CloudMasterGUID", p3m(func(x *photoinfo.PhotoInfo) { x.CloudMasterGUID = "x" }), "cloud_guid"},
-		{"Fingerprint", p3m(func(x *photoinfo.PhotoInfo) { x.Fingerprint = "x" }), "fingerprint"},
-		{"UTIRaw", p3m(func(x *photoinfo.PhotoInfo) { x.UTIRaw = "x" }), "uti_raw"},
-		{"UTIEdited", p3m(func(x *photoinfo.PhotoInfo) { x.UTIEdited = "x" }), "uti_edited"},
-		{"Width", p3m(func(x *photoinfo.PhotoInfo) { x.Width = 1 }), "width"},
-		{"Height", p3m(func(x *photoinfo.PhotoInfo) { x.Height = 1 }), "height"},
-		{"OriginalWidth", p3m(func(x *photoinfo.PhotoInfo) { x.OriginalWidth = 1 }), "original_width"},
-		{"OriginalHeight", p3m(func(x *photoinfo.PhotoInfo) { x.OriginalHeight = 1 }), "original_height"},
-		{"OriginalOrientation", p3m(func(x *photoinfo.PhotoInfo) { x.OriginalOrientation = 1 }), "original_orientation"},
-		{"OriginalFilesize", p3m(func(x *photoinfo.PhotoInfo) { x.OriginalFilesize = 1 }), "original_filesize"},
-		{"Orientation", p3m(func(x *photoinfo.PhotoInfo) { x.Orientation = 1 }), "orientation"},
-		{"InCloud false is not null", p3m(func(x *photoinfo.PhotoInfo) { x.InCloud = ptr(false) }), "incloud"},
-		{"TZOffset 0 is not null", p3m(func(x *photoinfo.PhotoInfo) { x.TZOffset = ptr(0) }), "tzoffset"},
-		{"Latitude 0 is not null", p3m(func(x *photoinfo.PhotoInfo) { x.Latitude = ptr(0.0) }), "latitude location"},
-		{"Longitude 0 is not null", p3m(func(x *photoinfo.PhotoInfo) { x.Longitude = ptr(0.0) }), "location longitude"},
-		{"DateModified at the epoch is not null", p3m(func(x *photoinfo.PhotoInfo) { x.DateModified = ptr(time.Unix(0, 0)) }), "date_modified"},
-		{"DateTrashed at the epoch is not null", p3m(func(x *photoinfo.PhotoInfo) { x.DateTrashed = ptr(time.Unix(0, 0)) }), "date_trashed"},
-		{"DateAdded at the epoch is the default", p3m(func(x *photoinfo.PhotoInfo) { x.DateAdded = ptr(time.Unix(0, 0)) }), ""},
-		{"DateAdded", p3m(func(x *photoinfo.PhotoInfo) { x.DateAdded = ptr(time.Unix(1, 0)) }), "date_added"},
-		{"Keywords", p3m(func(x *photoinfo.PhotoInfo) { x.Keywords = []string{"x"} }), "keywords"},
-		{"Keywords empty, not nil", p3m(func(x *photoinfo.PhotoInfo) { x.Keywords = []string{} }), ""},
-		{"HasPersons", p3m(func(x *photoinfo.PhotoInfo) { x.HasPersons = true }), "persons"},
+		{"nothing", onEmptyPhoto(func(*photoinfo.PhotoInfo) {}), ""},
+		{"Title", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Title = "x" }), "title"},
+		{"Description", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Description = "x" }), "description"},
+		{"CloudMasterGUID", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.CloudMasterGUID = "x" }), "cloud_guid"},
+		{"Fingerprint", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Fingerprint = "x" }), "fingerprint"},
+		{"UTIRaw", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.UTIRaw = "x" }), "uti_raw"},
+		{"UTIEdited", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.UTIEdited = "x" }), "uti_edited"},
+		{"Width", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Width = 1 }), "width"},
+		{"Height", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Height = 1 }), "height"},
+		{"OriginalWidth", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.OriginalWidth = 1 }), "original_width"},
+		{"OriginalHeight", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.OriginalHeight = 1 }), "original_height"},
+		{"OriginalOrientation", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.OriginalOrientation = 1 }), "original_orientation"},
+		{"OriginalFilesize", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.OriginalFilesize = 1 }), "original_filesize"},
+		{"Orientation", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Orientation = 1 }), "orientation"},
+		{"InCloud false is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.InCloud = ptr(false) }), "incloud"},
+		{"TZOffset 0 is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.TZOffset = ptr(0) }), "tzoffset"},
+		{"Latitude 0 is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Latitude = ptr(0.0) }), "latitude location"},
+		{"Longitude 0 is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Longitude = ptr(0.0) }), "location longitude"},
+		{"DateModified at the epoch is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.DateModified = ptr(time.Unix(0, 0)) }), "date_modified"},
+		{"DateTrashed at the epoch is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.DateTrashed = ptr(time.Unix(0, 0)) }), "date_trashed"},
+		{"DateAdded at the epoch is the default", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.DateAdded = ptr(time.Unix(0, 0)) }), ""},
+		{"DateAdded", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.DateAdded = ptr(time.Unix(1, 0)) }), "date_added"},
+		{"Keywords", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Keywords = []string{"x"} }), "keywords"},
+		{"Keywords empty, not nil", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Keywords = []string{} }), ""},
+		{"HasPersons", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.HasPersons = true }), "persons"},
 		{"AlbumUUIDs of a trashed album", func(l *Library) { l.Photos[2].AlbumUUIDs = []string{albumTrashed} }, ""},
 		{"AlbumUUIDs", func(l *Library) { l.Photos[2].AlbumUUIDs = []string{albumBNoFolder} }, "album_info albums folders"},
 	}
@@ -645,7 +645,7 @@ func TestCompareAlbumRules(t *testing.T) {
 	})
 	t.Run("a shared album with owner null is a user album the Go side lost", func(t *testing.T) {
 		t.Parallel()
-		lost := albumJSON(sharedAlbumS, `"Shared S"`, "null", `["Shared Folder"]`, `"2020-03-03T03:03:03+00:00"`, "null", "null", "null")
+		lost := albumJSON(albumSharedS, `"Shared S"`, "null", `["Shared Folder"]`, `"2020-03-03T03:03:03+00:00"`, "null", "null", "null")
 		ref := refObj(refSelectedFrame(), map[string]string{
 			"album_info":       "[" + strings.Join([]string{elemAInFolderX, elemAInFolderY, lost, elemSharedTitledA}, ", ") + "]",
 			"burst_album_info": "[" + strings.Join([]string{elemBNoFolder, elemAInFolderX, elemAInFolderY, lost}, ", ") + "]",
@@ -673,12 +673,11 @@ func TestCompareAlbumRules(t *testing.T) {
 	})
 	t.Run("a shared album with the title of a user album keeps the title", func(t *testing.T) {
 		t.Parallel()
-		// Album A of the user is missing on the Go side: albums must still say Album A.
 		lib := fixtureLib()
 		lib.Photos[0].AlbumUUIDs = []string{albumTrashed}
 		rep := run(t, refObj(refSelectedFrame()), lib)
 		if got := diffKeys(rep); !slices.Equal(got, []string{"album_info", "albums", "folders"}) {
-			t.Errorf("differences in %v, want album_info, albums, folders", got)
+			t.Errorf("differences in %v, want album_info, albums, folders: Album A of the user is missing on the Go side", got)
 		}
 	})
 	t.Run("an album without a title", func(t *testing.T) {
@@ -702,7 +701,6 @@ func TestCompareAlbumRules(t *testing.T) {
 	})
 	t.Run("two albums with one title: the reference keeps the last value", func(t *testing.T) {
 		t.Parallel()
-		// Reference value of Album A is Folder X, the Go albums are X and Y.
 		ref := refObj(refSelectedFrame(), map[string]string{"folders": `{"Album A": ["Folder X"], "Shared S": ["Shared Folder"]}`})
 		if rep := run(t, ref, fixtureLib()); !rep.OK() {
 			t.Errorf("differences %+v, want none", rep.Diffs)
@@ -712,9 +710,8 @@ func TestCompareAlbumRules(t *testing.T) {
 		if len(rep.Diffs) != 1 || rep.Diffs[0].Field != "folders" {
 			t.Fatalf("differences %+v, want folders only", rep.Diffs)
 		}
-		// With no value to match, the smaller folder list is shown.
 		if want := `{"Album A":["Folder Q"]}`; rep.Diffs[0].Want != want {
-			t.Errorf("Want = %s, want %s", rep.Diffs[0].Want, want)
+			t.Errorf("Want = %s, want %s: with no value to match, the smaller folder list is shown", rep.Diffs[0].Want, want)
 		}
 		if want := `{"Album A":["Folder X"]}`; rep.Diffs[0].Got != want {
 			t.Errorf("Got = %s, want %s", rep.Diffs[0].Got, want)
@@ -773,7 +770,7 @@ func TestCompareBurstPhotos(t *testing.T) {
 		}
 	}
 	a, b, c := frame(q1), frame(q2), frame(q3)
-	a.Burst, b.Burst = true, true
+	a.Burst, b.Burst = true, true // BurstUUID "" for both: "" is a burst too
 	ref := refOf(
 		refObj(refEmptyPhoto(), map[string]string{"uuid": `"` + q1 + `"`, "burst": "true", "burst_photos": `["` + q2 + `"]`}),
 		refObj(refEmptyPhoto(), map[string]string{"uuid": `"` + q2 + `"`, "burst": "true", "burst_photos": `["` + q1 + `"]`}),

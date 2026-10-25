@@ -133,7 +133,7 @@ const (
 
 func setTrailer(data []byte, field, width int, v uint64) []byte {
 	out := bytes.Clone(data)
-	copy(out[len(out)-bplistTrailer+field:], appendSized(nil, v, width))
+	copy(out[len(out)-bplistTrailerSize+field:], appendSized(nil, v, width))
 	return out
 }
 
@@ -142,14 +142,14 @@ func setTrailer(data []byte, field, width int, v uint64) []byte {
 func TestCheckBinaryTrailer(t *testing.T) {
 	t.Parallel()
 	base := emptyDictBinary()
-	limit := uint64(len(base) - bplistTrailer)
+	limit := uint64(len(base) - bplistTrailerSize)
 	refused := []struct {
 		name string
 		data []byte
 		want error
 	}{
 		{"truncated binary", []byte("bplist00\xd1\x01\x02"), errBinaryTrailer},
-		{"39 bytes", append([]byte("bplist00"), make([]byte, bplistTrailer-1)...), errBinaryTrailer},
+		{"39 bytes", append([]byte("bplist00"), make([]byte, bplistTrailerSize-1)...), errBinaryTrailer},
 		{"2^40 objects", setTrailer(base, trailerObjects, 8, 1<<40), errBinaryTrailer},
 		{"no objects", setTrailer(base, trailerObjects, 8, 0), errBinaryTrailer},
 		{"more objects than bytes", setTrailer(base, trailerObjects, 8, limit+1), errBinaryTrailer},
@@ -159,7 +159,7 @@ func TestCheckBinaryTrailer(t *testing.T) {
 		{"reference size 9", setTrailer(base, trailerRefSize, 1, 9), errBinaryTrailer},
 		{"root object out of range", setTrailer(base, trailerTop, 8, 1), errBinaryTrailer},
 		{"root object MaxUint64", setTrailer(base, trailerTop, 8, math.MaxUint64), errBinaryTrailer},
-		{"offset table in the header", setTrailer(base, trailerTable, 8, bplistHeader-1), errBinaryTrailer},
+		{"offset table in the header", setTrailer(base, trailerTable, 8, bplistHeaderSize-1), errBinaryTrailer},
 		{"offset table after the trailer start", setTrailer(base, trailerTable, 8, limit+1), errBinaryTrailer},
 		{"offset table at MaxUint64", setTrailer(base, trailerTable, 8, math.MaxUint64), errBinaryTrailer},
 		{"offset table runs into the trailer", setTrailer(base, trailerObjects, 8, 2), errBinaryTrailer},
@@ -184,7 +184,7 @@ func TestCheckBinaryTrailer(t *testing.T) {
 		data []byte
 	}{
 		{"empty dictionary", base},
-		{"offset table right after the header", setTrailer(base, trailerTable, 8, bplistHeader)},
+		{"offset table right after the header", setTrailer(base, trailerTable, 8, bplistHeaderSize)},
 		{"8-byte offsets and references", binaryPlist([][]byte{bpRefs(0xD, 0, 8)}, 8)},
 		{"objects at the limit", flatArray(maxBinaryObjects)},
 		{"marshaled", marshal(t, map[string]any{modelKey: 19607}, plist.BinaryFormat)},

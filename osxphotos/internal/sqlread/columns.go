@@ -39,10 +39,9 @@ func Columns(s schema.Schema) map[string][]string {
 var ErrMissingColumn = errors.New("sqlread: missing table or column")
 
 // CheckColumns returns nil when every table of want exists and has every
-// listed column, otherwise an error wrapping
-// ErrMissingColumn that names the first missing element, tables in sorted
-// order, columns in the given order. Names are compared exactly, case
-// included.
+// listed column, otherwise an error wrapping ErrMissingColumn that names the
+// first missing element, tables in sorted order, columns in the given order.
+// Names are compared exactly, case included.
 func (d *DB) CheckColumns(ctx context.Context, want map[string][]string) error {
 	for _, table := range slices.Sorted(maps.Keys(want)) {
 		have, err := d.columns(ctx, table)

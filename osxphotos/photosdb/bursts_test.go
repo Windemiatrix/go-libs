@@ -39,16 +39,16 @@ const pickUnselected = 2
 
 func burstCatalog() *DB {
 	const (
-		fourFrames   = "key-selected-unselected-trashed"
-		twoKeys      = "two-keys"
-		noKey        = "no-key"
-		trashedKeyID = "trashed-key"
-		keySelected  = "key-selected"
+		fourFrames  = "key-selected-unselected-trashed"
+		twoKeys     = "two-keys"
+		noKey       = "no-key"
+		trashedKey  = "trashed-key"
+		keySelected = "key-selected"
 	)
 	trashed := burstFrame("A4", fourFrames, 0)
 	trashed.InTrash = true
-	trashedKey := burstFrame("T1", trashedKeyID, photoinfo.BurstPickKey)
-	trashedKey.InTrash = true
+	trashedKeyFrame := burstFrame("T1", trashedKey, photoinfo.BurstPickKey)
+	trashedKeyFrame.InTrash = true
 	return burstDB(
 		burstFrame("A1", fourFrames, photoinfo.BurstPickKey),
 		burstFrame("A2", fourFrames, photoinfo.BurstPickSelected),
@@ -64,8 +64,8 @@ func burstCatalog() *DB {
 		burstFrame("F1", "solo", photoinfo.BurstPickSelected),
 		burstFrame("F2", "solo-key", photoinfo.BurstPickKey),
 		&photoinfo.PhotoInfo{UUID: "N1"},
-		trashedKey,
-		burstFrame("T2", trashedKeyID, photoinfo.BurstPickSelected),
+		trashedKeyFrame,
+		burstFrame("T2", trashedKey, photoinfo.BurstPickSelected),
 		burstFrame("U1", keySelected, photoinfo.BurstPickKey),
 		burstFrame("U2", keySelected, photoinfo.BurstPickSelected),
 		&photoinfo.PhotoInfo{UUID: "X1", BurstUUID: fourFrames, BurstKey: true},

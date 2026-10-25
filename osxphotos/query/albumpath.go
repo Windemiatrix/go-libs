@@ -36,16 +36,16 @@ func parseAlbumPath(s string, fold caseFold) []string {
 	return parts
 }
 
-// matchAnyAlbum follows photoquery.py:973-988.
-func (ps albumPaths) matchAnyAlbum(a *albuminfo.AlbumInfo) bool {
+// namesAlbum follows photoquery.py:973-988.
+func (ps albumPaths) namesAlbum(a *albuminfo.AlbumInfo) bool {
 	n := len(a.FolderNames)
 	return slices.ContainsFunc(ps.paths, func(p []string) bool {
 		return len(p) == n+1 && p[n] == ps.fold.apply(a.Title) && ps.prefix(p[:n], a.FolderNames)
 	})
 }
 
-// matchAnyFolder follows photoquery.py:954-972.
-func (ps albumPaths) matchAnyFolder(a *albuminfo.AlbumInfo) bool {
+// enclosesAlbum follows photoquery.py:954-972.
+func (ps albumPaths) enclosesAlbum(a *albuminfo.AlbumInfo) bool {
 	return slices.ContainsFunc(ps.paths, func(p []string) bool { return ps.prefix(p, a.FolderNames) })
 }
 

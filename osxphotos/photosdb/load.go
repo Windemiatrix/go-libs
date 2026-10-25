@@ -239,11 +239,11 @@ func hasRAW(res []sqlread.Resource) bool {
 	return false
 }
 
-// The resources are ordered by Z_PK (photosdb.py:2441-2516). Upstream reads the resources of subtypes 1
-// and 3, then the resources whose ZFINGERPRINT is the fingerprint of the
-// asset, of any asset, and the last row read wins. Here the second pass
-// reads only the resources of the asset, and the last row is the one with
-// the highest Z_PK.
+// isMissing follows photosdb.py:2441-2516; the resources are ordered by Z_PK.
+// Upstream reads the resources of subtypes 1 and 3, then the resources whose
+// ZFINGERPRINT is the fingerprint of the asset, of any asset, and the last row
+// read wins. Here the second pass reads only the resources of the asset, and
+// the last row is the one with the highest Z_PK.
 func isMissing(res []sqlread.Resource, fingerprint string) bool {
 	var last *sqlread.Resource
 	if fingerprint != "" {

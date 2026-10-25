@@ -113,12 +113,12 @@ func refTime(o Object, key string, nullOK bool) (*time.Time, error) {
 	return parseRef(s, key)
 }
 
-func goMoment(t *time.Time, def time.Time) any {
+func goMoment(t *time.Time, missingDefault time.Time) any {
 	switch {
 	case t != nil:
 		return momentString(*t)
-	case !def.IsZero():
-		return momentString(def)
+	case !missingDefault.IsZero():
+		return momentString(missingDefault)
 	default:
 		return nil
 	}

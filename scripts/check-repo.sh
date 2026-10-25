@@ -3,7 +3,7 @@
 # git are examined, so build output and local junk never matter. Runs from the
 # repository root.
 #
-# Exit:0 every check passed; 1 at least one failed. Every check runs, and
+# Exit:   0 every check passed; 1 at least one failed. Every check runs, and
 #         each failure is printed as "FAIL: ..." on stderr.
 set -euo pipefail
 

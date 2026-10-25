@@ -327,10 +327,10 @@ func keptAndDropped(albums []refAlbum, name func(*string) string) (kept []refAlb
 	return kept, keptNames, droppedNames
 }
 
-// json.dumps writes the key None as null, so folders names an album without a
-// title "null".
 func albumsName(t *string) string { return deref(t) }
 
+// json.dumps writes the key None as null, so folders names an album without a
+// title "null".
 func foldersName(t *string) string {
 	if t == nil {
 		return "null"

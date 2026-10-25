@@ -32,11 +32,11 @@ type Diff struct {
 // Report is the result of Compare for one library.
 type Report struct {
 	Library   string
-	Objects   int // objects of the reference (query.json + deleted.json)
-	Keys      []string
-	Diffs     []Diff // not explained by a divergence, sorted by Field, then UUID
-	Explained map[string]int
-	Stale     []Divergence // records of this library and of Keys that explained nothing
+	Objects   int            // objects of the reference (query.json + deleted.json)
+	Keys      []string       // the compared keys, sorted, without repeats
+	Diffs     []Diff         // not explained by a divergence, sorted by Field, then UUID
+	Explained map[string]int // per Diff.Field, the number of differences a divergence explained
+	Stale     []Divergence   // records of this library and of Keys that explained nothing
 }
 
 // OK reports no unexplained differences and no stale records.

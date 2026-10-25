@@ -25,8 +25,8 @@ const (
 	albumAInFolderY    = "00000000-0000-0000-0000-0000000000a3"
 	albumBNoFolder     = "00000000-0000-0000-0000-0000000000a5"
 	albumOfNoPhoto     = "00000000-0000-0000-0000-0000000000a9"
-	sharedAlbumS       = "00000000-0000-0000-0000-0000000000c1"
-	sharedAlbumTitledA = "00000000-0000-0000-0000-0000000000c2"
+	albumSharedS       = "00000000-0000-0000-0000-0000000000c1"
+	albumSharedTitledA = "00000000-0000-0000-0000-0000000000c2"
 	folderX            = "00000000-0000-0000-0000-0000000000f1"
 	folderY            = "00000000-0000-0000-0000-0000000000f2"
 )
@@ -99,9 +99,9 @@ var (
 		`"2001-01-01T00:00:00+00:00"`, "null", `"2020-12-31T23:59:59.500000+00:00"`, "null")
 	elemBNoFolder = albumJSON(albumBNoFolder, `"Album B"`, "null", "[]",
 		`"2020-02-02T02:02:02+00:00"`, "null", "null", "null")
-	elemSharedS = albumJSON(sharedAlbumS, `"Shared S"`, "null", `["Shared Folder"]`,
+	elemSharedS = albumJSON(albumSharedS, `"Shared S"`, "null", `["Shared Folder"]`,
 		`"2020-03-03T03:03:03+00:00"`, "null", "null", `"Owner A"`)
-	elemSharedTitledA = albumJSON(sharedAlbumTitledA, `"Album A"`, "null", `["Shared Folder"]`,
+	elemSharedTitledA = albumJSON(albumSharedTitledA, `"Album A"`, "null", `["Shared Folder"]`,
 		`"2020-03-03T03:03:03+00:00"`, "null", "null", `"Owner A"`)
 )
 

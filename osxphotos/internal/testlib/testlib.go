@@ -57,7 +57,7 @@ func Libraries(t testing.TB) []string {
 		t.Fatalf("testlib: %v", err)
 	}
 	var names []string
-	for _, e := range entries {
+	for _, e := range entries { // os.ReadDir sorts by name
 		if !e.IsDir() {
 			continue
 		}
@@ -81,8 +81,10 @@ func Open(t testing.TB, name string) string {
 }
 
 // OpenPristine copies database/Photos.sqlite and, when present,
-// Photos.sqlite-wal of the named library into a temporary directory, without
-// migrations, for tests that compare the original state with the migrated one.
+// Photos.sqlite-wal of the named library into
+// <t.TempDir()>/<name>.photoslibrary/database/ and returns the library path
+// (the directory that photosdb.Open takes), without migrations, for tests that
+// compare the original state with the migrated one.
 // It does apply reference/*.sql of the library: those statements are part of
 // the library, and golden-regen.yml applies them too before it runs osxphotos.
 // Any failure is t.Fatal.

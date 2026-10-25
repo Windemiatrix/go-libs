@@ -98,9 +98,7 @@ func (o *originals) abs(name string) string {
 	return filepath.Join(o.lib, originalsDir, filepath.FromSlash(name))
 }
 
-// rawName finds the RAW file of a RAW+JPEG pair: the first name of dir, in
-// name order, that starts with <stem of file>_4, compared in NFD and lower
-// case (photoinfo.py:545-558, utils.py:327-396).
+// rawName follows photoinfo.py:545-558 and utils.py:327-396.
 func (o *originals) rawName(dir, file string) (string, bool) {
 	if _, ok := relName(dir, file); !ok {
 		return "", false

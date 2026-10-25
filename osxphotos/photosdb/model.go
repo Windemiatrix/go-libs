@@ -87,8 +87,8 @@ func (f *modelField) UnmarshalPlist(unmarshal func(any) error) error {
 
 // A string of ASCII decimal digits is accepted as upstream int() of a str
 // (photosdb_utils.py:137), but without its sign, spaces and non-ASCII digits.
-// howett.net/plist decodes integers as uint64 or int64. A number outside int32, far beyond
-// every known model, is an unknown model, not a type error.
+// howett.net/plist decodes integers as uint64 or int64. A number outside int32,
+// far beyond every known model, is an unknown model, not a type error.
 func modelVersion(v any) (int, error) {
 	switch n := v.(type) {
 	case uint64:
@@ -152,16 +152,16 @@ var (
 )
 
 // Only XML and binary lists are accepted, the two formats that osxphotos reads
-// with plistlib. The text formats that
-// howett.net/plist also accepts (OpenStep, GNUstep) are refused: in them
-// almost any text, such as "garbage", is a valid string. An input that does
-// not start as binary or XML is refused before the parser, which would read
-// it as text: there one byte opens one level of nesting, and 1 MiB of "("
-// took 0.6 s, 0.5 GB of allocations and a 256 MB stack (1.6 s and 512 MB
-// with the race detector). An XML input that the XML parser refuses still
-// falls back to the text parser and is refused after it; as text it starts
-// with "<", which opens data, not nesting. v is a struct or an Unmarshaler
-// with only the keys the caller needs, never any: see modelField.
+// with plistlib. The text formats that howett.net/plist also accepts
+// (OpenStep, GNUstep) are refused: in them almost any text, such as "garbage",
+// is a valid string. An input that does not start as binary or XML is refused
+// before the parser, which would read it as text: there one byte opens one
+// level of nesting, and 1 MiB of "(" took 0.6 s, 0.5 GB of allocations and a
+// 256 MB stack (1.6 s and 512 MB with the race detector). An XML input that
+// the XML parser refuses still falls back to the text parser and is refused
+// after it; as text it starts with "<", which opens data, not nesting. v is a
+// struct or an Unmarshaler with only the keys the caller needs, never any: see
+// modelField.
 func decodePlist(data []byte, v any) error {
 	if len(data) == 0 {
 		return errEmptyPlist
@@ -188,11 +188,9 @@ func startsAsXML(data []byte) bool {
 	return len(data) > 0 && data[0] == '<'
 }
 
-// bplistHeader and bplistTrailer are the sizes of the header ("bplist" and a
-// two-character version) and of the trailer of a binary property list.
 const (
-	bplistHeader  = 8
-	bplistTrailer = 32
+	bplistHeaderSize  = 8 // "bplist" and a two-character version
+	bplistTrailerSize = 32
 )
 
 // A binary property list whose trailer does not fit the input is refused
@@ -207,24 +205,24 @@ func checkBinaryTrailer(data []byte) error {
 	if !bytes.HasPrefix(data, []byte("bplist")) {
 		return nil
 	}
-	if len(data) < bplistHeader+bplistTrailer {
+	if len(data) < bplistHeaderSize+bplistTrailerSize {
 		return errBinaryTrailer
 	}
 	// Trailer: 5 unused bytes, sort version, offset size, reference size,
 	// number of objects, root object, offset of the offset table.
-	t := data[len(data)-bplistTrailer:]
+	t := data[len(data)-bplistTrailerSize:]
 	offsetSize, refSize := uint64(t[6]), uint64(t[7])
 	numObjects := binary.BigEndian.Uint64(t[8:16])
 	topObject := binary.BigEndian.Uint64(t[16:24])
 	tableOffset := binary.BigEndian.Uint64(t[24:32])
-	limit := uint64(len(data)) - bplistTrailer // the offset table ends here at the latest
+	limit := uint64(len(data)) - bplistTrailerSize // the offset table ends here at the latest
 	switch {
 	case offsetSize < 1 || offsetSize > 8, refSize < 1 || refSize > 8:
 		return errBinaryTrailer
 	case numObjects == 0, numObjects > limit, topObject >= numObjects:
 		return errBinaryTrailer
 	// numObjects <= limit and offsetSize <= 8, so the product cannot overflow.
-	case tableOffset < bplistHeader, tableOffset > limit, numObjects*offsetSize > limit-tableOffset:
+	case tableOffset < bplistHeaderSize, tableOffset > limit, numObjects*offsetSize > limit-tableOffset:
 		return errBinaryTrailer
 	case numObjects > maxBinaryObjects:
 		return errBinaryObjects

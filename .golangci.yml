@@ -40,7 +40,6 @@ linters:
             - {pkg: path/filepath, desc: "template builds slash-separated paths with package path"}
             - {pkg: syscall, desc: "template does not call the system"}
             - {pkg: unsafe, desc: "template does not use unsafe"}
-        # The export naming rules are pure as well.
         export:
           list-mode: lax
           files:
