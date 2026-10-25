@@ -69,7 +69,7 @@ Will not be supported (`ErrUnsupportedSchema`): models below 16000, 16000-16319 
 
 ## How it is tested
 
-- **Differential tests:** A, osxphotos test libraries; B, a synthetic database built from the DDL of real schemas with a reference from `osxphotos query --json`; C, a local run on the maintainer's library (not published; a condition of the first release). Items are compared by UUID; known divergences are listed with reasons. References are generated only by a separate manual workflow from a pinned osxphotos version.
+- **Differential tests:** A, osxphotos test libraries; B, a committed synthetic database (generated once, changed only by SQL migrations) with a reference from `osxphotos query --json`; C, a local run on the maintainer's library (not published; a condition of the first release). Items are compared by UUID; known divergences are listed with reasons. References are generated only by a separate manual workflow from a pinned osxphotos version.
 - **Schemas:** range boundaries and gaps; every column that is read exists in the DDL of its schema.
 - **Extensions:** osxphotos gives no reference for fields beyond it, for intentional differences, or for states its test libraries lack. These are checked with SQL migrations with synthetic values (`testdata/libraries/<name>/migrations/`): a test applies them to a temporary copy of a test library. The databases themselves stay unchanged copies of upstream, and the reference tests run on them. Checked:
   - cloud identifiers of items, albums and folders, including `NULL`, an empty string (counts as no identifier) and two items sharing one identifier;

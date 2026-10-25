@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Windemiatrix/go-libs/osxphotos/internal/gen"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
@@ -24,6 +23,7 @@ var librarySchemas = map[string]string{
 	"Test-16.0.0-beta":  "photos11",
 	"Test-26.1":         "photos11_1",
 	"Test-27.0_DevBeta": "photos12",
+	"synthetic":         "photos11_1",
 }
 
 func schemaByID(t *testing.T, id string) schema.Schema {
@@ -80,9 +80,8 @@ type testDB struct {
 	schema     schema.Schema
 }
 
-// libraryDBs returns the 8 test libraries (without migrations) and a gen
-// library with assets assets.
-func libraryDBs(t *testing.T, assets int) []testDB {
+// libraryDBs returns the test libraries, without migrations.
+func libraryDBs(t *testing.T) []testDB {
 	t.Helper()
 	var out []testDB
 	for _, name := range testlib.Libraries(t) {
@@ -93,7 +92,7 @@ func libraryDBs(t *testing.T, assets int) []testDB {
 		lib := testlib.OpenPristine(t, name)
 		out = append(out, testDB{name, filepath.Join(lib, "database", "Photos.sqlite"), schemaByID(t, id)})
 	}
-	return append(out, testDB{"gen", genDB(t, assets), schemaByID(t, gen.DefaultSchema)})
+	return out
 }
 
 func openDB(t *testing.T, path string) *DB {
@@ -124,7 +123,7 @@ func TestReaderColumns(t *testing.T) {
 	if methods != len(readers) {
 		t.Fatalf("*DB has %d exported reader methods, the table of readers has %d; add the new reader", methods, len(readers))
 	}
-	for _, lib := range libraryDBs(t, 0) {
+	for _, lib := range libraryDBs(t) {
 		t.Run(lib.name, func(t *testing.T) {
 			t.Parallel()
 			d := openDB(t, lib.path)
@@ -181,7 +180,7 @@ func TestColumnsIncludeJoins(t *testing.T) {
 func TestReadersRows(t *testing.T) {
 	t.Parallel()
 
-	for _, lib := range append(libraryDBs(t, 1000), testDB{"gen-empty", genDB(t, 0), schemaByID(t, gen.DefaultSchema)}) {
+	for _, lib := range libraryDBs(t) {
 		t.Run(lib.name, func(t *testing.T) {
 			t.Parallel()
 			ro := openRO(t, lib.path)
@@ -253,11 +252,6 @@ func TestReadersRows(t *testing.T) {
 				if persons[i-1] >= persons[i] {
 					t.Errorf("NamedPersonAssets not sorted and distinct at %d", i)
 				}
-			}
-
-			if lib.name == "gen-empty" && len(assets)+len(res)+len(members)+len(kws)+len(persons) != 0 {
-				t.Errorf("empty library: %d assets, %d resources, %d members, %d keywords, %d persons",
-					len(assets), len(res), len(members), len(kws), len(persons))
 			}
 		})
 	}
@@ -348,14 +342,14 @@ func TestReaderValueType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			path := genDB(t, 20)
+			path := syntheticDB(t)
 			w := openWriter(t, path)
 			exec(t, w, tt.stmt)
 			if err := w.Close(); err != nil {
 				t.Fatal(err)
 			}
 			d := openDB(t, path)
-			_, err := tt.run(t.Context(), d, schemaByID(t, gen.DefaultSchema))
+			_, err := tt.run(t.Context(), d, schemaByID(t, "photos11_1"))
 			if err == nil {
 				t.Fatal("no error")
 			}
@@ -374,7 +368,7 @@ func TestReaderValueType(t *testing.T) {
 func TestReadersNull(t *testing.T) {
 	t.Parallel()
 
-	path := genDB(t, 20)
+	path := syntheticDB(t)
 	w := openWriter(t, path)
 	exec(t, w,
 		"UPDATE Z_33ASSETS SET Z_3ASSETS = NULL WHERE rowid = (SELECT MIN(rowid) FROM Z_33ASSETS)",
@@ -387,7 +381,7 @@ func TestReadersNull(t *testing.T) {
 	wantMembers := count(t, ro, "SELECT COUNT(*) FROM Z_33ASSETS") - 2
 	wantRes := count(t, ro, "SELECT COUNT(*) FROM ZINTERNALRESOURCE") - 1
 	d := openDB(t, path)
-	n := schemaByID(t, gen.DefaultSchema)
+	n := schemaByID(t, "photos11_1")
 	for _, r := range readers {
 		if _, err := r.run(t.Context(), d, n); err != nil {
 			t.Errorf("%s: %v", r.name, err)
@@ -401,13 +395,39 @@ func TestReadersNull(t *testing.T) {
 	}
 }
 
+// TestReadersEmpty checks that every reader gives no rows and no error on a
+// library without assets.
+func TestReadersEmpty(t *testing.T) {
+	t.Parallel()
+
+	path := syntheticDB(t)
+	w := openWriter(t, path)
+	exec(t, w,
+		"DELETE FROM Z_33ASSETS",
+		"DELETE FROM Z_1KEYWORDS",
+		"DELETE FROM ZDETECTEDFACE",
+		"DELETE FROM ZINTERNALRESOURCE",
+		"DELETE FROM ZADDITIONALASSETATTRIBUTES",
+		"DELETE FROM ZASSET",
+	)
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	d := openDB(t, path)
+	for _, r := range readers {
+		if n, err := r.run(t.Context(), d, schemaByID(t, "photos11_1")); n != 0 || err != nil {
+			t.Errorf("%s: %d rows, %v; want 0, nil", r.name, n, err)
+		}
+	}
+}
+
 func TestReaderCanceled(t *testing.T) {
 	t.Parallel()
 
-	d := openDB(t, genDB(t, 20))
+	d := openDB(t, syntheticDB(t))
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	n := schemaByID(t, gen.DefaultSchema)
+	n := schemaByID(t, "photos11_1")
 	for _, r := range readers {
 		if _, err := r.run(ctx, d, n); err == nil {
 			t.Errorf("%s: no error with a canceled context", r.name)
@@ -429,7 +449,7 @@ func TestRAWResourceType(t *testing.T) {
 	t.Parallel()
 
 	var raw17, raw17Type4 int64
-	for _, lib := range libraryDBs(t, 1000) {
+	for _, lib := range libraryDBs(t) {
 		ro := openRO(t, lib.path)
 		rows, err := ro.QueryContext(t.Context(), "SELECT ZDATASTORESUBTYPE, ZRESOURCETYPE, CAST(ZCOMPACTUTI AS TEXT), COUNT(*) "+
 			"FROM ZINTERNALRESOURCE WHERE ZDATASTORESUBTYPE IN (1, 3, 17, 18) GROUP BY 1, 2, 3 ORDER BY 1, 2, 3")
@@ -457,9 +477,9 @@ func TestRAWResourceType(t *testing.T) {
 		if bad := count(t, ro, "SELECT COUNT(*) FROM ZINTERNALRESOURCE WHERE ZDATASTORESUBTYPE IN (1, 18) AND ZRESOURCETYPE = 4"); bad != 0 {
 			t.Errorf("%s: %d resources of subtype 1 or 18 have type 4", lib.name, bad)
 		}
-		if lib.name == "gen" {
-			if want := int64(40); pair3 != want { // RAWPairs 0.04 of 1000 assets
-				t.Errorf("gen: %d assets with subtype 3 and type 4, want %d", pair3, want)
+		if lib.name == "synthetic" {
+			if want := int64(40); pair3 != want { // the RAW pairs of the synthetic library
+				t.Errorf("synthetic: %d assets with subtype 3 and type 4, want %d", pair3, want)
 			}
 			continue
 		}

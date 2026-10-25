@@ -1,7 +1,6 @@
 package golden
 
 import (
-	"path/filepath"
 	"slices"
 	"testing"
 )
@@ -9,10 +8,7 @@ import (
 // TestKeysCoverFields: a key added to fields.txt without a rule is red.
 func TestKeysCoverFields(t *testing.T) {
 	t.Parallel()
-	fields, err := ReadFields(filepath.Join(Dir(t), "fields.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	fields := fieldsTxt(t)
 	photo, album := PhotoKeys(), AlbumKeys()
 	if !slices.IsSorted(photo) || !slices.IsSorted(album) {
 		t.Errorf("PhotoKeys %v and AlbumKeys %v must be sorted", photo, album)

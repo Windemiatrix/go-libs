@@ -215,7 +215,7 @@ func BenchmarkCompare20k(b *testing.B) {
 		folders := map[string]string{}
 		for k := 0; k < 3; k++ {
 			a := lib.Albums[(i+k)%30]
-			info = append(info, encodeAlbum(a))
+			info = append(info, albumJSON(a.UUID, jsonString(a.Title), "null", "[]", `"2001-01-01T00:00:00+00:00"`, "null", "null", "null"))
 			titles = append(titles, jsonString(a.Title))
 			folders[a.Title] = "[]"
 		}
@@ -247,9 +247,7 @@ func BenchmarkCompare20k(b *testing.B) {
 			b.Fatal(err)
 		}
 		if !rep.OK() {
-			var sb strings.Builder
-			_ = rep.WriteDetails(&sb)
-			b.Fatalf("%d differences, first lines:\n%s", len(rep.Diffs), firstLines(sb.String(), 5))
+			b.Fatalf("%d differences, first %+v", len(rep.Diffs), rep.Diffs[:min(len(rep.Diffs), 5)])
 		}
 	}
 }

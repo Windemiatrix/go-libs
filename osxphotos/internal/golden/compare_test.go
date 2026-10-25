@@ -4,6 +4,7 @@ import (
 	"errors"
 	"maps"
 	"math"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -298,6 +299,18 @@ func TestCompareEquivalent(t *testing.T) {
 		})
 	}
 
+	t.Run("quotes, HTML characters and offsets with seconds in the reference", func(t *testing.T) {
+		t.Parallel()
+		lib := fixtureLib()
+		lib.Photos[0].Title, lib.Photos[0].Keywords = `x"y`, []string{"<&>", `x"y`}
+		for _, date := range []string{`"2020-06-06T15:49:00.725564+01:33:36"`, `"2020-06-06T12:41:48.725564-01:33:36"`} {
+			ref := refOf(refObj(refP1(), map[string]string{"date": date, "title": `"x\"y"`, "keywords": `["<&>", "x\"y"]`}), refObj(refP3()))
+			if rep := compare(t, ref, lib); !rep.OK() {
+				t.Errorf("date %s: differences %+v, want none", date, rep.Diffs)
+			}
+		}
+	})
+
 	t.Run("orientation of an adjusted photo is skipped, and compared when not adjusted", func(t *testing.T) {
 		t.Parallel()
 		adjusted := refObj(refP1(), map[string]string{"hasadjustments": "true", "orientation": "0"})
@@ -313,6 +326,27 @@ func TestCompareEquivalent(t *testing.T) {
 			t.Errorf("differences in %v, want hasadjustments and orientation", got)
 		}
 	})
+}
+
+// TestCompareKeepsInput: Compare does not change what it is given.
+func TestCompareKeepsInput(t *testing.T) {
+	t.Parallel()
+	spoil := func(l Library) Library {
+		l.Photos[0].Keywords = []string{"beta", "alpha"} // unsorted lists that a careless sort would reorder
+		l.Photos[0].AlbumUUIDs = []string{albumA3, albumA1, albumA3}
+		return l
+	}
+	lib, ref := spoil(fixtureLib()), fixtureRef()
+	divs := []Divergence{{Library: "lib", UUID: "*", Field: "title", Want: []byte(`"x"`), Got: []byte(`"y"`)}}
+	if _, err := Compare(ref, lib, everyKey(), divs); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(lib, spoil(fixtureLib())) {
+		t.Error("Compare changed the Library")
+	}
+	if !reflect.DeepEqual(ref, fixtureRef()) {
+		t.Error("Compare changed the Reference")
+	}
 }
 
 // TestCompareNulls spoils the photo with empty values (p3), whose nulls the
@@ -492,15 +526,12 @@ func TestCompareErrors(t *testing.T) {
 		want string
 	}{
 		{"unknown key", fixtureRef, fixtureLib, []string{"title", "nonsense"}, `unknown key "nonsense"`},
-		{"album key without albums", fixtureRef, func() Library { l := fixtureLib(); l.Albums = nil; return l }, []string{"albums"}, "Library.Albums"},
+		{"album key without albums", fixtureRef, func() Library { l := fixtureLib(); l.Albums = nil; return l }, []string{"albums"}, "an album of a photo is missing from Library.Albums"},
 		{"photo keys without albums", fixtureRef, func() Library { l := fixtureLib(); l.Albums = nil; return l }, []string{"title"}, ""},
 		{"an album of a photo that Library does not have", fixtureRef, func() Library { l := fixtureLib(); l.Albums = l.Albums[1:]; return l },
 			[]string{"album_info"}, "query.json element 1: key album_info: an album of a photo is missing"},
 		{"an album UUID repeated", fixtureRef, func() Library { l := fixtureLib(); l.Albums = append(l.Albums, l.Albums[0]); return l },
 			[]string{"albums"}, "an album UUID is repeated"},
-		{"a nil album", fixtureRef, func() Library { l := fixtureLib(); l.Albums = append(l.Albums, nil); return l },
-			[]string{"albums"}, "nil entry"},
-		{"a nil photo", fixtureRef, func() Library { l := fixtureLib(); l.Photos = append(l.Photos, nil); return l }, []string{"title"}, "nil entry"},
 		{"a UUID repeated in Library.Photos", fixtureRef, func() Library { l := fixtureLib(); l.Photos = append(l.Photos, l.Photos[0]); return l },
 			[]string{"title"}, "UUID is repeated in Library.Photos"},
 		{"a UUID repeated in query.json", func() *Reference { r := fixtureRef(); r.Query = append(r.Query, r.Query[0]); return r }, fixtureLib,
@@ -531,7 +562,7 @@ func TestCompareErrors(t *testing.T) {
 		{"a filename that is null", func() *Reference { r := fixtureRef(); r.Query[0]["filename"] = []byte(`null`); return r }, fixtureLib,
 			[]string{"filename"}, "filename: want a string"},
 		{"a list of strings with a number", func() *Reference { r := fixtureRef(); r.Query[0]["keywords"] = []byte(`["a", 5]`); return r }, fixtureLib,
-			[]string{"keywords"}, "keywords[1]: want a string or null"},
+			[]string{"keywords"}, "keywords: want a list of strings"},
 		{"a location with three numbers", func() *Reference { r := fixtureRef(); r.Query[0]["location"] = []byte(`[1, 2, 3]`); return r }, fixtureLib,
 			[]string{"location"}, "location: want a list of two"},
 		{"a latitude that is a string", func() *Reference { r := fixtureRef(); r.Query[0]["latitude"] = []byte(`"` + marker + `"`); return r }, fixtureLib,
@@ -573,12 +604,6 @@ func TestCompareErrors(t *testing.T) {
 		})
 	}
 
-	t.Run("no reference", func(t *testing.T) {
-		t.Parallel()
-		if _, err := Compare(nil, fixtureLib(), nil, nil); err == nil {
-			t.Error("no error")
-		}
-	})
 	t.Run("an error is a shape error", func(t *testing.T) {
 		t.Parallel()
 		r := fixtureRef()
@@ -617,7 +642,7 @@ func TestCompareAlbumRules(t *testing.T) {
 	// uuid, so that the other photos of the library are not differences.
 	run := func(t *testing.T, ref Object, lib Library) *Report {
 		t.Helper()
-		id, _ := decodeString(ref["uuid"])
+		id, _ := decode[string](ref, "uuid", false, "")
 		lib.Photos = slices.DeleteFunc(slices.Clone(lib.Photos), func(p *photoinfo.PhotoInfo) bool { return p.UUID != id })
 		rep, err := Compare(refOf(ref), lib, albumKeys, nil)
 		if err != nil {

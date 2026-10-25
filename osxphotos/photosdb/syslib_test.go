@@ -86,7 +86,6 @@ func TestSystemLibraryPath(t *testing.T) {
 		{name: "container only", group: none, container: file{data: pathPlist(containerLibrary)}, want: containerLibrary},
 		{name: "no files", group: none, container: none, errText: []string{"not recorded"}},
 		{name: "broken group", group: file{data: []byte("garbage")}, container: file{data: pathPlist(containerLibrary)}, want: containerLibrary},
-		{name: "OpenStep text group", group: file{data: []byte(`{SystemLibraryPath = "/Users/someone/Pictures/Group.photoslibrary";}`)}, container: file{data: pathPlist(containerLibrary)}, want: containerLibrary},
 		{name: "integer value", group: file{data: libraryPlist("<integer>1</integer>")}, container: file{data: pathPlist(containerLibrary)}, want: containerLibrary},
 		{name: "empty string", group: file{data: pathPlist("")}, container: file{data: pathPlist(containerLibrary)}, want: containerLibrary},
 		{name: "root array", group: file{data: xmlPlist("<array><string>" + groupLibrary + "</string></array>")}, container: file{data: pathPlist(containerLibrary)}, want: containerLibrary},

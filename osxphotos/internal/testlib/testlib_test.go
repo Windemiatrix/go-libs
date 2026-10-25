@@ -6,14 +6,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -199,12 +197,9 @@ const (
 )
 
 // TestMigrations applies the migrations of every test library to a copy and
-// checks the markers and values they leave, and that the databases in
-// testdata stay byte for byte as they were.
+// checks the markers and values they leave.
 func TestMigrations(t *testing.T) {
-	dir := librariesDir(t)
-	before := hashTree(t, dir)
-
+	dir := RepoDir(t, "libraries")
 	names := Libraries(t)
 	if len(names) == 0 {
 		t.Fatalf("no test libraries in %s", dir)
@@ -217,43 +212,140 @@ func TestMigrations(t *testing.T) {
 					t.Fatalf("%s has a migrations directory but no entry in the expected table of this test", name)
 				}
 			}
-			db := openDB(t, Open(t, name))
-			pristine := openDB(t, OpenPristine(t, name))
+			db := OpenDB(t, dbFile(Open(t, name)))
+			pristine := OpenDB(t, dbFile(OpenPristine(t, name)))
 
 			wantAssets := slices.Sorted(slices.Values(want.assets))
-			if got := rowStrings(t, db, assetMarkersQuery); !slices.Equal(got, wantAssets) {
+			if got := Rows(t, db, assetMarkersQuery); !slices.Equal(got, wantAssets) {
 				t.Errorf("asset markers:\n got %q\nwant %q", got, wantAssets)
 			}
 			wantAlbums := slices.Sorted(slices.Values(want.albums))
-			if got := rowStrings(t, db, albumMarkersQuery); !slices.Equal(got, wantAlbums) {
+			if got := Rows(t, db, albumMarkersQuery); !slices.Equal(got, wantAlbums) {
 				t.Errorf("album markers:\n got %q\nwant %q", got, wantAlbums)
 			}
-			if got, was := count(t, db, assetCountQuery), count(t, pristine, assetCountQuery); got != was {
+			if got, was := Count(t, db, assetCountQuery), Count(t, pristine, assetCountQuery); got != was {
 				t.Errorf("assets: %d after migrations, %d before", got, was)
 			}
-			if got, was := count(t, db, skippedQuery), count(t, pristine, skippedQuery); got != was+want.skipped {
+			if got, was := Count(t, db, skippedQuery), Count(t, pristine, skippedQuery); got != was+want.skipped {
 				t.Errorf("assets without additional attributes: %d after migrations, %d before, want %d more",
 					got, was, want.skipped)
 			}
 			for _, c := range want.checks {
-				if got := scalar(t, db, c.query); got != c.want {
+				if got := Scalar(t, db, c.query); got != c.want {
 					t.Errorf("%s\n got %q\nwant %q", c.query, got, c.want)
 				}
 			}
 		})
 	}
+}
 
-	after := hashTree(t, dir)
-	for _, p := range slices.Sorted(maps.Keys(before)) {
-		if before[p] != after[p] {
-			t.Errorf("%s changed or disappeared during the test (SHA-256 before %q, after %q)", p, before[p], after[p])
+func dbFile(lib string) string { return filepath.Join(lib, "database", "Photos.sqlite") }
+
+// TestSynthetic grows the synthetic library to three times its assets and
+// checks that every copy of an asset has its own rows.
+func TestSynthetic(t *testing.T) {
+	t.Parallel()
+	base := OpenDB(t, dbFile(OpenPristine(t, "synthetic")))
+	db := OpenDB(t, dbFile(Synthetic(t, 3)))
+	for _, q := range []string{
+		"SELECT COUNT(*) FROM ZASSET",
+		"SELECT COUNT(DISTINCT ZUUID) FROM ZASSET",
+		"SELECT COUNT(*) FROM ZADDITIONALASSETATTRIBUTES",
+		"SELECT COUNT(*) FROM ZADDITIONALASSETATTRIBUTES x JOIN ZASSET a ON a.Z_PK = x.ZASSET AND a.ZADDITIONALATTRIBUTES = x.Z_PK",
+		"SELECT COUNT(*) FROM ZCLOUDMASTER",
+		"SELECT COUNT(*) FROM ZASSET a JOIN ZCLOUDMASTER m ON m.Z_PK = a.ZMASTER",
+		"SELECT COUNT(*) FROM ZINTERNALRESOURCE",
+		"SELECT COUNT(*) FROM ZINTERNALRESOURCE r JOIN ZASSET a ON a.Z_PK = r.ZASSET",
+	} {
+		if got, want := Count(t, db, q), 3*Count(t, base, q); got != want || want == 0 {
+			t.Errorf("%s: %d, want %d (three times the synthetic library, not 0)", q, got, want)
 		}
 	}
-	for _, p := range slices.Sorted(maps.Keys(after)) {
-		if _, ok := before[p]; !ok {
-			t.Errorf("%s appeared during the test", p)
+	if n := Count(t, db, "SELECT COUNT(*) FROM (SELECT ZMASTER FROM ZASSET WHERE ZMASTER IS NOT NULL GROUP BY ZMASTER HAVING COUNT(*) > 1)"); n != 0 {
+		t.Errorf("%d cloud masters are shared by several assets", n)
+	}
+}
+
+// TestPinnedSynthetic pins the content of the synthetic library: the
+// reference data in testdata/golden/synthetic was made from it. Change the
+// values only together with a new golden-regen run and the data of
+// testdata/golden/synthetic.
+func TestPinnedSynthetic(t *testing.T) {
+	t.Parallel()
+	db := OpenDB(t, dbFile(OpenPristine(t, "synthetic")))
+	want := map[string]string{
+		"ZADDITIONALASSETATTRIBUTES": "a0feab3f0ba6eb1fa1cfd9cdeae1d8e839d6a97deee0fa31e72c2397d144f69e",
+		"ZASSET":                     "908e214ba7a9469c3c63af73df18a332b1669bedf1b0f6e51870e2971fa9fd9c",
+		"ZCLOUDMASTER":               "0b16088332ad364ce67bf0430bcccfc8cbd138fcca4f2898f9e6a65bbee5fa77",
+		"ZGENERICALBUM":              "0edff7f44c9549940cca5fb5ece6afd2ee993e93e1ca41aa3f7491f5b533a8e8",
+		"ZINTERNALRESOURCE":          "a0c7073c0e59cfe254990ca61fdf0426231418c89d7a1b93747336597f063080",
+		"ZSHARE":                     "91ccadb230eadb3630ded0ca16977f6d9b1d4bb1472effcebf4de6bc1e32780e",
+		"Z_33ASSETS":                 "185264c4115e8f4d0030fefd689b1a8cb69c3d7b6007361aa60d8e716dc7e044",
+		"Z_METADATA":                 "1499d1544d311f49bf443419b78f525da0f1027e769fea8bce2ee62b9b4d0816",
+		"Z_PRIMARYKEY":               "217ea8c9942c73296138c4e5449e5bf4e3d9436fcf8167d8169729bd98136e46",
+		// The root node of an empty R-tree.
+		"Z_RT_Asset_boundedByRect_node": "c5916478df6da12198b3bd5af9491dbdc3015da888acd225e33aec67e6309393",
+	}
+	for _, table := range slices.Sorted(maps.Keys(want)) {
+		if got := hashRows(t, db, `SELECT * FROM "`+table+`" ORDER BY rowid`); got != want[table] {
+			t.Errorf("SHA-256 of %s:\n got %s\nwant %s", table, got, want[table])
 		}
 	}
+	tables, err := ordinaryTables(t.Context(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, table := range tables {
+		if _, pinned := want[table]; !pinned {
+			if n := Count(t, db, `SELECT COUNT(*) FROM "`+table+`"`); n != 0 {
+				t.Errorf("%s has %d rows, want 0 (a table without a pinned hash must be empty)", table, n)
+			}
+		}
+	}
+	if n := Count(t, db, "PRAGMA freelist_count"); n != 0 {
+		t.Errorf("freelist_count %d, want 0 (free pages can keep old data)", n)
+	}
+	if got, want := hashRows(t, db, "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"),
+		"b74f6dfd6522b50741b090d7c8f699dcbb8221ff6863fcbbc32bfd5d5a3d8c17"; got != want {
+		t.Errorf("SHA-256 of sqlite_master:\n got %s\nwant %s", got, want)
+	}
+}
+
+// hashRows returns the SHA-256 of the rows of query, every value with its type.
+func hashRows(t *testing.T, db *sql.DB, query string) string {
+	t.Helper()
+	rows, err := db.QueryContext(t.Context(), query)
+	if err != nil {
+		t.Fatalf("%s: %v", query, err)
+	}
+	defer func() { _ = rows.Close() }()
+	cols, err := rows.Columns()
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := sha256.New()
+	vals := make([]any, len(cols))
+	ptrs := make([]any, len(cols))
+	for i := range vals {
+		ptrs[i] = &vals[i]
+	}
+	for rows.Next() {
+		if err := rows.Scan(ptrs...); err != nil {
+			t.Fatal(err)
+		}
+		for _, v := range vals {
+			s := fmt.Sprint(v)
+			if b, ok := v.([]byte); ok {
+				s = hex.EncodeToString(b)
+			}
+			_, _ = fmt.Fprintf(h, "%T:%s\x00", v, s)
+		}
+		_, _ = h.Write([]byte{'\n'})
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 var (
@@ -265,7 +357,7 @@ var (
 // files NNN_<case>.sql numbered from 001 without gaps, no INSERT, and each
 // file parses into at least one statement.
 func TestMigrationFiles(t *testing.T) {
-	dir := librariesDir(t)
+	dir := RepoDir(t, "libraries")
 	for _, name := range Libraries(t) {
 		mdir := filepath.Join(dir, name, "migrations")
 		entries, err := os.ReadDir(mdir)
@@ -387,12 +479,7 @@ func TestMigrate(t *testing.T) {
 			case tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)):
 				t.Fatalf("migrate: got error %v, want one containing %q", err, tt.wantErr)
 			}
-			db, err := sql.Open("sqlite", dbPath)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer func() { _ = db.Close() }()
-			if got := scalar(t, db, "SELECT v FROM t WHERE id = 1"); got != tt.want {
+			if got := Scalar(t, OpenDB(t, dbPath), "SELECT v FROM t WHERE id = 1"); got != tt.want {
 				t.Errorf("t.v = %q, want %q", got, tt.want)
 			}
 		})
@@ -443,97 +530,4 @@ func writeFiles(t *testing.T, files map[string]string) []string {
 		paths = append(paths, p)
 	}
 	return paths
-}
-
-func openDB(t *testing.T, lib string) *sql.DB {
-	t.Helper()
-	db, err := sql.Open("sqlite", filepath.Join(lib, "database", "Photos.sqlite"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := db.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	return db
-}
-
-// scalar returns the single value of query; NULL is "NULL", no row is "<no row>".
-func scalar(t *testing.T, db *sql.DB, query string) string {
-	t.Helper()
-	var v sql.NullString
-	err := db.QueryRowContext(t.Context(), query).Scan(&v)
-	switch {
-	case errors.Is(err, sql.ErrNoRows):
-		return "<no row>"
-	case err != nil:
-		t.Fatalf("%s: %v", query, err)
-	case !v.Valid:
-		return "NULL"
-	}
-	return v.String
-}
-
-func count(t *testing.T, db *sql.DB, query string) int {
-	t.Helper()
-	s := scalar(t, db, query)
-	n, err := strconv.Atoi(s)
-	if err != nil {
-		t.Fatalf("%s: %q is not a number", query, s)
-	}
-	return n
-}
-
-func rowStrings(t *testing.T, db *sql.DB, query string) []string {
-	t.Helper()
-	rows, err := db.QueryContext(t.Context(), query)
-	if err != nil {
-		t.Fatalf("%s: %v", query, err)
-	}
-	defer func() { _ = rows.Close() }()
-	var out []string
-	for rows.Next() {
-		var s string
-		if err := rows.Scan(&s); err != nil {
-			t.Fatalf("%s: %v", query, err)
-		}
-		out = append(out, s)
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatalf("%s: %v", query, err)
-	}
-	return out
-}
-
-// hashTree returns the SHA-256 of every file under dir, keyed by relative path.
-func hashTree(t *testing.T, dir string) map[string]string {
-	t.Helper()
-	sums := map[string]string{}
-	// os.Root keeps every open inside dir, so a symlink cannot lead the walk out of it.
-	root, err := os.OpenRoot(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = root.Close() }()
-	err = fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		f, err := root.Open(p)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = f.Close() }()
-		h := sha256.New()
-		if _, err := io.Copy(h, f); err != nil {
-			return err
-		}
-		sums[filepath.FromSlash(p)] = hex.EncodeToString(h.Sum(nil))
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return sums
 }

@@ -8,7 +8,6 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"testing"
 	"time"
@@ -197,27 +196,12 @@ func TestOptionalTime(t *testing.T) {
 	}
 }
 
-// goldenDir is testdata/golden of the repository. A missing fixture fails
-// the test: a skip would let TestCoreDataTimeGolden pass without checking.
-func goldenDir(t *testing.T) string {
-	t.Helper()
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("cannot locate the package source")
-	}
-	dir := filepath.Join(filepath.Dir(file), "..", "..", "testdata", "golden")
-	if _, err := os.Stat(dir); err != nil {
-		t.Fatalf("testdata/golden is not available: %v", err)
-	}
-	return dir
-}
-
 // TestCoreDataTimeGolden converts ZADDEDDATE of three assets of Test-13.0.0
 // and compares the moments with date_added of the osxphotos output.
 func TestCoreDataTimeGolden(t *testing.T) {
 	t.Parallel()
 
-	data, err := os.ReadFile(filepath.Join(goldenDir(t), "Test-13.0.0", "query.json"))
+	data, err := os.ReadFile(filepath.Join(testlib.RepoDir(t, "golden"), "Test-13.0.0", "query.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

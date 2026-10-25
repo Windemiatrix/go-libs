@@ -2,6 +2,7 @@ package golden
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
@@ -17,7 +18,7 @@ import (
 // Library is the Go side of a comparison, as plain values.
 type Library struct {
 	Photos []*photoinfo.PhotoInfo // every photo of the database: photosdb.DB.Photos()
-	Albums []*albuminfo.AlbumInfo // every user album, trashed ones included; nil is allowed only without AlbumKeys
+	Albums []*albuminfo.AlbumInfo // every user album, trashed ones included; may be nil without AlbumKeys
 }
 
 // Diff is one difference between the reference and Go.
@@ -48,38 +49,31 @@ type env struct {
 	bursts map[string][]string       // sorted uuids of the burst frames per BurstUUID
 }
 
-var errNilEntry = errors.New("the Library holds a nil entry")
-
 var errAlbumMissing = errors.New("an album of a photo is missing from Library.Albums")
 
-func newEnv(lib Library, needAlbums bool) (*env, error) {
+func newEnv(lib Library) (*env, error) {
 	e := &env{
 		albums: map[string]*albuminfo.AlbumInfo{},
 		elems:  map[string]map[string]any{},
 		bursts: map[string][]string{},
 	}
-	if needAlbums {
-		for _, a := range lib.Albums {
-			if a == nil {
-				return nil, errNilEntry
-			}
-			if _, dup := e.albums[a.UUID]; dup {
-				return nil, errors.New("an album UUID is repeated in Library.Albums")
-			}
-			e.albums[a.UUID] = a
-			e.elems[a.UUID] = map[string]any{
-				"uuid":          a.UUID,
-				"title":         a.Title,
-				"parent":        a.ParentUUID,
-				"folder_names":  strs(a.FolderNames),
-				"creation_date": goMoment(a.CreationDate, defaultCreationDate),
-				"start_date":    goMoment(a.StartDate, time.Time{}),
-				"end_date":      goMoment(a.EndDate, time.Time{}),
-			}
+	for _, a := range lib.Albums {
+		if _, dup := e.albums[a.UUID]; dup {
+			return nil, errors.New("golden: an album UUID is repeated in Library.Albums")
+		}
+		e.albums[a.UUID] = a
+		e.elems[a.UUID] = map[string]any{
+			"uuid":          a.UUID,
+			"title":         a.Title,
+			"parent":        a.ParentUUID,
+			"folder_names":  strs(a.FolderNames),
+			"creation_date": goMoment(a.CreationDate, defaultCreationDate),
+			"start_date":    goMoment(a.StartDate, time.Time{}),
+			"end_date":      goMoment(a.EndDate, time.Time{}),
 		}
 	}
 	for _, p := range lib.Photos {
-		if p != nil && p.Burst {
+		if p.Burst {
 			e.bursts[p.BurstUUID] = append(e.bursts[p.BurstUUID], p.UUID)
 		}
 	}
@@ -130,13 +124,12 @@ func indexRef(ref *Reference) ([]refObject, error) {
 	}{{queryFile, ref.Query}, {deletedFile, ref.Deleted}} {
 		for i, obj := range part.objects {
 			ro := refObject{obj: obj, file: part.file, n: i + 1}
-			raw, err := field(obj, "uuid")
+			id, err := decode[string](obj, "uuid", false, "a non-empty string")
+			if err == nil && id == "" {
+				err = shape("uuid", "a non-empty string")
+			}
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", ro.where(ref.Library), err)
-			}
-			id, ok := decodeString(raw)
-			if !ok || id == "" {
-				return nil, fmt.Errorf("%s: %w", ro.where(ref.Library), shape("uuid", "a non-empty string"))
 			}
 			if prev, dup := first[id]; dup {
 				return nil, fmt.Errorf("%s: the uuid repeats that of %s element %d", ro.where(ref.Library), prev.file, prev.n)
@@ -157,19 +150,18 @@ func inGoSet(p *photoinfo.PhotoInfo) bool {
 }
 
 // selectRules returns the rules of keys, each once, in the order of the keys.
-func selectRules(keys []string) (selected []rule, names []string, needAlbums bool, err error) {
+func selectRules(keys []string) (selected []rule, names []string, err error) {
 	names = slices.Clone(keys)
 	slices.Sort(names)
 	names = slices.Compact(names)
 	for _, k := range names {
 		r, ok := rules[k]
 		if !ok {
-			return nil, nil, false, fmt.Errorf("golden: unknown key %q", k)
+			return nil, nil, fmt.Errorf("golden: unknown key %q", k)
 		}
 		selected = append(selected, r)
-		needAlbums = needAlbums || r.album
 	}
-	return selected, names, needAlbums, nil
+	return selected, names, nil
 }
 
 // Compare compares lib with ref on keys (each in PhotoKeys or AlbumKeys).
@@ -179,17 +171,12 @@ func selectRules(keys []string) (selected []rule, names []string, needAlbums boo
 // (photosdb/photosdb.py:3346-3360). An error is a problem of the input, not
 // a difference: an unknown key, a reference value of the wrong shape, an
 // album UUID missing from lib.Albums, a UUID repeated in ref (Query and
-// Deleted together) or in lib.Photos. Errors carry no UUID and no value.
+// Deleted together), in lib.Photos or in lib.Albums. Errors carry no UUID
+// and no value.
 func Compare(ref *Reference, lib Library, keys []string, divs []Divergence) (*Report, error) {
-	if ref == nil {
-		return nil, errors.New("golden: no reference")
-	}
-	selected, names, needAlbums, err := selectRules(keys)
+	selected, names, err := selectRules(keys)
 	if err != nil {
 		return nil, err
-	}
-	if needAlbums && lib.Albums == nil {
-		return nil, errors.New("golden: the keys need Library.Albums, which is nil")
 	}
 	objs, err := indexRef(ref)
 	if err != nil {
@@ -199,9 +186,9 @@ func Compare(ref *Reference, lib Library, keys []string, divs []Divergence) (*Re
 	if err != nil {
 		return nil, err
 	}
-	e, err := newEnv(lib, needAlbums)
+	e, err := newEnv(lib)
 	if err != nil {
-		return nil, fmt.Errorf("golden: %w", err)
+		return nil, err
 	}
 
 	var diffs []Diff
@@ -242,9 +229,6 @@ func indexGo(lib Library) (map[string]*photoinfo.PhotoInfo, error) {
 	all := make(map[string]bool, len(lib.Photos))
 	set := map[string]*photoinfo.PhotoInfo{}
 	for _, p := range lib.Photos {
-		if p == nil {
-			return nil, fmt.Errorf("golden: %w", errNilEntry)
-		}
 		if all[p.UUID] {
 			return nil, errors.New("golden: a UUID is repeated in Library.Photos")
 		}
@@ -297,19 +281,11 @@ func compareKey(e *env, r rule, ro refObject, p *photoinfo.PhotoInfo, library st
 // counts it in rep.Explained and returns the rest, sorted, with the records of
 // the library and of the compared keys (or uuid) that explained nothing.
 func explain(rep *Report, diffs []Diff, divs []Divergence, keys []string) (open []Diff, stale []Divergence) {
-	var mine []Divergence
-	byField := map[string][]int{}
-	for _, d := range divs {
-		if d.Library == rep.Library {
-			byField[d.Field] = append(byField[d.Field], len(mine))
-			mine = append(mine, d)
-		}
-	}
-	used := make([]bool, len(mine))
+	used := make([]bool, len(divs))
 	for _, diff := range diffs {
 		matched := false
-		for _, i := range byField[diff.Field] {
-			if mine[i].explains(diff) {
+		for i, d := range divs {
+			if d.explains(rep.Library, diff) {
 				used[i], matched = true, true
 			}
 		}
@@ -320,34 +296,25 @@ func explain(rep *Report, diffs []Diff, divs []Divergence, keys []string) (open 
 		}
 	}
 	slices.SortFunc(open, func(a, b Diff) int {
-		return cmpStrings(a.Field, b.Field, a.UUID, b.UUID)
+		return cmp.Or(strings.Compare(a.Field, b.Field), strings.Compare(a.UUID, b.UUID))
 	})
-	for i, d := range mine {
-		if !used[i] && (d.Field == "uuid" || slices.Contains(keys, d.Field)) {
+	for i, d := range divs {
+		if !used[i] && d.Library == rep.Library && (d.Field == "uuid" || slices.Contains(keys, d.Field)) {
 			stale = append(stale, d)
 		}
 	}
 	slices.SortFunc(stale, func(a, b Divergence) int {
-		return cmpStrings(a.Field, b.Field, a.UUID, b.UUID, string(a.Want), string(b.Want), string(a.Got), string(b.Got), a.Reason, b.Reason)
+		return cmp.Or(strings.Compare(a.Field, b.Field), strings.Compare(a.UUID, b.UUID),
+			bytes.Compare(a.Want, b.Want), bytes.Compare(a.Got, b.Got), strings.Compare(a.Reason, b.Reason))
 	})
 	return open, stale
 }
 
-// cmpStrings compares pairs of strings in turn: (a1, b1, a2, b2, ...).
-func cmpStrings(pairs ...string) int {
-	for i := 0; i+1 < len(pairs); i += 2 {
-		if c := strings.Compare(pairs[i], pairs[i+1]); c != 0 {
-			return c
-		}
-	}
-	return 0
-}
-
-// explains reports whether the record covers the difference: the same field,
-// the same object (or all of them), and the values when the record has them.
-// The library is checked by the caller.
-func (d Divergence) explains(diff Diff) bool {
-	return d.Field == diff.Field &&
+// explains reports whether the record covers the difference: the same
+// library and field, the same object (or all of them), and the values when
+// the record has them.
+func (d Divergence) explains(library string, diff Diff) bool {
+	return d.Library == library && d.Field == diff.Field &&
 		(d.UUID == "*" || d.UUID == diff.UUID) &&
 		(len(d.Want) == 0 || string(d.Want) == diff.Want) &&
 		(len(d.Got) == 0 || string(d.Got) == diff.Got)

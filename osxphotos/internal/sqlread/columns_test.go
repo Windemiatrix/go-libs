@@ -7,7 +7,7 @@ import (
 
 func TestCheckColumns(t *testing.T) {
 	t.Parallel()
-	d, err := Open(t.Context(), genDB(t, 0), t.TempDir())
+	d, err := Open(t.Context(), syntheticDB(t), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestCheckColumns(t *testing.T) {
 
 func TestCheckColumnsCanceled(t *testing.T) {
 	t.Parallel()
-	d, err := Open(t.Context(), genDB(t, 0), t.TempDir())
+	d, err := Open(t.Context(), syntheticDB(t), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -36,9 +36,9 @@ func makeCopy(ctx context.Context, src, tmp string) (dir, copyPath string, err e
 	return dir, copyPath, nil
 }
 
-// copyFiles copies the database and, when it exists, its -wal. A -wal that
-// exists but is not a regular file is an error: without it the copy would
-// silently lose the rows of the log.
+// copyFiles copies the database and, when it exists, its -wal. Any other
+// error of the -wal is an error: without it the copy would silently lose the
+// rows of the log.
 func copyFiles(ctx context.Context, src, dst string) error {
 	if err := copyFile(src, dst); err != nil {
 		return err
@@ -46,17 +46,11 @@ func copyFiles(ctx context.Context, src, dst string) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	wal := src + "-wal"
-	info, err := os.Stat(wal)
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
+	err := copyFile(src+"-wal", dst+"-wal")
+	if errors.Is(err, fs.ErrNotExist) {
 		return nil
-	case err != nil:
-		return err
-	case !info.Mode().IsRegular():
-		return fmt.Errorf("%s: not a regular file", wal)
 	}
-	return copyFile(wal, dst+"-wal")
+	return err
 }
 
 // copyFile copies src into a new file dst with mode 0600. The source is

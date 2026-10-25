@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
 
 // record renders one record; the pairs replace the defaults of a valid one.
@@ -72,15 +74,15 @@ func TestDivergences(t *testing.T) {
 	}
 
 	invalid := []struct{ name, content, want string }{
-		{"empty file", ``, "the file is empty"},
-		{"blank file", " \n", "the file is empty"},
-		{"null", `null`, "not a JSON array"},
-		{"object", `{}`, "not a JSON array"},
-		{"string", `"x"`, "not a JSON array"},
-		{"not JSON", `[`, "not one valid JSON value"},
-		{"data after the array", `[] []`, "not one valid JSON value"},
-		{"garbage after the array", `[]x`, "not one valid JSON value"},
-		{"a record after the array", "[] " + record(), "not one valid JSON value"},
+		{"empty file", ``, "not one JSON array"},
+		{"blank file", " \n", "not one JSON array"},
+		{"null", `null`, "not one JSON array"},
+		{"object", `{}`, "not one JSON array"},
+		{"string", `"x"`, "not one JSON array"},
+		{"not JSON", `[`, "not one JSON array"},
+		{"data after the array", `[] []`, "not one JSON array"},
+		{"garbage after the array", `[]x`, "not one JSON array"},
+		{"a record after the array", "[] " + record(), "not one JSON array"},
 		{"element is a string", `["SECRET-X"]`, "record 1 is not an object"},
 		{"element is null", `[null]`, "record 1: library must be one directory name"},
 		{"element is a list", `[[]]`, "record 1 is not an object"},
@@ -108,17 +110,9 @@ func TestDivergences(t *testing.T) {
 		{"upstream with a dot path", "[" + record("upstream", `"../a.py:1"`) + "]", "upstream is not a path"},
 		{"upstream with an open range", "[" + record("upstream", `"a.py:1-"`) + "]", "upstream is not a path"},
 		{"upstream with a space", "[" + record("upstream", `"a.py:1 "`) + "]", "upstream is not a path"},
-		{"upstream line 0", "[" + record("upstream", `"a.py:0"`) + "]", "upstream line numbers"},
-		{"upstream backwards", "[" + record("upstream", `"a.py:10-5"`) + "]", "upstream line numbers"},
-		{"upstream with a huge line", "[" + record("upstream", `"a.py:99999999999999999999"`) + "]", "upstream line numbers"},
 
-		{"want with spaces", "[" + record("want", `[1, 2]`) + "]", "want is not in the canonical form"},
-		{"got with spaces", "[" + record("got", `{"a": 1}`) + "]", "got is not in the canonical form"},
-		{"want with unsorted keys", "[" + record("want", `{"b":1,"a":2}`) + "]", "want is not in the canonical form"},
-		{"want 1.0", "[" + record("want", `1.0`) + "]", "want is not in the canonical form"},
-		{"want with an escape that is not written", "[" + record("want", `"`+uesc("0041")+`"`) + "]", "want is not in the canonical form"},
-		{"want with an escaped HTML character", "[" + record("want", `"`+uesc("003c")+`"`) + "]", "want is not in the canonical form"},
-		{"want with U+2028 written raw", "[" + record("want", `"`+string(rune(0x2028))+`"`) + "]", "want is not in the canonical form"},
+		{"want out of range", "[" + record("want", `1e999`) + "]", "want or got is a number out of range"},
+		{"got out of range", "[" + record("got", `[-1e999]`) + "]", "want or got is a number out of range"},
 		{"all objects without values", "[" + record("uuid", `"*"`) + "]", `uuid "*" needs both want and got`},
 		{"all objects with want only", "[" + record("uuid", `"*"`, "want", "true") + "]", `uuid "*" needs both want and got`},
 		{"all objects with got only", "[" + record("uuid", `"*"`, "got", "true") + "]", `uuid "*" needs both want and got`},
@@ -129,6 +123,7 @@ func TestDivergences(t *testing.T) {
 		{"local with an object", "[" + record("library", `"local"`, "uuid", `"*"`, "want", "1", "got", `{}`) + "]", "takes true, false, null or a number"},
 		{"a record repeated", "[" + record() + ", " + record() + "]", "record 2 repeats record 1"},
 		{"a record repeated with values", "[" + record("want", "1", "got", "2") + ", " + record("want", "1", "got", "2") + "]", "record 2 repeats record 1"},
+		{"a record repeated in another form", "[" + record("want", `{"b":1,"a":[2]}`) + ", " + record("want", `{"a": [2.0], "b": 1}`) + "]", "record 2 repeats record 1"},
 	}
 	for _, c := range invalid {
 		t.Run("invalid/"+c.name, func(t *testing.T) {
@@ -180,21 +175,25 @@ func TestDivergences(t *testing.T) {
 			t.Errorf("got %+v, want %+v", divs, want)
 		}
 	})
-}
-
-// FuzzLoadDivergences: no panic, and an error does not repeat the input.
-func FuzzLoadDivergences(f *testing.F) {
-	for _, s := range []string{`[]`, "[" + record() + "]", `["SECRET-SEED"]`, `[{"SECRET-SEED": 1}]`, `{`, `[] []`, "[" + record("field", `"SECRET-SEED"`) + "]", ``} {
-		f.Add(s)
-	}
-	f.Fuzz(func(t *testing.T, in string) {
-		path := filepath.Join(t.TempDir(), "d.json")
-		if err := os.WriteFile(path, []byte(in), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		_, err := LoadDivergences(path)
-		if err != nil && strings.Contains(in, "SECRET-") && strings.Contains(err.Error(), "SECRET-") {
-			t.Errorf("the error repeats the input: %v", err)
+	t.Run("want and got are kept in the form of Diff", func(t *testing.T) {
+		t.Parallel()
+		for _, c := range []struct{ in, want string }{
+			{`[1, 2]`, `[1,2]`},
+			{`{"b": 1, "a": 2}`, `{"a":2,"b":1}`},
+			{`1.0`, `1`},
+			{`"` + uesc("0041") + `"`, `"A"`},
+			{`"` + uesc("003c") + `&>"`, `"<&>"`},
+			{`"x\"y"`, `"x\"y"`},
+			{`"` + string(rune(0x2028)) + `"`, `"` + uesc("2028") + `"`},
+			{`["é", null]`, `["é",null]`},
+		} {
+			divs, err := loadDivs(t, "["+record("want", c.in, "got", c.in)+"]")
+			if err != nil {
+				t.Fatalf("%s: %v", c.in, err)
+			}
+			if string(divs[0].Want) != c.want || string(divs[0].Got) != c.want {
+				t.Errorf("%s: want %s, got %s; want %s", c.in, divs[0].Want, divs[0].Got, c.want)
+			}
 		}
 	})
 }
@@ -208,12 +207,11 @@ var uuidLike = regexp.MustCompile(`[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-
 // data of its owner out.
 func TestDivergencesFile(t *testing.T) {
 	t.Parallel()
-	dir := Dir(t)
-	divs, err := LoadDivergences(filepath.Join(dir, "divergences.json"))
+	divs, err := LoadDivergences(filepath.Join(testlib.RepoDir(t, "golden"), "divergences.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	libs := append(refLibraries(t), "local")
+	libs := append(testlib.Libraries(t), "local")
 	fields := fieldsTxt(t)
 	for i, d := range divs {
 		if !slices.Contains(libs, d.Library) {

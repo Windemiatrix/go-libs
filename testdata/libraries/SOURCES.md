@@ -16,6 +16,9 @@ The databases live outside the `osxphotos` module directory, so they are not par
 | `Test-16.0.0-beta` | `tests/Test-16.0.0-beta.photoslibrary` | 19063 | photos11 | 26.0 beta | yes | `tests/test_tahoe_16_0_0_beta.py` |
 | `Test-26.1` | `tests/Test-26.1.photoslibrary` | 19320 | photos11_1 | 26.1 | no | `tests/test_tahoe_26_1.py` |
 | `Test-27.0_DevBeta` | `tests/Test-27.0_DevBeta.photoslibrary` | 270008501 | photos12 | 27.0 developer beta | yes | `tests/test_gg_dev_beta_27_0.py` |
+| `synthetic` | none, see below | 19607 | photos11_1 | none | no | none |
+
+`synthetic` is not an upstream library. Its database was generated once by the former generator of this repository, `osxphotos/internal/gen`, with its default configuration: 1000 assets, seed 1. All its values are generated. It holds states that the upstream libraries lack: RAW+JPEG pairs, a shared library, resources only in iCloud, bursts with every pick type, a video larger than 2^32 bytes, NFD names, assets created in the same second. The generator is gone: the database changes only by SQL migrations, as the other libraries do.
 
 To add a library: take the database from the same upstream tag, put it in `<name>/database/` (no `.photoslibrary` suffix, so that `.gitignore` lets it through), and add a row here.
 
@@ -79,6 +82,8 @@ To add a case: a new file `NNN_<case>.sql` (lowercase letters, digits and hyphen
 Базы тестовых медиатек [osxphotos](https://github.com/RhetTbull/osxphotos) v0.77.2 (MIT, Copyright (c) 2019-2026 Rhet Turnbull), скопированные без изменений из `tests/<имя>.photoslibrary/database/` этого тега. Хранятся только `Photos.sqlite` и, где он не пуст, `Photos.sqlite-wal`: ожидаемые значения в тестах upstream вычислены ровно на этом состоянии. Изображения и другие файлы медиатек не копируются.
 
 Базы лежат вне каталога модуля `osxphotos`, поэтому не входят в zip модуля, который скачивают потребители. Тесты модуля читают их по относительному пути от репозитория. Таблица каталогов, моделей и схем — выше (она одна).
+
+`synthetic` — не медиатека upstream. Её база сгенерирована один раз прежним генератором этого репозитория, `osxphotos/internal/gen`, с настройками по умолчанию: 1000 объектов, seed 1. Все её значения сгенерированы. В ней есть состояния, которых нет в медиатеках upstream: пары RAW+JPEG, общая медиатека, ресурсы только в iCloud, серии со всеми видами отметок, видео больше 2^32 байт, имена в NFD, объекты, созданные в одну секунду. Генератора больше нет: база меняется только SQL-миграциями, как и остальные.
 
 Чтобы добавить медиатеку: взять базу из того же тега upstream, положить в `<имя>/database/` (без суффикса `.photoslibrary`, иначе `.gitignore` её не пропустит) и добавить строку в таблицу.
 

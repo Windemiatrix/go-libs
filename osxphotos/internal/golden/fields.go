@@ -1,6 +1,7 @@
 package golden
 
 import (
+	"encoding/json"
 	"fmt"
 	"maps"
 	"slices"
@@ -65,7 +66,7 @@ const burstDefaultPick = 4
 func buildRules() map[string]rule {
 	list := []rule{
 		// uuid has no Go side: the sets of objects are compared by Compare itself.
-		{key: "uuid", ref: func(o Object) (any, error) { return refString(o, "uuid", false) }},
+		{key: "uuid", ref: func(o Object) (any, error) { return decode[string](o, "uuid", false, "a string") }},
 		albumInfoRule("album_info", func(p *photoinfo.PhotoInfo) []string { return p.AlbumUUIDs }),
 		albumInfoRule("burst_album_info", func(p *photoinfo.PhotoInfo) []string { return p.BurstAlbumUUIDs }),
 		albumsRule("albums", "album_info", func(p *photoinfo.PhotoInfo) []string { return p.AlbumUUIDs }),
@@ -76,10 +77,10 @@ func buildRules() map[string]rule {
 		keywords(),
 		location(),
 		orientation(),
-		optionalBool("incloud", func(p *photoinfo.PhotoInfo) *bool { return p.InCloud }),
-		optionalInt("tzoffset", func(p *photoinfo.PhotoInfo) *int { return p.TZOffset }),
-		optionalFloat("latitude", func(p *photoinfo.PhotoInfo) *float64 { return p.Latitude }),
-		optionalFloat("longitude", func(p *photoinfo.PhotoInfo) *float64 { return p.Longitude }),
+		value("incloud", true, "a boolean or null", func(p *photoinfo.PhotoInfo) *bool { return p.InCloud }),
+		value("tzoffset", true, "an integer or null", func(p *photoinfo.PhotoInfo) *int { return p.TZOffset }),
+		value("latitude", true, "a number or null", func(p *photoinfo.PhotoInfo) *float64 { return p.Latitude }),
+		value("longitude", true, "a number or null", func(p *photoinfo.PhotoInfo) *float64 { return p.Longitude }),
 
 		moment("date", true, time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return &p.Date }),
 		moment("date_added", false, defaultDateAdded, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateAdded }),
@@ -148,76 +149,35 @@ func simple(key string, ref func(Object) (any, error), got func(*photoinfo.Photo
 	}
 }
 
+// value compares a key whose reference value is read as T. null is the zero
+// value of T (nil for a pointer) when nullOK, a mistake of the form otherwise.
+func value[T any](key string, nullOK bool, want string, get func(*photoinfo.PhotoInfo) T) rule {
+	return simple(key,
+		func(o Object) (any, error) { return decode[T](o, key, nullOK, want) },
+		func(p *photoinfo.PhotoInfo) any { return get(p) })
+}
+
+// flag compares a boolean; a null in the reference is a mistake of the form
+// (upstream gives None only for Photos before 7, which the reference does
+// not cover).
 func flag(key string, get func(*photoinfo.PhotoInfo) bool) rule {
-	return simple(key,
-		func(o Object) (any, error) { return refBool(o, key) },
-		func(p *photoinfo.PhotoInfo) any { return get(p) })
+	return value(key, false, "a boolean", get)
 }
 
+// text compares a string; null is "" when nullOK.
 func text(key string, nullOK bool, get func(*photoinfo.PhotoInfo) string) rule {
-	return simple(key,
-		func(o Object) (any, error) { return refString(o, key, nullOK) },
-		func(p *photoinfo.PhotoInfo) any { return get(p) })
-}
-
-func number(key string, get func(*photoinfo.PhotoInfo) int64) rule {
-	return simple(key,
-		func(o Object) (any, error) { return refInt(o, key, true) },
-		func(p *photoinfo.PhotoInfo) any { return get(p) })
-}
-
-func optionalBool(key string, get func(*photoinfo.PhotoInfo) *bool) rule {
-	return simple(key,
-		func(o Object) (any, error) {
-			raw, err := field(o, key)
-			if err != nil {
-				return nil, err
-			}
-			if isNull(raw) {
-				return nil, nil // null is a value of the reference
-			}
-			b, ok := decodeBool(raw)
-			if !ok {
-				return nil, shape(key, "a boolean or null")
-			}
-			return b, nil
-		},
-		func(p *photoinfo.PhotoInfo) any {
-			if b := get(p); b != nil {
-				return *b
-			}
-			return nil
-		})
-}
-
-func optionalInt(key string, get func(*photoinfo.PhotoInfo) *int) rule {
-	return simple(key,
-		func(o Object) (any, error) { return refIntOrNull(o, key) },
-		func(p *photoinfo.PhotoInfo) any {
-			if n := get(p); n != nil {
-				return int64(*n)
-			}
-			return nil
-		})
-}
-
-func optionalFloat(key string, get func(*photoinfo.PhotoInfo) *float64) rule {
-	return simple(key,
-		func(o Object) (any, error) {
-			raw, err := field(o, key)
-			if err != nil {
-				return nil, err
-			}
-			return floatOrNull(raw, key)
-		},
-		func(p *photoinfo.PhotoInfo) any { return floatPtr(get(p)) })
-}
-
-func floatPtr(f *float64) any {
-	if f == nil {
-		return nil
+	want := "a string"
+	if nullOK {
+		want += " or null"
 	}
-	return *f
+	return value(key, nullOK, want, get)
+}
+
+// number compares an integer; null is 0. A number written with a fraction or
+// an exponent (3024.0) is not an integer: osxphotos writes these keys from
+// integer columns.
+func number(key string, get func(*photoinfo.PhotoInfo) int64) rule {
+	return value(key, true, "an integer", get)
 }
 
 // moment compares a date as a moment. required: null is a mistake of the
@@ -225,7 +185,13 @@ func floatPtr(f *float64) any {
 // time means that null and nil are the same.
 func moment(key string, required bool, def time.Time, get func(*photoinfo.PhotoInfo) *time.Time) rule {
 	return simple(key,
-		func(o Object) (any, error) { return refMoment(o, key, !required) },
+		func(o Object) (any, error) {
+			t, err := refTime(o, key, !required)
+			if err != nil {
+				return nil, err
+			}
+			return goMoment(t, time.Time{}), nil
+		},
 		func(p *photoinfo.PhotoInfo) any { return goMoment(get(p), def) })
 }
 
@@ -234,7 +200,7 @@ func moment(key string, required bool, def time.Time, get func(*photoinfo.PhotoI
 // (photoinfo.py:1390-1404).
 func orientation() rule {
 	r := number("orientation", func(p *photoinfo.PhotoInfo) int64 { return int64(p.Orientation) })
-	r.skip = func(o Object) (bool, error) { return refBool(o, "hasadjustments") }
+	r.skip = func(o Object) (bool, error) { return decode[bool](o, "hasadjustments", false, "a boolean") }
 	return r
 }
 
@@ -259,25 +225,19 @@ func persons() rule {
 }
 
 func location() rule {
+	const want = "a list of two numbers or nulls"
 	return simple("location",
 		func(o Object) (any, error) {
-			raw, err := field(o, "location")
+			pair, err := decode[[]*float64](o, "location", false, want)
 			if err != nil {
 				return nil, err
 			}
-			items, ok := decodeList(raw)
-			if !ok || len(items) != 2 {
-				return nil, shape("location", "a list of two numbers or nulls")
+			if len(pair) != 2 {
+				return nil, shape("location", want)
 			}
-			out := make([]any, 2)
-			for i, it := range items {
-				if out[i], err = floatOrNull(it, fmt.Sprintf("location[%d]", i)); err != nil {
-					return nil, err
-				}
-			}
-			return out, nil
+			return pair, nil
 		},
-		func(p *photoinfo.PhotoInfo) any { return []any{floatPtr(p.Latitude), floatPtr(p.Longitude)} })
+		func(p *photoinfo.PhotoInfo) any { return []*float64{p.Latitude, p.Longitude} })
 }
 
 // burstPhotosRule: the other frames of the burst of the photo, sorted. They
@@ -311,102 +271,67 @@ type refAlbum struct {
 
 // refAlbums reads a list of albums of the reference.
 func refAlbums(o Object, key string) ([]refAlbum, error) {
-	raw, err := field(o, key)
+	items, err := decode[[]json.RawMessage](o, key, false, "a list of objects")
 	if err != nil {
 		return nil, err
 	}
-	items, ok := decodeList(raw)
-	if !ok {
-		return nil, shape(key, "a list of objects")
-	}
 	out := make([]refAlbum, len(items))
 	for i, it := range items {
-		a, err := refAlbumElem(it, fmt.Sprintf("%s[%d]", key, i))
-		if err != nil {
+		if out[i], err = refAlbumElem(it, fmt.Sprintf("%s[%d]", key, i)); err != nil {
 			return nil, err
 		}
-		out[i] = a
 	}
 	return out, nil
 }
 
-func refAlbumElem(raw []byte, path string) (refAlbum, error) {
-	obj, ok := decodeObject(raw)
-	if !ok {
+// albumElemKeys are the keys of an element of album_info that the rules read.
+var albumElemKeys = []string{"uuid", "title", "parent", "folder_names", "creation_date", "start_date", "end_date", "owner"}
+
+func refAlbumElem(raw json.RawMessage, path string) (refAlbum, error) {
+	var keys map[string]json.RawMessage
+	if json.Unmarshal(raw, &keys) != nil {
 		return refAlbum{}, shape(path, "an object")
 	}
-	get := func(name string) ([]byte, error) {
-		v, ok := obj[name]
-		if !ok {
-			return nil, shape(path+"."+name, "a value (the key is missing)")
+	for _, k := range albumElemKeys {
+		if _, ok := keys[k]; !ok {
+			return refAlbum{}, shape(path+"."+k, "a value (the key is missing)")
 		}
-		return v, nil
 	}
-	var a refAlbum
-	var err error
-	elem := map[string]any{}
-
-	var v []byte
-	if v, err = get("uuid"); err != nil {
-		return a, err
+	var e struct {
+		UUID         *string   `json:"uuid"`
+		Title        *string   `json:"title"`
+		Parent       *string   `json:"parent"`
+		FolderNames  []*string `json:"folder_names"`
+		CreationDate *string   `json:"creation_date"`
+		StartDate    *string   `json:"start_date"`
+		EndDate      *string   `json:"end_date"`
+		Owner        any       `json:"owner"`
 	}
-	if a.uuid, err = stringValue(v, path+".uuid", false); err != nil {
-		return a, err
+	switch {
+	case json.Unmarshal(raw, &e) != nil:
+		return refAlbum{}, shape(path, "an album with values of the types osxphotos writes")
+	case e.UUID == nil:
+		return refAlbum{}, shape(path+".uuid", "a string")
+	case e.FolderNames == nil:
+		return refAlbum{}, shape(path+".folder_names", "a list of strings")
 	}
-	elem["uuid"] = a.uuid
-
-	if v, err = get("title"); err != nil {
-		return a, err
+	elem := map[string]any{
+		"uuid":         *e.UUID,
+		"title":        deref(e.Title),
+		"parent":       deref(e.Parent),
+		"folder_names": derefAll(e.FolderNames),
 	}
-	if !isNull(v) {
-		s, err := stringValue(v, path+".title", false)
-		if err != nil {
-			return a, err
-		}
-		a.title = &s
-	}
-	elem["title"] = deref(a.title)
-
-	if v, err = get("parent"); err != nil {
-		return a, err
-	}
-	if elem["parent"], err = stringValue(v, path+".parent", true); err != nil {
-		return a, err
-	}
-
-	if v, err = get("folder_names"); err != nil {
-		return a, err
-	}
-	if elem["folder_names"], err = stringsValue(v, path+".folder_names"); err != nil {
-		return a, err
-	}
-
 	for _, d := range []struct {
-		name     string
-		nullable bool
-	}{{"creation_date", true}, {"start_date", true}, {"end_date", true}} {
-		if v, err = get(d.name); err != nil {
-			return a, err
+		key string
+		s   *string
+	}{{"creation_date", e.CreationDate}, {"start_date", e.StartDate}, {"end_date", e.EndDate}} {
+		t, err := parseRef(d.s, path+"."+d.key)
+		if err != nil {
+			return refAlbum{}, err
 		}
-		if elem[d.name], err = momentValue(v, path+"."+d.name, d.nullable); err != nil {
-			return a, err
-		}
+		elem[d.key] = goMoment(t, time.Time{})
 	}
-
-	if v, err = get("owner"); err != nil {
-		return a, err
-	}
-	a.shared = !isNull(v)
-	a.elem = elem
-	return a, nil
-}
-
-// deref is the title of the reference as the Go side writes it: null is "".
-func deref(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
+	return refAlbum{uuid: *e.UUID, title: e.Title, shared: e.Owner != nil, elem: elem}, nil
 }
 
 // keptAndDropped splits the elements into user albums and shared albums
@@ -535,24 +460,19 @@ func foldersRule() rule {
 				return nil, err
 			}
 			_, keptNames, droppedNames := keptAndDropped(albums, foldersName)
-			raw, err := field(o, "folders")
+			const want = "an object of lists of strings"
+			dict, err := decode[map[string][]*string](o, "folders", false, want)
 			if err != nil {
 				return nil, err
 			}
-			dict, ok := decodeObject(raw)
-			if !ok {
-				return nil, shape("folders", "an object")
-			}
 			out := map[string]any{}
-			for title, v := range dict {
-				if droppedNames[title] && !keptNames[title] {
-					continue
+			for title, names := range dict {
+				if names == nil {
+					return nil, shape("folders", want)
 				}
-				names, err := stringsValue(v, "folders.value")
-				if err != nil {
-					return nil, err
+				if !droppedNames[title] || keptNames[title] {
+					out[title] = derefAll(names)
 				}
-				out[title] = names
 			}
 			return out, nil
 		},

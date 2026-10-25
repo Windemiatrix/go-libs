@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Windemiatrix/go-libs/osxphotos/internal/gen"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
@@ -26,24 +25,6 @@ type (
 )
 
 var uuidForm = regexp.MustCompile(`^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$`)
-
-// genLibrary writes a gen library with cfg into a new directory and returns
-// its path.
-func genLibrary(t testing.TB, cfg gen.Config) string {
-	t.Helper()
-	lib := filepath.Join(t.TempDir(), "gen.photoslibrary")
-	if err := gen.Generate(t.Context(), lib, cfg); err != nil {
-		t.Fatalf("gen.Generate: %v", err)
-	}
-	return lib
-}
-
-func smallGen(t testing.TB, assets int) string {
-	t.Helper()
-	cfg := gen.DefaultConfig()
-	cfg.Assets = assets
-	return genLibrary(t, cfg)
-}
 
 // change runs statements on database/Photos.sqlite of the library (a copy
 // made by the test). internal/testlib provides the Core Data functions that
@@ -163,8 +144,6 @@ func TestOpenLibraries(t *testing.T) {
 		}
 		libs = append(libs, library{name, testlib.OpenPristine(t, name), want.model, want.id})
 	}
-	libs = append(libs, library{"synthetic", genLibrary(t, gen.DefaultConfig()), 19607, "photos11_1"})
-
 	for _, lib := range libs {
 		t.Run(lib.name, func(t *testing.T) {
 			t.Parallel()
@@ -204,13 +183,13 @@ func TestOpenLibraries(t *testing.T) {
 
 func TestOpenTempDir(t *testing.T) {
 	// Not parallel: a case sets TMPDIR.
-	lib := smallGen(t, 0)
+	lib := testlib.OpenPristine(t, "synthetic")
 	link := filepath.Join(t.TempDir(), "link.photoslibrary")
 	if err := os.Symlink(lib, link); err != nil {
 		t.Fatal(err)
 	}
 	sub := filepath.Join(lib, "resources", "sub")
-	if err := os.Mkdir(sub, 0o700); err != nil {
+	if err := os.MkdirAll(sub, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	sibling := lib + "2"
@@ -294,7 +273,7 @@ func TestOpenRemovesCopy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			lib := smallGen(t, 0)
+			lib := testlib.OpenPristine(t, "synthetic")
 			change(t, lib, tt.edit...)
 			tmp := t.TempDir()
 			before := tree(t, lib)
@@ -316,7 +295,29 @@ func TestOpenRemovesCopy(t *testing.T) {
 	}
 }
 
-// TestOpenHostileValues changes one value of a gen copy at a time.
+// TestOpenEmptyDatabase: sqlread opens a zero-length Photos.sqlite as an
+// empty database, so Open must still fail and remove the copy.
+func TestOpenEmptyDatabase(t *testing.T) {
+	t.Parallel()
+
+	lib := filepath.Join(t.TempDir(), "empty.photoslibrary")
+	if err := os.MkdirAll(filepath.Join(lib, "database"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(lib, "database", "Photos.sqlite"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tmp := t.TempDir()
+	before := tree(t, lib)
+	db, err := Open(t.Context(), lib, Options{TempDir: tmp})
+	if err == nil || db != nil {
+		t.Fatalf("Open of an empty database = %v, %v; want nil and an error", db, err)
+	}
+	assertNoCopies(t, tmp)
+	assertTree(t, "empty database", before, tree(t, lib))
+}
+
+// TestOpenHostileValues changes one value of a synthetic copy at a time.
 func TestOpenHostileValues(t *testing.T) {
 	t.Parallel()
 
@@ -337,7 +338,7 @@ func TestOpenHostileValues(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			lib := smallGen(t, 50)
+			lib := testlib.OpenPristine(t, "synthetic")
 			change(t, lib, tt.edit)
 			tmp := t.TempDir()
 			db, err := Open(t.Context(), lib, Options{TempDir: tmp})
@@ -379,7 +380,7 @@ func TestOpenHostileValues(t *testing.T) {
 func TestOpenDanglingReferences(t *testing.T) {
 	t.Parallel()
 
-	lib := smallGen(t, 50)
+	lib := testlib.OpenPristine(t, "synthetic")
 	change(t, lib,
 		"UPDATE ZASSET SET ZMASTER = 999999 WHERE Z_PK = 2",
 		"UPDATE ZADDITIONALASSETATTRIBUTES SET ZASSETDESCRIPTION = 999999 WHERE ZASSET = 2",
@@ -407,8 +408,8 @@ func TestOpenDanglingReferences(t *testing.T) {
 	if p3, _ := db.Photo(uuidOf(3)); p3 == nil || p3.DateAdded != nil {
 		t.Errorf("asset 3: %+v; want DateAdded nil", p3)
 	}
-	if n := len(db.Photos()); n != 50 {
-		t.Errorf("%d photos, want 50", n)
+	if n, want := len(db.Photos()), count(t, src, "SELECT COUNT(*) FROM ZASSET"); n != want {
+		t.Errorf("%d photos, want %d", n, want)
 	}
 }
 
@@ -418,7 +419,7 @@ func TestOpenDanglingReferences(t *testing.T) {
 func TestOpenSharedAlbum(t *testing.T) {
 	t.Parallel()
 
-	lib := smallGen(t, 200)
+	lib := testlib.OpenPristine(t, "synthetic")
 	var album string
 	err := roDB(t, lib).QueryRowContext(t.Context(), "SELECT g.ZUUID FROM ZGENERICALBUM g WHERE g.ZKIND = 2 AND "+
 		"EXISTS (SELECT 1 FROM Z_33ASSETS m WHERE m.Z_33ALBUMS = g.Z_PK) ORDER BY g.Z_PK LIMIT 1").Scan(&album)
@@ -456,15 +457,16 @@ func TestOpenSharedAlbum(t *testing.T) {
 func TestOpenParallel(t *testing.T) {
 	t.Parallel()
 
-	lib := smallGen(t, 100)
+	lib := testlib.OpenPristine(t, "synthetic")
+	want := count(t, roDB(t, lib), "SELECT COUNT(*) FROM ZASSET")
 	tmp := t.TempDir()
 	var wg sync.WaitGroup
 	errs := make([]error, 6)
 	for i := range errs {
 		wg.Go(func() {
 			db, err := Open(t.Context(), lib, Options{TempDir: tmp})
-			if err == nil && len(db.Photos()) != 100 {
-				err = errors.New("not 100 photos")
+			if err == nil && len(db.Photos()) != want {
+				err = errors.New("not every asset is a photo")
 			}
 			errs[i] = err
 		})
@@ -488,13 +490,6 @@ func TestOpenAggregates(t *testing.T) {
 	var libs []library
 	for _, name := range testlib.Libraries(t) {
 		libs = append(libs, library{name, testlib.OpenPristine(t, name), libraryModels[name].id})
-	}
-	for _, seed := range []uint64{1, 2, 3} {
-		cfg := gen.DefaultConfig()
-		cfg.Assets, cfg.Seed = 300, seed
-		cfg.Trashed, cfg.Hidden, cfg.Edited, cfg.RAWPairs, cfg.BurstFrames = 0.1, 0.05, 0.3, 0.1, 0.05
-		cfg.ZeroDates, cfg.SameSecond, cfg.NonASCIINames, cfg.Favorites = 0.05, 0.2, 0.2, 0.05
-		libs = append(libs, library{"gen", genLibrary(t, cfg), "photos11_1"})
 	}
 	for _, lib := range libs {
 		t.Run(lib.name, func(t *testing.T) {

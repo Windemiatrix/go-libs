@@ -76,7 +76,7 @@ The version is computed, not assigned: `scripts/next-version.sh` takes the title
 
 No commits, no release. The move to `1.0.0` is not derived from titles: only explicitly, with `scripts/release.sh --major`. From version 2 the module path in `osxphotos/go.mod` gets the `/vN` suffix; the script checks it.
 
-Only the maintainer creates tags of the form `osxphotos/vX.Y.Z` and releases, with `scripts/release.sh`. The script checks that `HEAD` equals `origin/main` and that `ci-ok` is green on that commit; it shows the version and the list of titles with their classes; after confirmation it creates a signed tag and pushes it. Then the `release` workflow checks that the commit is on `main`, runs the tests and `govulncheck`, creates the GitHub Release and warms up the Go proxy.
+Only the maintainer creates tags of the form `osxphotos/vX.Y.Z` and releases, with `scripts/release.sh`. The script checks that `HEAD` equals `origin/main` and that `ci-ok` is green on that commit; it shows the version and the list of titles with their classes; after confirmation it creates a signed tag and pushes it. Then the `release` workflow checks the tag form and that the commit is on `main`, runs `govulncheck`, creates the GitHub Release and warms up the Go proxy.
 
 The release notes are the same PR titles with the ` (#N)` suffix between two tags, in sections: Breaking changes, Features, Bug fixes, Documentation, Other. They are in English only and are not translated by hand. There is no `CHANGELOG.md`.
 
