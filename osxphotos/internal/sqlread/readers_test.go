@@ -63,6 +63,10 @@ var readers = []struct {
 		r, err := d.Members(ctx, s)
 		return len(r), err
 	}},
+	{"Albums", func(ctx context.Context, d *DB, _ schema.Schema) (int, error) {
+		r, err := d.Albums(ctx)
+		return len(r), err
+	}},
 }
 
 func contains(list []string, s string) bool {
@@ -231,6 +235,19 @@ func TestReadersRows(t *testing.T) {
 				t.Errorf("Members: %d rows, want %d", len(members), want)
 			}
 
+			albums, err := d.Albums(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := count(t, ro, "SELECT COUNT(*) FROM ZGENERICALBUM WHERE ZKIND IN (2, 3999, 4000) AND ZUUID IS NOT NULL"); int64(len(albums)) != want {
+				t.Errorf("Albums: %d rows, want %d", len(albums), want)
+			}
+			for i := 1; i < len(albums); i++ {
+				if albums[i-1].PK >= albums[i].PK {
+					t.Errorf("Albums: row %d out of Z_PK order", i+1)
+				}
+			}
+
 			kws, err := d.Keywords(t.Context(), n)
 			if err != nil {
 				t.Fatal(err)
@@ -338,6 +355,7 @@ func TestReaderValueType(t *testing.T) {
 		{"resource length", "UPDATE ZINTERNALRESOURCE SET ZDATALENGTH = 'SECRET-L' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZINTERNALRESOURCE)", readers[1].run},
 		{"asset width", "UPDATE ZASSET SET ZWIDTH = 'SECRET-W' WHERE Z_PK = 3", readers[0].run},
 		{"member asset", "UPDATE Z_33ASSETS SET Z_3ASSETS = 'SECRET-M' WHERE rowid = (SELECT MIN(rowid) FROM Z_33ASSETS)", readers[4].run},
+		{"album parent", "UPDATE ZGENERICALBUM SET ZPARENTFOLDER = 'SECRET-P' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -376,10 +394,18 @@ func TestReadersNull(t *testing.T) {
 		"UPDATE ZINTERNALRESOURCE SET ZASSET = NULL WHERE Z_PK = 1",
 		"UPDATE ZASSET SET ZUUID = NULL, ZFILENAME = NULL, ZKIND = NULL, ZDATECREATED = NULL WHERE Z_PK = 2",
 		"UPDATE ZADDITIONALASSETATTRIBUTES SET ZORIGINALFILENAME = NULL, ZTIMEZONEOFFSET = NULL WHERE ZASSET = 2",
+		// The album keeps its ZUUID: without it Members would lose its rows.
+		"UPDATE ZGENERICALBUM SET ZTITLE = NULL, ZPARENTFOLDER = NULL, ZTRASHEDSTATE = NULL, ZCREATIONDATE = NULL, ZCLOUDGUID = NULL "+
+			"WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)",
+		"UPDATE ZGENERICALBUM SET ZUUID = NULL WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 4000)",
 	)
 	ro := openRO(t, path)
+	if n := count(t, ro, "SELECT COUNT(*) FROM ZGENERICALBUM WHERE ZKIND = 4000 AND ZUUID IS NULL"); n != 1 {
+		t.Fatalf("%d folders without ZUUID after the change, want 1", n)
+	}
 	wantMembers := count(t, ro, "SELECT COUNT(*) FROM Z_33ASSETS") - 2
 	wantRes := count(t, ro, "SELECT COUNT(*) FROM ZINTERNALRESOURCE") - 1
+	wantAlbums := count(t, ro, "SELECT COUNT(*) FROM ZGENERICALBUM WHERE ZKIND IN (2, 3999, 4000)") - 1
 	d := openDB(t, path)
 	n := schemaByID(t, "photos11_1")
 	for _, r := range readers {
@@ -392,6 +418,9 @@ func TestReadersNull(t *testing.T) {
 	}
 	if r, _ := d.Resources(t.Context()); int64(len(r)) != wantRes {
 		t.Errorf("Resources: %d, want %d", len(r), wantRes)
+	}
+	if a, _ := d.Albums(t.Context()); int64(len(a)) != wantAlbums {
+		t.Errorf("Albums: %d, want %d", len(a), wantAlbums)
 	}
 }
 
@@ -409,6 +438,7 @@ func TestReadersEmpty(t *testing.T) {
 		"DELETE FROM ZINTERNALRESOURCE",
 		"DELETE FROM ZADDITIONALASSETATTRIBUTES",
 		"DELETE FROM ZASSET",
+		"DELETE FROM ZGENERICALBUM",
 	)
 	if err := w.Close(); err != nil {
 		t.Fatal(err)

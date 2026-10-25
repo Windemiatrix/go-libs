@@ -73,6 +73,10 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 	if err != nil {
 		return nil, err
 	}
+	albums, err := loadAlbums(t.albums, t.members, t.assets, c.byUUID)
+	if err != nil {
+		return nil, err
+	}
 	if err := setPaths(libraryPath, t.assets, c); err != nil {
 		return nil, err
 	}
@@ -86,6 +90,7 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 		},
 		photos: c.photos,
 		byUUID: c.byUUID,
+		albums: albums,
 	}, nil
 }
 
@@ -129,6 +134,9 @@ func readTables(ctx context.Context, src *sqlread.DB, s schema.Schema) (t tables
 		return tables{}, err
 	}
 	if t.members, err = src.Members(ctx, s); err != nil {
+		return tables{}, err
+	}
+	if t.albums, err = src.Albums(ctx); err != nil {
 		return tables{}, err
 	}
 	return t, nil

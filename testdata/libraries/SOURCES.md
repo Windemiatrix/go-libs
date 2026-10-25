@@ -2,6 +2,8 @@
 
 **English** | [Русский](#test-libraries-ru)
 
+For contributors who add test libraries or migrations.
+
 Databases of the test Photos libraries of [osxphotos](https://github.com/RhetTbull/osxphotos) v0.77.2 (MIT, Copyright (c) 2019-2026 Rhet Turnbull), copied unchanged from `tests/<name>.photoslibrary/database/` of that tag. Only `Photos.sqlite` and, where it is not empty, `Photos.sqlite-wal` are kept: the expected values in the upstream tests were computed on exactly this state. Images and other files of the libraries are not copied.
 
 The databases live outside the `osxphotos` module directory, so they are not part of the module zip that consumers download. Tests of the module read them by relative path from the repository.
@@ -58,8 +60,6 @@ Cases (the expected values are in the tests of the package that reads the field)
 | `syndication-shared` | `Syndicated`, `SavedToLibrary`, `Shared` | `Test-15.4.1` |
 | `skipped-asset` | `Info.SkippedAssets`: an asset without a row in `ZADDITIONALASSETATTRIBUTES` is absent from `Photos()` and counted (marked by `ZASSET.ZFILENAME`, see above) | `Test-16.0.0-beta` |
 
-Planned with the album tests: `albums-edge` in `Test-15.4.1` (two albums with one title in one folder, an empty album, a trashed album).
-
 Files per library, in the order of application:
 
 | Library | `migrations/` |
@@ -78,6 +78,8 @@ To add a case: a new file `NNN_<case>.sql` (lowercase letters, digits and hyphen
 <a id="test-libraries-ru"></a>
 
 ## Тестовые медиатеки (по-русски)
+
+Для тех, кто добавляет тестовые медиатеки или миграции.
 
 Базы тестовых медиатек [osxphotos](https://github.com/RhetTbull/osxphotos) v0.77.2 (MIT, Copyright (c) 2019-2026 Rhet Turnbull), скопированные без изменений из `tests/<имя>.photoslibrary/database/` этого тега. Хранятся только `Photos.sqlite` и, где он не пуст, `Photos.sqlite-wal`: ожидаемые значения в тестах upstream вычислены ровно на этом состоянии. Изображения и другие файлы медиатек не копируются.
 
@@ -122,8 +124,6 @@ To add a case: a new file `NNN_<case>.sql` (lowercase letters, digits and hyphen
 | `trash` | объект в корзине возвращается, когда фильтров нет | `Test-14.0.0` |
 | `syndication-shared` | `Syndicated`, `SavedToLibrary`, `Shared` | `Test-15.4.1` |
 | `skipped-asset` | `Info.SkippedAssets`: объект без строки в `ZADDITIONALASSETATTRIBUTES` не попадает в `Photos()` и считается (помечен `ZASSET.ZFILENAME`, см. выше) | `Test-16.0.0-beta` |
-
-Запланировано вместе с тестами альбомов: `albums-edge` в `Test-15.4.1` (два альбома с одним названием в одной папке, пустой альбом, альбом в корзине).
 
 Файлы по медиатекам, в порядке применения:
 

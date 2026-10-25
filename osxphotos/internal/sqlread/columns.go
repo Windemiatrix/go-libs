@@ -28,7 +28,7 @@ func selectList(cols []column) string {
 // CheckColumns. Each reader file declares its part next to its query.
 func Columns(s schema.Schema) map[string][]string {
 	out := map[string][]string{}
-	for _, cols := range [][]column{assetColumns(s), resourceSelect(), keywordColumns(s), personColumns(s), memberColumns(s)} {
+	for _, cols := range [][]column{assetColumns(s), resourceSelect(), keywordColumns(s), personColumns(s), memberColumns(s), albumSelect()} {
 		for _, c := range cols {
 			if !slices.Contains(out[c.table], c.name) {
 				out[c.table] = append(out[c.table], c.name)

@@ -1,6 +1,7 @@
 package photosdb
 
 import (
+	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/query"
 )
@@ -10,6 +11,7 @@ type DB struct {
 	info   Info
 	photos []*photoinfo.PhotoInfo // ZUUID order
 	byUUID map[string]*photoinfo.PhotoInfo
+	albums []*albuminfo.AlbumInfo // user albums, trashed ones included, ZUUID order
 }
 
 // Close releases the DB. It releases nothing today: the copy of the
