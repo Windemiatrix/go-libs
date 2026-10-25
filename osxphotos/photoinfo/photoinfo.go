@@ -28,13 +28,17 @@ type PhotoInfo struct {
 	OriginalFilesize                                   int64
 
 	UTI, UTIOriginal, UTIRaw string
+	UTIEdited                string // UTI when HasAdjustments, otherwise "" (photoinfo.py:929-930)
 	Path, PathLive, PathRaw  string // inside the library; "" when the file is not on disk
 
 	IsPhoto, IsMovie, Live, HasRAW, IsRAW, RawOriginal, Screenshot bool
 
+	SlowMo, TimeLapse, ScreenRecording bool // ZKINDSUBTYPE 101, 102, 103 (photosdb.py:2237-2240)
+
 	Burst, BurstSelected, BurstKey bool
 	BurstUUID                      string
-	BurstPickType                  int // ZASSET.ZAVALANCHEPICKTYPE; NULL is 0
+	BurstPickType                  int  // ZASSET.ZAVALANCHEPICKTYPE; NULL is 0
+	BurstDefaultPick               bool // BurstPickType has BurstPickDefault (photoinfo.py:1021-1029)
 
 	Hidden, Favorite, InTrash, HasAdjustments bool
 
@@ -66,6 +70,7 @@ type Resource struct {
 
 // Bits of BurstPickType, ZASSET.ZAVALANCHEPICKTYPE (_constants.py:676-681).
 const (
+	BurstPickDefault  = 4  // BURST_DEFAULT_PICK: Photos picked the frame as the key before any selection
 	BurstPickSelected = 8  // BURST_SELECTED: the frame is selected
 	BurstPickKey      = 16 // BURST_KEY: the key frame of the burst
 )

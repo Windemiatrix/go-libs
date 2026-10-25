@@ -35,8 +35,8 @@ func TestReadFields(t *testing.T) {
 	t.Run("the file of the repository", func(t *testing.T) {
 		t.Parallel()
 		keys := fieldsTxt(t)
-		if len(keys) != 56 || keys[0] != "album_info" || keys[len(keys)-1] != "width" {
-			t.Errorf("got %d keys from %q to %q, want 56 from album_info to width", len(keys), keys[0], keys[len(keys)-1])
+		if len(keys) != 60 || keys[0] != "album_info" || keys[len(keys)-1] != "width" {
+			t.Errorf("got %d keys from %q to %q, want 60 from album_info to width", len(keys), keys[0], keys[len(keys)-1])
 		}
 	})
 	t.Run("comments and empty lines are skipped, the order is kept", func(t *testing.T) {

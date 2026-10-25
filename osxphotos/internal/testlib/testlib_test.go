@@ -266,8 +266,9 @@ func TestSynthetic(t *testing.T) {
 	}
 }
 
-// TestPinnedSynthetic pins the content of the synthetic library: the
-// reference data in testdata/golden/synthetic was made from it. Change the
+// TestPinnedSynthetic pins the content of the synthetic library, its
+// reference/*.sql applied: the reference data in testdata/golden/synthetic was
+// made from it. Change the
 // values only together with a new golden-regen run and the data of
 // testdata/golden/synthetic.
 func TestPinnedSynthetic(t *testing.T) {
@@ -275,7 +276,7 @@ func TestPinnedSynthetic(t *testing.T) {
 	db := OpenDB(t, dbFile(OpenPristine(t, "synthetic")))
 	want := map[string]string{
 		"ZADDITIONALASSETATTRIBUTES": "a0feab3f0ba6eb1fa1cfd9cdeae1d8e839d6a97deee0fa31e72c2397d144f69e",
-		"ZASSET":                     "908e214ba7a9469c3c63af73df18a332b1669bedf1b0f6e51870e2971fa9fd9c",
+		"ZASSET":                     "6d2d9b87de17ab1f947578323dc1adc468ab6e378bbcaa617fb3f3b32a4640eb",
 		"ZCLOUDMASTER":               "0b16088332ad364ce67bf0430bcccfc8cbd138fcca4f2898f9e6a65bbee5fa77",
 		"ZGENERICALBUM":              "0edff7f44c9549940cca5fb5ece6afd2ee993e93e1ca41aa3f7491f5b533a8e8",
 		"ZINTERNALRESOURCE":          "a0c7073c0e59cfe254990ca61fdf0426231418c89d7a1b93747336597f063080",
@@ -353,46 +354,52 @@ var (
 	insertWord    = regexp.MustCompile(`(?i)\binsert\b`)
 )
 
-// TestMigrationFiles checks the layout of every migrations directory: only
-// files NNN_<case>.sql numbered from 001 without gaps, no INSERT, and each
-// file parses into at least one statement.
+// TestMigrationFiles checks the layout of every migrations and reference
+// directory: only files NNN_<case>.sql numbered from 001 without gaps, no
+// INSERT, and each file parses into at least one statement.
 func TestMigrationFiles(t *testing.T) {
 	dir := RepoDir(t, "libraries")
 	for _, name := range Libraries(t) {
-		mdir := filepath.Join(dir, name, "migrations")
-		entries, err := os.ReadDir(mdir)
-		if errors.Is(err, fs.ErrNotExist) {
+		for _, sub := range []string{"migrations", "reference"} {
+			checkSQLDir(t, filepath.Join(dir, name, sub))
+		}
+	}
+}
+
+func checkSQLDir(t *testing.T, mdir string) {
+	t.Helper()
+	entries, err := os.ReadDir(mdir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) == 0 {
+		t.Errorf("%s: empty directory", mdir)
+	}
+	for i, e := range entries {
+		p := filepath.Join(mdir, e.Name())
+		if !e.Type().IsRegular() || !migrationName.MatchString(e.Name()) {
+			t.Errorf("%s: only regular files named NNN_<case>.sql are allowed", p)
 			continue
 		}
+		if prefix := fmt.Sprintf("%03d_", i+1); !strings.HasPrefix(e.Name(), prefix) {
+			t.Errorf("%s: want the number %s (files are numbered from 001 without gaps)", p, prefix)
+		}
+		src, err := os.ReadFile(p)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(entries) == 0 {
-			t.Errorf("%s: empty migrations directory", mdir)
+		if insertWord.Match(src) {
+			t.Errorf("%s: INSERT is not allowed in migrations", p)
 		}
-		for i, e := range entries {
-			p := filepath.Join(mdir, e.Name())
-			if !e.Type().IsRegular() || !migrationName.MatchString(e.Name()) {
-				t.Errorf("%s: only regular files named NNN_<case>.sql are allowed", p)
-				continue
-			}
-			if prefix := fmt.Sprintf("%03d_", i+1); !strings.HasPrefix(e.Name(), prefix) {
-				t.Errorf("%s: want the number %s (files are numbered from 001 without gaps)", p, prefix)
-			}
-			src, err := os.ReadFile(p)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if insertWord.Match(src) {
-				t.Errorf("%s: INSERT is not allowed in migrations", p)
-			}
-			stmts, err := parse(string(src))
-			switch {
-			case err != nil:
-				t.Errorf("%s: %v", p, err)
-			case len(stmts) == 0:
-				t.Errorf("%s: no statements", p)
-			}
+		stmts, err := parse(string(src))
+		switch {
+		case err != nil:
+			t.Errorf("%s: %v", p, err)
+		case len(stmts) == 0:
+			t.Errorf("%s: no statements", p)
 		}
 	}
 }

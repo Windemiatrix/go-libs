@@ -28,7 +28,7 @@ One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and
 | `burst` | `Burst` | boolean | `photosdb/photosdb.py:2212-2223` |
 | `burst_album_info` | `BurstAlbumUUIDs` → `Library.Albums`, albums in the trash left out | as `album_info` | `photoinfo.py:664-671` |
 | `burst_albums` | titles of the same albums | as `albums` (by `burst_album_info`) | `photoinfo.py:646-653` |
-| `burst_default_pick` | `BurstPickType & 4 != 0` | boolean | `photoinfo.py:1021-1029`; `_constants.py:678` |
+| `burst_default_pick` | `BurstDefaultPick` | boolean | `photoinfo.py:1021-1029`; `_constants.py:678` |
 | `burst_key` | `BurstKey` | boolean | `photoinfo.py:999-1007` |
 | `burst_photos` | other photos of the burst in `Library.Photos` | With `Burst`: UUIDs of the other photos that have `Burst` and the same `BurstUUID` (an empty one too: upstream groups by "is not None"), selected or not, in the trash or not, photos or not; sorted; without the photo itself. Without `Burst`: `[]` | `photosdb/photosdb.py:2212-2220`; `photoinfo.py:1031-1044` |
 | `burst_selected` | `BurstSelected` | boolean | `photoinfo.py:989-997` |
@@ -68,13 +68,17 @@ One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and
 | `persons` | `HasPersons` | `true` if the list has a name other than `_UNKNOWN_` (upstream names a person without a name `_UNKNOWN_`); the module tells only whether there are people with a name | `photoinfo.py:597-603`; `photosdb/photosdb.py:1790-1796`; `_constants.py:337` |
 | `raw_original` | `RawOriginal` | boolean | `photoinfo.py:1373-1378` |
 | `saved_to_library` | `SavedToLibrary` | boolean | `photoinfo.py:1586-1599` |
+| `screen_recording` | `ScreenRecording` | boolean | `photoinfo.py:1301-1304`; `photosdb/photosdb.py:2237` |
 | `screenshot` | `Screenshot` | boolean | `photoinfo.py:1296-1299` |
 | `shared` | `Shared` | boolean | `photoinfo.py:872-879` |
 | `shared_library` | `SharedLibrary` | boolean | `photoinfo.py:1628-1632` |
+| `slow_mo` | `SlowMo` | boolean | `photoinfo.py:1281-1284`; `photosdb/photosdb.py:2239` |
 | `syndicated` | `Syndicated` | boolean | `photoinfo.py:1569-1584` |
+| `time_lapse` | `TimeLapse` | boolean | `photoinfo.py:1286-1289`; `photosdb/photosdb.py:2240` |
 | `title` | `Title` | `null` = `""` (upstream turns `""` into `None`) | `photoinfo.py:710-717` |
 | `tzoffset` | `TZOffset` | integer; `null` = `nil`; `0` is not `null` | `photoinfo.py:179-182`; `photosdb/photosdb.py:2159` |
 | `uti` | `UTI` | strict string | `photoinfo.py:881-921` |
+| `uti_edited` | `UTIEdited` | `null` = `""` | `photoinfo.py:923-932` |
 | `uti_original` | `UTIOriginal` | strict string | `photoinfo.py:881-921` |
 | `uti_raw` | `UTIRaw` | `null` = `""` | `photoinfo.py:934-946` |
 | `uuid` | `UUID` | the sets of rule 1 | `photosdb/photosdb.py:2197-2204, 3346-3360` |
@@ -139,7 +143,7 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 | `burst` | `Burst` | логическое | `photosdb/photosdb.py:2212-2223` |
 | `burst_album_info` | `BurstAlbumUUIDs` → `Library.Albums`, альбомы в корзине не берутся | как `album_info` | `photoinfo.py:664-671` |
 | `burst_albums` | названия тех же альбомов | как `albums` (по `burst_album_info`) | `photoinfo.py:646-653` |
-| `burst_default_pick` | `BurstPickType & 4 != 0` | логическое | `photoinfo.py:1021-1029`; `_constants.py:678` |
+| `burst_default_pick` | `BurstDefaultPick` | логическое | `photoinfo.py:1021-1029`; `_constants.py:678` |
 | `burst_key` | `BurstKey` | логическое | `photoinfo.py:999-1007` |
 | `burst_photos` | другие фото серии в `Library.Photos` | У кадра с `Burst`: UUID других фото с `Burst` и тем же `BurstUUID` (в том числе пустым: upstream группирует по «не None»), выбранных и нет, в корзине и нет, фото и нет; отсортированные; без самого кадра. Без `Burst`: `[]` | `photosdb/photosdb.py:2212-2220`; `photoinfo.py:1031-1044` |
 | `burst_selected` | `BurstSelected` | логическое | `photoinfo.py:989-997` |
@@ -179,13 +183,17 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 | `persons` | `HasPersons` | `true`, если в списке есть имя, отличное от `_UNKNOWN_` (человека без имени upstream называет `_UNKNOWN_`); модуль сообщает только, есть ли люди с именем | `photoinfo.py:597-603`; `photosdb/photosdb.py:1790-1796`; `_constants.py:337` |
 | `raw_original` | `RawOriginal` | логическое | `photoinfo.py:1373-1378` |
 | `saved_to_library` | `SavedToLibrary` | логическое | `photoinfo.py:1586-1599` |
+| `screen_recording` | `ScreenRecording` | логическое | `photoinfo.py:1301-1304`; `photosdb/photosdb.py:2237` |
 | `screenshot` | `Screenshot` | логическое | `photoinfo.py:1296-1299` |
 | `shared` | `Shared` | логическое | `photoinfo.py:872-879` |
 | `shared_library` | `SharedLibrary` | логическое | `photoinfo.py:1628-1632` |
+| `slow_mo` | `SlowMo` | логическое | `photoinfo.py:1281-1284`; `photosdb/photosdb.py:2239` |
 | `syndicated` | `Syndicated` | логическое | `photoinfo.py:1569-1584` |
+| `time_lapse` | `TimeLapse` | логическое | `photoinfo.py:1286-1289`; `photosdb/photosdb.py:2240` |
 | `title` | `Title` | `null` = `""` (upstream превращает `""` в `None`) | `photoinfo.py:710-717` |
 | `tzoffset` | `TZOffset` | целое; `null` = `nil`; `0` — не `null` | `photoinfo.py:179-182`; `photosdb/photosdb.py:2159` |
 | `uti` | `UTI` | строгая строка | `photoinfo.py:881-921` |
+| `uti_edited` | `UTIEdited` | `null` = `""` | `photoinfo.py:923-932` |
 | `uti_original` | `UTIOriginal` | строгая строка | `photoinfo.py:881-921` |
 | `uti_raw` | `UTIRaw` | `null` = `""` | `photoinfo.py:934-946` |
 | `uuid` | `UUID` | множества правила 1 | `photosdb/photosdb.py:2197-2204, 3346-3360` |

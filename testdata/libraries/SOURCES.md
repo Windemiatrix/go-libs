@@ -20,7 +20,13 @@ The databases live outside the `osxphotos` module directory, so they are not par
 | `Test-27.0_DevBeta` | `tests/Test-27.0_DevBeta.photoslibrary` | 270008501 | photos12 | 27.0 developer beta | yes | `tests/test_gg_dev_beta_27_0.py` |
 | `synthetic` | none, see below | 19607 | photos11_1 | none | no | none |
 
-`synthetic` is not an upstream library. Its database was generated once by the former generator of this repository, `osxphotos/internal/gen`, with its default configuration: 1000 assets, seed 1. All its values are generated. It holds states that the upstream libraries lack: RAW+JPEG pairs, a shared library, resources only in iCloud, bursts with every pick type, a video larger than 2^32 bytes, NFD names, assets created in the same second. The generator is gone: the database changes only by SQL migrations, as the other libraries do.
+`synthetic` is not an upstream library. Its database was generated once by the former generator of this repository, `osxphotos/internal/gen`, with its default configuration: 1000 assets, seed 1. All its values are generated. It holds states that the upstream libraries lack: RAW+JPEG pairs, a shared library, resources only in iCloud, bursts with every pick type, a video larger than 2^32 bytes, NFD names, assets created in the same second. The generator is gone: the database file itself is never changed again.
+
+A state of a field that osxphotos outputs but no library holds goes to `<name>/reference/NNN_<case>.sql`: these files are part of the library. The test helper applies them to every copy, `testlib.OpenPristine` included, and `golden-regen.yml` applies them to a copy before it runs osxphotos, so the reference covers the state. They follow the rules of a migration below, except that a row is chosen by a rule alone, with no title marker: a title would show in the reference.
+
+| Case | What it covers | Library |
+|---|---|---|
+| `kinds` | `SlowMo` (subtype 101), `ScreenRecording` (103), `BurstDefaultPick` (pick bit 4 on a selected frame) | `synthetic` |
 
 To add a library: take the database from the same upstream tag, put it in `<name>/database/` (no `.photoslibrary` suffix, so that `.gitignore` lets it through), and add a row here.
 
@@ -33,7 +39,7 @@ The module reads more from `Photos.sqlite` than osxphotos does (the fields marke
 <name>/migrations/NNN_<case>.sql     applied in file-name order to a temporary copy
 ```
 
-- The databases themselves are never modified: the test helper `osxphotos/internal/testlib` copies `Photos.sqlite` and `Photos.sqlite-wal` into a temporary directory, applies all migrations of the library in one transaction and hands the copy to the test. Reference (golden) tests use the untouched databases.
+- The databases themselves are never modified: the test helper `osxphotos/internal/testlib` copies `Photos.sqlite` and `Photos.sqlite-wal` into a temporary directory, applies all migrations of the library in one transaction and hands the copy to the test. Reference (golden) tests use copies without migrations (`reference/` applied).
 - Any `UPDATE` of `ZASSET` fires triggers of `Photos.sqlite` (R*Tree and functions that exist only inside the Photos app, Core Data). The helper registers stand-ins for the functions that do nothing, so a migration that fires such a trigger (for example, moving an asset to the trash) runs on the copy.
 - A migration contains only `UPDATE` and `DELETE`, no primary keys or UUIDs of the database: a row is chosen by a rule (the first eligible asset in `ZUUID` order that no earlier migration has marked) and marked with a title `mig:<case>` (`ZADDITIONALASSETATTRIBUTES.ZTITLE` for assets, `ZGENERICALBUM.ZTITLE` for albums and folders); tests find rows by that title. One exception: `skipped-asset` deletes the `ZADDITIONALASSETATTRIBUTES` row of its asset, and the title goes with it, so that asset is marked in `ZASSET` instead, before the row is deleted: `ZFILENAME = 'mig-skipped-asset.jpg'`. Every statement must change at least one row, otherwise the helper fails the test (a statement that may legitimately match nothing is preceded by the line `-- rows: any`).
 - All values are synthetic: identifiers carry the prefix `TEST-` (`TEST-GUID-0001`), dates are round values (`694224000` = 2023-01-01T00:00:00Z in Core Data seconds). Nothing from a real library is used.
@@ -85,7 +91,13 @@ To add a case: a new file `NNN_<case>.sql` (lowercase letters, digits and hyphen
 
 Базы лежат вне каталога модуля `osxphotos`, поэтому не входят в zip модуля, который скачивают потребители. Тесты модуля читают их по относительному пути от репозитория. Таблица каталогов, моделей и схем — выше (она одна).
 
-`synthetic` — не медиатека upstream. Её база сгенерирована один раз прежним генератором этого репозитория, `osxphotos/internal/gen`, с настройками по умолчанию: 1000 объектов, seed 1. Все её значения сгенерированы. В ней есть состояния, которых нет в медиатеках upstream: пары RAW+JPEG, общая медиатека, ресурсы только в iCloud, серии со всеми видами отметок, видео больше 2^32 байт, имена в NFD, объекты, созданные в одну секунду. Генератора больше нет: база меняется только SQL-миграциями, как и остальные.
+`synthetic` — не медиатека upstream. Её база сгенерирована один раз прежним генератором этого репозитория, `osxphotos/internal/gen`, с настройками по умолчанию: 1000 объектов, seed 1. Все её значения сгенерированы. В ней есть состояния, которых нет в медиатеках upstream: пары RAW+JPEG, общая медиатека, ресурсы только в iCloud, серии со всеми видами отметок, видео больше 2^32 байт, имена в NFD, объекты, созданные в одну секунду. Генератора больше нет: сам файл базы больше не меняется.
+
+Состояние поля, которое выводит osxphotos, но которого нет ни в одной медиатеке, — в `<имя>/reference/NNN_<случай>.sql`: эти файлы — часть медиатеки. Тестовый помощник применяет их к каждой копии, включая `testlib.OpenPristine`, а `golden-regen.yml` — к копии перед запуском osxphotos, поэтому эталон покрывает это состояние. Правила — как у миграции ниже, но строка выбирается только правилом, без маркера-названия: название попало бы в эталон.
+
+| Случай | Что покрывает | Медиатека |
+|---|---|---|
+| `kinds` | `SlowMo` (подтип 101), `ScreenRecording` (103), `BurstDefaultPick` (бит 4 у выбранного кадра) | `synthetic` |
 
 Чтобы добавить медиатеку: взять базу из того же тега upstream, положить в `<имя>/database/` (без суффикса `.photoslibrary`, иначе `.gitignore` её не пропустит) и добавить строку в таблицу.
 
@@ -98,7 +110,7 @@ To add a case: a new file `NNN_<case>.sql` (lowercase letters, digits and hyphen
 <имя>/migrations/NNN_<случай>.sql   применяются по порядку имён к временной копии
 ```
 
-- Сами базы никогда не меняются: тестовый помощник `osxphotos/internal/testlib` копирует `Photos.sqlite` и `Photos.sqlite-wal` во временный каталог, применяет все миграции медиатеки в одной транзакции и отдаёт копию тесту. Эталонные тесты работают на нетронутых базах.
+- Сами базы никогда не меняются: тестовый помощник `osxphotos/internal/testlib` копирует `Photos.sqlite` и `Photos.sqlite-wal` во временный каталог, применяет все миграции медиатеки в одной транзакции и отдаёт копию тесту. Эталонные тесты работают на копиях без миграций (с применённым `reference/`).
 - Любой `UPDATE` таблицы `ZASSET` запускает триггеры `Photos.sqlite` (R*Tree и функции, которые есть только внутри приложения «Фото», Core Data). Помощник регистрирует для функций заглушки, которые ничего не делают, поэтому миграция, запускающая такой триггер (например, перенос объекта в корзину), выполняется на копии.
 - Миграция содержит только `UPDATE` и `DELETE`, без первичных ключей и UUID из базы: строка выбирается правилом (первый подходящий объект в порядке `ZUUID`, не помеченный предыдущей миграцией) и помечается названием `mig:<случай>` (`ZADDITIONALASSETATTRIBUTES.ZTITLE` у объектов, `ZGENERICALBUM.ZTITLE` у альбомов и папок); тесты находят строки по этому названию. Одно исключение: `skipped-asset` удаляет строку `ZADDITIONALASSETATTRIBUTES` своего объекта, и название исчезает вместе с ней, поэтому этот объект помечается в `ZASSET` до удаления строки: `ZFILENAME = 'mig-skipped-asset.jpg'`. Каждая инструкция обязана изменить хотя бы одну строку, иначе помощник валит тест (перед инструкцией, которой законно не на чем сработать, стоит строка `-- rows: any`).
 - Все значения синтетические: идентификаторы с префиксом `TEST-` (`TEST-GUID-0001`), даты круглые (`694224000` = 2023-01-01T00:00:00Z в секундах Core Data). Ничего из реальной медиатеки не используется.

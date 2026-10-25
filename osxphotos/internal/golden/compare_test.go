@@ -32,8 +32,8 @@ func TestCompareNoDifferences(t *testing.T) {
 	if !rep.OK() || len(rep.Diffs) != 0 || len(rep.Explained) != 0 || len(rep.Stale) != 0 {
 		t.Fatalf("report = %+v, want no differences", rep)
 	}
-	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 56 {
-		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 56", rep.Library, rep.Objects, len(rep.Keys))
+	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 60 {
+		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 60", rep.Library, rep.Objects, len(rep.Keys))
 	}
 	if !slices.IsSorted(rep.Keys) {
 		t.Error("Keys are not sorted")
@@ -88,7 +88,10 @@ func photoMutations() []mutation {
 		{"SavedToLibrary", p(func(x *photoinfo.PhotoInfo) { x.SavedToLibrary = false }), "saved_to_library"},
 		{"BurstKey", p(func(x *photoinfo.PhotoInfo) { x.BurstKey = true }), "burst_key"},
 		{"BurstSelected", p(func(x *photoinfo.PhotoInfo) { x.BurstSelected = false }), "burst_selected"},
-		{"BurstPickType without the default pick bit", p(func(x *photoinfo.PhotoInfo) { x.BurstPickType = 8 }), "burst_default_pick"},
+		{"BurstDefaultPick", p(func(x *photoinfo.PhotoInfo) { x.BurstDefaultPick = false }), "burst_default_pick"},
+		{"SlowMo", p(func(x *photoinfo.PhotoInfo) { x.SlowMo = false }), "slow_mo"},
+		{"TimeLapse", p(func(x *photoinfo.PhotoInfo) { x.TimeLapse = false }), "time_lapse"},
+		{"ScreenRecording", p(func(x *photoinfo.PhotoInfo) { x.ScreenRecording = false }), "screen_recording"},
 		{"Burst", p(func(x *photoinfo.PhotoInfo) { x.Burst = false }), "burst burst_photos"},
 
 		// Strings.
@@ -101,6 +104,7 @@ func photoMutations() []mutation {
 		{"UTI", p(func(x *photoinfo.PhotoInfo) { x.UTI = "public.jpeg" }), "uti"},
 		{"UTIOriginal", p(func(x *photoinfo.PhotoInfo) { x.UTIOriginal = "public.jpeg" }), "uti_original"},
 		{"UTIRaw", p(func(x *photoinfo.PhotoInfo) { x.UTIRaw = "" }), "uti_raw"},
+		{"UTIEdited", p(func(x *photoinfo.PhotoInfo) { x.UTIEdited = "" }), "uti_edited"},
 
 		// Integers.
 		{"Width", p(func(x *photoinfo.PhotoInfo) { x.Width++ }), "width"},
@@ -244,7 +248,7 @@ func TestCompareValues(t *testing.T) {
 	lib.Photos[0].Latitude = ptr(1.5)
 	lib.Photos[0].Width = 7
 	lib.Photos[0].Title = "A \"quoted\" <title> & more"
-	lib.Photos[0].BurstPickType = 8
+	lib.Photos[0].BurstDefaultPick = false
 	rep := compare(t, fixtureRef(), lib)
 	got := map[string]Diff{}
 	for _, d := range rep.Diffs {
@@ -361,6 +365,7 @@ func TestCompareNulls(t *testing.T) {
 		{"CloudMasterGUID", p3m(func(x *photoinfo.PhotoInfo) { x.CloudMasterGUID = "x" }), "cloud_guid"},
 		{"Fingerprint", p3m(func(x *photoinfo.PhotoInfo) { x.Fingerprint = "x" }), "fingerprint"},
 		{"UTIRaw", p3m(func(x *photoinfo.PhotoInfo) { x.UTIRaw = "x" }), "uti_raw"},
+		{"UTIEdited", p3m(func(x *photoinfo.PhotoInfo) { x.UTIEdited = "x" }), "uti_edited"},
 		{"Width", p3m(func(x *photoinfo.PhotoInfo) { x.Width = 1 }), "width"},
 		{"Height", p3m(func(x *photoinfo.PhotoInfo) { x.Height = 1 }), "height"},
 		{"OriginalWidth", p3m(func(x *photoinfo.PhotoInfo) { x.OriginalWidth = 1 }), "original_width"},
@@ -482,11 +487,11 @@ func TestCompareSets(t *testing.T) {
 		{"a frame without a pick is in the set",
 			fixtureRef,
 			func() Library { l := fixtureLib(); l.Photos[0].BurstPickType = 0; return l },
-			[]Diff{{UUID: p1, Field: "burst_default_pick", Want: "true", Got: "false"}}},
+			nil},
 		{"the key frame is in the set",
 			fixtureRef,
 			func() Library { l := fixtureLib(); l.Photos[0].BurstPickType = 16; return l },
-			[]Diff{{UUID: p1, Field: "burst_default_pick", Want: "true", Got: "false"}}},
+			nil},
 		{"a photo that is not a photo",
 			fixtureRef,
 			func() Library { l := fixtureLib(); l.Photos[0].IsPhoto = false; return l },
