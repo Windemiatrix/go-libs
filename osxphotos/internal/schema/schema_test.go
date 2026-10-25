@@ -69,6 +69,27 @@ func TestForModelBoundaries(t *testing.T) {
 	}
 }
 
+// The versions are the literals of photosdb_utils.py:138-159, written out
+// independently of data.go.
+func TestPhotosVersion(t *testing.T) {
+	t.Parallel()
+
+	want := map[string]float64{
+		"photos8":      8,
+		"photos9":      9,
+		"photos9_14_6": 9.6,
+		"photos10":     10,
+		"photos11":     11,
+		"photos11_1":   11.1,
+		"photos12":     12,
+	}
+	for _, s := range All() {
+		if v, ok := want[s.ID]; !ok || s.PhotosVersion != v {
+			t.Errorf("%s.PhotosVersion = %v, want %v (listed: %v)", s.ID, s.PhotosVersion, v, ok)
+		}
+	}
+}
+
 func TestForModelReturnsCopy(t *testing.T) {
 	t.Parallel()
 

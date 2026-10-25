@@ -9,8 +9,9 @@ import "slices"
 // Schema is one Photos.sqlite schema. Names are the table and column names
 // that differ between schemas; the rest is the same in all of them.
 type Schema struct {
-	ID                 string // "photos8", "photos9", "photos9_14_6", "photos10", "photos11", "photos11_1", "photos12"
-	MinModel, MaxModel int    // inclusive range of PLModelVersion
+	ID                 string  // "photos8", "photos9", "photos9_14_6", "photos10", "photos11", "photos11_1", "photos12"
+	MinModel, MaxModel int     // inclusive range of PLModelVersion
+	PhotosVersion      float64 // photos_version of osxphotos (photosdb_utils.py:138-159)
 
 	MemberTable       string // album membership (ASSET_ALBUM_TABLE), e.g. Z_33ASSETS
 	MemberAlbumColumn string // its album column (ASSET_ALBUM_JOIN), e.g. Z_33ALBUMS

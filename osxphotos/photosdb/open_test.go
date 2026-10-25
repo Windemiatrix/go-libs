@@ -243,6 +243,177 @@ func TestOpenTempDir(t *testing.T) {
 	assertNoCopies(t, tmp)
 }
 
+func openPathDB(t *testing.T, path string, o Options) *DB {
+	t.Helper()
+	if o.TempDir == "" {
+		o.TempDir = t.TempDir()
+	}
+	db, err := Open(t.Context(), path, o)
+	if err != nil {
+		t.Fatalf("Open(%q): %v", path, err)
+	}
+	return db
+}
+
+func openPathDatabase(lib string) string { return filepath.Join(lib, "database", "Photos.sqlite") }
+
+// photosdb.py:353-385, 455.
+func TestOpenPaths(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input func(lib string) string
+	}{
+		{"library directory", func(lib string) string { return lib }},
+		{"Photos.sqlite", openPathDatabase},
+		{"photos.db", func(lib string) string { return filepath.Join(lib, "database", "photos.db") }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			lib := testlib.OpenPristine(t, "synthetic")
+			writeFile(t, filepath.Join(lib, "database", "photos.db"))
+			info := openPathDB(t, tt.input(lib), Options{}).Info()
+			if info.LibraryPath != lib || info.DBPath != openPathDatabase(lib) {
+				t.Errorf("LibraryPath, DBPath = %q, %q; want %q, %q", info.LibraryPath, info.DBPath, lib, openPathDatabase(lib))
+			}
+		})
+	}
+}
+
+// A relative path to a database is made absolute for DBPath and for the
+// library derived from it; a library directory stays as given.
+func TestOpenPathsRelative(t *testing.T) {
+	lib := testlib.OpenPristine(t, "synthetic")
+
+	t.Chdir(filepath.Join(lib, "database"))
+	info := openPathDB(t, "Photos.sqlite", Options{}).Info()
+	if info.LibraryPath != lib || info.DBPath != openPathDatabase(lib) {
+		t.Errorf("Photos.sqlite: LibraryPath, DBPath = %q, %q; want %q, %q", info.LibraryPath, info.DBPath, lib, openPathDatabase(lib))
+	}
+
+	t.Chdir(filepath.Dir(lib))
+	name := filepath.Base(lib)
+	info = openPathDB(t, name, Options{}).Info()
+	if info.LibraryPath != name || info.DBPath != openPathDatabase(lib) {
+		t.Errorf("directory: LibraryPath, DBPath = %q, %q; want %q, %q", info.LibraryPath, info.DBPath, name, openPathDatabase(lib))
+	}
+}
+
+func TestOpenPathsRefused(t *testing.T) {
+	t.Parallel()
+
+	lib := testlib.OpenPristine(t, "synthetic")
+	other := filepath.Join(lib, "database", "notes.txt")
+	writeFile(t, other)
+	legacy := filepath.Join(t.TempDir(), "photos.db")
+	writeFile(t, legacy)
+	tests := []struct{ name, path string }{
+		{"a missing path", filepath.Join(t.TempDir(), "missing")},
+		{"another file", other},
+		{"photos.db without Photos.sqlite", legacy},
+		{"a directory without a database", t.TempDir()},
+	}
+	for _, tt := range tests {
+		tmp := t.TempDir()
+		db, err := Open(t.Context(), tt.path, Options{TempDir: tmp})
+		if err == nil || db != nil {
+			t.Errorf("%s: Open = %v, %v; want nil and an error", tt.name, db, err)
+		}
+		assertNoCopies(t, tmp)
+	}
+}
+
+// A copy of the database next to the database, or inside the library of
+// Options.LibraryPath, would become part of a library as well.
+func TestOpenPathsTempDir(t *testing.T) {
+	t.Parallel()
+
+	read := testlib.OpenPristine(t, "synthetic")
+	elsewhere := testlib.OpenPristine(t, "synthetic")
+	tests := []struct {
+		name, path string
+		options    Options
+	}{
+		{"the directory of a database read from elsewhere", openPathDatabase(read),
+			Options{LibraryPath: elsewhere, TempDir: filepath.Join(read, "database")}},
+		{"Options.LibraryPath", openPathDatabase(read), Options{LibraryPath: elsewhere, TempDir: elsewhere}},
+		{"the library derived from Photos.sqlite", openPathDatabase(read), Options{TempDir: read}},
+	}
+	for _, tt := range tests {
+		before, beforeElsewhere := snapshotTree(t, read), snapshotTree(t, elsewhere)
+		_, err := Open(t.Context(), tt.path, tt.options)
+		if err == nil || !strings.Contains(err.Error(), "inside the library") {
+			t.Errorf("%s: Open error %v, want one about a temporary directory inside the library", tt.name, err)
+		}
+		assertTree(t, tt.name, before, snapshotTree(t, read))
+		assertTree(t, tt.name, beforeElsewhere, snapshotTree(t, elsewhere))
+	}
+}
+
+// The database is read from one library and the originals are searched in
+// another (photosdb.py:456-458).
+func TestOpenLibraryPath(t *testing.T) {
+	t.Parallel()
+
+	withOriginals, uuid, dir, file := pathsLibrary(t)
+	read := testlib.Open(t, "Test-14.0.0")
+	want := filepath.Join(withOriginals, "originals", dir, file)
+	tests := []struct {
+		name, path  string
+		options     Options
+		wantLibrary string
+		wantPath    string
+	}{
+		{"without Options.LibraryPath", read, Options{}, read, ""},
+		{"a library directory", read, Options{LibraryPath: withOriginals}, withOriginals, want},
+		{"Photos.sqlite", openPathDatabase(read), Options{LibraryPath: withOriginals}, withOriginals, want},
+	}
+	for _, tt := range tests {
+		db := openPathDB(t, tt.path, tt.options)
+		p, ok := db.Photo(uuid)
+		if !ok {
+			t.Fatalf("%s: Photo(%s) not found", tt.name, uuid)
+		}
+		if info := db.Info(); info.LibraryPath != tt.wantLibrary || info.DBPath != openPathDatabase(read) || p.Path != tt.wantPath {
+			t.Errorf("%s: LibraryPath, DBPath, Path = %q, %q, %q; want %q, %q, %q",
+				tt.name, info.LibraryPath, info.DBPath, p.Path, tt.wantLibrary, openPathDatabase(read), tt.wantPath)
+		}
+	}
+}
+
+// The literals of photosdb_utils.py:138-159 for the models in libraryModels.
+var openPathVersions = map[string]float64{
+	"Test-13.0.0":       8,
+	"Test-Cloud-13.1":   8,
+	"Test-14.0.0":       9,
+	"Test-14.6.0":       9.6,
+	"Test-15.4.1":       10,
+	"Test-16.0.0-beta":  11,
+	"Test-26.1":         11.1,
+	"Test-27.0_DevBeta": 12,
+	"synthetic":         11.1,
+}
+
+func TestOpenPhotosVersion(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range testlib.Libraries(t) {
+		want, ok := openPathVersions[name]
+		if !ok {
+			t.Fatalf("test library %s is not in openPathVersions", name)
+		}
+		path := testlib.OpenPristine(t, name)
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if got := openPathDB(t, path, Options{}).Info().PhotosVersion; got != want {
+				t.Errorf("PhotosVersion = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
 func TestOpenRemovesCopy(t *testing.T) {
 	t.Parallel()
 
