@@ -1,4 +1,4 @@
-// Package osxphotos is a Go port of the parts of osxphotos
+// Package osxphotos is an unofficial Go port of the parts of osxphotos
 // (https://github.com/RhetTbull/osxphotos) that are needed to read a macOS
 // Photos library without Python.
 //
@@ -7,13 +7,16 @@
 //
 //   - photosdb opens a copy of Photos.sqlite and exposes the catalog.
 //   - photoinfo and albuminfo describe photos, albums and folders.
-//   - query selects photos from the catalog.
-//   - template renders path templates from photo fields.
-//   - export computes file names for exported originals.
-//   - photokit talks to the Photos app through PhotoKit on macOS.
+//   - query orders photos; filters are next.
+//   - planned: template (path templates), export (export file names),
+//     photokit (PhotoKit on macOS).
 //
-// The library only reads the database, and only from a copy: it never writes
-// to a Photos library. The upstream version that the behavior follows is
-// recorded in UPSTREAM.md, which also lists the differences and the
-// extensions that go beyond upstream.
+// Status: early development; see README.md for what works today.
+//
+// The read packages never change a Photos library and read the database only
+// from a copy. Changing the library will be possible only through the
+// photokit package, on explicit use.
+//
+// The upstream version that the behavior follows, the differences and the
+// extensions are listed in UPSTREAM.md.
 package osxphotos

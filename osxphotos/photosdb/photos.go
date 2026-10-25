@@ -12,6 +12,9 @@ type DB struct {
 	photos []*photoinfo.PhotoInfo // ZUUID order
 	byUUID map[string]*photoinfo.PhotoInfo
 	albums []*albuminfo.AlbumInfo // user albums, trashed ones included, ZUUID order
+
+	folders    []*albuminfo.FolderInfo // every folder, those in the trash included, ZUUID order
+	topFolders []*albuminfo.FolderInfo // osxphotos folder_info, ZUUID order
 }
 
 // Close releases the DB. It releases nothing today: the copy of the
@@ -23,10 +26,10 @@ func (db *DB) Close() error { return nil }
 func (db *DB) Info() Info { return db.info }
 
 // Photos returns every photo, those in the trash and the unselected burst
-// frames included, in the order of osxphotos (query.Sort). The selection of
-// osxphotos photos() is !p.InTrash && !p.BurstUnselected() && (p.IsPhoto ||
-// p.IsMovie) (photosdb.py:3269-3276, 3346-3353, 3355-3358). The slice is new
-// on every call, but its values are shared by all calls: do not modify them.
+// frames included, in the order of osxphotos (query.Sort). Query(query.Options{})
+// makes the selection of osxphotos photos() (photosdb/photosdb.py:3269-3276,
+// 3346-3358). The slice is new on every call, but its values are shared by all
+// calls: do not modify them.
 func (db *DB) Photos() []*photoinfo.PhotoInfo {
 	return query.Sort(db.photos)
 }

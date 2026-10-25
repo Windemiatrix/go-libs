@@ -3,5 +3,6 @@
 // original. A database of an unknown schema is an error
 // (ErrUnsupportedSchema), not a guess.
 //
-// SystemLibraryPath finds the system Photos library of the current user.
+// SystemLibraryPath finds the system Photos library of the current user, and
+// Open reads a library into a DB.
 package photosdb

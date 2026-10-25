@@ -41,7 +41,7 @@ func sameStrings(a, b []string) bool {
 func TestLoadAlbums(t *testing.T) {
 	t.Parallel()
 
-	const nfd, nfcForm = "Café", "Café"
+	const nfd, nfcForm = "Café", "Café" // escapes: an editor may normalize the literal itself
 	none := sql.NullInt64{}
 	root, f1, f2, fn, ft := int64(1), int64(2), int64(3), int64(4), int64(5)
 
