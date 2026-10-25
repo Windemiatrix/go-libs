@@ -57,6 +57,10 @@ type Options struct {
 	BurstPhotos, MissingBursts bool           // burst_photos: add the other frames of the bursts of the result; missing_bursts: the frames that are IsMissing too (photoquery.py:863-883)
 
 	// function: run in order on the result of the filters (photoquery.py:859-861).
+	// The first gets the filtered photos in the order of the photos given to
+	// Apply. Their values are shared with the DB: a function must not modify
+	// them. Apply sorts the slice it returns in place, the one a function
+	// returns included.
 	Function []func([]*photoinfo.PhotoInfo) []*photoinfo.PhotoInfo
 
 	NewestFirst bool // newest_first: the order of Sort, reversed (photoquery.py:888-898)

@@ -18,8 +18,9 @@ type photo = photoinfo.PhotoInfo
 // (photoquery.py:417-885). photos is every photo of a library (DB.Photos()),
 // albums every user album, the albums that PhotoInfo.AlbumUUIDs refers to
 // (DB.Albums()). The result is new, in the order of Sort (reversed with
-// NewestFirst), each photo once unless a Function returns it twice; its
-// elements are the pointers of photos. photos and albums are not modified.
+// NewestFirst), each photo once unless a Function returns it twice and
+// BurstPhotos is off; its elements are the pointers of photos. photos and
+// albums are not modified.
 func Apply(o Options, photos []*photoinfo.PhotoInfo, albums []*albuminfo.AlbumInfo) []*photoinfo.PhotoInfo {
 	fs := filters(o, newPhotoAlbums(albums))
 	var out []*photo
@@ -69,7 +70,6 @@ type filter func(*photo) bool
 // (photoquery.py:447-857). A pair X/NotX is "if X … elif NotX": X wins.
 func filters(o Options, in photoAlbums) []filter {
 	fold := caseFold(o.IgnoreCase)
-	inLast := time.Now().Add(-o.AddedInLast) // one cutoff for all photos (photoquery.py:835)
 	var fs []filter
 	when := func(set bool, f filter) {
 		if set {
@@ -120,7 +120,10 @@ func filters(o Options, in photoAlbums) []filter {
 	pair(o.Location, o.NoLocation, func(p *photo) bool { return p.Latitude != nil || p.Longitude != nil })
 	when(!o.AddedAfter.IsZero(), func(p *photo) bool { return dateAdded(p).After(o.AddedAfter) })
 	when(!o.AddedBefore.IsZero(), func(p *photo) bool { return dateAdded(p).Before(o.AddedBefore) })
-	when(o.AddedInLast != 0, func(p *photo) bool { return dateAdded(p).After(inLast) })
+	if o.AddedInLast != 0 {
+		inLast := time.Now().Add(-o.AddedInLast) // one cutoff for all photos (photoquery.py:835)
+		fs = append(fs, func(p *photo) bool { return dateAdded(p).After(inLast) })
+	}
 	pair(o.Syndicated, o.NotSyndicated, func(p *photo) bool { return p.Syndicated })
 	pair(o.SavedToLibrary, o.NotSavedToLibrary, func(p *photo) bool { return p.SavedToLibrary })
 	when(o.SavedToLibrary || o.NotSavedToLibrary, func(p *photo) bool { return p.Syndicated }) // photoquery.py:844-847
@@ -140,16 +143,16 @@ func timeOfDay(d time.Time) time.Duration {
 // IsMissing only with missing. Each UUID stays once, at its first place
 // (photoquery.py:863-883; photoinfo.py:1031-1044).
 func withBursts(in, catalog []*photo, missing bool) []*photo {
-	frames := map[string][]*photo{}
-	for _, p := range catalog {
-		if p.Burst && (missing || !p.IsMissing) {
-			frames[p.BurstUUID] = append(frames[p.BurstUUID], p)
+	held := map[string]bool{}
+	for _, p := range in {
+		if p.Burst {
+			held[p.BurstUUID] = true
 		}
 	}
 	out := slices.Clone(in)
-	for _, p := range in {
-		if p.Burst {
-			out = append(out, frames[p.BurstUUID]...)
+	for _, p := range catalog {
+		if p.Burst && held[p.BurstUUID] && (missing || !p.IsMissing) {
+			out = append(out, p)
 		}
 	}
 	seen := make(map[string]bool, len(out))

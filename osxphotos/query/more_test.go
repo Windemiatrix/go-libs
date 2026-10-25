@@ -120,13 +120,13 @@ func TestMoreBurstPhotos(t *testing.T) {
 	frame := func(uuid, burst string, day, pick int) *photoinfo.PhotoInfo {
 		return &photoinfo.PhotoInfo{UUID: uuid, IsPhoto: true, Burst: true, BurstUUID: burst, BurstPickType: pick, Date: moreDay(day)}
 	}
-	trashed, missing := frame("B3", "X", 4, 8), frame("B4", "X", 1, 8)
-	trashed.InTrash, missing.IsMissing = true, true
-	// B2 is an unselected frame, B3 is in the trash, B4 is missing, NB is not a
-	// frame of a burst although it carries its BurstUUID, E1 and E2 are the
-	// frames of the burst whose BurstUUID is empty.
+	first, trashed, missing := frame("B1", "X", 5, 8), frame("B3", "X", 4, 8), frame("B4", "X", 1, 8)
+	first.Favorite, trashed.InTrash, missing.IsMissing = true, true, true
+	// B1 is the only favorite, B2 is an unselected frame, B3 is in the trash, B4
+	// is missing, NB is not a frame of a burst although it carries its
+	// BurstUUID, E1 and E2 are the frames of the burst whose BurstUUID is empty.
 	catalog := morePhotos{
-		frame("B1", "X", 5, 8), frame("B2", "X", 3, 2), trashed, missing,
+		first, frame("B2", "X", 3, 2), trashed, missing,
 		{UUID: "NB", IsPhoto: true, BurstUUID: "X", Date: moreDay(2)},
 		frame("Y1", "Y", 6, 8), frame("Y2", "Y", 7, 2),
 		frame("E1", "", 8, 8), frame("E2", "", 9, 2),
@@ -144,7 +144,7 @@ func TestMoreBurstPhotos(t *testing.T) {
 		{"not a burst", Options{UUID: []string{"NB"}, BurstPhotos: true}, catalog, []string{"NB"}},
 		{"empty BurstUUID is one burst", Options{UUID: []string{"E1"}, BurstPhotos: true}, catalog, []string{"E1", "E2"}},
 		{"two bursts", Options{UUID: []string{"Y1", "B1"}, BurstPhotos: true}, catalog, []string{"B2", "B3", "B1", "Y1", "Y2"}},
-		{"after the other filters", Options{Burst: true, Favorite: true, BurstPhotos: true}, catalog, nil},
+		{"after the other filters", Options{Favorite: true, BurstPhotos: true}, catalog, []string{"B2", "B3", "B1"}},
 	}
 	var tests []applyCase
 	for _, c := range cases {
