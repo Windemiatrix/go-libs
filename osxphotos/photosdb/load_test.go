@@ -422,12 +422,14 @@ func TestLoadBurstAlbums(t *testing.T) {
 		a.BurstUUID, a.BurstPickType = nullString(burstUUID), nullInt(pick)
 		return a
 	}
+	const withKey, withoutKey = "WITH-KEY", "WITHOUT-KEY"
 	in := tables{
 		assets: []sqlread.Asset{
-			burst(1, "K", "B1", 16), burst(2, "S", "B1", 8), burst(3, "U", "B1", 2),
-			burst(4, "E1", "", 16), burst(5, "E2", "", 0),
+			burst(1, "K", withKey, photoinfo.BurstPickKey), burst(2, "S", withKey, photoinfo.BurstPickSelected),
+			burst(3, "U", withKey, pickUnselected),
+			burst(4, "E1", "", photoinfo.BurstPickKey), burst(5, "E2", "", 0),
 			baseAsset(6, "N"),
-			burst(7, "O", "B2", 2),
+			burst(7, "O", withoutKey, pickUnselected),
 		},
 		members: []sqlread.Member{
 			{AssetPK: 1, AlbumUUID: "AL-K"}, {AssetPK: 2, AlbumUUID: "AL-S"}, {AssetPK: 4, AlbumUUID: "AL-E"},

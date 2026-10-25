@@ -75,7 +75,7 @@ type fileState struct {
 	sum   [sha256.Size]byte
 }
 
-func tree(t *testing.T, dir string) map[string]fileState {
+func snapshotTree(t *testing.T, dir string) map[string]fileState {
 	t.Helper()
 	out := map[string]fileState{}
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
@@ -141,12 +141,12 @@ func TestOpenLibraries(t *testing.T) {
 		t.Run(lib.name, func(t *testing.T) {
 			t.Parallel()
 			tmp := t.TempDir()
-			before := tree(t, lib.path)
+			before := snapshotTree(t, lib.path)
 			db, err := Open(t.Context(), lib.path, Options{TempDir: tmp})
 			if err != nil {
 				t.Fatalf("Open: %v", err)
 			}
-			assertTree(t, lib.name, before, tree(t, lib.path))
+			assertTree(t, lib.name, before, snapshotTree(t, lib.path))
 			assertNoCopies(t, tmp)
 			info := db.Info()
 			if info.ModelVersion != lib.model || info.SchemaID != lib.id || !uuidForm.MatchString(info.LibraryUUID) ||
@@ -208,12 +208,12 @@ func TestOpenTempDir(t *testing.T) {
 		t.Log("the temporary file system is case-sensitive: the library in another case is not checked")
 	}
 	for _, tt := range inside {
-		before := tree(t, lib)
+		before := snapshotTree(t, lib)
 		_, err := Open(t.Context(), tt.lib, Options{TempDir: tt.tmp})
 		if err == nil || !strings.Contains(err.Error(), "inside the library") {
 			t.Errorf("%s: Open error %v, want one about a temporary directory inside the library", tt.name, err)
 		}
-		assertTree(t, tt.name, before, tree(t, lib))
+		assertTree(t, tt.name, before, snapshotTree(t, lib))
 	}
 
 	db, err := Open(t.Context(), lib, Options{TempDir: sibling})
@@ -269,7 +269,7 @@ func TestOpenRemovesCopy(t *testing.T) {
 			lib := testlib.OpenPristine(t, "synthetic")
 			change(t, lib, tt.edit...)
 			tmp := t.TempDir()
-			before := tree(t, lib)
+			before := snapshotTree(t, lib)
 			db, err := Open(tt.ctx, lib, Options{TempDir: tmp})
 			switch {
 			case tt.want == "" && err != nil:
@@ -283,7 +283,7 @@ func TestOpenRemovesCopy(t *testing.T) {
 				t.Errorf("errors.Is(%v, ErrUnsupportedSchema) = %v, want %v", err, !tt.unsupported, tt.unsupported)
 			}
 			assertNoCopies(t, tmp)
-			assertTree(t, tt.name, before, tree(t, lib))
+			assertTree(t, tt.name, before, snapshotTree(t, lib))
 		})
 	}
 }
@@ -301,13 +301,13 @@ func TestOpenEmptyDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 	tmp := t.TempDir()
-	before := tree(t, lib)
+	before := snapshotTree(t, lib)
 	db, err := Open(t.Context(), lib, Options{TempDir: tmp})
 	if err == nil || db != nil {
 		t.Fatalf("Open of an empty database = %v, %v; want nil and an error", db, err)
 	}
 	assertNoCopies(t, tmp)
-	assertTree(t, "empty database", before, tree(t, lib))
+	assertTree(t, "empty database", before, snapshotTree(t, lib))
 }
 
 func TestOpenHostileValues(t *testing.T) {

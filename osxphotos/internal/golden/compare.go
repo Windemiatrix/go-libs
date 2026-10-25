@@ -43,25 +43,25 @@ type Report struct {
 func (r *Report) OK() bool { return len(r.Diffs) == 0 && len(r.Stale) == 0 }
 
 type env struct {
-	albums map[string]*albuminfo.AlbumInfo
-	elems  map[string]map[string]any
-	bursts map[string][]string
+	albums       map[string]*albuminfo.AlbumInfo
+	goAlbumElems map[string]map[string]any
+	bursts       map[string][]string
 }
 
 var errAlbumMissing = errors.New("an album of a photo is missing from Library.Albums")
 
 func newEnv(lib Library) (*env, error) {
 	e := &env{
-		albums: map[string]*albuminfo.AlbumInfo{},
-		elems:  map[string]map[string]any{},
-		bursts: map[string][]string{},
+		albums:       map[string]*albuminfo.AlbumInfo{},
+		goAlbumElems: map[string]map[string]any{},
+		bursts:       map[string][]string{},
 	}
 	for _, a := range lib.Albums {
 		if _, dup := e.albums[a.UUID]; dup {
 			return nil, errors.New("golden: an album UUID is repeated in Library.Albums")
 		}
 		e.albums[a.UUID] = a
-		e.elems[a.UUID] = map[string]any{
+		e.goAlbumElems[a.UUID] = map[string]any{
 			"uuid":          a.UUID,
 			"title":         a.Title,
 			"parent":        a.ParentUUID,

@@ -239,7 +239,7 @@ func titleDiffLib() Library {
 func TestExplain(t *testing.T) {
 	t.Parallel()
 	title := func(extra ...string) Divergence {
-		d := Divergence{Library: "lib", UUID: p1, Field: "title", Reason: "r", Upstream: "a.py:1"}
+		d := Divergence{Library: "lib", UUID: selectedFrame, Field: "title", Reason: "r", Upstream: "a.py:1"}
 		for i := 0; i+1 < len(extra); i += 2 {
 			switch extra[i] {
 			case "uuid":
@@ -273,7 +273,7 @@ func TestExplain(t *testing.T) {
 		{"another want", nil, []Divergence{title("want", `"Other"`)}, 1, map[string]int{}, 1},
 		{"another got", nil, []Divergence{title("got", `"x"`)}, 1, map[string]int{}, 1},
 		{"all objects with another got", nil, []Divergence{title("uuid", "*", "want", `"Title A"`, "got", `"x"`)}, 1, map[string]int{}, 1},
-		{"another uuid", nil, []Divergence{title("uuid", p3)}, 1, map[string]int{}, 1},
+		{"another uuid", nil, []Divergence{title("uuid", emptyPhoto)}, 1, map[string]int{}, 1},
 		{"another field", nil, []Divergence{title("field", "width")}, 1, map[string]int{}, 1},
 		{"a record of another library is ignored", nil, []Divergence{title("library", "other")}, 1, map[string]int{}, 0},
 		{"a record of a key that is not compared is not stale", []string{"title"}, []Divergence{title("field", "width")}, 1, map[string]int{}, 0},
@@ -314,8 +314,8 @@ func TestExplain(t *testing.T) {
 		lib.Photos[0].Title, lib.Photos[0].Description, lib.Photos[2].Title = "", "", "t"
 		divs := []Divergence{
 			{Library: "lib", UUID: "*", Field: "title", Want: []byte(`""`), Got: []byte(`"t"`), Reason: "r", Upstream: "a.py:1"},
-			{Library: "lib", UUID: p1, Field: "title", Reason: "r", Upstream: "a.py:1"},
-			{Library: "lib", UUID: p1, Field: "description", Reason: "r", Upstream: "a.py:1"},
+			{Library: "lib", UUID: selectedFrame, Field: "title", Reason: "r", Upstream: "a.py:1"},
+			{Library: "lib", UUID: selectedFrame, Field: "description", Reason: "r", Upstream: "a.py:1"},
 		}
 		rep := compare(t, fixtureRef(), lib, divs...)
 		if !rep.OK() || !reflect.DeepEqual(rep.Explained, map[string]int{"title": 2, "description": 1}) {
@@ -325,9 +325,9 @@ func TestExplain(t *testing.T) {
 	t.Run("a stale record is sorted and complete", func(t *testing.T) {
 		t.Parallel()
 		divs := []Divergence{
-			{Library: "lib", UUID: p2, Field: "width", Reason: "r2", Upstream: "a.py:1"},
-			{Library: "lib", UUID: p1, Field: "title", Want: []byte(`"x"`), Reason: "r1", Upstream: "a.py:1"},
-			{Library: "lib", UUID: p1, Field: "height", Reason: "r3", Upstream: "a.py:1"},
+			{Library: "lib", UUID: unselectedFrame, Field: "width", Reason: "r2", Upstream: "a.py:1"},
+			{Library: "lib", UUID: selectedFrame, Field: "title", Want: []byte(`"x"`), Reason: "r1", Upstream: "a.py:1"},
+			{Library: "lib", UUID: selectedFrame, Field: "height", Reason: "r3", Upstream: "a.py:1"},
 		}
 		rep := compare(t, fixtureRef(), fixtureLib(), divs...)
 		if len(rep.Stale) != 3 || rep.Stale[0].Field != "height" || rep.Stale[1].Field != "title" || rep.Stale[2].Field != "width" {
@@ -341,7 +341,7 @@ func TestExplain(t *testing.T) {
 		t.Parallel()
 		lib := fixtureLib()
 		lib.Photos[0].IsPhoto = false
-		d := Divergence{Library: "lib", UUID: p1, Field: "uuid", Want: []byte("true"), Got: []byte("false"), Reason: "r", Upstream: "a.py:1"}
+		d := Divergence{Library: "lib", UUID: selectedFrame, Field: "uuid", Want: []byte("true"), Got: []byte("false"), Reason: "r", Upstream: "a.py:1"}
 		rep, err := Compare(fixtureRef(), lib, nil, []Divergence{d})
 		if err != nil || !rep.OK() || rep.Explained["uuid"] != 1 {
 			t.Errorf("Compare = %+v, %v; want the difference of uuid explained", rep, err)
@@ -351,7 +351,7 @@ func TestExplain(t *testing.T) {
 
 func TestExplainedRecordForTwoLibraries(t *testing.T) {
 	t.Parallel()
-	d := Divergence{Library: "other", UUID: p1, Field: "title", Reason: "r", Upstream: "a.py:1"}
+	d := Divergence{Library: "other", UUID: selectedFrame, Field: "title", Reason: "r", Upstream: "a.py:1"}
 	rep := compare(t, fixtureRef(), titleDiffLib(), d)
 	if len(rep.Diffs) != 1 || len(rep.Stale) != 0 {
 		t.Errorf("Diffs = %v, Stale = %v", rep.Diffs, rep.Stale)

@@ -233,9 +233,9 @@ func checkDataFile(fsys fs.FS, p string) error {
 	hostCount, hostFirst := 0, ""
 	for i, el := range elems {
 		for _, k := range slices.Sorted(maps.Keys(el)) {
-			if where, found := findHostPath(el[k], k); found {
+			if location, found := findHostPath(el[k], k); found {
 				if hostCount == 0 {
-					hostFirst = fmt.Sprintf("element %d, %s", i+1, where)
+					hostFirst = fmt.Sprintf("element %d, %s", i+1, location)
 				}
 				hostCount++
 			}
@@ -272,27 +272,27 @@ func parseObjects(data []byte) ([]map[string]any, error) {
 	return out, nil
 }
 
-func findHostPath(v any, where string) (string, bool) {
+func findHostPath(v any, location string) (string, bool) {
 	switch v := v.(type) {
 	case string:
 		if strings.Contains(v, ".photoslibrary") {
-			return where, true
+			return location, true
 		}
 		for _, prefix := range hostPrefixes {
 			if strings.HasPrefix(v, prefix) {
-				return where, true
+				return location, true
 			}
 		}
 	case []any:
 		for i, item := range v {
-			if w, found := findHostPath(item, fmt.Sprintf("%s[%d]", where, i)); found {
-				return w, true
+			if hostLocation, found := findHostPath(item, fmt.Sprintf("%s[%d]", location, i)); found {
+				return hostLocation, true
 			}
 		}
 	case map[string]any:
 		for _, k := range slices.Sorted(maps.Keys(v)) {
-			if w, found := findHostPath(v[k], where+"."+k); found {
-				return w, true
+			if hostLocation, found := findHostPath(v[k], location+"."+k); found {
+				return hostLocation, true
 			}
 		}
 	}

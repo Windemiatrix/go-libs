@@ -86,12 +86,12 @@ func filters(o Options, in photoAlbums) []filter {
 	albums, folders := parseAlbumPaths(o.Album, fold), parseAlbumPaths(o.Folder, fold)
 	keywords, names := searchValues(o.Keyword, fold), searchValues(o.Name, fold)
 
-	when(len(albums.paths) > 0, func(p *photo) bool { return in.has(p, albums.name) })
+	when(len(albums.paths) > 0, func(p *photo) bool { return in.has(p, albums.matchAnyAlbum) })
 	when(len(keywords) > 0, func(p *photo) bool {
 		return slices.ContainsFunc(p.Keywords, func(k string) bool { return slices.Contains(keywords, fold.apply(k)) })
 	})
 	when(len(keywords) == 0 && o.NoKeyword, func(p *photo) bool { return len(p.Keywords) == 0 })
-	when(len(folders.paths) > 0, func(p *photo) bool { return in.has(p, folders.enclose) })
+	when(len(folders.paths) > 0, func(p *photo) bool { return in.has(p, folders.matchAnyFolder) })
 	text(searchValues(o.Title, fold), o.NoTitle, func(p *photo) string { return p.Title })
 	text(searchValues(o.Description, fold), o.NoDescription, func(p *photo) string { return p.Description })
 	pair(o.Edited, o.NotEdited, func(p *photo) bool { return p.HasAdjustments })
@@ -139,20 +139,33 @@ func timeOfDay(d time.Time) time.Duration {
 
 // withBursts follows photoquery.py:863-883 and photoinfo.py:1031-1044.
 func withBursts(in, catalog []*photo, missing bool) []*photo {
+	frames := framesOfBursts(catalog, burstsHeldBy(in), missing)
+	return withoutRepeatedUUIDs(append(slices.Clone(in), frames...))
+}
+
+func burstsHeldBy(photos []*photo) map[string]bool {
 	held := map[string]bool{}
-	for _, p := range in {
+	for _, p := range photos {
 		if p.Burst {
 			held[p.BurstUUID] = true
 		}
 	}
-	out := slices.Clone(in)
+	return held
+}
+
+func framesOfBursts(catalog []*photo, bursts map[string]bool, missing bool) []*photo {
+	var frames []*photo
 	for _, p := range catalog {
-		if p.Burst && held[p.BurstUUID] && (missing || !p.IsMissing) {
-			out = append(out, p)
+		if p.Burst && bursts[p.BurstUUID] && (missing || !p.IsMissing) {
+			frames = append(frames, p)
 		}
 	}
-	seen := make(map[string]bool, len(out))
-	return slices.DeleteFunc(out, func(p *photo) bool {
+	return frames
+}
+
+func withoutRepeatedUUIDs(photos []*photo) []*photo {
+	seen := make(map[string]bool, len(photos))
+	return slices.DeleteFunc(photos, func(p *photo) bool {
 		dup := seen[p.UUID]
 		seen[p.UUID] = true
 		return dup

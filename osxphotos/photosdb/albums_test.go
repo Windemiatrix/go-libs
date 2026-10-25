@@ -30,7 +30,7 @@ func sameTime(a, b *time.Time) bool {
 	return a.Equal(*b)
 }
 
-func sameStrings(a, b []string) bool {
+func sameStringsNilAware(a, b []string) bool {
 	return (a == nil) == (b == nil) && slices.Equal(a, b)
 }
 
@@ -104,7 +104,7 @@ func TestLoadAlbums(t *testing.T) {
 	for i, w := range want {
 		g := got[i]
 		if g.UUID != w.UUID || g.CloudGUID != w.CloudGUID || g.Title != w.Title || g.ParentUUID != w.ParentUUID ||
-			!sameStrings(g.FolderNames, w.FolderNames) || !sameStrings(g.PhotoUUIDs, w.PhotoUUIDs) || g.InTrash != w.InTrash ||
+			!sameStringsNilAware(g.FolderNames, w.FolderNames) || !sameStringsNilAware(g.PhotoUUIDs, w.PhotoUUIDs) || g.InTrash != w.InTrash ||
 			!sameTime(g.CreationDate, w.CreationDate) || !sameTime(g.StartDate, w.StartDate) || !sameTime(g.EndDate, w.EndDate) {
 			t.Errorf("album %d = %+v, want %+v", i, *g, *w)
 		}

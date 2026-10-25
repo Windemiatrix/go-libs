@@ -33,16 +33,16 @@ func sizedPathPlist(size int, path string) []byte {
 	return body(strings.Repeat("x", size-len(body(""))))
 }
 
-type file struct {
+type prefsFile struct {
 	data       []byte
 	unreadable bool
 	isDir      bool
 }
 
-func writeHome(t *testing.T, group, container file) string {
+func writeHome(t *testing.T, group, container prefsFile) string {
 	t.Helper()
 	home := t.TempDir()
-	for rel, f := range map[string]file{groupPlist: group, containerPlist: container} {
+	for rel, f := range map[string]prefsFile{groupPlist: group, containerPlist: container} {
 		p := filepath.Join(home, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
 			t.Fatal(err)
@@ -69,34 +69,34 @@ func writeHome(t *testing.T, group, container file) string {
 func TestSystemLibraryPath(t *testing.T) {
 	t.Parallel()
 
-	none := file{}
+	none := prefsFile{}
 	tests := []struct {
 		name             string
-		group, container file
+		group, container prefsFile
 		want             string
-		errText          []string
+		wantErrText      []string
 	}{
-		{name: "group file first", group: file{data: pathPlist(groupLibrary)}, container: file{data: pathPlist(containerLibrary)}, want: groupLibrary},
-		{name: "group only", group: file{data: pathPlist(groupLibrary)}, container: none, want: groupLibrary},
-		{name: "group without key", group: file{data: xmlPlist("<dict><key>Other</key><string>/x</string></dict>")}, container: file{data: pathPlist(containerLibrary)}, want: containerLibrary},
-		{name: "container only", group: none, container: file{data: pathPlist(containerLibrary)}, want: containerLibrary},
-		{name: "no files", group: none, container: none, errText: []string{"not recorded"}},
-		{name: "broken group", group: file{data: []byte("garbage")}, container: file{data: pathPlist(containerLibrary)}, want: containerLibrary},
-		{name: "integer value", group: file{data: libraryPlist("<integer>1</integer>")}, container: file{data: pathPlist(containerLibrary)}, want: containerLibrary},
-		{name: "empty string", group: file{data: pathPlist("")}, container: file{data: pathPlist(containerLibrary)}, want: containerLibrary},
-		{name: "root array", group: file{data: xmlPlist("<array><string>" + groupLibrary + "</string></array>")}, container: file{data: pathPlist(containerLibrary)}, want: containerLibrary},
-		{name: "relative path", group: file{data: pathPlist("Pictures/Photos Library.photoslibrary")}, container: file{data: pathPlist(containerLibrary)}, want: containerLibrary},
-		{name: "every value rejected", group: file{data: pathPlist("relative/path")}, container: file{data: libraryPlist("<true/>")}, errText: []string{"not recorded"}},
-		{name: "directory instead of file", group: file{isDir: true}, container: file{data: pathPlist(containerLibrary)}, want: containerLibrary},
-		{name: "spaces and missing path unchanged", group: file{data: pathPlist("/Volumes/No Such/Photos Library.photoslibrary")}, container: none, want: "/Volumes/No Such/Photos Library.photoslibrary"},
-		{name: "exactly 1 MiB", group: file{data: sizedPathPlist(1<<20, groupLibrary)}, container: file{data: pathPlist(containerLibrary)}, want: groupLibrary},
-		{name: "1 MiB + 1", group: file{data: sizedPathPlist(1<<20+1, groupLibrary)}, container: file{data: pathPlist(containerLibrary)}, want: containerLibrary},
+		{name: "group file first", group: prefsFile{data: pathPlist(groupLibrary)}, container: prefsFile{data: pathPlist(containerLibrary)}, want: groupLibrary},
+		{name: "group only", group: prefsFile{data: pathPlist(groupLibrary)}, container: none, want: groupLibrary},
+		{name: "group without key", group: prefsFile{data: xmlPlist("<dict><key>Other</key><string>/x</string></dict>")}, container: prefsFile{data: pathPlist(containerLibrary)}, want: containerLibrary},
+		{name: "container only", group: none, container: prefsFile{data: pathPlist(containerLibrary)}, want: containerLibrary},
+		{name: "no files", group: none, container: none, wantErrText: []string{"not recorded"}},
+		{name: "broken group", group: prefsFile{data: []byte("garbage")}, container: prefsFile{data: pathPlist(containerLibrary)}, want: containerLibrary},
+		{name: "integer value", group: prefsFile{data: libraryPlist("<integer>1</integer>")}, container: prefsFile{data: pathPlist(containerLibrary)}, want: containerLibrary},
+		{name: "empty string", group: prefsFile{data: pathPlist("")}, container: prefsFile{data: pathPlist(containerLibrary)}, want: containerLibrary},
+		{name: "root array", group: prefsFile{data: xmlPlist("<array><string>" + groupLibrary + "</string></array>")}, container: prefsFile{data: pathPlist(containerLibrary)}, want: containerLibrary},
+		{name: "relative path", group: prefsFile{data: pathPlist("Pictures/Photos Library.photoslibrary")}, container: prefsFile{data: pathPlist(containerLibrary)}, want: containerLibrary},
+		{name: "every value rejected", group: prefsFile{data: pathPlist("relative/path")}, container: prefsFile{data: libraryPlist("<true/>")}, wantErrText: []string{"not recorded"}},
+		{name: "directory instead of file", group: prefsFile{isDir: true}, container: prefsFile{data: pathPlist(containerLibrary)}, want: containerLibrary},
+		{name: "spaces and missing path unchanged", group: prefsFile{data: pathPlist("/Volumes/No Such/Photos Library.photoslibrary")}, container: none, want: "/Volumes/No Such/Photos Library.photoslibrary"},
+		{name: "exactly 1 MiB", group: prefsFile{data: sizedPathPlist(1<<20, groupLibrary)}, container: prefsFile{data: pathPlist(containerLibrary)}, want: groupLibrary},
+		{name: "1 MiB + 1", group: prefsFile{data: sizedPathPlist(1<<20+1, groupLibrary)}, container: prefsFile{data: pathPlist(containerLibrary)}, want: containerLibrary},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := systemLibraryPath(writeHome(t, tt.group, tt.container))
-			checkLibraryPath(t, got, err, tt.want, tt.errText)
+			checkLibraryPath(t, got, err, tt.want, tt.wantErrText)
 		})
 	}
 }
@@ -104,13 +104,13 @@ func TestSystemLibraryPath(t *testing.T) {
 func TestSystemLibraryPathBinary(t *testing.T) {
 	t.Parallel()
 
-	bin := func(v any) file {
-		return file{data: marshal(t, map[string]any{"Other": 1, "SystemLibraryPath": v}, plist.BinaryFormat)}
+	bin := func(v any) prefsFile {
+		return prefsFile{data: marshal(t, map[string]any{"Other": 1, "SystemLibraryPath": v}, plist.BinaryFormat)}
 	}
-	container := file{data: pathPlist(containerLibrary)}
+	container := prefsFile{data: pathPlist(containerLibrary)}
 	tests := []struct {
 		name  string
-		group file
+		group prefsFile
 		want  string
 	}{
 		{name: "binary group", group: bin(groupLibrary), want: groupLibrary},
@@ -154,7 +154,7 @@ func TestSystemLibraryPathPermission(t *testing.T) {
 
 	t.Run("second unreadable", func(t *testing.T) {
 		t.Parallel()
-		home := writeHome(t, file{}, file{data: pathPlist(containerLibrary), unreadable: true})
+		home := writeHome(t, prefsFile{}, prefsFile{data: pathPlist(containerLibrary), unreadable: true})
 		got, err := systemLibraryPath(home)
 		checkLibraryPath(t, got, err, "", []string{"not recorded", "permission denied", "Full Disk Access",
 			"~/" + containerPlist})
@@ -164,7 +164,7 @@ func TestSystemLibraryPathPermission(t *testing.T) {
 	})
 	t.Run("first unreadable, second with key", func(t *testing.T) {
 		t.Parallel()
-		home := writeHome(t, file{data: pathPlist(groupLibrary), unreadable: true}, file{data: pathPlist(containerLibrary)})
+		home := writeHome(t, prefsFile{data: pathPlist(groupLibrary), unreadable: true}, prefsFile{data: pathPlist(containerLibrary)})
 		got, err := systemLibraryPath(home)
 		checkLibraryPath(t, got, err, containerLibrary, nil)
 	})

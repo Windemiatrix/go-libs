@@ -142,17 +142,17 @@ func queryCompare(t *testing.T, name string, got, want []string) {
 
 type queryCase struct {
 	name, family string
-	keys         []string
+	refKeys      []string
 	o            query.Options
 	want         func(queryRef) bool
 }
 
 type queryFlag struct {
-	name    string
-	keys    []string
-	x, notX func(*query.Options)
-	has     func(queryRef) bool
-	scope   func(queryRef) bool
+	name      string
+	refKeys   []string
+	x, notX   func(*query.Options)
+	has       func(queryRef) bool
+	appliesTo func(queryRef) bool
 }
 
 func queryFlagCases() []queryCase {
@@ -191,13 +191,13 @@ func queryFlagCases() []queryCase {
 	}
 	var cases []queryCase
 	for _, f := range flags {
-		in := func(r queryRef) bool { return f.scope == nil || f.scope(r) }
+		in := func(r queryRef) bool { return f.appliesTo == nil || f.appliesTo(r) }
 		var x, notX query.Options
 		f.x(&x)
-		cases = append(cases, queryCase{f.name, "flags", f.keys, x, func(r queryRef) bool { return in(r) && f.has(r) }})
+		cases = append(cases, queryCase{f.name, "flags", f.refKeys, x, func(r queryRef) bool { return in(r) && f.has(r) }})
 		if f.notX != nil {
 			f.notX(&notX)
-			cases = append(cases, queryCase{"not " + f.name, "flags", f.keys, notX, func(r queryRef) bool { return in(r) && !f.has(r) }})
+			cases = append(cases, queryCase{"not " + f.name, "flags", f.refKeys, notX, func(r queryRef) bool { return in(r) && !f.has(r) }})
 		}
 	}
 	return cases
@@ -437,7 +437,7 @@ func TestQueryGolden(t *testing.T) {
 					queryDateCases(t, db, inQuery), queryOtherCases(inQuery, inDeleted))
 				counts, hit := map[string]int{}, map[string]bool{}
 				for _, c := range cases {
-					skip := querySkip(divs, lib.name, c.keys)
+					skip := querySkip(divs, lib.name, c.refKeys)
 					want := queryRefIDs(inQuery, skip, c.want)
 					queryCompare(t, c.name, queryIDs(db.Query(c.o), skip), want)
 					counts[c.family] += len(want)

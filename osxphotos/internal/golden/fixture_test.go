@@ -16,19 +16,19 @@ import (
 )
 
 const (
-	p1 = "00000000-0000-0000-0000-000000000001"
-	p2 = "00000000-0000-0000-0000-000000000002"
-	p3 = "00000000-0000-0000-0000-000000000003"
+	selectedFrame   = "00000000-0000-0000-0000-000000000001"
+	unselectedFrame = "00000000-0000-0000-0000-000000000002"
+	emptyPhoto      = "00000000-0000-0000-0000-000000000003"
 
-	albumA1 = "00000000-0000-0000-0000-0000000000a1"
-	albumA2 = "00000000-0000-0000-0000-0000000000a2"
-	albumA3 = "00000000-0000-0000-0000-0000000000a3"
-	albumA5 = "00000000-0000-0000-0000-0000000000a5"
-	albumA9 = "00000000-0000-0000-0000-0000000000a9"
-	albumC1 = "00000000-0000-0000-0000-0000000000c1"
-	albumC2 = "00000000-0000-0000-0000-0000000000c2"
-	folderX = "00000000-0000-0000-0000-0000000000f1"
-	folderY = "00000000-0000-0000-0000-0000000000f2"
+	albumAInFolderX    = "00000000-0000-0000-0000-0000000000a1"
+	albumTrashed       = "00000000-0000-0000-0000-0000000000a2"
+	albumAInFolderY    = "00000000-0000-0000-0000-0000000000a3"
+	albumBNoFolder     = "00000000-0000-0000-0000-0000000000a5"
+	albumOfNoPhoto     = "00000000-0000-0000-0000-0000000000a9"
+	sharedAlbumS       = "00000000-0000-0000-0000-0000000000c1"
+	sharedAlbumTitledA = "00000000-0000-0000-0000-0000000000c2"
+	folderX            = "00000000-0000-0000-0000-0000000000f1"
+	folderY            = "00000000-0000-0000-0000-0000000000f2"
 )
 
 func ptr[T any](v T) *T { return &v }
@@ -43,7 +43,7 @@ func fixtureLib() Library {
 	return Library{
 		Photos: []*photoinfo.PhotoInfo{
 			{
-				UUID:            p1,
+				UUID:            selectedFrame,
 				CloudMasterGUID: "CLOUD-GUID-1", Fingerprint: "FP-1",
 				Filename: "IMG_0001.HEIC", OriginalFilename: "orig_0001.heic",
 				Date:     utc(2020, 6, 6, 14, 15, 24, 725564000).In(ist),
@@ -60,27 +60,27 @@ func fixtureLib() Library {
 				InCloud: ptr(true), IsMissing: true, IsCloudAsset: true, IsReference: true,
 				Title: "Title A", Description: "Desc", Keywords: []string{"alpha", "beta"}, HasPersons: true,
 				Latitude: ptr(48.8566), Longitude: ptr(2.3522),
-				AlbumUUIDs:      []string{albumA3, albumA2, albumA1},
-				BurstAlbumUUIDs: []string{albumA5, albumA1, albumA3},
+				AlbumUUIDs:      []string{albumAInFolderY, albumTrashed, albumAInFolderX},
+				BurstAlbumUUIDs: []string{albumBNoFolder, albumAInFolderX, albumAInFolderY},
 			},
-			{UUID: p2, IsPhoto: true, Burst: true, BurstUUID: "BURST-A", BurstPickType: 2},
+			{UUID: unselectedFrame, IsPhoto: true, Burst: true, BurstUUID: "BURST-A", BurstPickType: 2},
 			{
-				UUID: p3, Filename: "IMG_0003.JPG", OriginalFilename: "IMG_0003.JPG",
+				UUID: emptyPhoto, Filename: "IMG_0003.JPG", OriginalFilename: "IMG_0003.JPG",
 				Date: time.Unix(0, 0), UTI: "public.jpeg", UTIOriginal: "public.jpeg", IsPhoto: true,
 			},
 		},
 		Albums: []*albuminfo.AlbumInfo{
 			{
-				UUID: albumA1, Title: "Album A", ParentUUID: folderX, FolderNames: []string{"Folder X"},
+				UUID: albumAInFolderX, Title: "Album A", ParentUUID: folderX, FolderNames: []string{"Folder X"},
 				CreationDate: ptr(utc(2020, 1, 2, 3, 4, 5, 0)), StartDate: ptr(utc(2019, 5, 6, 7, 8, 9, 0)),
 			},
-			{UUID: albumA2, Title: "Album T", InTrash: true},
+			{UUID: albumTrashed, Title: "Album T", InTrash: true},
 			{
-				UUID: albumA3, Title: "Album A", ParentUUID: folderY, FolderNames: []string{"Folder Y"},
+				UUID: albumAInFolderY, Title: "Album A", ParentUUID: folderY, FolderNames: []string{"Folder Y"},
 				EndDate: ptr(utc(2020, 12, 31, 23, 59, 59, 500000000)),
 			},
-			{UUID: albumA5, Title: "Album B", CreationDate: ptr(utc(2020, 2, 2, 2, 2, 2, 0))},
-			{UUID: albumA9, Title: "Unused"},
+			{UUID: albumBNoFolder, Title: "Album B", CreationDate: ptr(utc(2020, 2, 2, 2, 2, 2, 0))},
+			{UUID: albumOfNoPhoto, Title: "Unused"},
 		},
 	}
 }
@@ -93,29 +93,29 @@ func albumJSON(uuid, title, parent, folderNames, creation, start, end, owner str
 }
 
 var (
-	elemA1 = albumJSON(albumA1, `"Album A"`, `"`+folderX+`"`, `["Folder X"]`,
+	elemAInFolderX = albumJSON(albumAInFolderX, `"Album A"`, `"`+folderX+`"`, `["Folder X"]`,
 		`"2020-01-02T03:04:05+00:00"`, `"2019-05-06T07:08:09+00:00"`, "null", "null")
-	elemA3 = albumJSON(albumA3, `"Album A"`, `"`+folderY+`"`, `["Folder Y"]`,
+	elemAInFolderY = albumJSON(albumAInFolderY, `"Album A"`, `"`+folderY+`"`, `["Folder Y"]`,
 		`"2001-01-01T00:00:00+00:00"`, "null", `"2020-12-31T23:59:59.500000+00:00"`, "null")
-	elemA5 = albumJSON(albumA5, `"Album B"`, "null", "[]",
+	elemBNoFolder = albumJSON(albumBNoFolder, `"Album B"`, "null", "[]",
 		`"2020-02-02T02:02:02+00:00"`, "null", "null", "null")
-	elemC1 = albumJSON(albumC1, `"Shared S"`, "null", `["Shared Folder"]`,
+	elemSharedS = albumJSON(sharedAlbumS, `"Shared S"`, "null", `["Shared Folder"]`,
 		`"2020-03-03T03:03:03+00:00"`, "null", "null", `"Owner A"`)
-	elemC2 = albumJSON(albumC2, `"Album A"`, "null", `["Shared Folder"]`,
+	elemSharedTitledA = albumJSON(sharedAlbumTitledA, `"Album A"`, "null", `["Shared Folder"]`,
 		`"2020-03-03T03:03:03+00:00"`, "null", "null", `"Owner A"`)
 )
 
 // The reference has shared albums that the Go side does not read.
-func refP1() map[string]string {
+func refSelectedFrame() map[string]string {
 	return map[string]string{
-		"album_info":           "[" + strings.Join([]string{elemA1, elemA3, elemC1, elemC2}, ", ") + "]",
+		"album_info":           "[" + strings.Join([]string{elemAInFolderX, elemAInFolderY, elemSharedS, elemSharedTitledA}, ", ") + "]",
 		"albums":               `["Album A", "Shared S"]`,
 		"burst":                "true",
-		"burst_album_info":     "[" + strings.Join([]string{elemA5, elemA1, elemA3, elemC1}, ", ") + "]",
+		"burst_album_info":     "[" + strings.Join([]string{elemBNoFolder, elemAInFolderX, elemAInFolderY, elemSharedS}, ", ") + "]",
 		"burst_albums":         `["Album A", "Album B", "Shared S"]`,
 		"burst_default_pick":   "true",
 		"burst_key":            "false",
-		"burst_photos":         `["` + p2 + `"]`,
+		"burst_photos":         `["` + unselectedFrame + `"]`,
 		"burst_selected":       "true",
 		"cloud_guid":           `"CLOUD-GUID-1"`,
 		"date":                 `"2020-06-06T19:45:24.725564+05:30"`,
@@ -166,12 +166,12 @@ func refP1() map[string]string {
 		"uti_edited":           `"public.heic"`,
 		"uti_original":         `"public.heic"`,
 		"uti_raw":              `"com.adobe.raw-image"`,
-		"uuid":                 `"` + p1 + `"`,
+		"uuid":                 `"` + selectedFrame + `"`,
 		"width":                "4032",
 	}
 }
 
-func refP3() map[string]string {
+func refEmptyPhoto() map[string]string {
 	return map[string]string{
 		"album_info": "[]", "albums": "[]", "burst": "false", "burst_album_info": "[]", "burst_albums": "[]",
 		"burst_default_pick": "false", "burst_key": "false", "burst_photos": "[]", "burst_selected": "false",
@@ -186,7 +186,7 @@ func refP3() map[string]string {
 		"raw_original": "false", "saved_to_library": "false", "screenshot": "false", "shared": "false",
 		"shared_library": "false", "syndicated": "false", "title": "null", "tzoffset": "null",
 		"screen_recording": "false", "slow_mo": "false", "time_lapse": "false", "uti_edited": "null",
-		"uti": `"public.jpeg"`, "uti_original": `"public.jpeg"`, "uti_raw": "null", "uuid": `"` + p3 + `"`, "width": "null",
+		"uti": `"public.jpeg"`, "uti_original": `"public.jpeg"`, "uti_raw": "null", "uuid": `"` + emptyPhoto + `"`, "width": "null",
 	}
 }
 
@@ -206,8 +206,8 @@ func refOf(query ...Object) *Reference {
 	return &Reference{Library: "lib", Query: query}
 }
 
-// p2 is an unselected frame, which osxphotos does not return.
-func fixtureRef() *Reference { return refOf(refObj(refP1()), refObj(refP3())) }
+// unselectedFrame is not in the reference: osxphotos does not return it.
+func fixtureRef() *Reference { return refOf(refObj(refSelectedFrame()), refObj(refEmptyPhoto())) }
 
 func everyKey() []string { return slices.Concat(PhotoKeys(), AlbumKeys()) }
 

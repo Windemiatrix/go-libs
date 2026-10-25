@@ -126,7 +126,7 @@ func TestAlbumLookupUnit(t *testing.T) {
 		{"AlbumTitles", db.AlbumTitles(), []string{"", "B", "C", "D"}},
 	}
 	for _, tt := range titlesCases {
-		if !sameStrings(tt.got, tt.want) {
+		if !sameStringsNilAware(tt.got, tt.want) {
 			t.Errorf("%s = %q, want %q", tt.name, tt.got, tt.want)
 		}
 	}

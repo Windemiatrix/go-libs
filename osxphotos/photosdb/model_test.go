@@ -24,7 +24,7 @@ func xmlPlist(body string) []byte {
 	return []byte(xmlHead + body + "</plist>\n")
 }
 
-func fill(head, unit string) []byte {
+func fillToLimit(head, unit string) []byte {
 	return []byte(head + strings.Repeat(unit, (maxPlistSize-len(head))/len(unit)))
 }
 
@@ -88,7 +88,7 @@ func bpRefs(marker byte, count, size int, refs ...int) []byte {
 }
 
 // With width 2 every array is reachable along 2^k paths.
-func chain(first, depth, width, size int) [][]byte {
+func binaryArrayChain(first, depth, width, size int) [][]byte {
 	objects := make([][]byte, 0, depth+1)
 	for k := range depth {
 		refs := make([]int, width)
@@ -103,11 +103,11 @@ func chain(first, depth, width, size int) [][]byte {
 func modelChain(depth, width, size int) []byte {
 	key := append([]byte{0x50 | byte(len(modelKey))}, modelKey...)
 	objects := [][]byte{bpRefs(0xD, 1, size, 1, 2), key}
-	return binaryPlist(append(objects, chain(2, depth, width, size)...), size)
+	return binaryPlist(append(objects, binaryArrayChain(2, depth, width, size)...), size)
 }
 
 // n ≥ 2 and few enough for two-byte offsets.
-func flat(n int) []byte {
+func flatArray(n int) []byte {
 	root := []byte{0xAF, 0x11} // array, count in the two-byte integer after it
 	root = binary.BigEndian.AppendUint16(root, uint16(n-1))
 	objects := [][]byte{nil}
@@ -124,11 +124,11 @@ func emptyDictBinary() []byte {
 }
 
 const (
-	trOffsetSize = 6
-	trRefSize    = 7
-	trObjects    = 8
-	trTop        = 16
-	trTable      = 24
+	trailerOffsetSize = 6
+	trailerRefSize    = 7
+	trailerObjects    = 8
+	trailerTop        = 16
+	trailerTable      = 24
 )
 
 func setTrailer(data []byte, field, width int, v uint64) []byte {
@@ -150,23 +150,23 @@ func TestCheckBinaryTrailer(t *testing.T) {
 	}{
 		{"truncated binary", []byte("bplist00\xd1\x01\x02"), errBinaryTrailer},
 		{"39 bytes", append([]byte("bplist00"), make([]byte, bplistTrailer-1)...), errBinaryTrailer},
-		{"2^40 objects", setTrailer(base, trObjects, 8, 1<<40), errBinaryTrailer},
-		{"no objects", setTrailer(base, trObjects, 8, 0), errBinaryTrailer},
-		{"more objects than bytes", setTrailer(base, trObjects, 8, limit+1), errBinaryTrailer},
-		{"offset size 0", setTrailer(base, trOffsetSize, 1, 0), errBinaryTrailer},
-		{"offset size 9", setTrailer(base, trOffsetSize, 1, 9), errBinaryTrailer},
-		{"reference size 0", setTrailer(base, trRefSize, 1, 0), errBinaryTrailer},
-		{"reference size 9", setTrailer(base, trRefSize, 1, 9), errBinaryTrailer},
-		{"root object out of range", setTrailer(base, trTop, 8, 1), errBinaryTrailer},
-		{"root object MaxUint64", setTrailer(base, trTop, 8, math.MaxUint64), errBinaryTrailer},
-		{"offset table in the header", setTrailer(base, trTable, 8, bplistHeader-1), errBinaryTrailer},
-		{"offset table after the trailer start", setTrailer(base, trTable, 8, limit+1), errBinaryTrailer},
-		{"offset table at MaxUint64", setTrailer(base, trTable, 8, math.MaxUint64), errBinaryTrailer},
-		{"offset table runs into the trailer", setTrailer(base, trObjects, 8, 2), errBinaryTrailer},
-		{"wide offsets run into the trailer", setTrailer(base, trOffsetSize, 1, 2), errBinaryTrailer},
-		{"one object over the limit", flat(maxBinaryObjects + 1), errBinaryObjects},
+		{"2^40 objects", setTrailer(base, trailerObjects, 8, 1<<40), errBinaryTrailer},
+		{"no objects", setTrailer(base, trailerObjects, 8, 0), errBinaryTrailer},
+		{"more objects than bytes", setTrailer(base, trailerObjects, 8, limit+1), errBinaryTrailer},
+		{"offset size 0", setTrailer(base, trailerOffsetSize, 1, 0), errBinaryTrailer},
+		{"offset size 9", setTrailer(base, trailerOffsetSize, 1, 9), errBinaryTrailer},
+		{"reference size 0", setTrailer(base, trailerRefSize, 1, 0), errBinaryTrailer},
+		{"reference size 9", setTrailer(base, trailerRefSize, 1, 9), errBinaryTrailer},
+		{"root object out of range", setTrailer(base, trailerTop, 8, 1), errBinaryTrailer},
+		{"root object MaxUint64", setTrailer(base, trailerTop, 8, math.MaxUint64), errBinaryTrailer},
+		{"offset table in the header", setTrailer(base, trailerTable, 8, bplistHeader-1), errBinaryTrailer},
+		{"offset table after the trailer start", setTrailer(base, trailerTable, 8, limit+1), errBinaryTrailer},
+		{"offset table at MaxUint64", setTrailer(base, trailerTable, 8, math.MaxUint64), errBinaryTrailer},
+		{"offset table runs into the trailer", setTrailer(base, trailerObjects, 8, 2), errBinaryTrailer},
+		{"wide offsets run into the trailer", setTrailer(base, trailerOffsetSize, 1, 2), errBinaryTrailer},
+		{"one object over the limit", flatArray(maxBinaryObjects + 1), errBinaryObjects},
 		// 900 KB, under the size limit; the parser took 2.5 s on them.
-		{"100000 nested arrays at the root", binaryPlist(chain(0, 100_000, 1, 4), 4), errBinaryObjects},
+		{"100000 nested arrays at the root", binaryPlist(binaryArrayChain(0, 100_000, 1, 4), 4), errBinaryObjects},
 		{"100000 nested arrays in PLModelVersion", modelChain(100_000, 1, 4), errBinaryObjects},
 	}
 	for _, tt := range refused {
@@ -184,9 +184,9 @@ func TestCheckBinaryTrailer(t *testing.T) {
 		data []byte
 	}{
 		{"empty dictionary", base},
-		{"offset table right after the header", setTrailer(base, trTable, 8, bplistHeader)},
+		{"offset table right after the header", setTrailer(base, trailerTable, 8, bplistHeader)},
 		{"8-byte offsets and references", binaryPlist([][]byte{bpRefs(0xD, 0, 8)}, 8)},
-		{"objects at the limit", flat(maxBinaryObjects)},
+		{"objects at the limit", flatArray(maxBinaryObjects)},
 		{"marshaled", marshal(t, map[string]any{modelKey: 19607}, plist.BinaryFormat)},
 		{"XML", modelPlist("<integer>19607</integer>")},
 		{"garbage", []byte("garbage")},
@@ -222,8 +222,8 @@ func TestDecodePlistFormat(t *testing.T) {
 	}{
 		{"garbage", []byte("garbage")},
 		{"OpenStep text", []byte(`{PLModelVersion = 19607;}`)},
-		{"deepest text arrays", fill("", "(")},
-		{"deepest text dictionaries", fill("", "{")},
+		{"deepest text arrays", fillToLimit("", "(")},
+		{"deepest text dictionaries", fillToLimit("", "{")},
 		{"text before XML", []byte("garbage" + good)},
 		{"no-break space before XML", []byte("\xC2\xA0" + good)},
 		{"byte order mark only", []byte("\xEF\xBB\xBF")},
@@ -257,20 +257,20 @@ func TestDecodePlistFormat(t *testing.T) {
 
 // The inputs are under the size limit and a parser may find them expensive: it
 // may refuse them, but must not take long. The binary ones pass
-// checkBinaryTrailer and so reach the parser; chain adds an integer to the
-// nesting maxBinaryObjects allows, modelChain a dictionary and a key.
+// checkBinaryTrailer and so reach the parser; binaryArrayChain adds an integer
+// to the nesting maxBinaryObjects allows, modelChain a dictionary and a key.
 func referenceCases() []detectCase {
 	return []detectCase{
-		{name: "shared references at the root", plist: binaryPlist(chain(0, 40, 2, 1), 1), errText: []string{msgNoKey, msgNotPlist}},
+		{name: "shared references at the root", plist: binaryPlist(binaryArrayChain(0, 40, 2, 1), 1), errText: []string{msgNoKey, msgNotPlist}},
 		{name: "shared references in PLModelVersion", plist: modelChain(40, 2, 1), errText: []string{msgNotInteger, msgNotPlist}},
-		{name: "deepest binary arrays at the root", plist: binaryPlist(chain(0, maxBinaryObjects-1, 1, 2), 2), errText: []string{msgNoKey, msgNotPlist}},
+		{name: "deepest binary arrays at the root", plist: binaryPlist(binaryArrayChain(0, maxBinaryObjects-1, 1, 2), 2), errText: []string{msgNoKey, msgNotPlist}},
 		{name: "deepest binary arrays in PLModelVersion", plist: modelChain(maxBinaryObjects-3, 1, 2), errText: []string{msgNotInteger, msgNotPlist}},
-		{name: "deepest text arrays", plist: fill("", "("), errText: []string{msgNotPlist}},
-		{name: "deepest text dictionaries", plist: fill("", "{"), errText: []string{msgNotPlist}},
-		{name: "deepest text arrays after <", plist: fill("<", "("), errText: []string{msgNotPlist}},
-		{name: "unclosed XML arrays", plist: fill(xmlHead, "<array>"), errText: []string{msgNotPlist}},
-		{name: "unclosed XML dictionaries", plist: fill(xmlHead, "<dict>"), errText: []string{msgNotPlist}},
-		{name: "unclosed XML dictionaries under keys", plist: fill(xmlHead, "<dict><key>k</key>"), errText: []string{msgNotPlist}},
+		{name: "deepest text arrays", plist: fillToLimit("", "("), errText: []string{msgNotPlist}},
+		{name: "deepest text dictionaries", plist: fillToLimit("", "{"), errText: []string{msgNotPlist}},
+		{name: "deepest text arrays after <", plist: fillToLimit("<", "("), errText: []string{msgNotPlist}},
+		{name: "unclosed XML arrays", plist: fillToLimit(xmlHead, "<array>"), errText: []string{msgNotPlist}},
+		{name: "unclosed XML dictionaries", plist: fillToLimit(xmlHead, "<dict>"), errText: []string{msgNotPlist}},
+		{name: "unclosed XML dictionaries under keys", plist: fillToLimit(xmlHead, "<dict><key>k</key>"), errText: []string{msgNotPlist}},
 	}
 }
 
@@ -327,7 +327,7 @@ func detectCases() []detectCase {
 		{name: "truncated XML value", plist: cutAfter(modelPlist("<integer>19607</integer>"), "<integer>196"), errText: []string{msgNotPlist}},
 		{name: "XML without closing tags", plist: bytes.TrimSuffix(modelPlist("<integer>19607</integer>"), []byte("</dict></plist>\n")), errText: []string{msgNotPlist}},
 		{name: "truncated binary", plist: []byte("bplist00\xd1\x01\x02"), errText: []string{msgNotPlist}},
-		{name: "binary trailer declares 2^40 objects", plist: setTrailer(emptyDictBinary(), trObjects, 8, 1<<40), errText: []string{msgNotPlist}},
+		{name: "binary trailer declares 2^40 objects", plist: setTrailer(emptyDictBinary(), trailerObjects, 8, 1<<40), errText: []string{msgNotPlist}},
 		{name: "1 MiB + 1", plist: paddedPlist(1<<20 + 1), errText: []string{msgTooLarge}},
 		{name: "100000 nested arrays", plist: nestedArrays(100_000), errText: []string{msgTooLarge}},
 		// Under the size limit, so it reaches the parser.

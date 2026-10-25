@@ -11,8 +11,8 @@ import (
 )
 
 type rule struct {
-	key   string
-	album bool
+	key         string
+	needsAlbums bool
 
 	ref  func(o Object) (any, error)
 	skip func(o Object) (bool, error)
@@ -32,10 +32,10 @@ func PhotoKeys() []string { return keysOf(false) }
 // albums, burst_album_info, burst_albums and folders.
 func AlbumKeys() []string { return keysOf(true) }
 
-func keysOf(album bool) []string {
+func keysOf(needsAlbums bool) []string {
 	var keys []string
 	for k, r := range rules {
-		if r.album == album {
+		if r.needsAlbums == needsAlbums {
 			keys = append(keys, k)
 		}
 	}
@@ -166,16 +166,16 @@ func number(key string, get func(*photoinfo.PhotoInfo) int64) rule {
 	return value(key, true, "an integer", get)
 }
 
-func moment(key string, required bool, def time.Time, get func(*photoinfo.PhotoInfo) *time.Time) rule {
+func moment(key string, nullIsError bool, missingDefault time.Time, get func(*photoinfo.PhotoInfo) *time.Time) rule {
 	return simple(key,
 		func(o Object) (any, error) {
-			t, err := refTime(o, key, !required)
+			t, err := refTime(o, key, !nullIsError)
 			if err != nil {
 				return nil, err
 			}
 			return goMoment(t, time.Time{}), nil
 		},
-		func(p *photoinfo.PhotoInfo) any { return goMoment(get(p), def) })
+		func(p *photoinfo.PhotoInfo) any { return goMoment(get(p), missingDefault) })
 }
 
 // Not compared for an adjusted photo: upstream reads the adjustments plist,
@@ -340,8 +340,8 @@ func foldersName(t *string) string {
 
 func albumInfoRule(key string, uuids func(*photoinfo.PhotoInfo) []string) rule {
 	return rule{
-		key:   key,
-		album: true,
+		key:         key,
+		needsAlbums: true,
 		ref: func(o Object) (any, error) {
 			albums, err := refAlbums(o, key)
 			if err != nil {
@@ -363,7 +363,7 @@ func albumInfoRule(key string, uuids func(*photoinfo.PhotoInfo) []string) rule {
 			}
 			byUUID := map[string]map[string]any{}
 			for _, a := range albums {
-				byUUID[a.UUID] = e.elems[a.UUID]
+				byUUID[a.UUID] = e.goAlbumElems[a.UUID]
 			}
 			return sortedElems(byUUID), nil
 		},
@@ -382,8 +382,8 @@ func sortedElems(byUUID map[string]map[string]any) []any {
 // the reference that the titles belong to.
 func albumsRule(key, infoKey string, uuids func(*photoinfo.PhotoInfo) []string) rule {
 	return rule{
-		key:   key,
-		album: true,
+		key:         key,
+		needsAlbums: true,
 		ref: func(o Object) (any, error) {
 			albums, err := refAlbums(o, infoKey)
 			if err != nil {
@@ -423,8 +423,8 @@ func albumsRule(key, infoKey string, uuids func(*photoinfo.PhotoInfo) []string) 
 
 func foldersRule() rule {
 	return rule{
-		key:   "folders",
-		album: true,
+		key:         "folders",
+		needsAlbums: true,
 		ref: func(o Object) (any, error) {
 			albums, err := refAlbums(o, "album_info")
 			if err != nil {

@@ -17,10 +17,10 @@ import (
 )
 
 type libCase struct {
-	assets  []string
-	albums  []string
-	skipped int
-	checks  []check
+	assetMarkers            []string
+	albumMarkers            []string
+	assetsWithoutAttributes int
+	checks                  []check
 }
 
 type check struct {
@@ -111,14 +111,14 @@ func rawChecks() []check {
 
 var expected = map[string]libCase{
 	"Test-13.0.0": {
-		assets: slices.Concat(assetCloudGUIDMarkers, fingerprintMarkers, burstMarkers),
-		albums: albumCloudGUIDMarkers,
+		assetMarkers: slices.Concat(assetCloudGUIDMarkers, fingerprintMarkers, burstMarkers),
+		albumMarkers: albumCloudGUIDMarkers,
 		checks: slices.Concat(assetCloudGUIDChecks(), albumCloudGUIDChecks(),
 			fingerprintChecks("ZMASTERFINGERPRINT"), burstChecks("Z_28ASSETS", "Z_28ALBUMS")),
 	},
 	"Test-Cloud-13.1": {
-		assets: []string{"asset-cloud-guid-null", "asset-cloud-guid-empty", "cloud-master-local", "cloud-master-none"},
-		albums: []string{"album-cloud-guid-null"},
+		assetMarkers: []string{"asset-cloud-guid-null", "asset-cloud-guid-empty", "cloud-master-local", "cloud-master-none"},
+		albumMarkers: []string{"album-cloud-guid-null"},
 		checks: []check{
 			{"SELECT ZCLOUDASSETGUID FROM ZASSET WHERE Z_PK = " + pk("asset-cloud-guid-null"), "NULL"},
 			{"SELECT ZCLOUDASSETGUID FROM ZASSET WHERE Z_PK = " + pk("asset-cloud-guid-empty"), ""},
@@ -129,13 +129,13 @@ var expected = map[string]libCase{
 		},
 	},
 	"Test-14.0.0": {
-		assets: slices.Concat(resourcesMarkers, rawMarkers, []string{"trash"}),
+		assetMarkers: slices.Concat(resourcesMarkers, rawMarkers, []string{"trash"}),
 		checks: slices.Concat(resourcesChecks(), rawChecks(), []check{
 			{"SELECT ZTRASHEDSTATE || '|' || ZTRASHEDDATE FROM ZASSET WHERE Z_PK = " + pk("trash"), "1|694224000"},
 		}),
 	},
 	"Test-14.6.0": {
-		assets: []string{"shared-library-member", "shared-library-null", "tzoffset-null",
+		assetMarkers: []string{"shared-library-member", "shared-library-null", "tzoffset-null",
 			"original-filename-null", "original-filename-empty", "date-created-null"},
 		checks: []check{
 			{"SELECT ZACTIVELIBRARYSCOPEPARTICIPATIONSTATE || '|' || ZLIBRARYSCOPESHARESTATE || '|' || ZLIBRARYSCOPE " +
@@ -149,7 +149,7 @@ var expected = map[string]libCase{
 		},
 	},
 	"Test-15.4.1": {
-		assets: []string{"syndicated-not-saved", "syndicated-saved", "shared-album-photo"},
+		assetMarkers: []string{"syndicated-not-saved", "syndicated-saved", "shared-album-photo"},
 		checks: []check{
 			{"SELECT ZSYNDICATIONIDENTIFIER || '|' || ZSYNDICATIONHISTORY FROM ZADDITIONALASSETATTRIBUTES " +
 				"WHERE ZTITLE = 'mig:syndicated-not-saved'", "TEST-SYND-0001|0"},
@@ -159,8 +159,8 @@ var expected = map[string]libCase{
 		},
 	},
 	"Test-16.0.0-beta": {
-		assets:  []string{"date-modified-raw-value", "date-modified-raw-null"},
-		skipped: 1,
+		assetMarkers:            []string{"date-modified-raw-value", "date-modified-raw-null"},
+		assetsWithoutAttributes: 1,
 		checks: []check{
 			{"SELECT ZMODIFICATIONDATE || '|' || ZADJUSTMENTTIMESTAMP FROM ZASSET WHERE Z_PK = " +
 				pk("date-modified-raw-value"), "694224000|694310400"},
@@ -171,14 +171,14 @@ var expected = map[string]libCase{
 		},
 	},
 	"Test-26.1": {
-		assets: slices.Concat(assetCloudGUIDMarkers, fingerprintMarkers, burstMarkers, resourcesMarkers),
-		albums: albumCloudGUIDMarkers,
+		assetMarkers: slices.Concat(assetCloudGUIDMarkers, fingerprintMarkers, burstMarkers, resourcesMarkers),
+		albumMarkers: albumCloudGUIDMarkers,
 		checks: slices.Concat(assetCloudGUIDChecks(), albumCloudGUIDChecks(),
 			fingerprintChecks("ZORIGINALSTABLEHASH"), burstChecks("Z_33ASSETS", "Z_33ALBUMS"), resourcesChecks()),
 	},
 	"Test-27.0_DevBeta": {
-		assets: fingerprintMarkers,
-		checks: fingerprintChecks("ZORIGINALSTABLEHASH"),
+		assetMarkers: fingerprintMarkers,
+		checks:       fingerprintChecks("ZORIGINALSTABLEHASH"),
 	},
 }
 
@@ -207,20 +207,20 @@ func TestMigrations(t *testing.T) {
 			db := OpenDB(t, dbFile(Open(t, name)))
 			pristine := OpenDB(t, dbFile(OpenPristine(t, name)))
 
-			wantAssets := slices.Sorted(slices.Values(want.assets))
+			wantAssets := slices.Sorted(slices.Values(want.assetMarkers))
 			if got := Rows(t, db, assetMarkersQuery); !slices.Equal(got, wantAssets) {
 				t.Errorf("asset markers:\n got %q\nwant %q", got, wantAssets)
 			}
-			wantAlbums := slices.Sorted(slices.Values(want.albums))
+			wantAlbums := slices.Sorted(slices.Values(want.albumMarkers))
 			if got := Rows(t, db, albumMarkersQuery); !slices.Equal(got, wantAlbums) {
 				t.Errorf("album markers:\n got %q\nwant %q", got, wantAlbums)
 			}
 			if got, was := Count(t, db, assetCountQuery), Count(t, pristine, assetCountQuery); got != was {
 				t.Errorf("assets: %d after migrations, %d before", got, was)
 			}
-			if got, was := Count(t, db, skippedQuery), Count(t, pristine, skippedQuery); got != was+want.skipped {
+			if got, was := Count(t, db, skippedQuery), Count(t, pristine, skippedQuery); got != was+want.assetsWithoutAttributes {
 				t.Errorf("assets without additional attributes: %d after migrations, %d before, want %d more",
-					got, was, want.skipped)
+					got, was, want.assetsWithoutAttributes)
 			}
 			for _, c := range want.checks {
 				if got := Scalar(t, db, c.query); got != c.want {
@@ -421,10 +421,10 @@ func TestParse(t *testing.T) {
 
 func TestMigrate(t *testing.T) {
 	tests := []struct {
-		name    string
-		files   map[string]string
-		wantErr string
-		want    string
+		name      string
+		files     map[string]string
+		wantErr   string
+		wantValue string
 	}{
 		{
 			name: "applies files in name order",
@@ -432,7 +432,7 @@ func TestMigrate(t *testing.T) {
 				"002_b.sql": "-- rows: any\nDELETE FROM t WHERE id = 99;\nUPDATE t SET v = v || 'c' WHERE id = 1;\n",
 				"001_a.sql": "-- header\nUPDATE t\nSET v = 'b'\nWHERE id = 1;\n",
 			},
-			want: "bc",
+			wantValue: "bc",
 		},
 		{
 			name: "statement that changes no rows rolls everything back",
@@ -440,20 +440,20 @@ func TestMigrate(t *testing.T) {
 				"001_a.sql": "UPDATE t SET v = 'b' WHERE id = 1;\n",
 				"002_b.sql": "-- header\nUPDATE t SET v = 'x' WHERE id = 99;\n",
 			},
-			wantErr: "002_b.sql:2:",
-			want:    "a",
+			wantErr:   "002_b.sql:2:",
+			wantValue: "a",
 		},
 		{
-			name:    "invalid statement",
-			files:   map[string]string{"001_a.sql": "UPDATE t SET v = 'b' WHERE id = 1;\nUPDATE missing SET v = 1;\n"},
-			wantErr: "001_a.sql:2:",
-			want:    "a",
+			name:      "invalid statement",
+			files:     map[string]string{"001_a.sql": "UPDATE t SET v = 'b' WHERE id = 1;\nUPDATE missing SET v = 1;\n"},
+			wantErr:   "001_a.sql:2:",
+			wantValue: "a",
 		},
 		{
-			name:    "unterminated statement",
-			files:   map[string]string{"001_a.sql": "UPDATE t SET v = 'b' WHERE id = 1\n"},
-			wantErr: "001_a.sql:",
-			want:    "a",
+			name:      "unterminated statement",
+			files:     map[string]string{"001_a.sql": "UPDATE t SET v = 'b' WHERE id = 1\n"},
+			wantErr:   "001_a.sql:",
+			wantValue: "a",
 		},
 	}
 	for _, tt := range tests {
@@ -466,8 +466,8 @@ func TestMigrate(t *testing.T) {
 			case tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)):
 				t.Fatalf("migrate: got error %v, want one containing %q", err, tt.wantErr)
 			}
-			if got := Scalar(t, OpenDB(t, dbPath), "SELECT v FROM t WHERE id = 1"); got != tt.want {
-				t.Errorf("t.v = %q, want %q", got, tt.want)
+			if got := Scalar(t, OpenDB(t, dbPath), "SELECT v FROM t WHERE id = 1"); got != tt.wantValue {
+				t.Errorf("t.v = %q, want %q", got, tt.wantValue)
 			}
 		})
 	}

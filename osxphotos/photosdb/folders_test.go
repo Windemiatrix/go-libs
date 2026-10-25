@@ -59,10 +59,10 @@ func folderTitles(fs []*albuminfo.FolderInfo) []string {
 	return out
 }
 
-type hardenPlace struct{ list, names []string }
+type albumPlace struct{ list, names []string }
 
-func hardenPlaceOf(db *DB, a *albuminfo.AlbumInfo) hardenPlace {
-	return hardenPlace{folderUUIDs(db.FolderList(a)), slices.Clone(a.FolderNames)}
+func albumPlaceOf(db *DB, a *albuminfo.AlbumInfo) albumPlace {
+	return albumPlace{folderUUIDs(db.FolderList(a)), slices.Clone(a.FolderNames)}
 }
 
 func TestLoadFolders(t *testing.T) {
@@ -447,9 +447,9 @@ func TestFoldersTrash(t *testing.T) {
 	if len(placed) == 0 {
 		t.Fatal("no album in the folders to put into the trash: FolderList is not checked")
 	}
-	wantPlace := map[string]hardenPlace{}
+	wantPlace := map[string]albumPlace{}
 	for _, a := range placed {
-		wantPlace[a.UUID] = hardenPlaceOf(before, a)
+		wantPlace[a.UUID] = albumPlaceOf(before, a)
 	}
 	t.Logf("%d albums in the folders to put into the trash", len(placed))
 	topsBefore := before.FolderInfo()
@@ -493,7 +493,7 @@ func TestFoldersTrash(t *testing.T) {
 			t.Errorf("album %s of a folder in the trash is not found after the change", a.UUID)
 			continue
 		}
-		if place := hardenPlaceOf(after, got); !reflect.DeepEqual(place, wantPlace[a.UUID]) {
+		if place := albumPlaceOf(after, got); !reflect.DeepEqual(place, wantPlace[a.UUID]) {
 			t.Errorf("album %s: FolderList %q and FolderNames %q after the change, want %q and %q",
 				a.UUID, place.list, place.names, wantPlace[a.UUID].list, wantPlace[a.UUID].names)
 		}

@@ -34,31 +34,41 @@ func burstDB(photos ...*photoinfo.PhotoInfo) *DB {
 	return db
 }
 
+// A pick type with neither the selected nor the key bit.
+const pickUnselected = 2
+
 func burstCatalog() *DB {
-	trashed := burstFrame("A4", "b", 0)
+	const (
+		fourFrames   = "key-selected-unselected-trashed"
+		twoKeys      = "two-keys"
+		noKey        = "no-key"
+		trashedKeyID = "trashed-key"
+		keySelected  = "key-selected"
+	)
+	trashed := burstFrame("A4", fourFrames, 0)
 	trashed.InTrash = true
-	trashedKey := burstFrame("T1", "t", photoinfo.BurstPickKey)
+	trashedKey := burstFrame("T1", trashedKeyID, photoinfo.BurstPickKey)
 	trashedKey.InTrash = true
 	return burstDB(
-		burstFrame("A1", "b", photoinfo.BurstPickKey),
-		burstFrame("A2", "b", photoinfo.BurstPickSelected),
-		burstFrame("A3", "b", 2),
+		burstFrame("A1", fourFrames, photoinfo.BurstPickKey),
+		burstFrame("A2", fourFrames, photoinfo.BurstPickSelected),
+		burstFrame("A3", fourFrames, pickUnselected),
 		trashed,
-		burstFrame("C1", "k", photoinfo.BurstPickKey),
-		burstFrame("C2", "k", photoinfo.BurstPickKey),
-		burstFrame("C3", "k", photoinfo.BurstPickSelected),
-		burstFrame("D1", "n", photoinfo.BurstPickSelected),
-		burstFrame("D2", "n", photoinfo.BurstPickSelected),
+		burstFrame("C1", twoKeys, photoinfo.BurstPickKey),
+		burstFrame("C2", twoKeys, photoinfo.BurstPickKey),
+		burstFrame("C3", twoKeys, photoinfo.BurstPickSelected),
+		burstFrame("D1", noKey, photoinfo.BurstPickSelected),
+		burstFrame("D2", noKey, photoinfo.BurstPickSelected),
 		burstFrame("E1", "", photoinfo.BurstPickKey),
 		burstFrame("E2", "", photoinfo.BurstPickSelected),
 		burstFrame("F1", "solo", photoinfo.BurstPickSelected),
 		burstFrame("F2", "solo-key", photoinfo.BurstPickKey),
 		&photoinfo.PhotoInfo{UUID: "N1"},
 		trashedKey,
-		burstFrame("T2", "t", photoinfo.BurstPickSelected),
-		burstFrame("U1", "u", photoinfo.BurstPickKey),
-		burstFrame("U2", "u", photoinfo.BurstPickSelected),
-		&photoinfo.PhotoInfo{UUID: "X1", BurstUUID: "b", BurstKey: true},
+		burstFrame("T2", trashedKeyID, photoinfo.BurstPickSelected),
+		burstFrame("U1", keySelected, photoinfo.BurstPickKey),
+		burstFrame("U2", keySelected, photoinfo.BurstPickSelected),
+		&photoinfo.PhotoInfo{UUID: "X1", BurstUUID: fourFrames, BurstKey: true},
 	)
 }
 
@@ -82,7 +92,7 @@ func TestBurstPhotos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		got := db.BurstPhotos(db.byUUID[tt.uuid])
-		if !sameStrings(burstUUIDs(got), tt.want) {
+		if !sameStringsNilAware(burstUUIDs(got), tt.want) {
 			t.Errorf("BurstPhotos(%s) = %q, want %q", tt.uuid, burstUUIDs(got), tt.want)
 		}
 		for _, p := range got {

@@ -125,15 +125,15 @@ func TestAlbumsMissingOnTheGoSide(t *testing.T) {
 		t.Run(key, func(t *testing.T) {
 			t.Parallel()
 			lib := Library{
-				Photos: []*photoinfo.PhotoInfo{{UUID: p1, IsPhoto: true, AlbumUUIDs: []string{albumA1}, BurstAlbumUUIDs: []string{albumA1}}},
-				Albums: []*albuminfo.AlbumInfo{{UUID: albumA9}},
+				Photos: []*photoinfo.PhotoInfo{{UUID: selectedFrame, IsPhoto: true, AlbumUUIDs: []string{albumAInFolderX}, BurstAlbumUUIDs: []string{albumAInFolderX}}},
+				Albums: []*albuminfo.AlbumInfo{{UUID: albumOfNoPhoto}},
 			}
-			ref := refOf(refObj(refP1()))
+			ref := refOf(refObj(refSelectedFrame()))
 			_, err := Compare(ref, lib, []string{key}, nil)
 			if err == nil || !strings.Contains(err.Error(), "missing from Library.Albums") || !strings.Contains(err.Error(), "key "+key) {
 				t.Errorf("error = %v, want one about a missing album for %s", err, key)
 			}
-			if err != nil && strings.Contains(err.Error(), albumA1) {
+			if err != nil && strings.Contains(err.Error(), albumAInFolderX) {
 				t.Errorf("the error names the album: %v", err)
 			}
 		})
@@ -142,10 +142,10 @@ func TestAlbumsMissingOnTheGoSide(t *testing.T) {
 
 func TestOrderKeyErrors(t *testing.T) {
 	t.Parallel()
-	good := object("2020-01-01T00:00:00+00:00", "", p1)
+	good := object("2020-01-01T00:00:00+00:00", "", selectedFrame)
 	t.Run("uuid is not a string", func(t *testing.T) {
 		t.Parallel()
-		o := object("2020-01-01T00:00:00+00:00", "", p1)
+		o := object("2020-01-01T00:00:00+00:00", "", selectedFrame)
 		o["uuid"] = []byte("5")
 		if err := refOf(good, o).CheckOrder(); err == nil || !strings.Contains(err.Error(), "element 2: uuid: want a string") {
 			t.Errorf("error = %v", err)
@@ -153,7 +153,7 @@ func TestOrderKeyErrors(t *testing.T) {
 	})
 	t.Run("date is a number", func(t *testing.T) {
 		t.Parallel()
-		o := object("2020-01-01T00:00:00+00:00", "", p1)
+		o := object("2020-01-01T00:00:00+00:00", "", selectedFrame)
 		o["date"] = []byte("5")
 		if err := refOf(o).CheckOrder(); err == nil || !strings.Contains(err.Error(), "date: want an ISO 8601 string") {
 			t.Errorf("error = %v", err)
@@ -161,7 +161,7 @@ func TestOrderKeyErrors(t *testing.T) {
 	})
 	t.Run("date_added is a number", func(t *testing.T) {
 		t.Parallel()
-		o := object("2020-01-01T00:00:00+00:00", "", p1)
+		o := object("2020-01-01T00:00:00+00:00", "", selectedFrame)
 		o["date_added"] = []byte("5")
 		if err := refOf(o).CheckOrder(); err == nil || !strings.Contains(err.Error(), "date_added: want an ISO 8601 string") {
 			t.Errorf("error = %v", err)
