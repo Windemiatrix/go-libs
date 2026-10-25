@@ -2,28 +2,35 @@
 
 [English](README.en.md) | **Русский**
 
-Монорепозиторий Go-библиотек Windemiatrix. Каждая библиотека — отдельный Go-модуль в своём подкаталоге, со своим `go.mod`, версией и тегами.
+[![CI](https://github.com/Windemiatrix/go-libs/actions/workflows/ci.yml/badge.svg)](https://github.com/Windemiatrix/go-libs/actions/workflows/ci.yml) [![Go Reference](https://pkg.go.dev/badge/github.com/Windemiatrix/go-libs/osxphotos.svg)](https://pkg.go.dev/github.com/Windemiatrix/go-libs/osxphotos) [![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+**Читайте медиатеку «Фото» на Mac из Go — без Python, медиатека не меняется.**
+
+Первая библиотека здесь — `osxphotos`. Она отдаёт каталог «Фото»: снимки, альбомы, даты, ключевые слова, iCloud-идентификаторы. Python не нужен, «Фото» запускать не нужно: модуль читает копию базы `Photos.sqlite`. Это неофициальный порт части [osxphotos](https://github.com/RhetTbull/osxphotos).
+
+Схемы macOS 13–27 заданы как данные: неизвестная схема даёт ошибку, а не неверные данные.
+
+Требования: Go 1.26. Чтение настоящей медиатеки — на macOS 13 и новее; разбор базы собирается и тестируется и на Linux (без cgo).
 
 ## Статус
 
-**Проектирование. Кода пока нет, версий нет.** Здесь описано, что и как будет сделано; опубликованных тегов и работающего API пока не существует.
+Ранняя разработка: до `v1.0.0` API может меняться. Что готово и что дальше — в [osxphotos/README.md](osxphotos/README.md#статус).
 
 ## Модули
 
 | Модуль | Путь импорта | Что это |
 |---|---|---|
-| [osxphotos](osxphotos/README.md) | `github.com/Windemiatrix/go-libs/osxphotos` | Чтение базы «Фото» macOS, шаблоны путей и работа с PhotoKit на Go. Порт части [osxphotos](https://github.com/RhetTbull/osxphotos) |
+| [osxphotos](osxphotos/README.md) | `github.com/Windemiatrix/go-libs/osxphotos` | Чтение каталога «Фото» macOS. Шаблоны путей и PhotoKit — в планах |
 
-Первая библиотека создаётся для приложения [photosync](https://github.com/Windemiatrix/photosync), но предназначена и для самостоятельного использования.
+Каждая библиотека — отдельный Go-модуль со своей версией и тегами (`osxphotos/vX.Y.Z`). Первая создаётся для [photosync](https://github.com/Windemiatrix/photosync) — утилиты синхронизации «Фото» с Яндекс Диском (в разработке), но годится для любой Go-программы.
 
-## Принципы
+## Почему можно доверять
 
-- Один модуль — один подкаталог; версии независимы по semver.
-- Теги выпусков содержат путь модуля: `osxphotos/v0.1.0` (так требует Go для модуля не в корне репозитория).
-- Опубликованный тег неизменяем; ошибочную версию закрывает директива `retract` в новой версии.
-- Новая функциональность начинается с теста; результат сверяется с эталоном там, где он есть.
-- Минимум зависимостей: у каждой есть причина, а лицензии совместимы с MIT.
-- Документация на русском и английском.
+- Оригинальная медиатека не меняется: читается копия базы ([подробнее](osxphotos/README.md#безопасность-ваших-фото)).
+- Результаты самого osxphotos на его тестовых медиатеках лежат в репозитории, с ними сверяется вывод модуля. Отличия от osxphotos и всё, что добавлено сверх него, перечислены в [UPSTREAM.md](osxphotos/UPSTREAM.md); тест держит список в согласии с кодом.
+- MIT, тесты с `-race`, покрытие не ниже 80 %, CI на Linux и macOS.
+
+Участие в разработке — [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Лицензия
 

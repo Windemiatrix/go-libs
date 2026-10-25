@@ -2,94 +2,118 @@
 
 **English** | [Русский](README.md)
 
-`github.com/Windemiatrix/go-libs/osxphotos` is a Go library for reading the catalog of the macOS system Photos library, building paths from templates and working with PhotoKit. It is a port of parts of [osxphotos](https://github.com/RhetTbull/osxphotos) (Rhet Turnbull, MIT) plus extensions on top of it; see [NOTICE](NOTICE).
+[![Go Reference](https://pkg.go.dev/badge/github.com/Windemiatrix/go-libs/osxphotos.svg)](https://pkg.go.dev/github.com/Windemiatrix/go-libs/osxphotos)
+
+`github.com/Windemiatrix/go-libs/osxphotos` is a Go library for reading the macOS Photos library. An unofficial port of parts of [osxphotos](https://github.com/RhetTbull/osxphotos) by Rhet Turnbull (MIT): the osxphotos author is not involved in this project, and the credit for decoding the database format is his ([NOTICE](NOTICE)).
 
 ## Status
 
-**Design phase. There is no code and there are no versions yet.** Anything that depends on macOS or PhotoKit behavior and has not been verified is marked "stage 0" (research before implementation starts).
+**Early development.** Releases are on the [Releases](https://github.com/Windemiatrix/go-libs/releases) page; the API may change before `v1.0.0`. Reading photos and albums works (`photosdb.Open`); folders and filters come next, path templates and PhotoKit are planned. Details: ["What exists and what is next"](#what-exists-and-what-is-next).
 
-## Why
+## Quick start
 
-osxphotos is a thorough open-source parser of the Photos database, written in Python and geared toward exporting. The [photosync](https://github.com/Windemiatrix/photosync) application needs a Python-free binary, an in-memory catalog, stable identifiers for items and albums, and write access to Photos through PhotoKit. The library knows nothing about synchronization and suits any Go program that needs the Photos catalog.
+Requires Go 1.26+. Pure Go, no cgo; tested in CI on Linux and macOS. On Linux the module reads a copy of a `.photoslibrary` directory; the system library lives on a Mac (permissions: see "Safety of your photos").
 
-## Principles
+```sh
+go get github.com/Windemiatrix/go-libs/osxphotos@latest
+```
 
-- **Read-only database access:** `Photos.sqlite` is read from a copy (with `-wal` and `-shm`) opened with `mode=ro`.
-- **Schemas are data, not branching on a version.** Opening a library checks that every required table and column exists.
-- **An error beats a guess:** an unknown schema yields `ErrUnsupportedSchema` carrying the model number.
-- **Checked against a reference:** the ported behavior is compared with osxphotos itself.
-- **cgo only in `photokit`;** everything else builds without cgo.
-- **Dependencies:** `modernc.org/sqlite`, `golang.org/x/text`, `howett.net/plist` (reading the required plists: stage 0).
+```go
+lib, err := photosdb.SystemLibraryPath()
+if err != nil {
+	log.Fatal(err) // errors.Is(err, photosdb.ErrLibraryNotFound)
+}
+db, err := photosdb.Open(context.Background(), lib, photosdb.Options{})
+if err != nil {
+	log.Fatal(err) // errors.Is(err, photosdb.ErrUnsupportedSchema): an unknown Photos version
+}
+defer db.Close()
 
-## Packages
+for _, p := range db.Photos() {
+	if p.InTrash { // Photos() returns trashed photos too
+		continue
+	}
+	fmt.Println(p.Date.Format(time.DateOnly), p.OriginalFilename)
+}
+```
 
-`photosdb` (opening, schema, items, albums, system library path), `photoinfo` and `albuminfo` (plain structs with no reference back to the database), `query` (filters), `template` (path templates), `export` (file names on export and the ` (N)` rule), `photokit` (PhotoKit; without macOS and cgo, a stub with the same signatures). `template` and `export` perform no I/O.
+## Why, when osxphotos exists
 
-## What is ported from osxphotos
+osxphotos is the most complete open decoder of the Photos database, but it is Python and a command line. Use this module when you write Go:
 
-Tag `v0.77.2` is ported.
+- one binary, no Python or `pip`;
+- the whole catalog in memory as plain Go structs;
+- stable identifiers of photos and albums, iCloud ones included, to recognize them across runs;
+- an unknown database version is an error, not silently wrong data.
 
-- Reading items, resources, keywords and descriptions; albums and folders with hierarchy and trash.
-- Bursts, Live Photos, RAW+JPEG, hidden and favorite items, the Shared Library, syndication.
-- Dates with the item's time zone, the cloud master identifier, the original's fingerprint.
-- A template subset: literals, `{field}`, `{field,default}`, the `lower` and `upper` filters; dates, `name`, `original_name`, `uuid`, `title`, `album`, `folder_album`, `media_type`. Other constructs are rejected with `ErrUnsupportedConstruct` and a position. Multi-valued fields behave as in osxphotos.
-- The system library path.
-- From PhotoKit: authorization status, fetching an item, requesting resource data with a timeout.
+What you can build: laying files out by a template such as `2024/05-01 - Holidays/IMG_0001.HEIC`, a library report, duplicate search.
 
-Not ported: Photos 7 and older, people and faces (only the `HasPersons` flag is read: whether named people are present), place names (coordinates are read), EXIF, search, export and sidecar files, shared albums, database repair, the command line. Also not ported: export through `PHImageManager`, because it returns the edited version rather than the original.
+It was written for [photosync](https://github.com/Windemiatrix/photosync), a tool that syncs Photos with Yandex Disk (in development), but it knows nothing about syncing.
 
-## What is added on top of osxphotos
+## macOS versions
 
-Marked in code with `// extension: not in osxphotos` and listed in `UPSTREAM.md` (the file is yet to be created; it will also describe how updates to osxphotos are followed).
+The Photos schema is chosen by the database model number.
 
-- `PhotoInfo` fields: `CloudAssetGUID` (uniqueness and stability: stage 0), `Resources` (sizes of Live and RAW resources without downloading), `DateModifiedRaw`, `BurstAlbumUUIDs`, Shared Library flags.
-- `AlbumInfo.CloudGUID`, `FolderInfo.CloudGUID`: whether the column exists and the identifier is stable is **unverified (stage 0)**.
-- `template.Registry` (custom fields), `RenderOptions.Sanitize` (the caller defines name sanitizing), the `{cloud_asset_guid}` field.
-- `photokit`: import (including Live and RAW pairs), albums and folders, updating and deleting items, `CloudIdentifiers`, authorization with write access. osxphotos has none of this (it uses AppleScript), so there is no reference; behavior is pinned down by tests against real PhotoKit. Importing directly into the Shared Library is **unverified (stage 0)**.
-
-Intentional differences: an unknown model is an error; the database is always copied; `Photos()` applies no implicit filters (the osxphotos selection is described in the documentation of `DB.Photos`); items without an additional-attributes row are counted in `Info.SkippedAssets` instead of vanishing silently; `TZOffset` and `InCloud` distinguish "unknown".
-
-## macOS versions (planned)
-
-Support is planned for the release Photos schemas for macOS 13-27; the schema is chosen by the database model number.
-
-| Schema | Model | macOS | Verification |
+| macOS | Photos | Database model | osxphotos test library |
 |---|---|---|---|
-| Photos 8 | 16320-16999 | 13 | osxphotos reference |
-| Photos 9 | 17000-17599 | 14.0-14.5 | osxphotos reference |
-| Photos 9.6 | 17600-17999 | 14.6+ | DDL fixtures |
-| Photos 10 | 18201-18999 | 15 | osxphotos reference |
-| Photos 11 | 19063-19319 | 26.0 | DDL fixtures |
-| Photos 11.1 | 19320-19999 | 26.1+ | DDL fixtures |
-| Photos 12 | 270000000-270999999 | 27 | osxphotos reference |
+| 13 | 8 | 16320–16999 | 13.0, 13.1 with iCloud |
+| 14.0–14.5 | 9 | 17000–17599 | 14.0 |
+| 14.6+ | 9.6 | 17600–17999 | 14.6 |
+| 15 | 10 | 18201–18999 | 15.4 |
+| 26.0 | 11 | 19063–19319 | 26.0 beta |
+| 26.1+ | 11.1 | 19320–19999 | 26.1 |
+| 27 | 12 | 270000000–270999999 | 27.0 developer beta |
 
-"osxphotos reference" means osxphotos has a test library with such a model (whether those libraries are usable is checked in stage 0). "DDL fixtures" verify table and column names but not values; such schemas count as unverified until compared on a real library; a comparison on the maintainer's library is a condition of the first release.
+Other models, including beta builds outside the ranges, give `ErrUnsupportedSchema`. Support for a new macOS is added only from a library of that version: [open an issue](https://github.com/Windemiatrix/go-libs/issues/new?template=new-macos.yml).
 
-Will not be supported (`ErrUnsupportedSchema`): models below 16000, 16000-16319 (a pre-release build of macOS 13), 18000-18200 (the macOS 15 beta) and the gaps between ranges. A schema for a new macOS is never added blindly: without a library of that version it stays unsupported.
+## Safety of your photos
 
-## How it is tested
+- **The original is never changed.** Only a copy of `Photos.sqlite` is read, together with its `-wal` file (without `-shm`, which SQLite rebuilds), opened with `mode=ro`. The copy goes into a temporary directory with mode `0700` (files `0600`) and is deleted before `Open` returns, after an error as well; a temporary directory inside the library is refused.
+- **The read packages** (`photosdb`, `photoinfo`, `albuminfo`, `query`) cannot write to the library. Only the future `photokit` package (macOS, cgo) will change Photos, and only if you import it and grant the macOS permission; macOS confirms a deletion from Photos in its own dialog (one per batch). Its tests that modify a library will run only by hand, under a separate account, never in CI.
+- **No network.** The module makes no network calls and starts no processes; the linter enforces this (the `library` rule in [.golangci.yml](https://github.com/Windemiatrix/go-libs/blob/main/.golangci.yml)). No telemetry.
+- **macOS permissions.** The library in `~/Pictures` is protected by the system: the program that reads it (for example, Terminal) needs Full Disk Access in System Settings → Privacy & Security.
+- **The copy is your data:** places, names of people, captions. If you set `Options.TempDir`, pick a directory only you can read.
+- **Do not attach `Photos.sqlite` to an issue:** it holds album names, paths and identifiers. The macOS version and the database model number are enough. Report vulnerabilities privately, see [SECURITY.en.md](https://github.com/Windemiatrix/go-libs/blob/main/SECURITY.en.md).
 
-- **Differential tests:** A, osxphotos test libraries; B, a committed synthetic database (generated once, changed only by SQL migrations) with a reference from `osxphotos query --json`; C, a local run on the maintainer's library (not published; a condition of the first release). Items are compared by UUID; known divergences are listed with reasons. References are generated only by a separate manual workflow from a pinned osxphotos version.
-- **Schemas:** range boundaries and gaps; every column that is read exists in the DDL of its schema.
-- **Extensions:** osxphotos gives no reference for fields beyond it, for intentional differences, or for states its test libraries lack. These are checked with SQL migrations with synthetic values (`testdata/libraries/<name>/migrations/`): a test applies them to a temporary copy of a test library. The databases themselves stay unchanged copies of upstream, and the reference tests run on them. Checked:
-  - cloud identifiers of items, albums and folders, including `NULL`, an empty string (counts as no identifier) and two items sharing one identifier;
-  - the cloud master: present but not in iCloud (`InCloud == false`), no master (`InCloud == nil`);
-  - `FingerprintSchema` and an empty fingerprint;
-  - `Resources`, `IsMissing`, `HasRAW`;
-  - the Shared Library: `SharedLibrary`, `LibraryScopeShareState`, `LibraryScope`;
-  - `NULL` in the time zone, file name and creation date; `DateModifiedRaw` apart from `DateModified`;
-  - bursts: every pick type, `BurstUnselected()`, `BurstAlbumUUIDs`;
-  - trash without implicit filters; `Syndicated`, `SavedToLibrary`, `Shared`; `Info.SkippedAssets`.
+## What exists and what is next
 
-  The description, the list of cases and how to add one are in [testdata/libraries/SOURCES.md](../testdata/libraries/SOURCES.md).
-- **Templates and names:** tables, comparison with osxphotos rendering, parser fuzzing.
-- **PhotoKit:** a stub and the Go layer over a fake bridge; Objective-C built with `-Werror`; "live" tests that modify the library run only by hand under a separate macOS account with its own Apple ID and a test library, never in CI and never against a primary library.
-- `go test -race -shuffle=on`, a linter, coverage of at least 80%.
+| Feature | Package | State |
+|---|---|---|
+| Schema detection, macOS 13–27 | `photosdb` | done |
+| System library path (`SystemLibraryPath`) | `photosdb` | done |
+| Opening a library (`Open`) | `photosdb` | done |
+| Photos: dates with time zone, sizes, keywords, Live, RAW+JPEG, bursts, iCloud, Shared Library | `photosdb`, `photoinfo` | done |
+| Albums: title, folder path, members, dates, trash (`Albums`) | `photosdb`, `albuminfo` | done |
+| Folders, album lookup | `photosdb`, `albuminfo` | next |
+| `QueryOptions` filters (album, dates, trash, type and others) | `query` | next (only sorting today) |
+| Path templates | `template` | planned |
+| File names on export | `export` | planned |
+| Import, albums, deletion through PhotoKit | `photokit` | planned |
+
+**Not included:** a command line, exporting files and sidecars, face recognition (only the "named people present" flag is read), place names (coordinates are read), EXIF, search, shared albums, database repair, Photos 7 and older. osxphotos itself covers these.
+
+## How it differs from osxphotos
+
+Tag `v0.77.2` is ported. The same database reading plus: cloud identifiers of photos and albums, sizes of Live and RAW resources without downloading, a strict error instead of a guess on an unknown schema, and `Photos()` without hidden filters (the osxphotos selection is `!p.InTrash && !p.BurstUnselected() && (p.IsPhoto || p.IsMovie)`). Later: writing to Photos through PhotoKit. The full list of extensions and intentional differences, with links to the osxphotos source, is in [UPSTREAM.md](UPSTREAM.md); extensions are marked in code with `// extension: not in osxphotos`.
+
+## How it is verified
+
+Every PR passes tests with `-race` on Linux and macOS, a linter and a coverage threshold of 80%. The output of `Open` is compared with the osxphotos reference results (v0.77.2) for its 8 test libraries (7 schemas, from macOS 13.0 to 27.0 developer beta) and for a synthetic database; known divergences are recorded with reasons. Fields beyond osxphotos are checked with SQL migrations with synthetic values on a temporary copy of the database ([SOURCES.md](https://github.com/Windemiatrix/go-libs/blob/main/testdata/libraries/SOURCES.md)).
 
 ## Versioning
 
-Semver, independent of the osxphotos version. A release comes out after every merged PR that changed the module; [svu](https://github.com/caarlos0/svu) computes the version from PR titles: `!` after the scope is an incompatible API change, `feat` is a new feature (minor), anything else is a fix (patch). Before `v1.0.0` an incompatible change gives a minor release. The release notes are the same titles in sections, on the GitHub Release page; there is no `CHANGELOG.md`. `v1.0.0` ships once a consuming application has proven the API.
+Semver by tags `osxphotos/vX.Y.Z`, independent of osxphotos. Before `v1.0.0` incompatible changes are possible (the minor number grows). Changes are on the [Releases](https://github.com/Windemiatrix/go-libs/releases) page. `v1.0.0` ships once a consuming application has proven the API. How the version is computed: [CONTRIBUTING.en.md](https://github.com/Windemiatrix/go-libs/blob/main/CONTRIBUTING.en.md#releases-for-the-maintainer).
+
+## FAQ
+
+- **Can I read while Photos is open?** Yes: a copy of the database is read together with its `-wal` file, and Photos is not blocked.
+- **Does it read the photos themselves?** No: only the catalog (metadata) and the paths of the original files.
+- **Photos only in iCloud ("Optimize Storage")?** The catalog is read in full; for a photo whose original is not on disk, `Path` is empty, and `IsMissing`/`InCloud` show where it is.
 
 ## License
 
-[MIT](LICENSE), (c) 2026 Windemiatrix. Credit for the ported project is in [NOTICE](NOTICE).
+MIT. A port of [osxphotos](https://github.com/RhetTbull/osxphotos) (MIT, Rhet Turnbull); the test databases are taken from its tests unchanged (see [NOTICE](NOTICE)).
+
+## Feedback
+
+[Issues](https://github.com/Windemiatrix/go-libs/issues) for bugs and new macOS versions, [Discussions](https://github.com/Windemiatrix/go-libs/discussions) for questions and ideas.
