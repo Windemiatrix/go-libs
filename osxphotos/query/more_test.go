@@ -15,8 +15,7 @@ type morePhotos = []*photoinfo.PhotoInfo
 func TestMoreYear(t *testing.T) {
 	t.Parallel()
 
-	// The same moment is 2019 on the wall clock of -05 and 2020 on that of +03:
-	// the year is read in the zone of Date, not in UTC.
+	// The same moment is 2019 on the wall clock of -05 and 2020 on that of +03.
 	moment := at("2019-12-31T23:30:00Z")
 	photos := morePhotos{
 		{UUID: "A", IsPhoto: true, Date: moment},
@@ -188,18 +187,20 @@ func TestMoreFunction(t *testing.T) {
 		t.Errorf("Function received %q, want %q", got, want)
 	}
 
-	// The functions run before the frames of the bursts are added.
-	bursts := morePhotos{
-		{UUID: "B1", IsPhoto: true, Burst: true, BurstUUID: "X", BurstPickType: 8, Date: moreDay(2)},
-		{UUID: "B2", IsPhoto: true, Burst: true, BurstUUID: "X", BurstPickType: 2, Date: moreDay(1)},
-		{UUID: "Y1", IsPhoto: true, Burst: true, BurstUUID: "Y", BurstPickType: 8, Date: moreDay(3)},
-	}
-	o := Options{Burst: true, Function: fns(func(ps morePhotos) morePhotos { return ps[len(ps)-1:] }), BurstPhotos: true}
-	if got, want := uuids(Apply(o, bursts, nil)), []string{"Y1"}; !slices.Equal(got, want) {
-		t.Errorf("Apply = %q, want %q", got, want)
-	}
-	o.Function = fns(func(ps morePhotos) morePhotos { return ps[:1] })
-	if got, want := uuids(Apply(o, bursts, nil)), []string{"B2", "B1"}; !slices.Equal(got, want) {
-		t.Errorf("Apply = %q, want %q", got, want)
-	}
+	t.Run("functions run before the burst frames are added", func(t *testing.T) {
+		t.Parallel()
+		bursts := morePhotos{
+			{UUID: "B1", IsPhoto: true, Burst: true, BurstUUID: "X", BurstPickType: 8, Date: moreDay(2)},
+			{UUID: "B2", IsPhoto: true, Burst: true, BurstUUID: "X", BurstPickType: 2, Date: moreDay(1)},
+			{UUID: "Y1", IsPhoto: true, Burst: true, BurstUUID: "Y", BurstPickType: 8, Date: moreDay(3)},
+		}
+		o := Options{Burst: true, Function: fns(func(ps morePhotos) morePhotos { return ps[len(ps)-1:] }), BurstPhotos: true}
+		if got, want := uuids(Apply(o, bursts, nil)), []string{"Y1"}; !slices.Equal(got, want) {
+			t.Errorf("Apply = %q, want %q", got, want)
+		}
+		o.Function = fns(func(ps morePhotos) morePhotos { return ps[:1] })
+		if got, want := uuids(Apply(o, bursts, nil)), []string{"B2", "B1"}; !slices.Equal(got, want) {
+			t.Errorf("Apply = %q, want %q", got, want)
+		}
+	})
 }

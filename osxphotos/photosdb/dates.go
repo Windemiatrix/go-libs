@@ -24,12 +24,10 @@ const maxOffset = 86400
 // epoch is DEFAULT_DATETIME of osxphotos (photos_datetime.py:18).
 var epoch = time.Unix(0, 0).UTC()
 
-// coreDataTime converts a Core Data timestamp (seconds since
-// 2001-01-01T00:00:00Z) as Python datetime.fromtimestamp does
-// (photos_datetime.py:52, 82): ts + 978307200 in float64, split into whole
-// seconds and a fraction, the fraction rounded half to even to
-// microseconds. ok is false for NaN, ±Inf and a result outside the years
-// 1-9999, where Python raises (photos_datetime.py:66-67, 88-89).
+// coreDataTime follows Python datetime.fromtimestamp (photos_datetime.py:52,
+// 82): float64 arithmetic, the fraction rounded half to even to microseconds.
+// ok is false where Python raises: NaN, ±Inf and a result outside the years
+// 1-9999 (photos_datetime.py:66-67, 88-89).
 func coreDataTime(ts float64) (t time.Time, ok bool) {
 	if math.IsNaN(ts) || math.IsInf(ts, 0) {
 		return time.Time{}, false
@@ -48,11 +46,8 @@ func coreDataTime(ts float64) (t time.Time, ok bool) {
 	return time.Unix(int64(sec), int64(us)*1000).UTC(), true
 }
 
-// assetDate is Date of an asset: the moment of ZDATECREATED in the fixed
-// zone of ZTIMEZONEOFFSET (UTC for NULL or 0), as photos_datetime with
-// default=True (photos_datetime.py:47-67, photosdb.py:2159-2167). No date,
-// a date outside the range of Python datetime and an offset outside
-// (-86400, 86400) give 1970-01-01T00:00:00Z. ZTIMEZONENAME is not used.
+// assetDate follows photos_datetime with default=True (photos_datetime.py:47-67,
+// photosdb.py:2159-2167). ZTIMEZONENAME is not used.
 func assetDate(created sql.NullFloat64, tz sql.NullInt64) time.Time {
 	if !created.Valid {
 		return epoch
@@ -71,9 +66,6 @@ func assetDate(created sql.NullFloat64, tz sql.NullInt64) time.Time {
 	return t.In(time.FixedZone("", int(tz.Int64))) //nolint:gosec // G115: |tz| < 86400 is checked above
 }
 
-// optionalTime is a date column other than ZDATECREATED: nil for NULL and
-// for a value outside the range of Python datetime, otherwise the moment in
-// UTC.
 func optionalTime(v sql.NullFloat64) *time.Time {
 	if !v.Valid {
 		return nil

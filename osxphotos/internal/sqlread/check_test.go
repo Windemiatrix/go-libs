@@ -39,7 +39,6 @@ func TestQuickCheckVirtualTable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The fixture tells the two checks apart: the whole database fails.
 	if res, err := wholeQuickCheck(t, path); err == nil && res == "ok" {
 		t.Fatal("PRAGMA quick_check of the whole database passes: the fixture is vacuous")
 	}
@@ -58,7 +57,6 @@ func TestQuickCheckVirtualTable(t *testing.T) {
 	}
 }
 
-// wholeQuickCheck runs PRAGMA quick_check on the whole database at path.
 func wholeQuickCheck(t *testing.T, path string) (string, error) {
 	t.Helper()
 	db, err := sql.Open("sqlite", path)

@@ -2,7 +2,7 @@ package photosdb
 
 // Info describes an open library.
 type Info struct {
-	LibraryPath   string // the .photoslibrary directory given to Open
+	LibraryPath   string // the .photoslibrary directory as given to Open, not cleaned or resolved
 	ModelVersion  int    // PLModelVersion of Z_METADATA (photosdb_utils.py:88-118)
 	SchemaID      string // "photos8" … "photos12"
 	LibraryUUID   string // extension: not in osxphotos — Z_METADATA.Z_UUID, the identifier of the library

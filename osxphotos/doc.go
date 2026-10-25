@@ -2,12 +2,11 @@
 // (https://github.com/RhetTbull/osxphotos) that are needed to read a macOS
 // Photos library without Python.
 //
-// The module is split into small packages; this root package only documents
-// them and carries no code of its own:
+// This root package carries no code; the module is split into small packages:
 //
 //   - photosdb opens a copy of Photos.sqlite and exposes the catalog.
 //   - photoinfo and albuminfo describe photos, albums and folders.
-//   - query orders photos; filters are next.
+//   - query selects and orders photos.
 //   - planned: template (path templates), export (export file names),
 //     photokit (PhotoKit on macOS).
 //

@@ -17,7 +17,6 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/query"
 )
 
-// lookupUUIDs lists the UUIDs of albums, for messages and for set checks.
 func lookupUUIDs(albums []*albuminfo.AlbumInfo) []string {
 	out := make([]string, len(albums))
 	for i, a := range albums {
@@ -26,8 +25,6 @@ func lookupUUIDs(albums []*albuminfo.AlbumInfo) []string {
 	return out
 }
 
-// lookupTexts runs a query of one nullable text column and returns the values
-// in NFC, NULL as "".
 func lookupTexts(t *testing.T, src *sql.DB, q string, args ...any) []string {
 	t.Helper()
 	rows, err := src.QueryContext(t.Context(), q, args...)
@@ -49,10 +46,6 @@ func lookupTexts(t *testing.T, src *sql.DB, q string, args ...any) []string {
 	return out
 }
 
-// lookupCounts counts, straight from the tables, the photos of each album of
-// ZKIND 2 outside the trash: the distinct members with a
-// ZADDITIONALASSETATTRIBUTES row, summed by NFC title.
-//
 // COUNT DISTINCT with the join to the attributes equals upstream
 // len(_dbalbums_album[album]) (photosdb/photosdb.py:1873-1901) because the
 // composite primary key (album, asset) of the membership table rules out a
@@ -83,7 +76,6 @@ func lookupCounts(t *testing.T, src *sql.DB, table, albumCol, assetCol string) m
 	return out
 }
 
-// TestAlbumLookupUnit checks the rules on literal albums, without a database.
 func TestAlbumLookupUnit(t *testing.T) {
 	t.Parallel()
 
@@ -134,7 +126,7 @@ func TestAlbumLookupUnit(t *testing.T) {
 		{"AlbumTitles", db.AlbumTitles(), []string{"", "B", "C", "D"}},
 	}
 	for _, tt := range titlesCases {
-		if !sameStrings(tt.got, tt.want) {
+		if !sameStringsNilAware(tt.got, tt.want) {
 			t.Errorf("%s = %q, want %q", tt.name, tt.got, tt.want)
 		}
 	}
@@ -167,7 +159,6 @@ func TestAlbumLookupUnit(t *testing.T) {
 		t.Errorf("AlbumCounts of a library without albums = %#v, want an empty map", counts)
 	}
 
-	// Writing into a result must not show in the next call or in the albums.
 	db.AlbumInfo()[0] = nil
 	db.AlbumInfoOf(p)[0] = nil
 	db.BurstAlbumInfoOf(p)[0] = nil
@@ -203,8 +194,6 @@ func TestAlbumLookupUnit(t *testing.T) {
 	}
 }
 
-// TestAlbumLookup checks the lookups of the library against direct SQL on the
-// test libraries.
 func TestAlbumLookup(t *testing.T) {
 	t.Parallel()
 
@@ -275,8 +264,6 @@ func lookupSum(m map[string]int) int {
 	return total
 }
 
-// lookupKey ties a key of the reference for the albums of a photo to its
-// Go side; titles is the key of the titles of the same albums.
 type lookupKey struct {
 	info, titles string
 	infoOf       func(*DB, *photoinfo.PhotoInfo) []*albuminfo.AlbumInfo
@@ -288,26 +275,21 @@ var lookupKeys = []lookupKey{
 	{"burst_album_info", "burst_albums", (*DB).BurstAlbumInfoOf, (*DB).BurstAlbumTitlesOf},
 }
 
-// lookupElem is an element of album_info or burst_album_info of the reference.
 type lookupElem struct {
 	UUID  string  `json:"uuid"`
 	Title *string `json:"title"`
 	Owner any     `json:"owner"`
 }
 
-// lookupDiverges reports a record of divergences.json for the key of the
-// photo (or of every photo) of the library.
 func lookupDiverges(divs []golden.Divergence, library, uuid, key string) bool {
 	return slices.ContainsFunc(divs, func(d golden.Divergence) bool {
 		return d.Library == library && d.Field == key && (d.UUID == "*" || d.UUID == uuid)
 	})
 }
 
-// lookupCompare compares the albums of one photo with the reference by one
-// lookupKey and returns the number of albums found. Shared albums of the
-// reference (owner not null) are dropped by general rule 8 of NORMALIZATION.md,
-// and with them their titles, unless a user album has the same title. Messages
-// carry UUIDs and keys, never values of the reference.
+// Shared albums of the reference (owner not null) are dropped by general rule 8
+// of NORMALIZATION.md, and with them their titles, unless a user album has the
+// same title. Messages carry UUIDs and keys, never values of the reference.
 func lookupCompare(t *testing.T, db *DB, o golden.Object, p *photoinfo.PhotoInfo, k lookupKey, library string, divs []golden.Divergence) int {
 	t.Helper()
 	var elems []lookupElem
@@ -373,8 +355,6 @@ func lookupCompare(t *testing.T, db *DB, o golden.Object, p *photoinfo.PhotoInfo
 	return len(got)
 }
 
-// TestAlbumLookupGolden compares the albums of a photo with album_info,
-// albums, burst_album_info and burst_albums of the osxphotos output.
 func TestAlbumLookupGolden(t *testing.T) {
 	t.Parallel()
 
@@ -419,8 +399,6 @@ func TestAlbumLookupGolden(t *testing.T) {
 	}
 }
 
-// TestAlbumLookupTrash puts an album with photos into the trash on a copy:
-// Album still finds it, and no list leaves it in.
 func TestAlbumLookupTrash(t *testing.T) {
 	t.Parallel()
 

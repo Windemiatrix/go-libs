@@ -42,8 +42,8 @@ func Apply(o Options, photos []*photoinfo.PhotoInfo, albums []*albuminfo.AlbumIn
 	return out
 }
 
-// inSelection reports a photo of the photos() calls that photo_query starts
-// from (photoquery.py:426-445; photosdb/photosdb.py:3268-3360).
+// photo_query starts from the photos() calls (photoquery.py:426-445;
+// photosdb/photosdb.py:3268-3360).
 func inSelection(o Options, p *photo) bool {
 	return inTrashSelection(o, p) && !p.BurstUnselected() &&
 		((p.IsPhoto && !o.OnlyMovies) || (p.IsMovie && !o.OnlyPhotos)) &&
@@ -63,11 +63,10 @@ func inTrashSelection(o Options, p *photo) bool {
 	}
 }
 
-// filter is one condition of photo_query on a photo.
 type filter func(*photo) bool
 
-// filters returns the conditions that o sets, in the order of photo_query
-// (photoquery.py:447-857). A pair X/NotX is "if X … elif NotX": X wins.
+// The conditions are in the order of photo_query (photoquery.py:447-857). A
+// pair X/NotX is "if X … elif NotX": X wins.
 func filters(o Options, in photoAlbums) []filter {
 	fold := caseFold(o.IgnoreCase)
 	var fs []filter
@@ -87,12 +86,12 @@ func filters(o Options, in photoAlbums) []filter {
 	albums, folders := parseAlbumPaths(o.Album, fold), parseAlbumPaths(o.Folder, fold)
 	keywords, names := searchValues(o.Keyword, fold), searchValues(o.Name, fold)
 
-	when(len(albums.paths) > 0, func(p *photo) bool { return in.has(p, albums.name) })
+	when(len(albums.paths) > 0, func(p *photo) bool { return in.has(p, albums.namesAlbum) })
 	when(len(keywords) > 0, func(p *photo) bool {
 		return slices.ContainsFunc(p.Keywords, func(k string) bool { return slices.Contains(keywords, fold.apply(k)) })
 	})
 	when(len(keywords) == 0 && o.NoKeyword, func(p *photo) bool { return len(p.Keywords) == 0 })
-	when(len(folders.paths) > 0, func(p *photo) bool { return in.has(p, folders.enclose) })
+	when(len(folders.paths) > 0, func(p *photo) bool { return in.has(p, folders.enclosesAlbum) })
 	text(searchValues(o.Title, fold), o.NoTitle, func(p *photo) string { return p.Title })
 	text(searchValues(o.Description, fold), o.NoDescription, func(p *photo) string { return p.Description })
 	pair(o.Edited, o.NotEdited, func(p *photo) bool { return p.HasAdjustments })
@@ -138,25 +137,35 @@ func timeOfDay(d time.Time) time.Duration {
 	return time.Duration(h)*time.Hour + time.Duration(m)*time.Minute + time.Duration(s)*time.Second + time.Duration(d.Nanosecond())
 }
 
-// withBursts adds to in the other frames of the bursts it holds, taken from
-// every photo of catalog, in the trash or unselected too; the frames that are
-// IsMissing only with missing. Each UUID stays once, at its first place
-// (photoquery.py:863-883; photoinfo.py:1031-1044).
+// withBursts follows photoquery.py:863-883 and photoinfo.py:1031-1044.
 func withBursts(in, catalog []*photo, missing bool) []*photo {
+	frames := framesOfBursts(catalog, burstsHeldBy(in), missing)
+	return withoutRepeatedUUIDs(append(slices.Clone(in), frames...))
+}
+
+func burstsHeldBy(photos []*photo) map[string]bool {
 	held := map[string]bool{}
-	for _, p := range in {
+	for _, p := range photos {
 		if p.Burst {
 			held[p.BurstUUID] = true
 		}
 	}
-	out := slices.Clone(in)
+	return held
+}
+
+func framesOfBursts(catalog []*photo, bursts map[string]bool, missing bool) []*photo {
+	var frames []*photo
 	for _, p := range catalog {
-		if p.Burst && held[p.BurstUUID] && (missing || !p.IsMissing) {
-			out = append(out, p)
+		if p.Burst && bursts[p.BurstUUID] && (missing || !p.IsMissing) {
+			frames = append(frames, p)
 		}
 	}
-	seen := make(map[string]bool, len(out))
-	return slices.DeleteFunc(out, func(p *photo) bool {
+	return frames
+}
+
+func withoutRepeatedUUIDs(photos []*photo) []*photo {
+	seen := make(map[string]bool, len(photos))
+	return slices.DeleteFunc(photos, func(p *photo) bool {
 		dup := seen[p.UUID]
 		seen[p.UUID] = true
 		return dup
@@ -173,8 +182,7 @@ func (f caseFold) apply(s string) string {
 	return s
 }
 
-// searchValues are the values of a text option in NFC, as photo_query
-// normalizes them (photoquery.py:447-455), case folded.
+// searchValues normalizes as photo_query does (photoquery.py:447-455).
 func searchValues(values []string, fold caseFold) []string {
 	out := make([]string, len(values))
 	for i, v := range values {
@@ -187,8 +195,8 @@ func containsAny(s string, subs []string) bool {
 	return slices.ContainsFunc(subs, func(sub string) bool { return strings.Contains(s, sub) })
 }
 
-// photoAlbums are the albums of a photo as photo_query sees them: those of
-// AlbumUUIDs outside the trash (photoinfo.py:655-662, 2029-2034).
+// photo_query sees only the albums outside the trash (photoinfo.py:655-662,
+// 2029-2034).
 type photoAlbums map[string]*albuminfo.AlbumInfo
 
 func newPhotoAlbums(albums []*albuminfo.AlbumInfo) photoAlbums {
@@ -201,7 +209,6 @@ func newPhotoAlbums(albums []*albuminfo.AlbumInfo) photoAlbums {
 	return in
 }
 
-// has reports an album of the photo for which match holds.
 func (in photoAlbums) has(p *photo, match func(*albuminfo.AlbumInfo) bool) bool {
 	return slices.ContainsFunc(p.AlbumUUIDs, func(id string) bool {
 		a := in[id]

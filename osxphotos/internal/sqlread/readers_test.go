@@ -12,8 +12,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
 
-// librarySchemas is the schema of each test library, from the public values
-// of testdata/libraries/SOURCES.md.
+// The public values of testdata/libraries/SOURCES.md.
 var librarySchemas = map[string]string{
 	"Test-13.0.0":       "photos8",
 	"Test-Cloud-13.1":   "photos8",
@@ -37,8 +36,8 @@ func schemaByID(t *testing.T, id string) schema.Schema {
 	return schema.Schema{}
 }
 
-// readers is every reader of DB; the count is checked against the exported
-// methods of *DB, so that a new reader is added here.
+// The count is checked against the exported methods of *DB, so that a new
+// reader is added here.
 var readers = []struct {
 	name string
 	run  func(context.Context, *DB, schema.Schema) (int, error)
@@ -78,13 +77,11 @@ func contains(list []string, s string) bool {
 	return false
 }
 
-// testDB is a database to read with its schema.
 type testDB struct {
 	name, path string // path of Photos.sqlite
 	schema     schema.Schema
 }
 
-// libraryDBs returns the test libraries, without migrations.
 func libraryDBs(t *testing.T) []testDB {
 	t.Helper()
 	var out []testDB
@@ -109,7 +106,6 @@ func openDB(t *testing.T, path string) *DB {
 	return d
 }
 
-// openRO opens path read-only for direct SQL.
 func openRO(t *testing.T, path string) *sql.DB {
 	t.Helper()
 	db, err := sql.Open("sqlite", "file:"+path+"?mode=ro")
@@ -274,8 +270,6 @@ func TestReadersRows(t *testing.T) {
 	}
 }
 
-// TestReadersMigrations checks the readers on two migrations of the test
-// libraries.
 func TestReadersMigrations(t *testing.T) {
 	t.Parallel()
 
@@ -343,8 +337,6 @@ func TestReadersMigrations(t *testing.T) {
 	})
 }
 
-// TestReaderValueType checks that a value of the wrong type is an error with
-// the row number and without the value.
 func TestReaderValueType(t *testing.T) {
 	t.Parallel()
 
@@ -381,8 +373,6 @@ func TestReaderValueType(t *testing.T) {
 	}
 }
 
-// TestReadersNull checks that NULL in the columns of a non-Null field
-// leaves the row out instead of failing.
 func TestReadersNull(t *testing.T) {
 	t.Parallel()
 
@@ -424,8 +414,6 @@ func TestReadersNull(t *testing.T) {
 	}
 }
 
-// TestReadersEmpty checks that every reader gives no rows and no error on a
-// library without assets.
 func TestReadersEmpty(t *testing.T) {
 	t.Parallel()
 
@@ -465,7 +453,6 @@ func TestReaderCanceled(t *testing.T) {
 	}
 }
 
-// rawAggregate is one line of the log of TestRAWResourceType.
 type rawAggregate struct {
 	subtype, rtype sql.NullInt64
 	compact        sql.NullString
@@ -474,7 +461,7 @@ type rawAggregate struct {
 
 // TestRAWResourceType holds the premise of the HasRAW rule of photosdb: a
 // RAW resource (data store subtype 17) has ZRESOURCETYPE 4, and an original
-// (1) or a Live video (18) never has it. It logs the aggregates.
+// (1) or a Live video (18) never has it.
 func TestRAWResourceType(t *testing.T) {
 	t.Parallel()
 

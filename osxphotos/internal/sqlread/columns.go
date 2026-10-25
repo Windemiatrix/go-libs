@@ -11,11 +11,8 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
 )
 
-// column is a column of a query: the table alias of the query, the table and
-// the column name.
 type column struct{ alias, table, name string }
 
-// selectList is the select list of cols: alias.name, comma separated.
 func selectList(cols []column) string {
 	parts := make([]string, len(cols))
 	for i, c := range cols {
@@ -25,7 +22,7 @@ func selectList(cols []column) string {
 }
 
 // Columns returns every table and column that the readers read with s, for
-// CheckColumns. Each reader file declares its part next to its query.
+// CheckColumns.
 func Columns(s schema.Schema) map[string][]string {
 	out := map[string][]string{}
 	for _, cols := range [][]column{assetColumns(s), resourceSelect(), keywordColumns(s), personColumns(s), memberColumns(s), albumSelect()} {
@@ -42,10 +39,9 @@ func Columns(s schema.Schema) map[string][]string {
 var ErrMissingColumn = errors.New("sqlread: missing table or column")
 
 // CheckColumns returns nil when every table of want exists and has every
-// listed column (pragma_table_info), otherwise an error wrapping
-// ErrMissingColumn that names the first missing element, tables in sorted
-// order, columns in the given order. Names are compared exactly, case
-// included.
+// listed column, otherwise an error wrapping ErrMissingColumn that names the
+// first missing element, tables in sorted order, columns in the given order.
+// Names are compared exactly, case included.
 func (d *DB) CheckColumns(ctx context.Context, want map[string][]string) error {
 	for _, table := range slices.Sorted(maps.Keys(want)) {
 		have, err := d.columns(ctx, table)
@@ -64,9 +60,8 @@ func (d *DB) CheckColumns(ctx context.Context, want map[string][]string) error {
 	return nil
 }
 
-// columns returns the column names of an ordinary table, none for a missing
-// table. SQLite finds a table name regardless of case, so the table is
-// matched in sqlite_master, where "=" compares exactly.
+// SQLite finds a table name regardless of case, so the table is matched in
+// sqlite_master, where "=" compares exactly.
 func (d *DB) columns(ctx context.Context, table string) (names []string, err error) {
 	rows, err := d.db.QueryContext(ctx,
 		"SELECT p.name FROM sqlite_master AS m, pragma_table_info(m.name) AS p WHERE m.type = 'table' AND m.name = ?",

@@ -13,7 +13,6 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// Values of the database that load interprets.
 const (
 	// ZASSET.ZKIND (photosdb.py:2197-2204).
 	kindPhoto, kindMovie = 0, 1
@@ -56,7 +55,6 @@ const (
 	syndicationHistoryNotSaved = 0
 )
 
-// tables are the rows that the readers of internal/sqlread return.
 type tables struct {
 	assets    []sqlread.Asset
 	resources []sqlread.Resource
@@ -66,31 +64,25 @@ type tables struct {
 	albums    []sqlread.Album
 }
 
-// catalog is the result of load.
 type catalog struct {
 	photos  []*photoinfo.PhotoInfo // ZUUID order
 	byUUID  map[string]*photoinfo.PhotoInfo
 	skipped int // assets without ZADDITIONALASSETATTRIBUTES
 }
 
-// nfc normalizes a text value of the database to NFC, as osxphotos does
-// (unicode.py:12, 76-92).
+// osxphotos normalizes the text of the database to NFC (unicode.py:12, 76-92).
 func nfc(s string) string { return norm.NFC.String(s) }
 
-// load turns the rows into photos. Assets without an attributes row are
-// counted in skipped and left out, as the inner join of upstream drops them
-// (photosdb.py:2086-2090). Among the other assets, one without ZUUID, or two
-// with one ZUUID, is an error: upstream keeps the last row (photosdb.py:2356),
-// and an ambiguous identity is worse for a caller that synchronizes than a
-// refusal.
+// The inner join of upstream drops assets without an attributes row
+// (photosdb.py:2086-2090). An asset without ZUUID, or two with one ZUUID, is
+// an error although upstream keeps the last row (photosdb.py:2356): an
+// ambiguous identity is worse for a caller that synchronizes than a refusal.
 //
 // The rows come in the order of their readers: the assets by ZUUID, the
 // resources of an asset by Z_PK. catalog.photos and PhotoInfo.Resources keep
 // that order.
 //
-// fingerprintColumn is the column Asset.Fingerprint was read from. Paths are
-// not set here (see setPaths). load never indexes by a value of the
-// database, so no content makes it panic.
+// load never indexes by a value of the database, so no content makes it panic.
 func load(t tables, fingerprintColumn string) (*catalog, error) {
 	resources := groupResources(t.resources)
 	keywords := groupKeywords(t.keywords)
@@ -132,7 +124,6 @@ func load(t tables, fingerprintColumn string) (*catalog, error) {
 	return c, nil
 }
 
-// photo sets the fields of one asset that depend on its own rows only.
 func photo(a sqlread.Asset, res []sqlread.Resource, fingerprintColumn string) *photoinfo.PhotoInfo {
 	p := &photoinfo.PhotoInfo{
 		UUID:           a.UUID.String,
@@ -236,8 +227,8 @@ func photo(a sqlread.Asset, res []sqlread.Resource, fingerprintColumn string) *p
 	return p
 }
 
-// hasRAW reports a RAW resource: data store subtype 17 of any resource type,
-// as upstream (photosdb.py:2537-2577), or subtype 3 of resource type 4.
+// Data store subtype 17 of any resource type is a RAW resource, as upstream
+// (photosdb.py:2537-2577).
 // extension: not in osxphotos — the subtype 3 rule.
 func hasRAW(res []sqlread.Resource) bool {
 	for _, r := range res {
@@ -248,12 +239,11 @@ func hasRAW(res []sqlread.Resource) bool {
 	return false
 }
 
-// isMissing decides IsMissing from the resources of the asset, ordered by
-// Z_PK (photosdb.py:2441-2516). Upstream reads the resources of subtypes 1
-// and 3, then the resources whose ZFINGERPRINT is the fingerprint of the
-// asset, of any asset, and the last row read wins. Here the second pass
-// reads only the resources of the asset, and the last row is the one with
-// the highest Z_PK.
+// isMissing follows photosdb.py:2441-2516; the resources are ordered by Z_PK.
+// Upstream reads the resources of subtypes 1 and 3, then the resources whose
+// ZFINGERPRINT is the fingerprint of the asset, of any asset, and the last row
+// read wins. Here the second pass reads only the resources of the asset, and
+// the last row is the one with the highest Z_PK.
 func isMissing(res []sqlread.Resource, fingerprint string) bool {
 	var last *sqlread.Resource
 	if fingerprint != "" {
@@ -273,11 +263,9 @@ func isMissing(res []sqlread.Resource, fingerprint string) bool {
 	return last != nil && !is(last.Local, localAvailable)
 }
 
-// setBurstAlbums sets BurstAlbumUUIDs: for a burst frame its own albums and
-// those of the key frames of its burst (photoinfo.py:646-653, 1031-1044),
-// otherwise AlbumUUIDs. A burst is the frames with Burst and one BurstUUID,
-// "" included. A burst may hold every asset, so the albums of its key frames
-// are made distinct once per burst, not once per frame.
+// Upstream: photoinfo.py:646-653, 1031-1044. A burst is the frames with Burst
+// and one BurstUUID, "" included. A burst may hold every asset, so the albums
+// of its key frames are made distinct once per burst, not once per frame.
 func setBurstAlbums(photos []*photoinfo.PhotoInfo) {
 	keyAlbums := map[string][]string{}
 	for _, p := range photos {
@@ -297,7 +285,6 @@ func setBurstAlbums(photos []*photoinfo.PhotoInfo) {
 	}
 }
 
-// groupResources groups the resources by asset, in the order of rows.
 func groupResources(rows []sqlread.Resource) map[int64][]sqlread.Resource {
 	out := map[int64][]sqlread.Resource{}
 	for _, r := range rows {
@@ -306,8 +293,7 @@ func groupResources(rows []sqlread.Resource) map[int64][]sqlread.Resource {
 	return out
 }
 
-// groupKeywords groups the keyword titles by asset, in NFC, sorted by
-// bytes; a NULL title is "" and a repeated keyword stays repeated
+// A NULL title is "" and a repeated keyword stays repeated
 // (photosdb.py:2005-2010).
 func groupKeywords(rows []sqlread.Keyword) map[int64][]string {
 	out := map[int64][]string{}
@@ -320,7 +306,6 @@ func groupKeywords(rows []sqlread.Keyword) map[int64][]string {
 	return out
 }
 
-// groupMembers groups the album UUIDs by asset, sorted and distinct.
 func groupMembers(rows []sqlread.Member) map[int64][]string {
 	out := map[int64][]string{}
 	for _, m := range rows {
@@ -332,7 +317,6 @@ func groupMembers(rows []sqlread.Member) map[int64][]string {
 	return out
 }
 
-// sortedSet sorts s and removes repeated values; an empty s is nil.
 func sortedSet(s []string) []string {
 	if len(s) == 0 {
 		return nil
@@ -343,8 +327,7 @@ func sortedSet(s []string) []string {
 
 func is(v sql.NullInt64, want int64) bool { return v.Valid && v.Int64 == want }
 
-// intOf is an integer column as int, NULL as 0. int is 64 bits on every
-// platform this module supports (macOS on amd64 and arm64).
+// int is 64 bits on every platform this module supports (macOS on amd64 and arm64).
 func intOf(v sql.NullInt64) int { return int(v.Int64) } //nolint:gosec // G115: int is 64 bits on the supported platforms
 
 func optionalInt(v sql.NullInt64) *int {

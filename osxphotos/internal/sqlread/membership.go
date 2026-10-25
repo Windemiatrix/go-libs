@@ -14,13 +14,11 @@ type Member struct {
 	AlbumUUID string // ZGENERICALBUM.ZUUID
 }
 
-// memberSelect is the select list of Members, in the order of the scan.
+// The order is that of the Scan in Members.
 func memberSelect(s schema.Schema) []column {
 	return []column{{"m", s.MemberTable, s.MemberAssetColumn}, {"g", "ZGENERICALBUM", "ZUUID"}}
 }
 
-// memberColumns are the columns of Members: the select list and the join
-// and filter columns.
 func memberColumns(s schema.Schema) []column {
 	return append(memberSelect(s),
 		column{"m", s.MemberTable, s.MemberAlbumColumn},

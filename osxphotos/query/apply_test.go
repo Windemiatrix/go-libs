@@ -13,7 +13,6 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// applyCase is one call of Apply and the UUIDs it must return, in order.
 type applyCase struct {
 	name   string
 	o      Options
@@ -33,9 +32,8 @@ func applyRun(t *testing.T, tests []applyCase, albums []*albuminfo.AlbumInfo) {
 	}
 }
 
-// applyNFD and applyNFC are one word decomposed and composed: the loader
-// keeps titles and keywords in NFC, and photo_query normalizes the values
-// it searches for (photoquery.py:447-455).
+// The loader keeps titles and keywords in NFC, and photo_query normalizes the
+// values it searches for (photoquery.py:447-455).
 const (
 	applyNFD = "Cafe\U00000301"
 	applyNFC = "Caf\U000000e9"
@@ -91,7 +89,6 @@ func TestApplySelection(t *testing.T) {
 		// In the trash, a burst frame that photos() leaves out (photosdb.py:3347-3351):
 		// the deleted selections do not bring it back.
 		{UUID: "E", IsPhoto: true, InTrash: true, Burst: true, BurstPickType: 2, Date: at("2018-01-01T00:00:00Z")},
-		// G is a selected frame (pick 8), not a key frame; H is a key frame.
 		{UUID: "G", IsPhoto: true, InTrash: true, Burst: true, BurstPickType: photoinfo.BurstPickSelected, Date: at("2018-06-01T00:00:00Z")},
 		{UUID: "H", IsPhoto: true, InTrash: true, Burst: true, BurstPickType: photoinfo.BurstPickKey, Date: at("2018-09-01T00:00:00Z")},
 	}
@@ -120,7 +117,6 @@ func TestApplySelection(t *testing.T) {
 	}, nil)
 }
 
-// applyPair is a pair X/NotX: yes has the attribute, no has not.
 type applyPair struct {
 	name    string
 	x, notX func(*Options)
@@ -326,7 +322,6 @@ func TestApplyAlbums(t *testing.T) {
 		{"in album and not in album", Options{InAlbum: true, NotInAlbum: true}, photos, inAlbum},
 	}, albums)
 
-	// A trashed album does not hide a live one with the same title and folders.
 	twins := []*albuminfo.AlbumInfo{
 		{UUID: "T1", Title: "Twin", FolderNames: []string{"F1"}, InTrash: true},
 		{UUID: "T2", Title: "Twin", FolderNames: []string{"F1"}},

@@ -15,7 +15,6 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
 
-// folderRow is a folder row; an empty guid is a NULL ZCLOUDGUID.
 func folderRow(pk int64, uuid string, parent, trashed sql.NullInt64, title, guid string) sqlread.Album {
 	r := withTitle(albumRow(pk, uuid, sqlread.KindFolder, parent), title)
 	r.Trashed = trashed
@@ -25,15 +24,12 @@ func folderRow(pk int64, uuid string, parent, trashed sql.NullInt64, title, guid
 	return r
 }
 
-// folderAlbum is a user album row in the folder with this Z_PK.
 func folderAlbum(pk int64, uuid string, parent int64, trashed sql.NullInt64) sqlread.Album {
 	r := withTitle(albumRow(pk, uuid, sqlread.KindUserAlbum, nullInt(parent)), "Title of "+uuid)
 	r.Trashed = trashed
 	return r
 }
 
-// folderShape is a folder with its children as UUIDs, to compare as a
-// literal; no children is nil.
 type folderShape struct {
 	uuid, cloudGUID, title, parent string
 	subfolders, albums             []string
@@ -47,7 +43,6 @@ func folderRef(f *albuminfo.FolderInfo) folderShape {
 	return s
 }
 
-// folderUUIDs returns nil for no folders.
 func folderUUIDs(fs []*albuminfo.FolderInfo) []string {
 	var out []string
 	for _, f := range fs {
@@ -64,18 +59,15 @@ func folderTitles(fs []*albuminfo.FolderInfo) []string {
 	return out
 }
 
-// hardenPlace is where an album lies: the UUIDs of its FolderList and its
-// FolderNames.
-type hardenPlace struct{ list, names []string }
+type albumPlace struct{ list, names []string }
 
-func hardenPlaceOf(db *DB, a *albuminfo.AlbumInfo) hardenPlace {
-	return hardenPlace{folderUUIDs(db.FolderList(a)), slices.Clone(a.FolderNames)}
+func albumPlaceOf(db *DB, a *albuminfo.AlbumInfo) albumPlace {
+	return albumPlace{folderUUIDs(db.FolderList(a)), slices.Clone(a.FolderNames)}
 }
 
 func TestLoadFolders(t *testing.T) {
 	t.Parallel()
 
-	// The same title in the decomposed and in the composed form.
 	nfd, nfcForm := "Cafe\U00000301", "Caf\U000000e9"
 	if nfd == nfcForm {
 		t.Fatal("the two forms of the title are one string")
@@ -323,8 +315,6 @@ func TestFolders(t *testing.T) {
 	}
 }
 
-// folderAlbumInfo is the part of an album_info element of the reference that
-// holds the folders.
 type folderAlbumInfo struct {
 	UUID        string          `json:"uuid"`
 	Owner       json.RawMessage `json:"owner"`
@@ -332,11 +322,9 @@ type folderAlbumInfo struct {
 	FolderNames []*string       `json:"folder_names"`
 }
 
-// TestFoldersGolden compares FolderList and the parents of its folders with
-// folder_list and folder_names of the osxphotos album_info. The reference
-// does not cover folders without albums, folders in the trash, the order of
-// the lists and the CloudGUID of a folder: TestLoadFolders and TestFolders
-// hold them.
+// The reference does not cover folders without albums, folders in the trash,
+// the order of the lists and the CloudGUID of a folder: TestLoadFolders and
+// TestFolders hold them.
 func TestFoldersGolden(t *testing.T) {
 	t.Parallel()
 
@@ -404,8 +392,6 @@ func TestFoldersGolden(t *testing.T) {
 	}
 }
 
-// TestFoldersTrash puts a top-level folder, and a folder in it when there is
-// one, into the trash of a copy.
 func TestFoldersTrash(t *testing.T) {
 	t.Parallel()
 
@@ -461,9 +447,9 @@ func TestFoldersTrash(t *testing.T) {
 	if len(placed) == 0 {
 		t.Fatal("no album in the folders to put into the trash: FolderList is not checked")
 	}
-	wantPlace := map[string]hardenPlace{}
+	wantPlace := map[string]albumPlace{}
 	for _, a := range placed {
-		wantPlace[a.UUID] = hardenPlaceOf(before, a)
+		wantPlace[a.UUID] = albumPlaceOf(before, a)
 	}
 	t.Logf("%d albums in the folders to put into the trash", len(placed))
 	topsBefore := before.FolderInfo()
@@ -507,7 +493,7 @@ func TestFoldersTrash(t *testing.T) {
 			t.Errorf("album %s of a folder in the trash is not found after the change", a.UUID)
 			continue
 		}
-		if place := hardenPlaceOf(after, got); !reflect.DeepEqual(place, wantPlace[a.UUID]) {
+		if place := albumPlaceOf(after, got); !reflect.DeepEqual(place, wantPlace[a.UUID]) {
 			t.Errorf("album %s: FolderList %q and FolderNames %q after the change, want %q and %q",
 				a.UUID, place.list, place.names, wantPlace[a.UUID].list, wantPlace[a.UUID].names)
 		}
@@ -524,8 +510,6 @@ func TestFoldersTrash(t *testing.T) {
 	}
 }
 
-// TestOpenFolderCycle adds two folders that are the parents of each other to
-// a copy: Open fails, names no UUID and removes the copy.
 func TestOpenFolderCycle(t *testing.T) {
 	t.Parallel()
 

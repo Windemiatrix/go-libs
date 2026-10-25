@@ -1,7 +1,6 @@
 package uti
 
-// utiCSV is UTI_CSV of osxphotos (uti.py:40-514) verbatim: a header line and
-// one line per extension.
+// utiCSV is UTI_CSV of osxphotos (uti.py:40-514) verbatim.
 const utiCSV = `extension,UTI,preferred_extension,MIME_type
 c,public.c-source,c,None
 f,public.fortran-source,f,None

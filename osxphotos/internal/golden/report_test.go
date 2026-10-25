@@ -14,29 +14,27 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// secretReport is a report with differences of a string key (the value is a
-// marker) and of the set, one explained difference and a stale record.
 func secretReport(t *testing.T) *Report {
 	t.Helper()
 	lib := fixtureLib()
 	lib.Photos[0].Title = "SECRET-TITLE"
 	lib.Photos[0].Width++
-	lib.Photos[2].Description = "x" // explained below
+	lib.Photos[2].Description = "x"
 	lib.Photos = append(lib.Photos, &photoinfo.PhotoInfo{UUID: "00000000-0000-0000-0000-0000000000e1", IsPhoto: true})
 	divs := []Divergence{
-		{Library: "lib", UUID: p3, Field: "description", Reason: "r", Upstream: "a.py:1"},
-		{Library: "lib", UUID: p1, Field: "height", Want: []byte(`"SECRET-STALE"`), Reason: "r", Upstream: "a.py:1"},
+		{Library: "lib", UUID: emptyPhoto, Field: "description", Reason: "r", Upstream: "a.py:1"},
+		{Library: "lib", UUID: selectedFrame, Field: "height", Want: []byte(`"SECRET-STALE"`), Reason: "r", Upstream: "a.py:1"},
 	}
 	return compare(t, fixtureRef(), lib, divs...)
 }
 
-// TestSummaryKeepsValuesOut: the summary is what diff-local prints to a
-// terminal for the library of its owner, so it has numbers and key names only.
+// The summary is what diff-local prints to a terminal for the library of its
+// owner, so it has numbers and key names only.
 func TestSummaryKeepsValuesOut(t *testing.T) {
 	t.Parallel()
 	rep := secretReport(t)
 	sum := rep.Summary()
-	for _, leak := range []string{"SECRET", p1, p3, "00000000-0000", "Title A", "Desc"} {
+	for _, leak := range []string{"SECRET", selectedFrame, emptyPhoto, "00000000-0000", "Title A", "Desc"} {
 		if strings.Contains(sum, leak) {
 			t.Errorf("Summary has %q:\n%s", leak, sum)
 		}
@@ -55,7 +53,7 @@ func TestSummaryKeepsValuesOut(t *testing.T) {
 	if err := rep.WriteDetails(&details); err != nil {
 		t.Fatal(err)
 	}
-	for _, need := range []string{"SECRET-TITLE", p1, "SECRET-STALE", "stale height", "00000000-0000-0000-0000-0000000000e1"} {
+	for _, need := range []string{"SECRET-TITLE", selectedFrame, "SECRET-STALE", "stale height", "00000000-0000-0000-0000-0000000000e1"} {
 		if !strings.Contains(details.String(), need) {
 			t.Errorf("WriteDetails lacks %q:\n%s", need, details.String())
 		}
@@ -64,7 +62,6 @@ func TestSummaryKeepsValuesOut(t *testing.T) {
 	if len(lines) != 4 {
 		t.Fatalf("WriteDetails has %d lines, want 3 differences and 1 stale record:\n%s", len(lines), details.String())
 	}
-	// Sorted by field, then uuid; the stale records after the differences.
 	order := []string{"title ", "uuid ", "width ", "stale height "}
 	last := -1
 	for _, l := range lines {
@@ -79,12 +76,11 @@ func TestSummaryKeepsValuesOut(t *testing.T) {
 		}
 		last = found
 	}
-	if !strings.HasPrefix(lines[0], "title "+p1+` want="Title A" got="SECRET-TITLE"`) {
+	if !strings.HasPrefix(lines[0], "title "+selectedFrame+` want="Title A" got="SECRET-TITLE"`) {
 		t.Errorf("the first line is %q", lines[0])
 	}
 }
 
-// TestReportDeterministic: Summary and WriteDetails give the same bytes every time.
 func TestReportDeterministic(t *testing.T) {
 	t.Parallel()
 	rep := secretReport(t)
@@ -102,7 +98,6 @@ func TestReportDeterministic(t *testing.T) {
 			t.Fatalf("call %d gave other bytes", i)
 		}
 	}
-	// A new Compare of the same input gives the same report text.
 	again := secretReport(t)
 	var b strings.Builder
 	_ = again.WriteDetails(&b)
@@ -126,7 +121,6 @@ func (w *failingWriter) Write(p []byte) (int, error) {
 func TestWriteDetailsFailure(t *testing.T) {
 	t.Parallel()
 	rep := secretReport(t)
-	// The failure of the first line, of a difference line and of the line of a stale record.
 	for _, after := range []int{0, 2, 3} {
 		if err := rep.WriteDetails(&failingWriter{after: after}); !errors.Is(err, errWrite) {
 			t.Errorf("after %d lines: error = %v, want the error of the writer", after, err)
@@ -156,7 +150,6 @@ func TestReportOK(t *testing.T) {
 	}
 }
 
-// FuzzLoad: no panic, and an error does not repeat the file.
 func FuzzLoad(f *testing.F) {
 	obj := `{"title": "t", "uuid": "00000000-0000-0000-0000-000000000001"}`
 	for _, s := range []string{"[" + obj + "]", "[]", `[{"SECRET-SEED": 1}]`, `["SECRET-SEED"]`, `{"uuid": "SECRET-SEED"}`, `[{"uuid": 7, "title": "SECRET-SEED"}]`, "[" + obj + "," + obj + "]", `[`, ``, `null`} {
@@ -185,8 +178,6 @@ func FuzzLoad(f *testing.F) {
 	})
 }
 
-// BenchmarkCompare20k compares 20 000 objects in bursts of five frames with
-// three albums each.
 func BenchmarkCompare20k(b *testing.B) {
 	const n, perBurst = 20000, 5
 	lib := Library{}
@@ -223,7 +214,7 @@ func BenchmarkCompare20k(b *testing.B) {
 		for t, v := range folders {
 			fparts = append(fparts, jsonString(t)+": "+v)
 		}
-		objs = append(objs, refObj(refP3(), map[string]string{
+		objs = append(objs, refObj(refEmptyPhoto(), map[string]string{
 			"uuid": jsonString(id), "burst": "true", "burst_photos": jsonStrings(others),
 			"album_info": "[" + strings.Join(info, ", ") + "]", "burst_album_info": "[" + strings.Join(info, ", ") + "]",
 			"albums": "[" + strings.Join(titles, ", ") + "]", "burst_albums": "[" + strings.Join(titles, ", ") + "]",

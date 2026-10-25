@@ -20,18 +20,18 @@ func TestSweep(t *testing.T) {
 	}
 	removed := []string{"osxphotos-sqlread-1001-a", "osxphotos-sqlread-1002-"}
 	kept := []string{
-		"osxphotos-sqlread-2001-a",                 // a live process
-		"osxphotos-sqlread-3001-a",                 // this process
-		"osxphotos-sqlread-0-a",                    // pid 0
-		"osxphotos-sqlread--5-a",                   // negative
-		"osxphotos-sqlread-+5-a",                   // a sign is not a decimal pid
-		"osxphotos-sqlread-abc-a",                  // not a number
-		"osxphotos-sqlread-1003",                   // no "-" after the pid
-		"osxphotos-sqlread-",                       // nothing after the prefix
-		"osxphotos-sqlread-99999999999999999999-x", // does not fit in int
-		"osxphotos-sqlread-4294967297-x",           // 2^32+1: kill(2) would see pid 1
-		"osxphotos-sqlread-2147483648-x",           // 2^31: above the 32-bit pid_t
-		"osxphotos-sqlreadx-1004-a",                // another prefix
+		"osxphotos-sqlread-2001-a", // a live process
+		"osxphotos-sqlread-3001-a", // this process
+		"osxphotos-sqlread-0-a",
+		"osxphotos-sqlread--5-a", // negative
+		"osxphotos-sqlread-+5-a", // a sign is not a decimal pid
+		"osxphotos-sqlread-abc-a",
+		"osxphotos-sqlread-1003",
+		"osxphotos-sqlread-",
+		"osxphotos-sqlread-99999999999999999999-x",
+		"osxphotos-sqlread-4294967297-x", // 2^32+1: kill(2) would see pid 1
+		"osxphotos-sqlread-2147483648-x", // 2^31: above the 32-bit pid_t
+		"osxphotos-sqlreadx-1004-a",
 		"other-1005-a",
 	}
 	for _, n := range slices.Concat(removed, kept) {

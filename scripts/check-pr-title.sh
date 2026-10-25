@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
-# Checks that a pull request title follows the repository rule. The title of a
-# PR becomes the title of its squash commit on main, and the release job of
-# ci.yml computes the next version from those titles (.svu.yml), so a bad title
-# is stopped before the merge.
+# The title of a PR becomes the title of its squash commit on main, and the
+# release job of ci.yml computes the next version from those titles
+# (.svu.yml), so a bad title is stopped before the merge.
 #
-# Run:    make pr-title PR_TITLE='feat(photosdb): read albums'
-#         scripts/check-pr-title.sh 'feat(photosdb)!: rename the query options'
 # Input:  the title as the first argument, otherwise the PR_TITLE variable. CI
 #         passes it through the environment, never through ${{ }} inside a run
 #         script: the title of a pull request from a fork is untrusted input.

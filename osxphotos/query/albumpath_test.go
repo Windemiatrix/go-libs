@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-// TestAlbumPath checks the split of photoquery.py:930-941: str.replace of
-// "//" left to right without overlaps, then str.split on "/". The wanted
-// parts are what Python gives for each path.
+// The split follows photoquery.py:930-941: str.replace of "//" left to right
+// without overlaps, then str.split on "/". The wanted parts are what Python
+// gives for each path.
 func TestAlbumPath(t *testing.T) {
 	t.Parallel()
 

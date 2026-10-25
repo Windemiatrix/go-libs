@@ -17,8 +17,6 @@ import (
 
 func nullString(s string) sql.NullString { return sql.NullString{String: s, Valid: true} }
 
-// baseAsset is a plain photo with an attributes row and no NULL that
-// matters.
 func baseAsset(pk int64, uuid string) sqlread.Asset {
 	var a sqlread.Asset
 	a.PK, a.UUID, a.Filename, a.Directory = pk, nullString(uuid), nullString(uuid+".jpeg"), nullString(uuid[:1])
@@ -34,7 +32,6 @@ func baseAsset(pk int64, uuid string) sqlread.Asset {
 	return a
 }
 
-// loadOne loads one asset with its resources and returns its photo.
 func loadOne(t *testing.T, a sqlread.Asset, res ...sqlread.Resource) *photoinfo.PhotoInfo {
 	t.Helper()
 	for i := range res {
@@ -275,7 +272,7 @@ func TestLoadKindFlags(t *testing.T) {
 	tests := []struct {
 		name    string
 		subtype sql.NullInt64
-		want    [3]bool // SlowMo, TimeLapse, ScreenRecording
+		want    [3]bool
 	}{
 		{"no subtype", nullInt(0), [3]bool{}},
 		{"panorama", nullInt(1), [3]bool{}},
@@ -393,9 +390,8 @@ func TestLoadKeywordsAlbumsPersons(t *testing.T) {
 	}
 }
 
-// TestLoadOtherAssetFingerprint: a resource of another asset with the
-// fingerprint of the asset does not decide IsMissing (upstream it does,
-// photosdb.py:2498-2516); the last of two originals of the asset does.
+// Unlike upstream (photosdb.py:2498-2516), a resource of another asset with
+// the fingerprint of the asset does not decide IsMissing.
 func TestLoadOtherAssetFingerprint(t *testing.T) {
 	t.Parallel()
 
@@ -426,12 +422,14 @@ func TestLoadBurstAlbums(t *testing.T) {
 		a.BurstUUID, a.BurstPickType = nullString(burstUUID), nullInt(pick)
 		return a
 	}
+	const withKey, withoutKey = "WITH-KEY", "WITHOUT-KEY"
 	in := tables{
 		assets: []sqlread.Asset{
-			burst(1, "K", "B1", 16), burst(2, "S", "B1", 8), burst(3, "U", "B1", 2),
-			burst(4, "E1", "", 16), burst(5, "E2", "", 0),
+			burst(1, "K", withKey, photoinfo.BurstPickKey), burst(2, "S", withKey, photoinfo.BurstPickSelected),
+			burst(3, "U", withKey, pickUnselected),
+			burst(4, "E1", "", photoinfo.BurstPickKey), burst(5, "E2", "", 0),
 			baseAsset(6, "N"),
-			burst(7, "O", "B2", 2), // a burst without a key frame
+			burst(7, "O", withoutKey, pickUnselected),
 		},
 		members: []sqlread.Member{
 			{AssetPK: 1, AlbumUUID: "AL-K"}, {AssetPK: 2, AlbumUUID: "AL-S"}, {AssetPK: 4, AlbumUUID: "AL-E"},
@@ -507,9 +505,6 @@ func TestLoadSkippedAndUUID(t *testing.T) {
 	}
 }
 
-// TestLoadHostileBurst is one burst that holds every asset, all of them key
-// frames in one album: load stays fast, and every BurstAlbumUUIDs holds the
-// album once.
 func TestLoadHostileBurst(t *testing.T) {
 	t.Parallel()
 
@@ -532,9 +527,8 @@ func TestLoadHostileBurst(t *testing.T) {
 	}
 }
 
-// TestLoadProperties shuffles the keyword, album and person rows, whose
-// readers give no order load relies on: the result does not depend on their
-// order, and the invariants hold.
+// The readers of keyword, album and person rows give no order that load may
+// rely on.
 func TestLoadProperties(t *testing.T) {
 	t.Parallel()
 

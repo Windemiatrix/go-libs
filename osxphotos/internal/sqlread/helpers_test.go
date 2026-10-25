@@ -15,16 +15,15 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
 
-// syntheticDB returns the path of the database of a copy of the synthetic
-// library, in the rollback journal mode, without a -wal file.
+// The synthetic library is in the rollback journal mode, without a -wal file.
 func syntheticDB(t *testing.T) string {
 	t.Helper()
 	return filepath.Join(testlib.OpenPristine(t, "synthetic"), "database", "Photos.sqlite")
 }
 
-// openWriter opens path for writing with one connection: PRAGMA page_size,
-// journal_mode, wal_autocheckpoint and cache_size apply to one connection,
-// and in a pool a later statement could run on another one.
+// One connection: PRAGMA page_size, journal_mode, wal_autocheckpoint and
+// cache_size apply to one connection, and in a pool a later statement could
+// run on another one.
 func openWriter(t *testing.T, path string) *sql.DB {
 	t.Helper()
 	db, err := sql.Open("sqlite", path)
@@ -45,8 +44,6 @@ func exec(t *testing.T, db *sql.DB, stmts ...string) {
 	}
 }
 
-// makeDB creates a database in the rollback journal mode from the statements
-// and returns its path.
 func makeDB(t *testing.T, stmts ...string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "Photos.sqlite")
@@ -58,8 +55,6 @@ func makeDB(t *testing.T, stmts ...string) string {
 	return path
 }
 
-// pagedDB is a database in the rollback journal mode with one table t of
-// 2000 rows of 100 bytes, about 50 pages of 4096 bytes.
 func pagedDB(t *testing.T) string {
 	t.Helper()
 	return makeDB(t,
@@ -70,8 +65,7 @@ func pagedDB(t *testing.T) string {
 	)
 }
 
-// corruptMiddlePage writes 64 bytes 0xFF at the start of the middle page of
-// a database of pagedDB. Every page but the first belongs to table t.
+// Every page but the first belongs to table t.
 func corruptMiddlePage(t *testing.T, path string) {
 	t.Helper()
 	const pageSize = 4096
@@ -108,7 +102,6 @@ func sha(t *testing.T, path string) [sha256.Size]byte {
 	return sha256.Sum256(b)
 }
 
-// names returns the names of the entries of dir, sorted.
 func names(t *testing.T, dir string) []string {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
@@ -129,8 +122,6 @@ func assertEmpty(t *testing.T, dir string) {
 	}
 }
 
-// copyDir returns the only entry of tempDir, which must be a copy directory
-// of this process with mode 0700.
 func copyDir(t *testing.T, tempDir string) string {
 	t.Helper()
 	n := names(t, tempDir)
@@ -151,8 +142,6 @@ func copyDir(t *testing.T, tempDir string) string {
 	return dir
 }
 
-// assertFiles checks that dir holds exactly the regular files want (sorted),
-// each with mode 0600.
 func assertFiles(t *testing.T, dir string, want ...string) {
 	t.Helper()
 	if got := names(t, dir); !slices.Equal(got, want) {
@@ -161,7 +150,6 @@ func assertFiles(t *testing.T, dir string, want ...string) {
 	assertModes(t, dir)
 }
 
-// assertModes checks that every entry of dir is a regular file with 0600.
 func assertModes(t *testing.T, dir string) {
 	t.Helper()
 	for _, n := range names(t, dir) {
@@ -175,7 +163,6 @@ func assertModes(t *testing.T, dir string) {
 	}
 }
 
-// fileState is what TestSourceUnchanged compares for a file.
 type fileState struct {
 	size  int64
 	mode  fs.FileMode
@@ -206,7 +193,6 @@ func count(t *testing.T, db *sql.DB, query string) int64 {
 	return n
 }
 
-// tableCounts returns COUNT(*) of every ordinary table of db.
 func tableCounts(t *testing.T, db *sql.DB) map[string]int64 {
 	t.Helper()
 	rows, err := db.QueryContext(t.Context(),

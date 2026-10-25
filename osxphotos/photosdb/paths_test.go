@@ -47,8 +47,6 @@ func FuzzSuffix(f *testing.F) {
 	})
 }
 
-// marked returns Z_PK, ZUUID, ZDIRECTORY and ZFILENAME of the asset whose
-// title is the marker.
 func marked(t *testing.T, lib, marker string) (pk int64, uuid, dir, file string) {
 	t.Helper()
 	err := roDB(t, lib).QueryRowContext(t.Context(),
@@ -70,9 +68,6 @@ func writeFile(t *testing.T, path string) {
 	}
 }
 
-// pathsLibrary is a migrated copy of Test-14.0.0 whose asset
-// mig:resources-original is a Live photo with a RAW resource and has its
-// original, its _3.mov and its _4.DNG on disk.
 func pathsLibrary(t *testing.T) (lib, uuid, dir, file string) {
 	t.Helper()
 	lib = testlib.Open(t, "Test-14.0.0")
@@ -132,8 +127,6 @@ func TestPaths(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		// The original is a symbolic link to a file outside the library, the
-		// Live video a directory, the RAW file a symbolic link inside.
 		outside := filepath.Join(t.TempDir(), "outside.jpeg")
 		writeFile(t, outside)
 		if err := os.Symlink(outside, filepath.Join(originals, file)); err != nil {
@@ -165,8 +158,8 @@ func TestPaths(t *testing.T) {
 		}
 	})
 
-	// The RAW file is found when its name differs from ZFILENAME in case or
-	// in Unicode normalization (photoinfo.py:545-558, utils.py:359-368).
+	// The RAW file name may differ from ZFILENAME in case or in Unicode
+	// normalization (photoinfo.py:545-558, utils.py:359-368).
 	for _, tt := range []struct{ name, dbFile, rawFile string }{
 		{"RAW name in lower case", "", ""},
 		{"RAW name in NFD, ZFILENAME in NFC", "Caf\U000000e9.jpeg", "Cafe\U00000301_4.DNG"},
@@ -247,7 +240,7 @@ func TestPaths(t *testing.T) {
 				newDir = tt.dir + dir
 			}
 			if tt.name == "absolute directory" {
-				newDir = filepath.Join(lib, "originals", dir) // the real directory, as an absolute path
+				newDir = filepath.Join(lib, "originals", dir)
 			}
 			change(t, lib, "UPDATE ZASSET SET ZDIRECTORY = '"+strings.ReplaceAll(newDir, "'", "''")+"' WHERE ZUUID = '"+uuid+"'")
 			if p := openPhoto(t, lib, uuid); p.Path != "" || p.PathLive != "" || p.PathRaw != "" {

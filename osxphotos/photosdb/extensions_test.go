@@ -14,8 +14,6 @@ import (
 // migration marks the assets it changes with a title "mig:<case>" and states
 // what it expects in its header.
 
-// migrated is a test library with its migrations applied, opened, and the
-// same library without them.
 type migrated struct {
 	db, pristine *DB
 	byTitle      map[string]*photoInfo
@@ -40,7 +38,6 @@ func openMigrated(t *testing.T, name string) *migrated {
 	return m
 }
 
-// get returns the asset marked mig:<marker>; a missing marker fails the test.
 func (m *migrated) get(t *testing.T, marker string) *photoInfo {
 	t.Helper()
 	p, ok := m.byTitle["mig:"+marker]
@@ -276,8 +273,6 @@ func TestExtensionsSkippedAsset(t *testing.T) {
 	}
 }
 
-// TestExtensionsUntouched checks that a migration changes only the assets
-// it marks: every other photo equals the one of the pristine copy.
 func TestExtensionsUntouched(t *testing.T) {
 	t.Parallel()
 	for _, name := range testlib.Libraries(t) {

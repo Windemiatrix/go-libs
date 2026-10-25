@@ -10,8 +10,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// TestMissingKey: a rule asks for its key, and a reference without it is a
-// mistake of the input for every rule, not a null.
+// A reference without the key is a mistake of the input for every rule, not a null.
 func TestMissingKey(t *testing.T) {
 	t.Parallel()
 	for _, key := range allKeys() {
@@ -46,12 +45,9 @@ func TestMissingKey(t *testing.T) {
 	})
 }
 
-// TestAlbumShape: an element of album_info that has not the form osxphotos writes.
 func TestAlbumShape(t *testing.T) {
 	t.Parallel()
 	const good = `{"creation_date": "2020-01-01T00:00:00+00:00", "end_date": null, "folder_list": [], "folder_names": [], "owner": null, "parent": null, "sort_order": null, "start_date": null, "title": "T", "uuid": "U"}`
-	// replace returns good with the key set to value, or without the key when
-	// value is "".
 	replace := func(key, value string) string {
 		var o Object
 		if err := json.Unmarshal([]byte(good), &o); err != nil {
@@ -123,23 +119,21 @@ func TestAlbumShape(t *testing.T) {
 	})
 }
 
-// TestAlbumsMissingOnTheGoSide: an album that a photo lists and Library does
-// not have is an error for each of the keys that read the albums.
 func TestAlbumsMissingOnTheGoSide(t *testing.T) {
 	t.Parallel()
 	for _, key := range AlbumKeys() {
 		t.Run(key, func(t *testing.T) {
 			t.Parallel()
 			lib := Library{
-				Photos: []*photoinfo.PhotoInfo{{UUID: p1, IsPhoto: true, AlbumUUIDs: []string{albumA1}, BurstAlbumUUIDs: []string{albumA1}}},
-				Albums: []*albuminfo.AlbumInfo{{UUID: albumA9}},
+				Photos: []*photoinfo.PhotoInfo{{UUID: selectedFrame, IsPhoto: true, AlbumUUIDs: []string{albumAInFolderX}, BurstAlbumUUIDs: []string{albumAInFolderX}}},
+				Albums: []*albuminfo.AlbumInfo{{UUID: albumOfNoPhoto}},
 			}
-			ref := refOf(refObj(refP1()))
+			ref := refOf(refObj(refSelectedFrame()))
 			_, err := Compare(ref, lib, []string{key}, nil)
 			if err == nil || !strings.Contains(err.Error(), "missing from Library.Albums") || !strings.Contains(err.Error(), "key "+key) {
 				t.Errorf("error = %v, want one about a missing album for %s", err, key)
 			}
-			if err != nil && strings.Contains(err.Error(), albumA1) {
+			if err != nil && strings.Contains(err.Error(), albumAInFolderX) {
 				t.Errorf("the error names the album: %v", err)
 			}
 		})
@@ -148,10 +142,10 @@ func TestAlbumsMissingOnTheGoSide(t *testing.T) {
 
 func TestOrderKeyErrors(t *testing.T) {
 	t.Parallel()
-	good := object("2020-01-01T00:00:00+00:00", "", p1)
+	good := object("2020-01-01T00:00:00+00:00", "", selectedFrame)
 	t.Run("uuid is not a string", func(t *testing.T) {
 		t.Parallel()
-		o := object("2020-01-01T00:00:00+00:00", "", p1)
+		o := object("2020-01-01T00:00:00+00:00", "", selectedFrame)
 		o["uuid"] = []byte("5")
 		if err := refOf(good, o).CheckOrder(); err == nil || !strings.Contains(err.Error(), "element 2: uuid: want a string") {
 			t.Errorf("error = %v", err)
@@ -159,7 +153,7 @@ func TestOrderKeyErrors(t *testing.T) {
 	})
 	t.Run("date is a number", func(t *testing.T) {
 		t.Parallel()
-		o := object("2020-01-01T00:00:00+00:00", "", p1)
+		o := object("2020-01-01T00:00:00+00:00", "", selectedFrame)
 		o["date"] = []byte("5")
 		if err := refOf(o).CheckOrder(); err == nil || !strings.Contains(err.Error(), "date: want an ISO 8601 string") {
 			t.Errorf("error = %v", err)
@@ -167,7 +161,7 @@ func TestOrderKeyErrors(t *testing.T) {
 	})
 	t.Run("date_added is a number", func(t *testing.T) {
 		t.Parallel()
-		o := object("2020-01-01T00:00:00+00:00", "", p1)
+		o := object("2020-01-01T00:00:00+00:00", "", selectedFrame)
 		o["date_added"] = []byte("5")
 		if err := refOf(o).CheckOrder(); err == nil || !strings.Contains(err.Error(), "date_added: want an ISO 8601 string") {
 			t.Errorf("error = %v", err)

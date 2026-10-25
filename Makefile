@@ -4,8 +4,7 @@ GOVULNCHECK_VERSION ?= v1.9.0
 SHFMT_VERSION ?= v3.14.1
 SVU_VERSION ?= v3.4.1
 
-# The minimum total test coverage, in percent. Not "?=": the environment must
-# not lower it.
+# Not "?=": the environment must not lower it.
 COVERAGE_MIN := 80
 
 .PHONY: help

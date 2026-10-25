@@ -27,9 +27,7 @@ type (
 
 var uuidForm = regexp.MustCompile(`^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$`)
 
-// change runs statements on database/Photos.sqlite of the library (a copy
-// made by the test). internal/testlib provides the Core Data functions that
-// the triggers call.
+// internal/testlib provides the Core Data functions that the triggers call.
 func change(t *testing.T, lib string, stmts ...string) {
 	t.Helper()
 	db, err := sql.Open("sqlite", filepath.Join(lib, "database", "Photos.sqlite"))
@@ -54,11 +52,9 @@ func count(t *testing.T, db *sql.DB, q string) int {
 	return n
 }
 
-// withoutAttributes counts the assets without a ZADDITIONALASSETATTRIBUTES row.
 const withoutAttributes = "SELECT COUNT(*) FROM ZASSET a WHERE NOT EXISTS " +
 	"(SELECT 1 FROM ZADDITIONALASSETATTRIBUTES x WHERE x.ZASSET = a.Z_PK)"
 
-// assertNoCopies checks that dir holds no copy directory of sqlread.
 func assertNoCopies(t *testing.T, dir string) {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
@@ -72,7 +68,6 @@ func assertNoCopies(t *testing.T, dir string) {
 	}
 }
 
-// fileState is the state of one entry of a tree.
 type fileState struct {
 	mode  fs.FileMode
 	size  int64
@@ -80,8 +75,7 @@ type fileState struct {
 	sum   [sha256.Size]byte
 }
 
-// tree returns the state of every entry under dir, by relative path.
-func tree(t *testing.T, dir string) map[string]fileState {
+func snapshotTree(t *testing.T, dir string) map[string]fileState {
 	t.Helper()
 	out := map[string]fileState{}
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
@@ -127,8 +121,6 @@ func assertTree(t *testing.T, name string, before, after map[string]fileState) {
 	}
 }
 
-// libraryModels of model_test.go is the model and schema of each test library.
-
 func TestOpenLibraries(t *testing.T) {
 	t.Parallel()
 
@@ -149,12 +141,12 @@ func TestOpenLibraries(t *testing.T) {
 		t.Run(lib.name, func(t *testing.T) {
 			t.Parallel()
 			tmp := t.TempDir()
-			before := tree(t, lib.path)
+			before := snapshotTree(t, lib.path)
 			db, err := Open(t.Context(), lib.path, Options{TempDir: tmp})
 			if err != nil {
 				t.Fatalf("Open: %v", err)
 			}
-			assertTree(t, lib.name, before, tree(t, lib.path))
+			assertTree(t, lib.name, before, snapshotTree(t, lib.path))
 			assertNoCopies(t, tmp)
 			info := db.Info()
 			if info.ModelVersion != lib.model || info.SchemaID != lib.id || !uuidForm.MatchString(info.LibraryUUID) ||
@@ -216,12 +208,12 @@ func TestOpenTempDir(t *testing.T) {
 		t.Log("the temporary file system is case-sensitive: the library in another case is not checked")
 	}
 	for _, tt := range inside {
-		before := tree(t, lib)
+		before := snapshotTree(t, lib)
 		_, err := Open(t.Context(), tt.lib, Options{TempDir: tt.tmp})
 		if err == nil || !strings.Contains(err.Error(), "inside the library") {
 			t.Errorf("%s: Open error %v, want one about a temporary directory inside the library", tt.name, err)
 		}
-		assertTree(t, tt.name, before, tree(t, lib))
+		assertTree(t, tt.name, before, snapshotTree(t, lib))
 	}
 
 	db, err := Open(t.Context(), lib, Options{TempDir: sibling})
@@ -277,7 +269,7 @@ func TestOpenRemovesCopy(t *testing.T) {
 			lib := testlib.OpenPristine(t, "synthetic")
 			change(t, lib, tt.edit...)
 			tmp := t.TempDir()
-			before := tree(t, lib)
+			before := snapshotTree(t, lib)
 			db, err := Open(tt.ctx, lib, Options{TempDir: tmp})
 			switch {
 			case tt.want == "" && err != nil:
@@ -291,7 +283,7 @@ func TestOpenRemovesCopy(t *testing.T) {
 				t.Errorf("errors.Is(%v, ErrUnsupportedSchema) = %v, want %v", err, !tt.unsupported, tt.unsupported)
 			}
 			assertNoCopies(t, tmp)
-			assertTree(t, tt.name, before, tree(t, lib))
+			assertTree(t, tt.name, before, snapshotTree(t, lib))
 		})
 	}
 }
@@ -309,16 +301,15 @@ func TestOpenEmptyDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 	tmp := t.TempDir()
-	before := tree(t, lib)
+	before := snapshotTree(t, lib)
 	db, err := Open(t.Context(), lib, Options{TempDir: tmp})
 	if err == nil || db != nil {
 		t.Fatalf("Open of an empty database = %v, %v; want nil and an error", db, err)
 	}
 	assertNoCopies(t, tmp)
-	assertTree(t, "empty database", before, tree(t, lib))
+	assertTree(t, "empty database", before, snapshotTree(t, lib))
 }
 
-// TestOpenHostileValues changes one value of a synthetic copy at a time.
 func TestOpenHostileValues(t *testing.T) {
 	t.Parallel()
 
@@ -376,8 +367,6 @@ func TestOpenHostileValues(t *testing.T) {
 	}
 }
 
-// TestOpenDanglingReferences: references to rows that do not exist and rows
-// of no asset in the catalog are neither errors nor panics.
 func TestOpenDanglingReferences(t *testing.T) {
 	t.Parallel()
 
@@ -414,9 +403,7 @@ func TestOpenDanglingReferences(t *testing.T) {
 	}
 }
 
-// TestOpenSharedAlbum turns a user album with members into a shared album
-// (ZKIND 1505): its UUID is in no AlbumUUIDs or BurstAlbumUUIDs and the album
-// is not in Albums, since shared albums are not read.
+// Shared albums (ZKIND 1505) are not read.
 func TestOpenSharedAlbum(t *testing.T) {
 	t.Parallel()
 
@@ -459,8 +446,6 @@ func TestOpenSharedAlbum(t *testing.T) {
 	}
 }
 
-// TestOpenParallel opens one library several times at once with one
-// TempDir: the copies do not collide and none is left.
 func TestOpenParallel(t *testing.T) {
 	t.Parallel()
 
@@ -487,9 +472,7 @@ func TestOpenParallel(t *testing.T) {
 	assertNoCopies(t, tmp)
 }
 
-// TestOpenAggregates compares counts and sums of the Go values with
-// counts and sums of the database columns, which catches a column read
-// into the wrong field.
+// Counts and sums catch a column read into the wrong field.
 func TestOpenAggregates(t *testing.T) {
 	t.Parallel()
 

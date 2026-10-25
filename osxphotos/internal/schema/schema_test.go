@@ -130,9 +130,9 @@ var (
 	keywordPattern     = regexp.MustCompile(`^Z_[0-9]+KEYWORDS$`)
 )
 
-// eraColumns are the columns that change between eras, written out
-// independently of data.go (_constants.py:129-264): the fingerprint and
-// adjustments columns change with photos10, the face columns with photos9.
+// Written out independently of data.go (_constants.py:129-264): the
+// fingerprint and adjustments columns change with photos10, the face columns
+// with photos9.
 var eraColumns = map[string][4]string{ // fingerprint, adjustments, face person, face asset
 	"photos8":      {"ZMASTERFINGERPRINT", "ZHASADJUSTMENTS", "ZPERSON", "ZASSET"},
 	"photos9":      {"ZMASTERFINGERPRINT", "ZHASADJUSTMENTS", "ZPERSONFORFACE", "ZASSETFORFACE"},
@@ -143,9 +143,8 @@ var eraColumns = map[string][4]string{ // fingerprint, adjustments, face person,
 	"photos12":     {"ZORIGINALSTABLEHASH", "ZADJUSTMENTSSTATE", "ZPERSONFORFACE", "ZASSETFORFACE"},
 }
 
-// checkMeaning checks what each name of s stands for, so that two names of
-// one table swapped with each other are red: in the database both columns
-// exist, and only the meaning tells them apart.
+// Two names of one table swapped with each other must be red: in the
+// database both columns exist, and only the meaning tells them apart.
 func checkMeaning(t *testing.T, s Schema) {
 	t.Helper()
 	if s.MemberAssetColumn != "Z_3ASSETS" {
@@ -174,7 +173,6 @@ func checkMeaning(t *testing.T, s Schema) {
 	}
 }
 
-// names returns the name fields of s by field name.
 func names(s Schema) map[string]string {
 	return map[string]string{
 		"MemberTable":       s.MemberTable,

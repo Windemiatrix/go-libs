@@ -16,17 +16,13 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// originalsDir is the directory of the original files inside the library.
 const originalsDir = "originals"
 
-// setPaths sets Path, PathLive, PathRaw and UTIRaw of the photos of c, read
-// from assets, with the ZDIRECTORY of their asset. Files are looked up only
-// inside libraryPath/originals, through os.Root: a path never leaves that
-// directory and a symbolic link is not a file. Only Lstat and ReadDir are
-// used; no file is opened for reading, and each directory is read at most
-// once. Without the originals directory every path is "". An error of Lstat
-// or ReadDir makes the path "" and is not returned: its text holds names
-// from the database.
+// Files are looked up only inside libraryPath/originals, through os.Root: a
+// path never leaves that directory and a symbolic link is not a file. Only
+// Lstat and ReadDir are used; no file is opened for reading. An error of
+// Lstat or ReadDir makes the path "" and is not returned: its text holds
+// names from the database.
 func setPaths(libraryPath string, assets []sqlread.Asset, c *catalog) error {
 	root, err := os.OpenRoot(filepath.Join(libraryPath, originalsDir))
 	if errors.Is(err, fs.ErrNotExist) {
@@ -54,19 +50,15 @@ type originals struct {
 	dirs map[string]*dirNames // nil when the directory cannot be read
 }
 
-// dirNames are the names of one directory, read once, in name order, and
-// each name in the form fold gives.
 type dirNames struct {
 	names, folded []string
 }
 
-// set sets the paths of one photo whose ZDIRECTORY is dir (photoinfo.py:189-263,
-// 514-572, 1051-1076). A missing photo has no paths. Shared photos and
+// set follows photoinfo.py:189-263, 514-572, 1051-1076. Shared photos and
 // "Shared with you" photos not saved to the library have no Path and
 // PathLive here; upstream looks for them elsewhere (photoinfo.py:211-225),
 // but not for their RAW file (photoinfo.py:532-540). The shared moment
-// directory is not searched (photoinfo.py:213-222). An empty or absolute
-// ZDIRECTORY gives no paths. Referenced files have no PathLive and PathRaw.
+// directory is not searched (photoinfo.py:213-222).
 func (o *originals) set(p *photoinfo.PhotoInfo, dir string) {
 	if p.IsMissing {
 		return
@@ -87,8 +79,8 @@ func (o *originals) set(p *photoinfo.PhotoInfo, dir string) {
 	}
 }
 
-// relName is dir/file when it is a valid relative path inside the root: both
-// parts present, no "." or ".." element, not absolute, no NUL.
+// dir and file come from the database: a path that could leave the root is
+// refused.
 func relName(dir, file string) (string, bool) {
 	name := dir + "/" + file
 	if dir == "" || file == "" || strings.ContainsRune(name, 0) || !fs.ValidPath(name) {
@@ -97,8 +89,6 @@ func relName(dir, file string) (string, bool) {
 	return name, true
 }
 
-// isFile reports whether name is a regular file inside the root, not
-// following a symbolic link.
 func (o *originals) isFile(name string) bool {
 	info, err := o.root.Lstat(name)
 	return err == nil && info.Mode().IsRegular()
@@ -108,9 +98,7 @@ func (o *originals) abs(name string) string {
 	return filepath.Join(o.lib, originalsDir, filepath.FromSlash(name))
 }
 
-// rawName finds the RAW file of a RAW+JPEG pair: the first name of dir, in
-// name order, that starts with <stem of file>_4, compared in NFD and lower
-// case (photoinfo.py:545-558, utils.py:327-396).
+// rawName follows photoinfo.py:545-558 and utils.py:327-396.
 func (o *originals) rawName(dir, file string) (string, bool) {
 	if _, ok := relName(dir, file); !ok {
 		return "", false
@@ -132,7 +120,6 @@ func (o *originals) rawName(dir, file string) (string, bool) {
 	return "", false
 }
 
-// readNames reads dir; nil when dir cannot be read.
 func readNames(fsys fs.FS, dir string) *dirNames {
 	entries, err := fs.ReadDir(fsys, dir) // sorted by name
 	if err != nil {

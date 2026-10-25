@@ -1,7 +1,6 @@
-# golangci-lint v2 configuration for the osxphotos module. The version is
-# pinned in the Makefile (GOLANGCI_LINT_VERSION); CI runs "make lint" on macOS
-# so that darwin-only files are analyzed too. golangci-lint finds this file in
-# the parent directory of the module.
+# The version is pinned in the Makefile (GOLANGCI_LINT_VERSION); CI lints on
+# macOS so that darwin-only files are analyzed too. golangci-lint finds this
+# file in the parent directory of the module.
 version: "2"
 
 run:
@@ -9,7 +8,6 @@ run:
   tests: true
 
 linters:
-  # standard = govet, staticcheck, errcheck, ineffassign, unused
   default: standard
   enable:
     - depguard
@@ -42,7 +40,6 @@ linters:
             - {pkg: path/filepath, desc: "template builds slash-separated paths with package path"}
             - {pkg: syscall, desc: "template does not call the system"}
             - {pkg: unsafe, desc: "template does not use unsafe"}
-        # The export naming rules are pure as well.
         export:
           list-mode: lax
           files:
@@ -80,7 +77,6 @@ linters:
             - {pkg: syscall, desc: "this package does not call the system"}
             - {pkg: unsafe, desc: "this package does not use unsafe"}
             - {pkg: C, desc: "this package does not use cgo"}
-        # The library neither goes to the network nor starts processes.
         library:
           list-mode: lax
           files:

@@ -19,11 +19,9 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/query"
 )
 
-// queryRef is what the rules of photo_query read from an object of the
-// reference. A JSON null decodes as the zero value: title and description
-// null are "", as upstream turns "" into None (NORMALIZATION.md). The rules
-// put the values they search for in NFC, as photo_query does
-// (photoquery.py:447-455).
+// A JSON null decodes as the zero value: title and description null are "",
+// as upstream turns "" into None (NORMALIZATION.md). The rules put the values
+// they search for in NFC, as photo_query does (photoquery.py:447-455).
 type queryRef struct {
 	UUID             string          `json:"uuid"`
 	IsPhoto          bool            `json:"isphoto"`
@@ -58,11 +56,10 @@ type queryRefAlbum struct {
 	Owner       any      `json:"owner"`
 }
 
-// path is the folders, then the title.
 func (a queryRefAlbum) path() []string { return append(slices.Clone(a.FolderNames), a.Title) }
 
-// userAlbums leaves out the shared albums, which the module does not read
-// (rule 8 of NORMALIZATION.md).
+// Shared albums are left out: the module does not read them (rule 8 of
+// NORMALIZATION.md).
 func (r queryRef) userAlbums() []queryRefAlbum {
 	var out []queryRefAlbum
 	for _, a := range r.AlbumInfo {
@@ -88,8 +85,7 @@ func queryRefs(t *testing.T, objs []golden.Object) []queryRef {
 	return out
 }
 
-// querySkip reports the objects that a record of divergences.json for this
-// library and one of keys (or uuid) covers: they are left out on both sides.
+// The objects that divergences.json covers are left out on both sides.
 func querySkip(divs []golden.Divergence, library string, keys []string) func(string) bool {
 	all, some := false, map[string]bool{}
 	for _, d := range divs {
@@ -124,8 +120,7 @@ func queryRefIDs(refs []queryRef, skip func(string) bool, keep func(queryRef) bo
 	return out
 }
 
-// queryCompare reports the first difference of two UUID sequences, with UUIDs
-// and numbers only.
+// The report holds UUIDs and numbers only.
 func queryCompare(t *testing.T, name string, got, want []string) {
 	t.Helper()
 	if slices.Equal(got, want) {
@@ -145,23 +140,19 @@ func queryCompare(t *testing.T, name string, got, want []string) {
 	t.Errorf("%s: %d photos, want %d; first difference at %d: got %s, want %s", name, len(got), len(want), i, g, w)
 }
 
-// queryCase is one query and the rule of upstream that selects its objects
-// of query.json by the values of the reference.
 type queryCase struct {
 	name, family string
-	keys         []string // the reference keys the rule reads
+	refKeys      []string
 	o            query.Options
 	want         func(queryRef) bool
 }
 
-// queryFlag is a pair X/NotX: X keeps the objects of scope with the
-// attribute, NotX those without it.
 type queryFlag struct {
-	name    string
-	keys    []string
-	x, notX func(*query.Options)
-	has     func(queryRef) bool
-	scope   func(queryRef) bool // nil: every object
+	name      string
+	refKeys   []string
+	x, notX   func(*query.Options)
+	has       func(queryRef) bool
+	appliesTo func(queryRef) bool
 }
 
 func queryFlagCases() []queryCase {
@@ -200,20 +191,18 @@ func queryFlagCases() []queryCase {
 	}
 	var cases []queryCase
 	for _, f := range flags {
-		in := func(r queryRef) bool { return f.scope == nil || f.scope(r) }
+		in := func(r queryRef) bool { return f.appliesTo == nil || f.appliesTo(r) }
 		var x, notX query.Options
 		f.x(&x)
-		cases = append(cases, queryCase{f.name, "flags", f.keys, x, func(r queryRef) bool { return in(r) && f.has(r) }})
+		cases = append(cases, queryCase{f.name, "flags", f.refKeys, x, func(r queryRef) bool { return in(r) && f.has(r) }})
 		if f.notX != nil {
 			f.notX(&notX)
-			cases = append(cases, queryCase{"not " + f.name, "flags", f.keys, notX, func(r queryRef) bool { return in(r) && !f.has(r) }})
+			cases = append(cases, queryCase{"not " + f.name, "flags", f.refKeys, notX, func(r queryRef) bool { return in(r) && !f.has(r) }})
 		}
 	}
 	return cases
 }
 
-// queryValues returns the distinct values that values gives for the objects,
-// sorted.
 func queryValues(refs []queryRef, values func(queryRef) []string) []string {
 	set := map[string]bool{}
 	for _, r := range refs {
@@ -298,9 +287,8 @@ func queryTextCases(refs []queryRef) []queryCase {
 	return cases
 }
 
-// queryPath writes parts in the syntax of upstream, "/" of a title as "//"
-// (photoquery.py:927-941). ok is false for a part that starts or ends with
-// "/": its path is ambiguous upstream.
+// Upstream writes "/" of a title as "//" (photoquery.py:927-941). ok is false
+// for a part that starts or ends with "/": its path is ambiguous upstream.
 func queryPath(parts []string) (path string, ok bool) {
 	escaped := make([]string, len(parts))
 	for i, p := range parts {
@@ -372,8 +360,8 @@ func queryAlbumCases(refs []queryRef) []queryCase {
 	)
 }
 
-// queryDateCases take the Date of each photo as the threshold: TestGolden
-// checks that the moments equal the dates of the reference.
+// TestGolden checks that the Date of each photo, the threshold here, equals
+// the date of the reference.
 func queryDateCases(t *testing.T, db *DB, refs []queryRef) []queryCase {
 	t.Helper()
 	date := map[string]time.Time{}
@@ -419,10 +407,6 @@ func queryOtherCases(inQuery, inDeleted []queryRef) []queryCase {
 	}
 }
 
-// TestQueryGolden checks Query against the osxphotos output: the selection
-// without options and of the trash by the order of the files, and each
-// filter by the objects of query.json that the rule of upstream selects from
-// the values of the reference.
 func TestQueryGolden(t *testing.T) {
 	t.Parallel()
 
@@ -453,7 +437,7 @@ func TestQueryGolden(t *testing.T) {
 					queryDateCases(t, db, inQuery), queryOtherCases(inQuery, inDeleted))
 				counts, hit := map[string]int{}, map[string]bool{}
 				for _, c := range cases {
-					skip := querySkip(divs, lib.name, c.keys)
+					skip := querySkip(divs, lib.name, c.refKeys)
 					want := queryRefIDs(inQuery, skip, c.want)
 					queryCompare(t, c.name, queryIDs(db.Query(c.o), skip), want)
 					counts[c.family] += len(want)
@@ -504,8 +488,6 @@ func TestQueryGolden(t *testing.T) {
 	}
 }
 
-// querySelection checks the selections whose order the files give: query.json
-// without options, deleted.json for DeletedOnly, both for Deleted.
 func querySelection(t *testing.T, db *DB, inQuery, inDeleted []queryRef, skip func(string) bool) {
 	t.Helper()
 	all := func(queryRef) bool { return true }
@@ -539,9 +521,8 @@ func querySelection(t *testing.T, db *DB, inQuery, inDeleted []queryRef, skip fu
 	}
 }
 
-// TestQueryMissing checks the condition under which TestQueryGolden leaves
-// out Missing: no test library has its original files, so every photo is
-// missing by Path.
+// TestQueryGolden leaves out Missing because no test library has its original
+// files, so every photo is missing by Path.
 func TestQueryMissing(t *testing.T) {
 	t.Parallel()
 

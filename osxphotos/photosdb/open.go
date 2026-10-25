@@ -14,16 +14,12 @@ import (
 // Open reads the Photos library at libraryPath (the .photoslibrary
 // directory) into memory.
 //
-// Open copies database/Photos.sqlite with its -wal file, without -shm (SQLite
-// rebuilds the index of the log from -wal), into a new directory under
-// o.TempDir, and reads only the copy, read-only. The copy is checked with
-// quick_check, the schema is chosen by the model version of the database,
-// and every table and column that is read is checked before reading: an
-// unknown model or a missing table or column gives an error that wraps
-// ErrUnsupportedSchema. Then the photos are read, and the original files are
-// looked up inside the originals directory of the library. The copy is
-// removed before Open returns, after an error as well; nothing of the copy or
-// of the library stays open in the DB.
+// Open reads a copy of database/Photos.sqlite with its -wal file, made in a
+// new directory under o.TempDir, never the original. -shm is not copied:
+// SQLite rebuilds the index of the log from -wal. An unknown model or a
+// missing table or column gives an error that wraps ErrUnsupportedSchema.
+// The copy is removed before Open returns, after an error as well; nothing of
+// the copy or of the library stays open in the DB.
 //
 // A TempDir that is the library or lies inside it is refused before any copy
 // is made: the copy would become part of the library.
@@ -102,12 +98,10 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 	}, nil
 }
 
-// checkTempDir refuses a temporary directory that is the library or lies
-// inside it. The directories are compared as files (os.SameFile), not as
-// path strings: the temporary directory, with symbolic links resolved, and
-// each of its parents is compared with the library, so that neither a link
-// nor another case of a name on a case-insensitive file system hides it.
-// "<library>2" is not inside the library.
+// The directories are compared as files (os.SameFile), not as path strings,
+// so that neither a symbolic link nor another case of a name on a
+// case-insensitive file system hides the library. "<library>2" is not inside
+// the library.
 func checkTempDir(libraryPath, tempDir string) error {
 	lib, err := os.Stat(libraryPath)
 	if err != nil {
@@ -127,7 +121,6 @@ func checkTempDir(libraryPath, tempDir string) error {
 	}
 }
 
-// readTables runs every reader of the copy.
 func readTables(ctx context.Context, src *sqlread.DB, s schema.Schema) (t tables, err error) {
 	if t.assets, err = src.Assets(ctx, s); err != nil {
 		return tables{}, err

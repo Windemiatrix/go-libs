@@ -16,21 +16,18 @@ import (
 	"testing"
 )
 
-// libCase is what the migrations of one library must leave in its copy.
 type libCase struct {
-	assets  []string // markers in ZADDITIONALASSETATTRIBUTES.ZTITLE, without the "mig:" prefix
-	albums  []string // markers in ZGENERICALBUM.ZTITLE, without the "mig:" prefix
-	skipped int      // assets that lose their ZADDITIONALASSETATTRIBUTES row
-	checks  []check
+	assetMarkers           []string
+	albumMarkers           []string
+	assetsLosingAttributes int
+	checks                 []check
 }
 
-// check is a query that returns one value; NULL is rendered as "NULL".
 type check struct {
 	query string
 	want  string
 }
 
-// pk is the ZASSET primary key of the asset marked "mig:<marker>".
 func pk(marker string) string {
 	return "(SELECT ZASSET FROM ZADDITIONALASSETATTRIBUTES WHERE ZTITLE = 'mig:" + marker + "')"
 }
@@ -68,7 +65,6 @@ func fingerprintChecks(column string) []check {
 	}
 }
 
-// burstChecks takes the album membership table of the schema and its album column.
 func burstChecks(table, albumColumn string) []check {
 	pick := func(marker string) string {
 		return "SELECT ZAVALANCHEPICKTYPE FROM ZASSET WHERE Z_PK = " + pk(marker)
@@ -113,18 +109,16 @@ func rawChecks() []check {
 	}
 }
 
-// expected lists every library that has migrations. A library that is not
-// here must have no migrations directory and gets no markers.
 var expected = map[string]libCase{
 	"Test-13.0.0": {
-		assets: slices.Concat(assetCloudGUIDMarkers, fingerprintMarkers, burstMarkers),
-		albums: albumCloudGUIDMarkers,
+		assetMarkers: slices.Concat(assetCloudGUIDMarkers, fingerprintMarkers, burstMarkers),
+		albumMarkers: albumCloudGUIDMarkers,
 		checks: slices.Concat(assetCloudGUIDChecks(), albumCloudGUIDChecks(),
 			fingerprintChecks("ZMASTERFINGERPRINT"), burstChecks("Z_28ASSETS", "Z_28ALBUMS")),
 	},
 	"Test-Cloud-13.1": {
-		assets: []string{"asset-cloud-guid-null", "asset-cloud-guid-empty", "cloud-master-local", "cloud-master-none"},
-		albums: []string{"album-cloud-guid-null"},
+		assetMarkers: []string{"asset-cloud-guid-null", "asset-cloud-guid-empty", "cloud-master-local", "cloud-master-none"},
+		albumMarkers: []string{"album-cloud-guid-null"},
 		checks: []check{
 			{"SELECT ZCLOUDASSETGUID FROM ZASSET WHERE Z_PK = " + pk("asset-cloud-guid-null"), "NULL"},
 			{"SELECT ZCLOUDASSETGUID FROM ZASSET WHERE Z_PK = " + pk("asset-cloud-guid-empty"), ""},
@@ -135,13 +129,13 @@ var expected = map[string]libCase{
 		},
 	},
 	"Test-14.0.0": {
-		assets: slices.Concat(resourcesMarkers, rawMarkers, []string{"trash"}),
+		assetMarkers: slices.Concat(resourcesMarkers, rawMarkers, []string{"trash"}),
 		checks: slices.Concat(resourcesChecks(), rawChecks(), []check{
 			{"SELECT ZTRASHEDSTATE || '|' || ZTRASHEDDATE FROM ZASSET WHERE Z_PK = " + pk("trash"), "1|694224000"},
 		}),
 	},
 	"Test-14.6.0": {
-		assets: []string{"shared-library-member", "shared-library-null", "tzoffset-null",
+		assetMarkers: []string{"shared-library-member", "shared-library-null", "tzoffset-null",
 			"original-filename-null", "original-filename-empty", "date-created-null"},
 		checks: []check{
 			{"SELECT ZACTIVELIBRARYSCOPEPARTICIPATIONSTATE || '|' || ZLIBRARYSCOPESHARESTATE || '|' || ZLIBRARYSCOPE " +
@@ -155,7 +149,7 @@ var expected = map[string]libCase{
 		},
 	},
 	"Test-15.4.1": {
-		assets: []string{"syndicated-not-saved", "syndicated-saved", "shared-album-photo"},
+		assetMarkers: []string{"syndicated-not-saved", "syndicated-saved", "shared-album-photo"},
 		checks: []check{
 			{"SELECT ZSYNDICATIONIDENTIFIER || '|' || ZSYNDICATIONHISTORY FROM ZADDITIONALASSETATTRIBUTES " +
 				"WHERE ZTITLE = 'mig:syndicated-not-saved'", "TEST-SYND-0001|0"},
@@ -165,8 +159,8 @@ var expected = map[string]libCase{
 		},
 	},
 	"Test-16.0.0-beta": {
-		assets:  []string{"date-modified-raw-value", "date-modified-raw-null"},
-		skipped: 1,
+		assetMarkers:           []string{"date-modified-raw-value", "date-modified-raw-null"},
+		assetsLosingAttributes: 1,
 		checks: []check{
 			{"SELECT ZMODIFICATIONDATE || '|' || ZADJUSTMENTTIMESTAMP FROM ZASSET WHERE Z_PK = " +
 				pk("date-modified-raw-value"), "694224000|694310400"},
@@ -177,27 +171,25 @@ var expected = map[string]libCase{
 		},
 	},
 	"Test-26.1": {
-		assets: slices.Concat(assetCloudGUIDMarkers, fingerprintMarkers, burstMarkers, resourcesMarkers),
-		albums: albumCloudGUIDMarkers,
+		assetMarkers: slices.Concat(assetCloudGUIDMarkers, fingerprintMarkers, burstMarkers, resourcesMarkers),
+		albumMarkers: albumCloudGUIDMarkers,
 		checks: slices.Concat(assetCloudGUIDChecks(), albumCloudGUIDChecks(),
 			fingerprintChecks("ZORIGINALSTABLEHASH"), burstChecks("Z_33ASSETS", "Z_33ALBUMS"), resourcesChecks()),
 	},
 	"Test-27.0_DevBeta": {
-		assets: fingerprintMarkers,
-		checks: fingerprintChecks("ZORIGINALSTABLEHASH"),
+		assetMarkers: fingerprintMarkers,
+		checks:       fingerprintChecks("ZORIGINALSTABLEHASH"),
 	},
 }
 
 const (
-	assetMarkersQuery = "SELECT substr(ZTITLE, 5) FROM ZADDITIONALASSETATTRIBUTES WHERE ZTITLE LIKE 'mig:%' ORDER BY 1"
-	albumMarkersQuery = "SELECT substr(ZTITLE, 5) FROM ZGENERICALBUM WHERE ZTITLE LIKE 'mig:%' ORDER BY 1"
-	assetCountQuery   = "SELECT COUNT(*) FROM ZASSET"
-	skippedQuery      = "SELECT COUNT(*) FROM ZASSET a WHERE NOT EXISTS " +
+	assetMarkersQuery      = "SELECT substr(ZTITLE, 5) FROM ZADDITIONALASSETATTRIBUTES WHERE ZTITLE LIKE 'mig:%' ORDER BY 1"
+	albumMarkersQuery      = "SELECT substr(ZTITLE, 5) FROM ZGENERICALBUM WHERE ZTITLE LIKE 'mig:%' ORDER BY 1"
+	assetCountQuery        = "SELECT COUNT(*) FROM ZASSET"
+	withoutAttributesQuery = "SELECT COUNT(*) FROM ZASSET a WHERE NOT EXISTS " +
 		"(SELECT 1 FROM ZADDITIONALASSETATTRIBUTES x WHERE x.ZASSET = a.Z_PK)"
 )
 
-// TestMigrations applies the migrations of every test library to a copy and
-// checks the markers and values they leave.
 func TestMigrations(t *testing.T) {
 	dir := RepoDir(t, "libraries")
 	names := Libraries(t)
@@ -215,20 +207,20 @@ func TestMigrations(t *testing.T) {
 			db := OpenDB(t, dbFile(Open(t, name)))
 			pristine := OpenDB(t, dbFile(OpenPristine(t, name)))
 
-			wantAssets := slices.Sorted(slices.Values(want.assets))
+			wantAssets := slices.Sorted(slices.Values(want.assetMarkers))
 			if got := Rows(t, db, assetMarkersQuery); !slices.Equal(got, wantAssets) {
 				t.Errorf("asset markers:\n got %q\nwant %q", got, wantAssets)
 			}
-			wantAlbums := slices.Sorted(slices.Values(want.albums))
+			wantAlbums := slices.Sorted(slices.Values(want.albumMarkers))
 			if got := Rows(t, db, albumMarkersQuery); !slices.Equal(got, wantAlbums) {
 				t.Errorf("album markers:\n got %q\nwant %q", got, wantAlbums)
 			}
 			if got, was := Count(t, db, assetCountQuery), Count(t, pristine, assetCountQuery); got != was {
 				t.Errorf("assets: %d after migrations, %d before", got, was)
 			}
-			if got, was := Count(t, db, skippedQuery), Count(t, pristine, skippedQuery); got != was+want.skipped {
+			if got, was := Count(t, db, withoutAttributesQuery), Count(t, pristine, withoutAttributesQuery); got != was+want.assetsLosingAttributes {
 				t.Errorf("assets without additional attributes: %d after migrations, %d before, want %d more",
-					got, was, want.skipped)
+					got, was, want.assetsLosingAttributes)
 			}
 			for _, c := range want.checks {
 				if got := Scalar(t, db, c.query); got != c.want {
@@ -241,8 +233,6 @@ func TestMigrations(t *testing.T) {
 
 func dbFile(lib string) string { return filepath.Join(lib, "database", "Photos.sqlite") }
 
-// TestSynthetic grows the synthetic library to three times its assets and
-// checks that every copy of an asset has its own rows.
 func TestSynthetic(t *testing.T) {
 	t.Parallel()
 	base := OpenDB(t, dbFile(OpenPristine(t, "synthetic")))
@@ -266,11 +256,8 @@ func TestSynthetic(t *testing.T) {
 	}
 }
 
-// TestPinnedSynthetic pins the content of the synthetic library, its
-// reference/*.sql applied: the reference data in testdata/golden/synthetic was
-// made from it. Change the
-// values only together with a new golden-regen run and the data of
-// testdata/golden/synthetic.
+// The reference data in testdata/golden/synthetic was made from this content:
+// change the hashes only together with a new golden-regen run and that data.
 func TestPinnedSynthetic(t *testing.T) {
 	t.Parallel()
 	db := OpenDB(t, dbFile(OpenPristine(t, "synthetic")))
@@ -312,7 +299,6 @@ func TestPinnedSynthetic(t *testing.T) {
 	}
 }
 
-// hashRows returns the SHA-256 of the rows of query, every value with its type.
 func hashRows(t *testing.T, db *sql.DB, query string) string {
 	t.Helper()
 	rows, err := db.QueryContext(t.Context(), query)
@@ -354,9 +340,6 @@ var (
 	insertWord    = regexp.MustCompile(`(?i)\binsert\b`)
 )
 
-// TestMigrationFiles checks the layout of every migrations and reference
-// directory: only files NNN_<case>.sql numbered from 001 without gaps, no
-// INSERT, and each file parses into at least one statement.
 func TestMigrationFiles(t *testing.T) {
 	dir := RepoDir(t, "libraries")
 	for _, name := range Libraries(t) {
@@ -437,14 +420,12 @@ func TestParse(t *testing.T) {
 	}
 }
 
-// TestMigrate runs migrate on a small database whose trigger calls the Core
-// Data functions, so it also checks that their stand-ins are registered.
 func TestMigrate(t *testing.T) {
 	tests := []struct {
-		name    string
-		files   map[string]string
-		wantErr string // empty: no error
-		want    string // value of t.v after migrate
+		name      string
+		files     map[string]string
+		wantErr   string
+		wantValue string
 	}{
 		{
 			name: "applies files in name order",
@@ -452,7 +433,7 @@ func TestMigrate(t *testing.T) {
 				"002_b.sql": "-- rows: any\nDELETE FROM t WHERE id = 99;\nUPDATE t SET v = v || 'c' WHERE id = 1;\n",
 				"001_a.sql": "-- header\nUPDATE t\nSET v = 'b'\nWHERE id = 1;\n",
 			},
-			want: "bc",
+			wantValue: "bc",
 		},
 		{
 			name: "statement that changes no rows rolls everything back",
@@ -460,20 +441,20 @@ func TestMigrate(t *testing.T) {
 				"001_a.sql": "UPDATE t SET v = 'b' WHERE id = 1;\n",
 				"002_b.sql": "-- header\nUPDATE t SET v = 'x' WHERE id = 99;\n",
 			},
-			wantErr: "002_b.sql:2:",
-			want:    "a",
+			wantErr:   "002_b.sql:2:",
+			wantValue: "a",
 		},
 		{
-			name:    "invalid statement",
-			files:   map[string]string{"001_a.sql": "UPDATE t SET v = 'b' WHERE id = 1;\nUPDATE missing SET v = 1;\n"},
-			wantErr: "001_a.sql:2:",
-			want:    "a",
+			name:      "invalid statement",
+			files:     map[string]string{"001_a.sql": "UPDATE t SET v = 'b' WHERE id = 1;\nUPDATE missing SET v = 1;\n"},
+			wantErr:   "001_a.sql:2:",
+			wantValue: "a",
 		},
 		{
-			name:    "unterminated statement",
-			files:   map[string]string{"001_a.sql": "UPDATE t SET v = 'b' WHERE id = 1\n"},
-			wantErr: "001_a.sql:",
-			want:    "a",
+			name:      "unterminated statement",
+			files:     map[string]string{"001_a.sql": "UPDATE t SET v = 'b' WHERE id = 1\n"},
+			wantErr:   "001_a.sql:",
+			wantValue: "a",
 		},
 	}
 	for _, tt := range tests {
@@ -486,15 +467,15 @@ func TestMigrate(t *testing.T) {
 			case tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)):
 				t.Fatalf("migrate: got error %v, want one containing %q", err, tt.wantErr)
 			}
-			if got := Scalar(t, OpenDB(t, dbPath), "SELECT v FROM t WHERE id = 1"); got != tt.want {
-				t.Errorf("t.v = %q, want %q", got, tt.want)
+			if got := Scalar(t, OpenDB(t, dbPath), "SELECT v FROM t WHERE id = 1"); got != tt.wantValue {
+				t.Errorf("t.v = %q, want %q", got, tt.wantValue)
 			}
 		})
 	}
 }
 
-// newTestDB creates a database with one row and a trigger like the ones in
-// Photos.sqlite that call Core Data functions.
+// The trigger of newTestDB calls the Core Data functions like those of
+// Photos.sqlite, so TestMigrate also covers their stand-ins.
 func newTestDB(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.sqlite")
@@ -523,8 +504,6 @@ func newTestDB(t *testing.T) string {
 	return path
 }
 
-// writeFiles writes the files into a temporary directory and returns their
-// paths in name order.
 func writeFiles(t *testing.T, files map[string]string) []string {
 	t.Helper()
 	dir := t.TempDir()

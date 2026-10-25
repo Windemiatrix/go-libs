@@ -1,11 +1,9 @@
-// Package testlib prepares copies of the test Photos libraries for the tests
-// of this module.
+// Package testlib prepares copies of the test Photos libraries of
+// testdata/libraries, which is in the repository but outside the module.
 //
-// The libraries live in testdata/libraries of the repository, outside the
-// module: copies of the osxphotos test libraries and the synthetic library.
-// They are never opened for writing: Open copies a database into a temporary
-// directory and applies the SQL files of that library to the copy: reference/
-// (seen by osxphotos too) and then migrations/ (Go tests only); see
+// The libraries are never opened for writing: Open copies a database into a
+// temporary directory and applies the SQL files of that library to the copy:
+// reference/ (seen by osxphotos too) and then migrations/ (Go tests only); see
 // testdata/libraries/SOURCES.md for the rules of these files.
 package testlib
 
@@ -27,13 +25,12 @@ import (
 	"modernc.org/sqlite"
 )
 
-// rowsAny on the line right before a statement allows it to change no rows.
 const rowsAny = "-- rows: any"
 
-// coreDataFunctions are called by the triggers of Photos.sqlite. They exist
-// only inside the Photos app (Core Data); without stand-ins SQLite refuses to
-// run a statement that fires such a trigger, for example an UPDATE of
-// ZASSET.ZTRASHEDSTATE. The stand-ins do nothing and return NULL.
+// The triggers of Photos.sqlite call coreDataFunctions, which exist only inside
+// the Photos app (Core Data); without stand-ins SQLite refuses to run a
+// statement that fires such a trigger, for example an UPDATE of
+// ZASSET.ZTRASHEDSTATE.
 var coreDataFunctions = []string{
 	"NSCoreDataTriggerUpdateAffectedObjectValue",
 	"NSCoreDataDATriggerUpdatedAffectedObjectValue",
@@ -71,13 +68,11 @@ func Libraries(t testing.TB) []string {
 	return names
 }
 
-// Open copies database/Photos.sqlite and, when present, Photos.sqlite-wal of
-// the named library into <t.TempDir()>/<name>.photoslibrary/database/, applies
-// every migrations/*.sql of the library in file-name order inside one
-// transaction, checkpoints the WAL and returns the library path (the
-// directory that photosdb.Open takes). Each statement must change at least
-// one row unless the line right before it is "-- rows: any". Any failure is
-// t.Fatal.
+// Open copies the named library as OpenPristine does, applies every
+// migrations/*.sql of the library in file-name order inside one transaction and
+// returns the library path (the directory that photosdb.Open takes). Each
+// statement must change at least one row unless the line right before it is
+// "-- rows: any". Any failure is t.Fatal.
 func Open(t testing.TB, name string) string {
 	t.Helper()
 	lib := OpenPristine(t, name)
@@ -85,10 +80,14 @@ func Open(t testing.TB, name string) string {
 	return lib
 }
 
-// OpenPristine makes the same copy as Open without applying migrations, for
-// tests that compare the original state with the migrated one. It does apply
-// reference/*.sql of the library: those statements are part of the library,
-// and golden-regen.yml applies them too before it runs osxphotos.
+// OpenPristine copies database/Photos.sqlite and, when present,
+// Photos.sqlite-wal of the named library into
+// <t.TempDir()>/<name>.photoslibrary/database/ and returns the library path
+// (the directory that photosdb.Open takes), without migrations, for tests that
+// compare the original state with the migrated one.
+// It does apply reference/*.sql of the library: those statements are part of
+// the library, and golden-regen.yml applies them too before it runs osxphotos.
+// Any failure is t.Fatal.
 func OpenPristine(t testing.TB, name string) string {
 	t.Helper()
 	lib := copyLibrary(t, name)
@@ -96,8 +95,6 @@ func OpenPristine(t testing.TB, name string) string {
 	return lib
 }
 
-// applyDir applies <name>/<dir>/*.sql of testdata/libraries to the copy lib in
-// file-name order inside one transaction.
 func applyDir(t testing.TB, lib, name, dir string) {
 	t.Helper()
 	files, err := filepath.Glob(filepath.Join(RepoDir(t, "libraries"), name, dir, "*.sql"))
@@ -269,8 +266,6 @@ func Rows(t testing.TB, db *sql.DB, query string) []string {
 	return out
 }
 
-// migrate applies the migration files to the database in one transaction,
-// then checkpoints the WAL and checks the database.
 func migrate(ctx context.Context, dbPath string, files []string) error {
 	return inTx(ctx, dbPath, func(tx *sql.Tx) error {
 		for _, file := range files {
@@ -282,8 +277,6 @@ func migrate(ctx context.Context, dbPath string, files []string) error {
 	})
 }
 
-// inTx runs fn in one transaction on the database, then checkpoints the WAL
-// and checks the database.
 func inTx(ctx context.Context, dbPath string, fn func(*sql.Tx) error) (err error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
@@ -333,10 +326,9 @@ func applyFile(ctx context.Context, tx *sql.Tx, file string) error {
 	return nil
 }
 
-// checkDB checkpoints the WAL into the main file and runs quick_check on every
-// ordinary table. The whole-database quick_check is not used: it fails on a
-// virtual table whose module exists but cannot be loaded (fts5 with a
-// tokenizer of its own); see sqlread.TestQuickCheckVirtualTable.
+// checkDB runs quick_check per ordinary table, not on the whole database: that
+// fails on a virtual table whose module exists but cannot be loaded (fts5 with
+// a tokenizer of its own); see sqlread.TestQuickCheckVirtualTable.
 func checkDB(ctx context.Context, db *sql.DB) error {
 	var busy, walFrames, checkpointed int
 	if err := db.QueryRowContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)").Scan(&busy, &walFrames, &checkpointed); err != nil {
@@ -381,16 +373,12 @@ func ordinaryTables(ctx context.Context, db *sql.DB) (names []string, err error)
 	return names, nil
 }
 
-// statement is one SQL statement of a migration file.
 type statement struct {
 	sql     string
-	line    int  // first line of the statement, from 1
-	anyRows bool // the line right before it is rowsAny
+	line    int // from 1
+	anyRows bool
 }
 
-// parse splits a migration file into statements. Lines starting with "--"
-// are comments and blank lines are ignored; a statement is the text up to a
-// line that ends with ";".
 func parse(src string) ([]statement, error) {
 	var (
 		out     []statement

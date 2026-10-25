@@ -11,9 +11,7 @@ import (
 	"howett.net/plist"
 )
 
-// libraryPreferences are the photolibraryd preferences that may record the
-// system library, relative to the home directory, in the order of
-// utils.py:180-186.
+// Relative to the home directory, in the order of utils.py:180-186.
 var libraryPreferences = []string{
 	"Library/Group Containers/group.com.apple.photolibraryd.private/Library/Preferences/group.com.apple.photolibraryd.private.plist",
 	"Library/Containers/com.apple.photolibraryd/Data/Library/Preferences/com.apple.photolibraryd.plist",
@@ -36,7 +34,6 @@ func SystemLibraryPath() (string, error) {
 	return systemLibraryPath(home)
 }
 
-// systemLibraryPath is SystemLibraryPath for the home directory home.
 func systemLibraryPath(home string) (string, error) {
 	var denied []string
 	for _, rel := range libraryPreferences {
@@ -57,10 +54,6 @@ func systemLibraryPath(home string) (string, error) {
 	return "", fmt.Errorf("%w: %s", ErrLibraryNotFound, msg)
 }
 
-// recordedLibraryPath returns the SystemLibraryPath value of the
-// preferences file, or "" when the file cannot be read, is larger than
-// maxPlistSize, is not a property list, or has no usable value. The error is
-// that of reading the file, if any.
 func recordedLibraryPath(file string) (string, error) {
 	data, err := os.ReadFile(file) //nolint:gosec // G304: fixed path under the home directory
 	if err != nil || len(data) > maxPlistSize {

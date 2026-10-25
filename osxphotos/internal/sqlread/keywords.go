@@ -13,13 +13,11 @@ type Keyword struct {
 	Title   sql.NullString // ZKEYWORD.ZTITLE
 }
 
-// keywordSelect is the select list of Keywords, in the order of the scan.
+// The order is that of the Scan in Keywords.
 func keywordSelect() []column {
 	return []column{{"x", "ZADDITIONALASSETATTRIBUTES", "ZASSET"}, {"k", "ZKEYWORD", "ZTITLE"}}
 }
 
-// keywordColumns are the columns of Keywords: the select list and the join
-// columns.
 func keywordColumns(s schema.Schema) []column {
 	return append(keywordSelect(),
 		column{"x", "ZADDITIONALASSETATTRIBUTES", "Z_PK"},

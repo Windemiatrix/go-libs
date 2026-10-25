@@ -13,15 +13,8 @@ import (
 	"testing"
 )
 
-// extensionMarker marks an exported name that has no counterpart in
-// osxphotos.
 const extensionMarker = "extension: not in osxphotos"
 
-// TestUpstreamExtensions keeps the "Extensions" section of UPSTREAM.md and
-// the code in agreement: the names in backticks there are exactly the
-// exported types, fields, methods, functions, constants and variables of the
-// public packages whose doc or line comment carries extensionMarker, written
-// as pkg.Type, pkg.Type.Field, pkg.Type.Method(), pkg.Func() or pkg.Name.
 func TestUpstreamExtensions(t *testing.T) {
 	t.Parallel()
 
@@ -53,9 +46,6 @@ func TestUpstreamExtensions(t *testing.T) {
 	}
 }
 
-// codeExtensions returns the sorted marked names of the public packages
-// under root: every directory except internal/, testdata/ and those
-// starting with "." or "_", files without _test.go, packages other than main.
 func codeExtensions(t *testing.T, root string) []string {
 	t.Helper()
 	var names []string
@@ -90,7 +80,6 @@ func codeExtensions(t *testing.T, root string) []string {
 	return slices.Compact(names)
 }
 
-// fileExtensions returns the marked names declared in f.
 func fileExtensions(f *ast.File) []string {
 	pkg := f.Name.Name
 	var out []string
@@ -149,7 +138,6 @@ func fileExtensions(f *ast.File) []string {
 	return out
 }
 
-// receiverName is the type name of a method receiver: T or *T.
 func receiverName(recv *ast.FieldList) string {
 	if recv == nil || len(recv.List) == 0 {
 		return ""
@@ -157,8 +145,8 @@ func receiverName(recv *ast.FieldList) string {
 	return typeName(recv.List[0].Type)
 }
 
-// typeName is the name of T or *T. The public packages have no generic
-// receivers; for that form it gives "", and the name is not collected.
+// The public packages have no generic receivers; for that form typeName gives
+// "", and the name is not collected.
 func typeName(e ast.Expr) string {
 	switch x := e.(type) {
 	case *ast.Ident:
@@ -171,9 +159,6 @@ func typeName(e ast.Expr) string {
 
 var listedName = regexp.MustCompile("(?m)^- `([^`\n]+)`")
 
-// docExtensions returns the names in backticks on the list items of the
-// English "Extensions" section of UPSTREAM.md, up to the next heading of
-// that level.
 func docExtensions(doc string) []string {
 	_, section, _ := strings.Cut(doc, "\n## Extensions\n")
 	section, _, _ = strings.Cut(section, "\n## ")

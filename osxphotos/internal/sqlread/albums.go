@@ -24,7 +24,7 @@ type Album struct {
 	Created, Start, End sql.NullFloat64 // ZCREATIONDATE, ZSTARTDATE, ZENDDATE
 }
 
-// albumSelect is the select list of Albums, in the order of the scan.
+// The order is that of the Scan in Albums.
 func albumSelect() []column {
 	g := func(name string) column { return column{"g", "ZGENERICALBUM", name} }
 	return []column{

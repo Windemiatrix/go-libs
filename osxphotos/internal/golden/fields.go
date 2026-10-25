@@ -10,23 +10,17 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// A rule compares one key of fields.txt. ref turns the value of the
-// reference into the canonical form, got does the same for the Go side; the
-// canonical forms are written as compact JSON and compared as strings.
 type rule struct {
-	key   string
-	album bool // needs Library.Albums
+	key         string
+	needsAlbums bool
 
-	ref func(o Object) (any, error)
-	// skip, when set, tells that the key is not compared for this object.
+	ref  func(o Object) (any, error)
 	skip func(o Object) (bool, error)
 	// got receives the canonical reference value because the Go side of
-	// folders depends on it (two albums with one title). Nil for uuid.
+	// folders depends on it (two albums with one title).
 	got func(e *env, p *photoinfo.PhotoInfo, want any) (any, error)
 }
 
-// rules maps a key of fields.txt to its rule. TestKeysCoverFields checks that
-// the keys are exactly those of fields.txt.
 var rules = buildRules()
 
 // PhotoKeys returns, sorted, the keys of fields.txt that Compare computes
@@ -38,10 +32,10 @@ func PhotoKeys() []string { return keysOf(false) }
 // albums, burst_album_info, burst_albums and folders.
 func AlbumKeys() []string { return keysOf(true) }
 
-func keysOf(album bool) []string {
+func keysOf(needsAlbums bool) []string {
 	var keys []string
 	for k, r := range rules {
-		if r.album == album {
+		if r.needsAlbums == needsAlbums {
 			keys = append(keys, k)
 		}
 	}
@@ -84,7 +78,6 @@ func buildRules() map[string]rule {
 		moment("date_modified", false, time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateModified }),
 		moment("date_trashed", false, time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateTrashed }),
 
-		// Booleans. A null in the reference is a mistake of the form.
 		flag("burst", func(p *photoinfo.PhotoInfo) bool { return p.Burst }),
 		flag("burst_default_pick", func(p *photoinfo.PhotoInfo) bool { return p.BurstDefaultPick }),
 		flag("burst_key", func(p *photoinfo.PhotoInfo) bool { return p.BurstKey }),
@@ -111,7 +104,6 @@ func buildRules() map[string]rule {
 		flag("syndicated", func(p *photoinfo.PhotoInfo) bool { return p.Syndicated }),
 		flag("saved_to_library", func(p *photoinfo.PhotoInfo) bool { return p.SavedToLibrary }),
 
-		// Strings: strict, or null is "".
 		text("filename", false, func(p *photoinfo.PhotoInfo) string { return p.Filename }),
 		text("original_filename", false, func(p *photoinfo.PhotoInfo) string { return p.OriginalFilename }),
 		text("uti", false, func(p *photoinfo.PhotoInfo) string { return p.UTI }),
@@ -123,7 +115,6 @@ func buildRules() map[string]rule {
 		text("fingerprint", true, func(p *photoinfo.PhotoInfo) string { return p.Fingerprint }),
 		text("title", true, func(p *photoinfo.PhotoInfo) string { return p.Title }),
 
-		// Integers: null is 0.
 		number("width", func(p *photoinfo.PhotoInfo) int64 { return int64(p.Width) }),
 		number("height", func(p *photoinfo.PhotoInfo) int64 { return int64(p.Height) }),
 		number("original_width", func(p *photoinfo.PhotoInfo) int64 { return int64(p.OriginalWidth) }),
@@ -141,7 +132,6 @@ func buildRules() map[string]rule {
 	return m
 }
 
-// simple builds a rule whose Go side depends on the photo alone.
 func simple(key string, ref func(Object) (any, error), got func(*photoinfo.PhotoInfo) any) rule {
 	return rule{
 		key: key,
@@ -150,22 +140,18 @@ func simple(key string, ref func(Object) (any, error), got func(*photoinfo.Photo
 	}
 }
 
-// value compares a key whose reference value is read as T. null is the zero
-// value of T (nil for a pointer) when nullOK, a mistake of the form otherwise.
 func value[T any](key string, nullOK bool, want string, get func(*photoinfo.PhotoInfo) T) rule {
 	return simple(key,
 		func(o Object) (any, error) { return decode[T](o, key, nullOK, want) },
 		func(p *photoinfo.PhotoInfo) any { return get(p) })
 }
 
-// flag compares a boolean; a null in the reference is a mistake of the form
-// (upstream gives None only for Photos before 7, which the reference does
-// not cover).
+// A null boolean is a mistake of the form: upstream gives None only for Photos
+// before 7, which the reference does not cover.
 func flag(key string, get func(*photoinfo.PhotoInfo) bool) rule {
 	return value(key, false, "a boolean", get)
 }
 
-// text compares a string; null is "" when nullOK.
 func text(key string, nullOK bool, get func(*photoinfo.PhotoInfo) string) rule {
 	want := "a string"
 	if nullOK {
@@ -174,31 +160,26 @@ func text(key string, nullOK bool, get func(*photoinfo.PhotoInfo) string) rule {
 	return value(key, nullOK, want, get)
 }
 
-// number compares an integer; null is 0. A number written with a fraction or
-// an exponent (3024.0) is not an integer: osxphotos writes these keys from
-// integer columns.
+// A number written with a fraction or an exponent (3024.0) is not an integer:
+// osxphotos writes these keys from integer columns.
 func number(key string, get func(*photoinfo.PhotoInfo) int64) rule {
 	return value(key, true, "an integer", get)
 }
 
-// moment compares a date as a moment. required: null is a mistake of the
-// form. def is what upstream gives for a missing date (the Go nil); the zero
-// time means that null and nil are the same.
-func moment(key string, required bool, def time.Time, get func(*photoinfo.PhotoInfo) *time.Time) rule {
+func moment(key string, nullIsError bool, missingDefault time.Time, get func(*photoinfo.PhotoInfo) *time.Time) rule {
 	return simple(key,
 		func(o Object) (any, error) {
-			t, err := refTime(o, key, !required)
+			t, err := refTime(o, key, !nullIsError)
 			if err != nil {
 				return nil, err
 			}
 			return goMoment(t, time.Time{}), nil
 		},
-		func(p *photoinfo.PhotoInfo) any { return goMoment(get(p), def) })
+		func(p *photoinfo.PhotoInfo) any { return goMoment(get(p), missingDefault) })
 }
 
-// orientation is not compared for an adjusted photo: upstream reads the
-// adjustments plist, which the test libraries do not have, and gives 0
-// (photoinfo.py:1390-1404).
+// Not compared for an adjusted photo: upstream reads the adjustments plist,
+// which the test libraries do not have, and gives 0 (photoinfo.py:1390-1404).
 func orientation() rule {
 	r := number("orientation", func(p *photoinfo.PhotoInfo) int64 { return int64(p.Orientation) })
 	r.skip = func(o Object) (bool, error) { return decode[bool](o, "hasadjustments", false, "a boolean") }
@@ -211,8 +192,8 @@ func keywords() rule {
 		func(p *photoinfo.PhotoInfo) any { return strs(p.Keywords) }) // not sorted: the order is the one to check
 }
 
-// persons: the reference lists names, the Go side only tells whether there
-// are people with a name.
+// The Go side only tells whether there are people with a name, so the names of
+// the reference are reduced to that.
 func persons() rule {
 	return simple("persons",
 		func(o Object) (any, error) {
@@ -241,8 +222,8 @@ func location() rule {
 		func(p *photoinfo.PhotoInfo) any { return []*float64{p.Latitude, p.Longitude} })
 }
 
-// burstPhotosRule: the other frames of the burst of the photo, sorted. They
-// are found among all photos of the library, selected or not, trashed or not.
+// The frames are found among all photos of the library, selected or not,
+// trashed or not.
 func burstPhotosRule() rule {
 	return rule{
 		key: "burst_photos",
@@ -262,15 +243,13 @@ func burstPhotosRule() rule {
 	}
 }
 
-// refAlbum is an element of album_info or burst_album_info of the reference.
 type refAlbum struct {
 	uuid   string
-	title  *string // nil is null
-	shared bool    // owner is not null: a shared album, which the Go side does not read
+	title  *string
+	shared bool // owner is not null: a shared album, which the Go side does not read
 	elem   map[string]any
 }
 
-// refAlbums reads a list of albums of the reference.
 func refAlbums(o Object, key string) ([]refAlbum, error) {
 	items, err := decode[[]json.RawMessage](o, key, false, "a list of objects")
 	if err != nil {
@@ -285,7 +264,6 @@ func refAlbums(o Object, key string) ([]refAlbum, error) {
 	return out, nil
 }
 
-// albumElemKeys are the keys of an element of album_info that the rules read.
 var albumElemKeys = []string{"uuid", "title", "parent", "folder_names", "creation_date", "start_date", "end_date", "owner"}
 
 func refAlbumElem(raw json.RawMessage, path string) (refAlbum, error) {
@@ -335,9 +313,7 @@ func refAlbumElem(raw json.RawMessage, path string) (refAlbum, error) {
 	return refAlbum{uuid: *e.UUID, title: e.Title, shared: e.Owner != nil, elem: elem}, nil
 }
 
-// keptAndDropped splits the elements into user albums and shared albums
-// (general rule 8) and returns the names of both groups, a name being
-// name(title).
+// Shared albums are dropped (general rule 8).
 func keptAndDropped(albums []refAlbum, name func(*string) string) (kept []refAlbum, keptNames, droppedNames map[string]bool) {
 	keptNames, droppedNames = map[string]bool{}, map[string]bool{}
 	for _, a := range albums {
@@ -351,11 +327,10 @@ func keptAndDropped(albums []refAlbum, name func(*string) string) (kept []refAlb
 	return kept, keptNames, droppedNames
 }
 
-// albumsName and foldersName are the names of an album without a title: ""
-// in a list of titles and "null" among the keys of folders (json.dumps writes
-// the key None as null).
 func albumsName(t *string) string { return deref(t) }
 
+// json.dumps writes the key None as null, so folders names an album without a
+// title "null".
 func foldersName(t *string) string {
 	if t == nil {
 		return "null"
@@ -363,11 +338,10 @@ func foldersName(t *string) string {
 	return *t
 }
 
-// albumInfoRule compares the albums of a photo as a set by uuid.
 func albumInfoRule(key string, uuids func(*photoinfo.PhotoInfo) []string) rule {
 	return rule{
-		key:   key,
-		album: true,
+		key:         key,
+		needsAlbums: true,
 		ref: func(o Object) (any, error) {
 			albums, err := refAlbums(o, key)
 			if err != nil {
@@ -389,15 +363,13 @@ func albumInfoRule(key string, uuids func(*photoinfo.PhotoInfo) []string) rule {
 			}
 			byUUID := map[string]map[string]any{}
 			for _, a := range albums {
-				byUUID[a.UUID] = e.elems[a.UUID]
+				byUUID[a.UUID] = e.goAlbumElems[a.UUID]
 			}
 			return sortedElems(byUUID), nil
 		},
 	}
 }
 
-// sortedElems lists the elements in the order of their uuid; the list is
-// never nil.
 func sortedElems(byUUID map[string]map[string]any) []any {
 	out := make([]any, 0, len(byUUID))
 	for _, id := range slices.Sorted(maps.Keys(byUUID)) {
@@ -406,13 +378,12 @@ func sortedElems(byUUID map[string]map[string]any) []any {
 	return out
 }
 
-// albumsRule compares the titles of the albums of a photo: sorted, without
-// repeats. infoKey is the list of albums of the reference the titles belong
-// to (the titles of shared albums are removed by it).
+// The titles of shared albums are removed using infoKey, the list of albums of
+// the reference that the titles belong to.
 func albumsRule(key, infoKey string, uuids func(*photoinfo.PhotoInfo) []string) rule {
 	return rule{
-		key:   key,
-		album: true,
+		key:         key,
+		needsAlbums: true,
 		ref: func(o Object) (any, error) {
 			albums, err := refAlbums(o, infoKey)
 			if err != nil {
@@ -450,11 +421,10 @@ func albumsRule(key, infoKey string, uuids func(*photoinfo.PhotoInfo) []string) 
 	}
 }
 
-// foldersRule compares the dictionary "title → folder names" of album_info.
 func foldersRule() rule {
 	return rule{
-		key:   "folders",
-		album: true,
+		key:         "folders",
+		needsAlbums: true,
 		ref: func(o Object) (any, error) {
 			albums, err := refAlbums(o, "album_info")
 			if err != nil {

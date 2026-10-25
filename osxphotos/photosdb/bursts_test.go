@@ -10,7 +10,6 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// burstFrame is a frame of the burst with this BurstUUID ("" is a burst too).
 func burstFrame(uuid, burst string, pick int) *photoinfo.PhotoInfo {
 	p := &photoinfo.PhotoInfo{UUID: uuid, Burst: true, BurstUUID: burst, BurstPickType: pick}
 	p.BurstSelected = pick&photoinfo.BurstPickSelected != 0
@@ -18,7 +17,6 @@ func burstFrame(uuid, burst string, pick int) *photoinfo.PhotoInfo {
 	return p
 }
 
-// burstUUIDs lists the UUIDs of photos; no photos is nil.
 func burstUUIDs(photos []*photoinfo.PhotoInfo) []string {
 	var out []string
 	for _, p := range photos {
@@ -27,7 +25,7 @@ func burstUUIDs(photos []*photoinfo.PhotoInfo) []string {
 	return out
 }
 
-// burstDB is a DB of photos given in UUID order, as Open reads them.
+// The photos must be in UUID order, as Open reads them.
 func burstDB(photos ...*photoinfo.PhotoInfo) *DB {
 	db := &DB{photos: photos, byUUID: map[string]*photoinfo.PhotoInfo{}, bursts: indexBursts(photos)}
 	for _, p := range photos {
@@ -36,36 +34,41 @@ func burstDB(photos ...*photoinfo.PhotoInfo) *DB {
 	return db
 }
 
-// burstCatalog holds the bursts b (a key, a selected, an unselected and a
-// trashed frame), k (two key frames and a selected one), n (no key frame), ""
-// and two bursts of one frame, t (a trashed key frame and a selected one), u
-// (an unselected key frame and a selected one), a photo outside any burst, and
-// a photo that has the BurstUUID of b without Burst.
+// A pick type with neither the selected nor the key bit.
+const pickUnselected = 2
+
 func burstCatalog() *DB {
-	trashed := burstFrame("A4", "b", 0)
+	const (
+		fourFrames  = "key-selected-unselected-trashed"
+		twoKeys     = "two-keys"
+		noKey       = "no-key"
+		trashedKey  = "trashed-key"
+		keySelected = "key-selected"
+	)
+	trashed := burstFrame("A4", fourFrames, 0)
 	trashed.InTrash = true
-	trashedKey := burstFrame("T1", "t", photoinfo.BurstPickKey)
-	trashedKey.InTrash = true
+	trashedKeyFrame := burstFrame("T1", trashedKey, photoinfo.BurstPickKey)
+	trashedKeyFrame.InTrash = true
 	return burstDB(
-		burstFrame("A1", "b", photoinfo.BurstPickKey),
-		burstFrame("A2", "b", photoinfo.BurstPickSelected),
-		burstFrame("A3", "b", 2),
+		burstFrame("A1", fourFrames, photoinfo.BurstPickKey),
+		burstFrame("A2", fourFrames, photoinfo.BurstPickSelected),
+		burstFrame("A3", fourFrames, pickUnselected),
 		trashed,
-		burstFrame("C1", "k", photoinfo.BurstPickKey),
-		burstFrame("C2", "k", photoinfo.BurstPickKey),
-		burstFrame("C3", "k", photoinfo.BurstPickSelected),
-		burstFrame("D1", "n", photoinfo.BurstPickSelected),
-		burstFrame("D2", "n", photoinfo.BurstPickSelected),
+		burstFrame("C1", twoKeys, photoinfo.BurstPickKey),
+		burstFrame("C2", twoKeys, photoinfo.BurstPickKey),
+		burstFrame("C3", twoKeys, photoinfo.BurstPickSelected),
+		burstFrame("D1", noKey, photoinfo.BurstPickSelected),
+		burstFrame("D2", noKey, photoinfo.BurstPickSelected),
 		burstFrame("E1", "", photoinfo.BurstPickKey),
 		burstFrame("E2", "", photoinfo.BurstPickSelected),
 		burstFrame("F1", "solo", photoinfo.BurstPickSelected),
 		burstFrame("F2", "solo-key", photoinfo.BurstPickKey),
 		&photoinfo.PhotoInfo{UUID: "N1"},
-		trashedKey,
-		burstFrame("T2", "t", photoinfo.BurstPickSelected),
-		burstFrame("U1", "u", photoinfo.BurstPickKey),
-		burstFrame("U2", "u", photoinfo.BurstPickSelected),
-		&photoinfo.PhotoInfo{UUID: "X1", BurstUUID: "b", BurstKey: true},
+		trashedKeyFrame,
+		burstFrame("T2", trashedKey, photoinfo.BurstPickSelected),
+		burstFrame("U1", keySelected, photoinfo.BurstPickKey),
+		burstFrame("U2", keySelected, photoinfo.BurstPickSelected),
+		&photoinfo.PhotoInfo{UUID: "X1", BurstUUID: fourFrames, BurstKey: true},
 	)
 }
 
@@ -89,7 +92,7 @@ func TestBurstPhotos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		got := db.BurstPhotos(db.byUUID[tt.uuid])
-		if !sameStrings(burstUUIDs(got), tt.want) {
+		if !sameStringsNilAware(burstUUIDs(got), tt.want) {
 			t.Errorf("BurstPhotos(%s) = %q, want %q", tt.uuid, burstUUIDs(got), tt.want)
 		}
 		for _, p := range got {
@@ -106,7 +109,7 @@ func TestBurstKeyPhoto(t *testing.T) {
 	db := burstCatalog()
 	tests := []struct {
 		uuid string
-		want string // "" is no key photo
+		want string
 	}{
 		{"A1", "A1"},
 		{"A2", "A1"},
@@ -157,9 +160,6 @@ func TestPhotosByUUID(t *testing.T) {
 	}
 }
 
-// TestBurstsGolden compares BurstPhotos with burst_photos of the osxphotos
-// output of every object, trashed ones included, and PhotosByUUID with the
-// order of the objects.
 func TestBurstsGolden(t *testing.T) {
 	t.Parallel()
 

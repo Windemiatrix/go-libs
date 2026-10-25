@@ -22,8 +22,6 @@ type Divergence struct {
 	Upstream string          `json:"upstream"`
 }
 
-// upstreamRef is a place in the upstream sources: a path from the osxphotos
-// package, a line or a range of lines.
 var upstreamRef = regexp.MustCompile(`^[a-z0-9_/]+\.py:[0-9]+(-[0-9]+)?$`)
 
 const (
@@ -76,8 +74,6 @@ func LoadDivergences(path string) ([]Divergence, error) {
 	return out, nil
 }
 
-// normalize writes want and got in the canonical form and applies the rules
-// of LoadDivergences to the record.
 func (d *Divergence) normalize() error {
 	for _, raw := range []*json.RawMessage{&d.Want, &d.Got} {
 		if len(*raw) == 0 {
@@ -119,7 +115,6 @@ func isKey(field string) bool {
 	return ok
 }
 
-// isScalar reports true, false, null or a number in the canonical form.
 func isScalar(raw json.RawMessage) bool {
 	return len(raw) > 0 && !strings.ContainsRune(`"[{`, rune(raw[0]))
 }

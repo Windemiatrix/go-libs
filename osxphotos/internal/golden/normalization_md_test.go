@@ -17,10 +17,6 @@ var (
 	numberedDecision = regexp.MustCompile(`(?i)(решени[еяю]|decision) ?№? ?[0-9]+`)
 )
 
-// TestNormalizationDoc keeps NORMALIZATION.md in step with the code: each key
-// of fields.txt has one row in the English table and one in the Russian one,
-// the example record is a valid record, and the file has nothing that is not
-// public.
 func TestNormalizationDoc(t *testing.T) {
 	t.Parallel()
 	raw, err := readFile(filepath.Join(testlib.RepoDir(t, "golden"), "NORMALIZATION.md"))

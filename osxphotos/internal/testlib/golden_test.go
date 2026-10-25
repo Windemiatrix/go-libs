@@ -14,10 +14,8 @@ import (
 	"testing/fstest"
 )
 
-// goldenLibs are the libraries of the trees built by validGolden.
 var goldenLibs = []string{"Test-13.0.0", "synthetic"}
 
-// objects renders a JSON array of objects with the uuids prefix-1, prefix-2, ...
 func objects(prefix string, n int) string {
 	var items []string
 	for i := 1; i <= n; i++ {
@@ -26,8 +24,6 @@ func objects(prefix string, n int) string {
 	return "[" + strings.Join(items, ", ") + "]"
 }
 
-// validGolden is a complete tree: the root files and, for every library, a
-// query.json and a deleted.json.
 func validGolden() fstest.MapFS {
 	m := fstest.MapFS{
 		"fields.txt":       file("uuid\n"),
@@ -50,11 +46,10 @@ func TestCheckGolden(t *testing.T) {
 		t.Errorf("checkGolden of a valid tree = %v, want no errors", errs)
 	}
 
-	// Every case breaks exactly one rule and must give exactly one error.
 	cases := []struct {
 		name   string
 		mutate func(m fstest.MapFS)
-		want   string // a part of the only error
+		want   string
 	}{
 		{"unknown library", func(m fstest.MapFS) { m["Owner/query.json"] = file(objects("o", 1)) }, "Owner"},
 		{"unexpected file in a library", func(m fstest.MapFS) { m["Test-13.0.0/raw.json"] = file("[]") }, "raw.json"},
@@ -97,8 +92,8 @@ func TestCheckGolden(t *testing.T) {
 	}
 }
 
-// TestCheckGoldenKeepsValuesOut: an error about a path tells where it is, not
-// what it is; test output must not carry the data of a library.
+// Test output must not carry the data of a library, so an error about a path
+// tells where it is, not what it is.
 func TestCheckGoldenKeepsValuesOut(t *testing.T) {
 	t.Parallel()
 	m := validGolden()
@@ -132,7 +127,6 @@ func TestCheckGoldenUUIDs(t *testing.T) {
 	}
 }
 
-// TestGoldenLayout checks testdata/golden of the repository.
 func TestGoldenLayout(t *testing.T) {
 	libs := Libraries(t) // skips the test without testdata, as in a module zip
 	fsys := os.DirFS(RepoDir(t, "golden"))
@@ -166,7 +160,6 @@ func TestGoldenUUIDSources(t *testing.T) {
 	}
 }
 
-// libraryUUIDs returns ZASSET.ZUUID of the named test library (without migrations).
 func libraryUUIDs(t *testing.T, name string) map[string]bool {
 	t.Helper()
 	// Read only, as AGENTS.md requires for a copy of Photos.sqlite: closing a
@@ -185,17 +178,12 @@ func libraryUUIDs(t *testing.T, name string) map[string]bool {
 }
 
 var (
-	// rootFiles are the only files allowed in the root of testdata/golden.
-	rootFiles = []string{"fields.txt", "NORMALIZATION.md", "divergences.json"}
-	// dataFiles are the only files allowed in the directory of a library.
-	dataFiles = []string{"query.json", "deleted.json"}
-	// hostPrefixes start a string that is a path of the machine that ran osxphotos.
+	rootFiles    = []string{"fields.txt", "NORMALIZATION.md", "divergences.json"}
+	dataFiles    = []string{"query.json", "deleted.json"}
 	hostPrefixes = []string{"/Users/", "/Volumes/", "/private/", "/var/", "/tmp/", "/home/", "/Library/"}
 )
 
-// checkGolden returns the problems of a testdata/golden tree: fsys is rooted
-// at testdata/golden, libraries are the names of testdata/libraries. The
-// messages say where a problem is and never repeat a value of the data.
+// The messages say where a problem is and never repeat a value of the data.
 func checkGolden(fsys fs.FS, libraries []string) []error {
 	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
@@ -214,7 +202,6 @@ func checkGolden(fsys fs.FS, libraries []string) []error {
 	return errs
 }
 
-// checkDataDir checks the files of the directory of one library.
 func checkDataDir(fsys fs.FS, dir string) []error {
 	entries, err := fs.ReadDir(fsys, dir)
 	if err != nil {
@@ -234,7 +221,6 @@ func checkDataDir(fsys fs.FS, dir string) []error {
 	return errs
 }
 
-// checkDataFile checks one query.json or deleted.json.
 func checkDataFile(fsys fs.FS, p string) error {
 	data, err := fs.ReadFile(fsys, p)
 	if err != nil {
@@ -247,9 +233,9 @@ func checkDataFile(fsys fs.FS, p string) error {
 	hostCount, hostFirst := 0, ""
 	for i, el := range elems {
 		for _, k := range slices.Sorted(maps.Keys(el)) {
-			if where, found := findHostPath(el[k], k); found {
+			if location, found := findHostPath(el[k], k); found {
 				if hostCount == 0 {
-					hostFirst = fmt.Sprintf("element %d, %s", i+1, where)
+					hostFirst = fmt.Sprintf("element %d, %s", i+1, location)
 				}
 				hostCount++
 			}
@@ -261,8 +247,6 @@ func checkDataFile(fsys fs.FS, p string) error {
 	return nil
 }
 
-// parseObjects parses a JSON array of objects, each with a uuid string of
-// its own.
 func parseObjects(data []byte) ([]map[string]any, error) {
 	var list []any
 	if err := json.Unmarshal(data, &list); err != nil {
@@ -288,39 +272,34 @@ func parseObjects(data []byte) ([]map[string]any, error) {
 	return out, nil
 }
 
-// findHostPath looks for a string value, at any depth, that starts with the
-// path of a machine or contains ".photoslibrary", and returns where it is
-// (keys and indexes, never the value).
-func findHostPath(v any, where string) (string, bool) {
+func findHostPath(v any, location string) (string, bool) {
 	switch v := v.(type) {
 	case string:
 		if strings.Contains(v, ".photoslibrary") {
-			return where, true
+			return location, true
 		}
 		for _, prefix := range hostPrefixes {
 			if strings.HasPrefix(v, prefix) {
-				return where, true
+				return location, true
 			}
 		}
 	case []any:
 		for i, item := range v {
-			if w, found := findHostPath(item, fmt.Sprintf("%s[%d]", where, i)); found {
-				return w, true
+			if hostLocation, found := findHostPath(item, fmt.Sprintf("%s[%d]", location, i)); found {
+				return hostLocation, true
 			}
 		}
 	case map[string]any:
 		for _, k := range slices.Sorted(maps.Keys(v)) {
-			if w, found := findHostPath(v[k], where+"."+k); found {
-				return w, true
+			if hostLocation, found := findHostPath(v[k], location+"."+k); found {
+				return hostLocation, true
 			}
 		}
 	}
 	return "", false
 }
 
-// checkUUIDs returns an error for every data file in a directory of known
-// that has a uuid which is not in the set of that directory. A file that
-// cannot be read or parsed is left to checkGolden.
+// A file that cannot be read or parsed is left to checkGolden.
 func checkUUIDs(fsys fs.FS, known map[string]map[string]bool) []error {
 	var errs []error
 	for _, dir := range slices.Sorted(maps.Keys(known)) {
