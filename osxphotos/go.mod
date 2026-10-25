@@ -2,6 +2,8 @@ module github.com/Windemiatrix/go-libs/osxphotos
 
 go 1.26.0
 
+toolchain go1.27.2
+
 require (
 	golang.org/x/text v0.43.0
 	howett.net/plist v1.0.1
