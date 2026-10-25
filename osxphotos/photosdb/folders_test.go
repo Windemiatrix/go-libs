@@ -172,6 +172,36 @@ func TestLoadFolders(t *testing.T) {
 	}
 }
 
+func TestLoadFoldersListOrder(t *testing.T) {
+	t.Parallel()
+
+	want := map[string][]int{
+		"F-1":  {3},
+		"F-2":  {3, 7},
+		"F-N":  {9999999},
+		"F-NN": {9999999, 4},
+		"F-P":  {2},
+		"F-X":  {9999999},
+	}
+	rows := sortListRows()
+	albums, err := loadAlbums(rows, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	all, _, err := loadFolders(rows, albums)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) != len(want) {
+		t.Fatalf("%d folders, want %d", len(all), len(want))
+	}
+	for _, f := range all {
+		if !slices.Equal(f.LibraryListOrder, want[f.UUID]) {
+			t.Errorf("folder %s: LibraryListOrder %v, want %v", f.UUID, f.LibraryListOrder, want[f.UUID])
+		}
+	}
+}
+
 func TestLoadFoldersErrors(t *testing.T) {
 	t.Parallel()
 
