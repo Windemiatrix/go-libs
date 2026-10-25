@@ -353,46 +353,52 @@ var (
 	insertWord    = regexp.MustCompile(`(?i)\binsert\b`)
 )
 
-// TestMigrationFiles checks the layout of every migrations directory: only
-// files NNN_<case>.sql numbered from 001 without gaps, no INSERT, and each
-// file parses into at least one statement.
+// TestMigrationFiles checks the layout of every migrations and reference
+// directory: only files NNN_<case>.sql numbered from 001 without gaps, no
+// INSERT, and each file parses into at least one statement.
 func TestMigrationFiles(t *testing.T) {
 	dir := RepoDir(t, "libraries")
 	for _, name := range Libraries(t) {
-		mdir := filepath.Join(dir, name, "migrations")
-		entries, err := os.ReadDir(mdir)
-		if errors.Is(err, fs.ErrNotExist) {
+		for _, sub := range []string{"migrations", "reference"} {
+			checkSQLDir(t, filepath.Join(dir, name, sub))
+		}
+	}
+}
+
+func checkSQLDir(t *testing.T, mdir string) {
+	t.Helper()
+	entries, err := os.ReadDir(mdir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) == 0 {
+		t.Errorf("%s: empty directory", mdir)
+	}
+	for i, e := range entries {
+		p := filepath.Join(mdir, e.Name())
+		if !e.Type().IsRegular() || !migrationName.MatchString(e.Name()) {
+			t.Errorf("%s: only regular files named NNN_<case>.sql are allowed", p)
 			continue
 		}
+		if prefix := fmt.Sprintf("%03d_", i+1); !strings.HasPrefix(e.Name(), prefix) {
+			t.Errorf("%s: want the number %s (files are numbered from 001 without gaps)", p, prefix)
+		}
+		src, err := os.ReadFile(p)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(entries) == 0 {
-			t.Errorf("%s: empty migrations directory", mdir)
+		if insertWord.Match(src) {
+			t.Errorf("%s: INSERT is not allowed in migrations", p)
 		}
-		for i, e := range entries {
-			p := filepath.Join(mdir, e.Name())
-			if !e.Type().IsRegular() || !migrationName.MatchString(e.Name()) {
-				t.Errorf("%s: only regular files named NNN_<case>.sql are allowed", p)
-				continue
-			}
-			if prefix := fmt.Sprintf("%03d_", i+1); !strings.HasPrefix(e.Name(), prefix) {
-				t.Errorf("%s: want the number %s (files are numbered from 001 without gaps)", p, prefix)
-			}
-			src, err := os.ReadFile(p)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if insertWord.Match(src) {
-				t.Errorf("%s: INSERT is not allowed in migrations", p)
-			}
-			stmts, err := parse(string(src))
-			switch {
-			case err != nil:
-				t.Errorf("%s: %v", p, err)
-			case len(stmts) == 0:
-				t.Errorf("%s: no statements", p)
-			}
+		stmts, err := parse(string(src))
+		switch {
+		case err != nil:
+			t.Errorf("%s: %v", p, err)
+		case len(stmts) == 0:
+			t.Errorf("%s: no statements", p)
 		}
 	}
 }
