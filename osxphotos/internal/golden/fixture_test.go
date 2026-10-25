@@ -54,6 +54,9 @@ func fixtureLib() Library {
 				UTI: "public.heic", UTIOriginal: "public.heic", UTIRaw: "com.adobe.raw-image", UTIEdited: "public.heic",
 				IsPhoto: true, Live: true, HasRAW: true, Screenshot: true,
 				SlowMo: true, TimeLapse: true, ScreenRecording: true,
+				HDR: true, Panorama: true, Portrait: true, Selfie: true, Visible: true, Spatial: 1,
+				TZName: "Asia/Kolkata", CloudOwnerHashedID: "OWNER-1", SharedMoment: true, ExternalEdit: true,
+				AdjustmentType: ptr(0), ImportedByName: "Camera", ImportedByBundleID: "com.example.camera",
 				Burst: true, BurstSelected: true, BurstUUID: "BURST-A", BurstPickType: 12, BurstDefaultPick: true,
 				Hidden: true, Favorite: true,
 				Shared: true, Syndicated: true, SavedToLibrary: true, SharedLibrary: true,
@@ -168,6 +171,19 @@ func refSelectedFrame() map[string]string {
 		"uti_raw":              `"com.adobe.raw-image"`,
 		"uuid":                 `"` + selectedFrame + `"`,
 		"width":                "4032",
+
+		"adjustment_type":       "0",
+		"cloud_owner_hashed_id": `"OWNER-1"`,
+		"external_edit":         "true",
+		"hdr":                   "true",
+		"imported_by":           `["Camera", "com.example.camera"]`,
+		"panorama":              "true",
+		"portrait":              "true",
+		"selfie":                "true",
+		"shared_moment":         "true",
+		"spatial":               "1",
+		"tzname":                `"Asia/Kolkata"`,
+		"visible":               "true",
 	}
 }
 
@@ -187,6 +203,9 @@ func refEmptyPhoto() map[string]string {
 		"shared_library": "false", "syndicated": "false", "title": "null", "tzoffset": "null",
 		"screen_recording": "false", "slow_mo": "false", "time_lapse": "false", "uti_edited": "null",
 		"uti": `"public.jpeg"`, "uti_original": `"public.jpeg"`, "uti_raw": "null", "uuid": `"` + emptyPhoto + `"`, "width": "null",
+		"adjustment_type": "null", "cloud_owner_hashed_id": "null", "external_edit": "false", "hdr": "false",
+		"imported_by": "[null, null]", "panorama": "false", "portrait": "false", "selfie": "false",
+		"shared_moment": "false", "spatial": "0", "tzname": "null", "visible": "false",
 	}
 }
 

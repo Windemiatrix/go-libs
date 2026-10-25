@@ -3,13 +3,14 @@ package sqlread
 import (
 	"context"
 	"database/sql"
+	"slices"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
 )
 
 // Asset is one ZASSET row with its ZADDITIONALASSETATTRIBUTES,
-// ZASSETDESCRIPTION and ZCLOUDMASTER rows (LEFT JOIN): the columns of
-// photosdb.py:2023-2090, 2404-2412, 2521-2529,
+// ZASSETDESCRIPTION, ZUNMANAGEDADJUSTMENT and ZCLOUDMASTER rows (LEFT JOIN):
+// the columns of photosdb.py:2023-2090, 2404-2412, 2423-2439, 2521-2529,
 // _photosdb_process_shared_library.py:43-51 and
 // _photosdb_process_syndicationinfo.py:42-51 in one query.
 type Asset struct {
@@ -40,6 +41,15 @@ type Asset struct {
 	SyndicationHistory                    sql.NullInt64  // ZSYNDICATIONHISTORY
 	Description                           sql.NullString // ZASSETDESCRIPTION.ZLONGDESCRIPTION
 
+	HDRType, DepthType, VisibilityState sql.NullInt64  // ZHDRTYPE, ZDEPTHTYPE, ZVISIBILITYSTATE
+	CloudOwnerHashedID                  sql.NullString // ZCLOUDOWNERHASHEDPERSONID
+	MomentShare                         sql.NullInt64  // ZMOMENTSHARE
+	SpatialType                         sql.NullInt64  // ZSPATIALTYPE; NULL when ZASSET has no such column
+	CameraCaptureDevice                 sql.NullInt64  // ZADDITIONALASSETATTRIBUTES.ZCAMERACAPTUREDEVICE
+	TZName                              sql.NullString // ZADDITIONALASSETATTRIBUTES.ZTIMEZONENAME
+	ImportedByName, ImportedByBundleID  sql.NullString // ZIMPORTEDBYDISPLAYNAME, ZIMPORTEDBYBUNDLEIDENTIFIER
+	AdjustmentFormat                    sql.NullString // ZUNMANAGEDADJUSTMENT.ZADJUSTMENTFORMATIDENTIFIER
+
 	HasMaster       bool           // the ZCLOUDMASTER row of ZASSET.ZMASTER exists
 	CloudLocalState sql.NullInt64  // ZCLOUDMASTER.ZCLOUDLOCALSTATE
 	CloudMasterGUID sql.NullString // ZCLOUDMASTER.ZCLOUDMASTERGUID
@@ -61,6 +71,9 @@ func assetSelect(s schema.Schema) []column {
 		x("ZORIGINALWIDTH"), x("ZORIGINALHEIGHT"), x("ZORIGINALORIENTATION"), x("ZORIGINALFILESIZE"),
 		x("ZORIGINALRESOURCECHOICE"), x("ZSYNDICATIONIDENTIFIER"), x("ZSYNDICATIONHISTORY"),
 		{"d", "ZASSETDESCRIPTION", "ZLONGDESCRIPTION"},
+		a("ZHDRTYPE"), a("ZDEPTHTYPE"), a("ZVISIBILITYSTATE"), a("ZCLOUDOWNERHASHEDPERSONID"), a("ZMOMENTSHARE"),
+		x("ZCAMERACAPTUREDEVICE"), x("ZTIMEZONENAME"), x("ZIMPORTEDBYDISPLAYNAME"), x("ZIMPORTEDBYBUNDLEIDENTIFIER"),
+		{"u", "ZUNMANAGEDADJUSTMENT", "ZADJUSTMENTFORMATIDENTIFIER"},
 		{"m", "ZCLOUDMASTER", "Z_PK"}, {"m", "ZCLOUDMASTER", "ZCLOUDLOCALSTATE"}, {"m", "ZCLOUDMASTER", "ZCLOUDMASTERGUID"},
 	}
 }
@@ -71,23 +84,36 @@ func assetColumns(s schema.Schema) []column {
 		column{"x", "ZADDITIONALASSETATTRIBUTES", "ZASSET"},
 		column{"x", "ZADDITIONALASSETATTRIBUTES", "ZASSETDESCRIPTION"},
 		column{"d", "ZASSETDESCRIPTION", "Z_PK"},
+		column{"x", "ZADDITIONALASSETATTRIBUTES", "ZUNMANAGEDADJUSTMENT"},
+		column{"u", "ZUNMANAGEDADJUSTMENT", "Z_PK"},
 	)
 }
 
 // Assets returns every ZASSET row, ordered by ZUUID, then Z_PK.
 //
-// Upstream reads these columns in seven queries, the first one with an inner
+// Upstream reads these columns in eight queries, the first one with an inner
 // join of ZADDITIONALASSETATTRIBUTES. The joined rows are one to one, so one
 // query with LEFT JOIN reads the same values and also returns an asset
 // without its attributes row (HasAttributes false), which upstream drops.
 func (d *DB) Assets(ctx context.Context, s schema.Schema) ([]Asset, error) {
-	q := "SELECT " + selectList(assetSelect(s)) + ` FROM ZASSET a
+	// ZSPATIALTYPE is not in Columns: upstream reads it only where it exists
+	// (photosdb.py:1751-1759), not by the schema version.
+	assetCols, err := d.columns(ctx, "ZASSET")
+	if err != nil {
+		return nil, err
+	}
+	spatial := "NULL"
+	if slices.Contains(assetCols, "ZSPATIALTYPE") {
+		spatial = "a.ZSPATIALTYPE"
+	}
+	q := "SELECT " + selectList(assetSelect(s)) + ", " + spatial + ` FROM ZASSET a
 LEFT JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK
 LEFT JOIN ZASSETDESCRIPTION d ON d.Z_PK = x.ZASSETDESCRIPTION
+LEFT JOIN ZUNMANAGEDADJUSTMENT u ON u.Z_PK = x.ZUNMANAGEDADJUSTMENT
 LEFT JOIN ZCLOUDMASTER m ON m.Z_PK = a.ZMASTER
 ORDER BY a.ZUUID, a.Z_PK`
 	var out []Asset
-	err := d.readRows(ctx, "assets", q, func(rows *sql.Rows) error {
+	err = d.readRows(ctx, "assets", q, func(rows *sql.Rows) error {
 		var (
 			r              Asset
 			attrPK, mastPK sql.NullInt64
@@ -103,7 +129,10 @@ ORDER BY a.ZUUID, a.Z_PK`
 			&r.OriginalWidth, &r.OriginalHeight, &r.OriginalOrientation, &r.OriginalFilesize,
 			&r.OriginalResourceChoice, &r.SyndicationIdentifier, &r.SyndicationHistory,
 			&r.Description,
-			&mastPK, &r.CloudLocalState, &r.CloudMasterGUID); err != nil {
+			&r.HDRType, &r.DepthType, &r.VisibilityState, &r.CloudOwnerHashedID, &r.MomentShare,
+			&r.CameraCaptureDevice, &r.TZName, &r.ImportedByName, &r.ImportedByBundleID,
+			&r.AdjustmentFormat,
+			&mastPK, &r.CloudLocalState, &r.CloudMasterGUID, &r.SpatialType); err != nil {
 			return err
 		}
 		r.HasAttributes, r.HasMaster = attrPK.Valid, mastPK.Valid

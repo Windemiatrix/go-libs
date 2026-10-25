@@ -17,8 +17,20 @@ const (
 	// ZASSET.ZKIND (photosdb.py:2197-2204).
 	kindPhoto, kindMovie = 0, 1
 
-	// ZASSET.ZKINDSUBTYPE (photosdb.py:2234-2236).
-	subtypeLive, subtypeScreen = 2, 10
+	// ZASSET.ZKINDSUBTYPE (photosdb.py:2234-2236, 2258).
+	subtypePanorama, subtypeLive, subtypeScreen = 1, 2, 10
+
+	// ZASSET.ZHDRTYPE of an HDR photo and of a panorama (photosdb.py:2249, 2258).
+	hdrTypeHDR, hdrTypePanorama = 3, 6
+
+	// ZADDITIONALASSETATTRIBUTES.ZCAMERACAPTUREDEVICE of the front camera (photosdb.py:2261).
+	frontCamera = 1
+
+	// ZASSET.ZVISIBILITYSTATE of a visible asset (photosdb.py:2307).
+	visibleState = 0
+
+	// ZUNMANAGEDADJUSTMENT.ZADJUSTMENTFORMATIDENTIFIER of an edit in another app (photoinfo.py:810).
+	externalEditFormat = "com.apple.Photos.externalEdit"
 
 	// ZASSET.ZKINDSUBTYPE of slow-motion, time-lapse and screen-recording videos (photosdb.py:2231-2240).
 	subtypeSlowMo, subtypeTimeLapse, subtypeScreenRecording = 101, 102, 103
@@ -134,6 +146,7 @@ func photo(a sqlread.Asset, res []sqlread.Resource, fingerprintColumn string) *p
 
 		Date:            assetDate(a.Created, a.TZOffset),
 		TZOffset:        optionalInt(a.TZOffset),
+		TZName:          a.TZName.String,
 		DateAdded:       optionalTime(a.Added),
 		DateModified:    optionalTime(a.Adjusted),
 		DateTrashed:     optionalTime(a.Trashed),
@@ -158,6 +171,21 @@ func photo(a sqlread.Asset, res []sqlread.Resource, fingerprintColumn string) *p
 		SlowMo:          is(a.KindSubtype, subtypeSlowMo),
 		TimeLapse:       is(a.KindSubtype, subtypeTimeLapse),
 		ScreenRecording: is(a.KindSubtype, subtypeScreenRecording),
+
+		HDR:      is(a.HDRType, hdrTypeHDR),
+		Panorama: is(a.KindSubtype, subtypePanorama) || is(a.HDRType, hdrTypePanorama),
+		Selfie:   is(a.CameraCaptureDevice, frontCamera),
+		Visible:  is(a.VisibilityState, visibleState),
+		Spatial:  intOf(a.SpatialType),
+		// Python None != 0: a NULL depth type counts as a portrait (photosdb.py:2251).
+		Portrait: !is(a.DepthType, 0),
+
+		SharedMoment:       a.MomentShare.Valid && a.MomentShare.Int64 != 0,
+		ExternalEdit:       a.AdjustmentFormat.String == externalEditFormat,
+		AdjustmentType:     optionalInt(a.Adjustments),
+		CloudOwnerHashedID: a.CloudOwnerHashedID.String,
+		ImportedByName:     a.ImportedByName.String,
+		ImportedByBundleID: a.ImportedByBundleID.String,
 
 		Burst:         a.BurstUUID.Valid,
 		BurstUUID:     a.BurstUUID.String,

@@ -39,7 +39,7 @@ func TestSummaryKeepsValuesOut(t *testing.T) {
 			t.Errorf("Summary has %q:\n%s", leak, sum)
 		}
 	}
-	want := "library lib: 2 objects, 60 keys compared\n" +
+	want := "library lib: 2 objects, 72 keys compared\n" +
 		"differences: 3 unexplained, 1 explained; stale divergences: 1\n" +
 		"  description: 0 unexplained, 1 explained\n" +
 		"  title: 1 unexplained, 0 explained\n" +
@@ -140,7 +140,7 @@ func TestReportOK(t *testing.T) {
 		t.Error("a report with a difference or a stale record is OK")
 	}
 	empty := compare(t, fixtureRef(), fixtureLib())
-	want := "library lib: 2 objects, 60 keys compared\ndifferences: 0 unexplained, 0 explained; stale divergences: 0\n"
+	want := "library lib: 2 objects, 72 keys compared\ndifferences: 0 unexplained, 0 explained; stale divergences: 0\n"
 	if got := empty.Summary(); got != want {
 		t.Errorf("Summary = %q, want %q", got, want)
 	}

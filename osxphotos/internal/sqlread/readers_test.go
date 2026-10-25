@@ -144,8 +144,9 @@ func TestColumnsIncludeJoins(t *testing.T) {
 
 	c := Columns(schemaByID(t, "photos11_1"))
 	want := map[string][]string{
-		"ZASSET":                     {"ZMASTER", "ZCLOUDASSETGUID", "ZADJUSTMENTSSTATE"},
-		"ZADDITIONALASSETATTRIBUTES": {"ZASSET", "ZASSETDESCRIPTION", "ZORIGINALSTABLEHASH"},
+		"ZASSET":                     {"ZMASTER", "ZCLOUDASSETGUID", "ZADJUSTMENTSSTATE", "ZHDRTYPE", "ZDEPTHTYPE", "ZVISIBILITYSTATE", "ZCLOUDOWNERHASHEDPERSONID", "ZMOMENTSHARE"},
+		"ZADDITIONALASSETATTRIBUTES": {"ZASSET", "ZASSETDESCRIPTION", "ZORIGINALSTABLEHASH", "ZCAMERACAPTUREDEVICE", "ZTIMEZONENAME", "ZIMPORTEDBYDISPLAYNAME", "ZIMPORTEDBYBUNDLEIDENTIFIER", "ZUNMANAGEDADJUSTMENT"},
+		"ZUNMANAGEDADJUSTMENT":       {"Z_PK", "ZADJUSTMENTFORMATIDENTIFIER"},
 		"ZASSETDESCRIPTION":          {"Z_PK", "ZLONGDESCRIPTION"},
 		"ZCLOUDMASTER":               {"Z_PK", "ZCLOUDLOCALSTATE", "ZCLOUDMASTERGUID"},
 		"ZINTERNALRESOURCE":          {"ZASSET", "ZDATASTORESUBTYPE", "ZRESOURCETYPE", "ZFINGERPRINT"},
@@ -165,6 +166,10 @@ func TestColumnsIncludeJoins(t *testing.T) {
 	}
 	if len(c) != len(want) {
 		t.Errorf("Columns has %d tables, want %d", len(c), len(want))
+	}
+	// Upstream reads ZSPATIALTYPE only where it exists (photosdb.py:1751-1759).
+	if contains(c["ZASSET"], "ZSPATIALTYPE") {
+		t.Error("Columns requires ZASSET.ZSPATIALTYPE")
 	}
 	for table, cols := range c {
 		seen := map[string]bool{}
@@ -207,6 +212,17 @@ func TestReadersRows(t *testing.T) {
 				"(SELECT 1 FROM ZADDITIONALASSETATTRIBUTES x WHERE x.ZASSET = a.Z_PK)"); int64(noAttr) != want {
 				t.Errorf("Assets: %d without attributes, want %d", noAttr, want)
 			}
+			formats := 0
+			for _, a := range assets {
+				if a.AdjustmentFormat.Valid {
+					formats++
+				}
+			}
+			if want := count(t, ro, "SELECT COUNT(*) FROM ZASSET a JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK "+
+				"JOIN ZUNMANAGEDADJUSTMENT u ON u.Z_PK = x.ZUNMANAGEDADJUSTMENT WHERE u.ZADJUSTMENTFORMATIDENTIFIER IS NOT NULL"); int64(formats) != want {
+				t.Errorf("Assets: %d with an adjustment format, want %d", formats, want)
+			}
+			t.Logf("Assets: %d with an adjustment format", formats)
 
 			res, err := d.Resources(t.Context())
 			if err != nil {
@@ -346,6 +362,8 @@ func TestReaderValueType(t *testing.T) {
 	}{
 		{"resource length", "UPDATE ZINTERNALRESOURCE SET ZDATALENGTH = 'SECRET-L' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZINTERNALRESOURCE)", readers[1].run},
 		{"asset width", "UPDATE ZASSET SET ZWIDTH = 'SECRET-W' WHERE Z_PK = 3", readers[0].run},
+		{"asset HDR type", "UPDATE ZASSET SET ZHDRTYPE = 'SECRET-H' WHERE Z_PK = 3", readers[0].run},
+		{"asset spatial type", "UPDATE ZASSET SET ZSPATIALTYPE = 'SECRET-S' WHERE Z_PK = 3", readers[0].run},
 		{"member asset", "UPDATE Z_33ASSETS SET Z_3ASSETS = 'SECRET-M' WHERE rowid = (SELECT MIN(rowid) FROM Z_33ASSETS)", readers[4].run},
 		{"album parent", "UPDATE ZGENERICALBUM SET ZPARENTFOLDER = 'SECRET-P' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
 	}
@@ -382,8 +400,10 @@ func TestReadersNull(t *testing.T) {
 		"UPDATE Z_33ASSETS SET Z_3ASSETS = NULL WHERE rowid = (SELECT MIN(rowid) FROM Z_33ASSETS)",
 		"UPDATE Z_33ASSETS SET Z_33ALBUMS = NULL WHERE rowid = (SELECT MAX(rowid) FROM Z_33ASSETS)",
 		"UPDATE ZINTERNALRESOURCE SET ZASSET = NULL WHERE Z_PK = 1",
-		"UPDATE ZASSET SET ZUUID = NULL, ZFILENAME = NULL, ZKIND = NULL, ZDATECREATED = NULL WHERE Z_PK = 2",
-		"UPDATE ZADDITIONALASSETATTRIBUTES SET ZORIGINALFILENAME = NULL, ZTIMEZONEOFFSET = NULL WHERE ZASSET = 2",
+		"UPDATE ZASSET SET ZUUID = NULL, ZFILENAME = NULL, ZKIND = NULL, ZDATECREATED = NULL, ZHDRTYPE = NULL, ZDEPTHTYPE = NULL, "+
+			"ZVISIBILITYSTATE = NULL, ZCLOUDOWNERHASHEDPERSONID = NULL, ZMOMENTSHARE = NULL, ZSPATIALTYPE = NULL WHERE Z_PK = 2",
+		"UPDATE ZADDITIONALASSETATTRIBUTES SET ZORIGINALFILENAME = NULL, ZTIMEZONEOFFSET = NULL, ZCAMERACAPTUREDEVICE = NULL, "+
+			"ZTIMEZONENAME = NULL, ZIMPORTEDBYDISPLAYNAME = NULL, ZIMPORTEDBYBUNDLEIDENTIFIER = NULL, ZUNMANAGEDADJUSTMENT = NULL WHERE ZASSET = 2",
 		// The album keeps its ZUUID: without it Members would lose its rows.
 		"UPDATE ZGENERICALBUM SET ZTITLE = NULL, ZPARENTFOLDER = NULL, ZTRASHEDSTATE = NULL, ZCREATIONDATE = NULL, ZCLOUDGUID = NULL "+
 			"WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)",
@@ -412,6 +432,55 @@ func TestReadersNull(t *testing.T) {
 	if a, _ := d.Albums(t.Context()); int64(len(a)) != wantAlbums {
 		t.Errorf("Albums: %d, want %d", len(a), wantAlbums)
 	}
+}
+
+func TestAssetsSpatialType(t *testing.T) {
+	t.Parallel()
+
+	t.Run("the column holds a value", func(t *testing.T) {
+		t.Parallel()
+		path := syntheticDB(t)
+		w := openWriter(t, path)
+		exec(t, w, "UPDATE ZASSET SET ZSPATIALTYPE = 7 WHERE Z_PK = 3")
+		if err := w.Close(); err != nil {
+			t.Fatal(err)
+		}
+		assets, err := openDB(t, path).Assets(t.Context(), schemaByID(t, "photos11_1"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, a := range assets {
+			if a.PK == 3 {
+				found = true
+				if a.SpatialType != (sql.NullInt64{Int64: 7, Valid: true}) {
+					t.Errorf("SpatialType %v, want 7", a.SpatialType)
+				}
+			}
+		}
+		if !found {
+			t.Fatal("no asset with Z_PK 3")
+		}
+	})
+	t.Run("no column", func(t *testing.T) {
+		t.Parallel()
+		path := filepath.Join(testlib.OpenPristine(t, "Test-14.0.0"), "database", "Photos.sqlite")
+		if n := count(t, openRO(t, path), "SELECT COUNT(*) FROM pragma_table_info('ZASSET') WHERE name = 'ZSPATIALTYPE'"); n != 0 {
+			t.Fatal("Test-14.0.0 has ZASSET.ZSPATIALTYPE; the test needs a library without it")
+		}
+		assets, err := openDB(t, path).Assets(t.Context(), schemaByID(t, "photos9"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(assets) == 0 {
+			t.Fatal("no assets")
+		}
+		for _, a := range assets {
+			if a.SpatialType.Valid {
+				t.Fatalf("Z_PK %d: SpatialType %v, want NULL", a.PK, a.SpatialType)
+			}
+		}
+	})
 }
 
 func TestReadersEmpty(t *testing.T) {

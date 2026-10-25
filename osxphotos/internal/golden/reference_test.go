@@ -9,9 +9,56 @@ import (
 	"time"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
+	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
 func allKeys() []string { return slices.Sorted(maps.Keys(rules)) }
+
+var columnsKeys = []string{"adjustment_type", "cloud_owner_hashed_id", "external_edit", "hdr", "imported_by", "panorama",
+	"portrait", "selfie", "shared_moment", "spatial", "tzname", "visible"}
+
+// A key that has the zero value of Go on every object does not test its rule
+// in TestGolden; testdata/libraries/synthetic/reference adds the states the
+// libraries lack.
+func TestColumnsKeysVary(t *testing.T) {
+	canon := func(v any, err error) string {
+		t.Helper()
+		if err == nil {
+			var s string
+			if s, err = canonical(v); err == nil {
+				return s
+			}
+		}
+		t.Fatal(err)
+		return ""
+	}
+	zero := map[string]string{}
+	for _, key := range columnsKeys {
+		zero[key] = canon(rules[key].got(&env{}, &photoinfo.PhotoInfo{}, nil))
+	}
+	dir := testlib.RepoDir(t, "golden")
+	set, total := map[string]int{}, 0
+	for _, name := range testlib.Libraries(t) {
+		ref, err := Load(dir, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, obj := range slices.Concat(ref.Query, ref.Deleted) {
+			total++
+			for _, key := range columnsKeys {
+				if canon(rules[key].ref(obj)) != zero[key] {
+					set[key]++
+				}
+			}
+		}
+	}
+	for _, key := range columnsKeys {
+		t.Logf("%s: %d of %d objects differ from the zero value", key, set[key], total)
+		if set[key] == 0 {
+			t.Errorf("%s: no object differs from the zero value", key)
+		}
+	}
+}
 
 func isoOffset(t testing.TB, s string) int {
 	t.Helper()
