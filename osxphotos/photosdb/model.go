@@ -29,60 +29,24 @@ func detectSchema(data []byte) (model int, s schema.Schema, err error) {
 	if len(data) > maxPlistSize {
 		return 0, schema.Schema{}, fmt.Errorf("%w: Z_METADATA.Z_PLIST is larger than 1 MiB", ErrUnsupportedSchema)
 	}
-	var md metadata
-	if err := decodePlist(data, &md); err != nil {
+	var root any
+	if err := decodePlist(data, &root); err != nil {
 		return 0, schema.Schema{}, fmt.Errorf("%w: Z_METADATA.Z_PLIST is not a property list: %w", ErrUnsupportedSchema, err)
 	}
-	if !md.model.present {
+	dict, _ := root.(map[string]any)
+	v, ok := dict[modelKey]
+	if !ok {
 		return 0, schema.Schema{}, fmt.Errorf("%w: no %s in Z_METADATA", ErrUnsupportedSchema, modelKey)
 	}
-	model, err = modelVersion(md.model.value)
+	model, err = modelVersion(v)
 	if err != nil {
 		return 0, schema.Schema{}, err
 	}
-	s, ok := schema.ForModel(model)
+	s, ok = schema.ForModel(model)
 	if !ok {
 		return 0, schema.Schema{}, unknownModel(strconv.Itoa(model))
 	}
 	return model, s, nil
-}
-
-// A root that is not a dictionary decodes as one without PLModelVersion.
-type metadata struct {
-	model modelField
-}
-
-func (m *metadata) UnmarshalPlist(unmarshal func(any) error) error {
-	var dict struct {
-		Model modelField `plist:"PLModelVersion"`
-	}
-	if unmarshal(&dict) == nil {
-		m.model = dict.Model
-	}
-	return nil
-}
-
-// modelField is the value of PLModelVersion. Only a scalar is decoded: a
-// container fails the typed probes without being walked. A binary plist may
-// reference one object many times, and decoding such a value into any would
-// copy it once per path, exponentially in the depth.
-type modelField struct {
-	present bool
-	value   any // as decoded into any; nil when not a number or a string
-}
-
-// The probes only tell a scalar from a container.
-func (f *modelField) UnmarshalPlist(unmarshal func(any) error) error {
-	f.present = true
-	var (
-		u uint64
-		i int64
-		s string
-	)
-	if unmarshal(&u) == nil || unmarshal(&i) == nil || unmarshal(&s) == nil {
-		return unmarshal(&f.value)
-	}
-	return nil
 }
 
 // A string of ASCII decimal digits is accepted as upstream int() of a str
@@ -145,10 +109,11 @@ func asciiDigits(s string) bool {
 const maxBinaryObjects = 1 << 12
 
 var (
-	errEmptyPlist    = errors.New("empty")
-	errPlistFormat   = errors.New("not an XML or binary property list")
-	errBinaryTrailer = errors.New("binary property list trailer does not fit the input")
-	errBinaryObjects = fmt.Errorf("binary property list has more than %d objects", maxBinaryObjects)
+	errEmptyPlist      = errors.New("empty")
+	errPlistFormat     = errors.New("not an XML or binary property list")
+	errBinaryTrailer   = errors.New("binary property list trailer does not fit the input")
+	errBinaryObjects   = fmt.Errorf("binary property list has more than %d objects", maxBinaryObjects)
+	errSharedContainer = errors.New("binary property list references an array or a dictionary more than once")
 )
 
 // Only XML and binary lists are accepted, the two formats that osxphotos reads
@@ -159,9 +124,8 @@ var (
 // level of nesting, and 1 MiB of "(" took 0.6 s, 0.5 GB of allocations and a
 // 256 MB stack (1.6 s and 512 MB with the race detector). An XML input that
 // the XML parser refuses still falls back to the text parser and is refused
-// after it; as text it starts with "<", which opens data, not nesting. v is a
-// struct or an Unmarshaler with only the keys the caller needs, never any: see
-// modelField.
+// after it; as text it starts with "<", which opens data, not nesting. v may
+// be any: sharesContainers refuses the lists that any would expand.
 func decodePlist(data []byte, v any) error {
 	if len(data) == 0 {
 		return errEmptyPlist
@@ -171,6 +135,9 @@ func decodePlist(data []byte, v any) error {
 	}
 	if err := checkBinaryTrailer(data); err != nil {
 		return err
+	}
+	if sharesContainers(data) {
+		return errSharedContainer
 	}
 	format, err := plist.Unmarshal(data, v)
 	if err != nil {
@@ -228,4 +195,63 @@ func checkBinaryTrailer(data []byte) error {
 		return errBinaryObjects
 	}
 	return nil
+}
+
+// howett.net/plist decodes a container that several references share into
+// any once per path, so a few KiB can grow exponentially; Apple's writer
+// shares only strings, numbers, dates and data. The offset table need not be
+// one-to-one, so containers of distinct indices may still be one object: the
+// references are bounded by the bytes that can hold them as well. A reference
+// that does not fit the input counts as shared. data has passed
+// checkBinaryTrailer.
+func sharesContainers(data []byte) bool {
+	if !bytes.HasPrefix(data, []byte("bplist")) {
+		return false
+	}
+	t := data[len(data)-bplistTrailerSize:]
+	offsetSize, refSize, n := uint64(t[6]), uint64(t[7]), binary.BigEndian.Uint64(t[8:16])
+	table, limit := binary.BigEndian.Uint64(t[24:32]), uint64(len(data))-bplistTrailerSize
+	object := func(i uint64) (offset uint64, container bool) {
+		offset = bplistUint(data[table+i*offsetSize:], offsetSize)
+		return offset, offset < limit && data[offset]>>4 >= 0xA && data[offset]>>4 <= 0xD
+	}
+	seen := make([]bool, n)
+	refs := limit / refSize
+	for i := range n {
+		off, container := object(i)
+		if !container {
+			continue
+		}
+		// CFBinaryPList: a count of 15 or more is the integer object after
+		// the marker, and a dictionary holds its keys, then its values.
+		count, pos := uint64(data[off]&0xF), off+1
+		if count == 0xF {
+			if pos >= limit || data[pos]>>4 != 1 || data[pos]&0xF > 3 || 1<<(data[pos]&0xF) > limit-pos-1 {
+				return true
+			}
+			size := uint64(1) << (data[pos] & 0xF)
+			count, pos = bplistUint(data[pos+1:], size), pos+1+size
+		}
+		if data[off]>>4 == 0xD {
+			count = min(count, limit) * 2
+		}
+		if count > (limit-pos)/refSize || count > refs {
+			return true
+		}
+		refs -= count
+		for j := range count {
+			ref := bplistUint(data[pos+j*refSize:], refSize)
+			if ref >= n || seen[ref] {
+				return true
+			}
+			_, seen[ref] = object(ref)
+		}
+	}
+	return false
+}
+
+func bplistUint(b []byte, size uint64) uint64 {
+	var v [8]byte
+	copy(v[8-size:], b[:size])
+	return binary.BigEndian.Uint64(v[:])
 }

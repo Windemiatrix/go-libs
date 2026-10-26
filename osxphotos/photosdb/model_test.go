@@ -58,6 +58,11 @@ func binaryPlist(objects [][]byte, size int) []byte {
 		offsets[i] = uint64(len(out))
 		out = append(out, o...)
 	}
+	return withOffsetTable(out, offsets, size)
+}
+
+// The format allows several objects at one offset.
+func withOffsetTable(out []byte, offsets []uint64, size int) []byte {
 	table := uint64(len(out))
 	for _, off := range offsets {
 		out = appendSized(out, off, size)
@@ -65,7 +70,7 @@ func binaryPlist(objects [][]byte, size int) []byte {
 	// Trailer: 5 unused bytes, sort version, offset size, reference size,
 	// number of objects, root object, offset of the offset table.
 	out = append(out, 0, 0, 0, 0, 0, 0, byte(size), byte(size))
-	out = binary.BigEndian.AppendUint64(out, uint64(len(objects)))
+	out = binary.BigEndian.AppendUint64(out, uint64(len(offsets)))
 	out = binary.BigEndian.AppendUint64(out, 0)
 	return binary.BigEndian.AppendUint64(out, table)
 }
@@ -106,17 +111,50 @@ func modelChain(depth, width, size int) []byte {
 	return binaryPlist(append(objects, binaryArrayChain(2, depth, width, size)...), size)
 }
 
+// The count is a two-byte integer after the marker, so it may be 15 or more;
+// the references are two bytes too.
+func bpLongRefs(marker byte, refs ...int) []byte {
+	o := binary.BigEndian.AppendUint16([]byte{marker<<4 | 0xF, 0x11}, uint16(len(refs)))
+	for _, r := range refs {
+		o = appendSized(o, uint64(r), 2)
+	}
+	return o
+}
+
 // n ≥ 2 and few enough for two-byte offsets.
 func flatArray(n int) []byte {
-	root := []byte{0xAF, 0x11} // array, count in the two-byte integer after it
-	root = binary.BigEndian.AppendUint16(root, uint16(n-1))
+	var refs []int
 	objects := [][]byte{nil}
 	for i := 1; i < n; i++ {
-		root = appendSized(root, uint64(i), 2)
+		refs = append(refs, i)
 		objects = append(objects, []byte{0x10, byte(i)})
 	}
-	objects[0] = root
+	objects[0] = bpLongRefs(0xA, refs...)
 	return binaryPlist(objects, 2)
+}
+
+func repeatRef(ref, n int) []int {
+	refs := make([]int, n)
+	for i := range refs {
+		refs[i] = ref
+	}
+	return refs
+}
+
+// The m indices after the root all have the offset of one array of k
+// references, so no index repeats, yet any would get m*k values.
+func aliasedArrays(m, k int) []byte {
+	out := append([]byte("bplist00"), bpLongRefs(0xA, repeatRef(m+1, k)...)...)
+	offsets := make([]uint64, m+2)
+	offsets[0] = uint64(len(out))
+	root := make([]int, m)
+	for i := range root {
+		root[i] = i + 1
+		offsets[i+1] = bplistHeaderSize
+	}
+	out = append(out, bpLongRefs(0xA, root...)...)
+	offsets[m+1] = uint64(len(out))
+	return withOffsetTable(append(out, 0x51, 'x'), offsets, 2)
 }
 
 func emptyDictBinary() []byte {
@@ -232,8 +270,8 @@ func TestDecodePlistFormat(t *testing.T) {
 		{"text data", []byte("<00>")},
 	}
 	for _, tt := range refused {
-		var md metadata
-		if err := decodePlist(tt.data, &md); !errors.Is(err, errPlistFormat) {
+		var v any
+		if err := decodePlist(tt.data, &v); !errors.Is(err, errPlistFormat) {
 			t.Errorf("%s: decodePlist = %v, want %v", tt.name, err, errPlistFormat)
 		}
 	}
@@ -248,11 +286,75 @@ func TestDecodePlistFormat(t *testing.T) {
 		{"byte order mark and whitespace before XML", []byte("\xEF\xBB\xBF\n " + good)},
 	}
 	for _, tt := range accepted {
-		var md metadata
-		if err := decodePlist(tt.data, &md); err != nil || md.model.value != uint64(19607) {
-			t.Errorf("%s: decodePlist = %v, PLModelVersion %#v; want nil, uint64(19607)", tt.name, err, md.model.value)
+		var v any
+		err := decodePlist(tt.data, &v)
+		dict, _ := v.(map[string]any)
+		if err != nil || dict[modelKey] != uint64(19607) {
+			t.Errorf("%s: decodePlist = %v, PLModelVersion %#v; want nil, uint64(19607)", tt.name, err, dict[modelKey])
 		}
 	}
+}
+
+type sharedCase struct {
+	name string
+	data []byte
+	want error
+}
+
+func sharedCases() []sharedCase {
+	str := func(s string) []byte { return append([]byte{0x50 | byte(len(s))}, s...) }
+	twice := func(container []byte) []byte {
+		return binaryPlist([][]byte{bpRefs(0xA, 2, 1, 1, 1), container}, 1)
+	}
+	// Past the 15 references that fit the marker.
+	long := func(arrayRefs int) []byte {
+		refs := append(repeatRef(2, 15), repeatRef(1, arrayRefs)...)
+		return binaryPlist([][]byte{bpLongRefs(0xA, refs...), {0xA0}, str("x")}, 2)
+	}
+	longCount := func(marker byte, count uint64) []byte {
+		return binaryPlist([][]byte{binary.BigEndian.AppendUint64([]byte{marker<<4 | 0xF, 0x13}, count)}, 1)
+	}
+	return []sharedCase{
+		{"a shared array", twice([]byte{0xA0}), errSharedContainer},
+		{"a shared ordered set", twice([]byte{0xB0}), errSharedContainer},
+		{"a shared set", twice([]byte{0xC0}), errSharedContainer},
+		{"a shared dictionary", twice([]byte{0xD0}), errSharedContainer},
+		{"a dictionary key shared with its value", binaryPlist([][]byte{bpRefs(0xD, 1, 1, 1, 1), {0xA0}}, 1), errSharedContainer},
+		{"a shared array after 15 references", long(2), errSharedContainer},
+		{"a chain of shared arrays", binaryPlist(binaryArrayChain(0, 12, 2, 1), 1), errSharedContainer},
+		{"600 indices of one array of 2000 references", aliasedArrays(600, 2000), errSharedContainer},
+		{"a reference out of the list", binaryPlist([][]byte{bpRefs(0xA, 1, 1, 5), {0x10, 0x00}}, 1), errSharedContainer},
+		{"a long count without an integer", binaryPlist([][]byte{{0xAF, 0x51, 'x'}}, 1), errSharedContainer},
+		{"a long count of 16 bytes", binaryPlist([][]byte{append([]byte{0xAF, 0x14}, make([]byte, 64)...)}, 1), errSharedContainer},
+		{"a long count cut short", binaryPlist([][]byte{{0xAF, 0x13, 0x00}}, 1), errSharedContainer},
+		{"a count that does not fit", longCount(0xA, 1<<40), errSharedContainer},
+		{"a dictionary count of 2^63", longCount(0xD, 1<<63), errSharedContainer},
+
+		{"a shared string", binaryPlist([][]byte{bpRefs(0xD, 2, 1, 1, 2, 3, 3), str("a"), str("b"), str("x")}, 1), nil},
+		{"an array after 15 references", long(1), nil},
+		{"one index per array", aliasedArrays(1, 20), nil},
+		{"an array of 4095 references", flatArray(maxBinaryObjects), nil},
+	}
+}
+
+func TestDecodePlistShared(t *testing.T) {
+	t.Parallel()
+	for _, tt := range sharedCases() {
+		var v any
+		if err := decodePlist(tt.data, &v); !errors.Is(err, tt.want) {
+			t.Errorf("%s: decodePlist = %v, want %v", tt.name, err, tt.want)
+		}
+	}
+}
+
+func FuzzDecodePlist(f *testing.F) {
+	for _, c := range sharedCases() {
+		f.Add(c.data)
+	}
+	f.Fuzz(func(_ *testing.T, data []byte) {
+		var v any
+		_ = decodePlist(data, &v)
+	})
 }
 
 // The inputs are under the size limit and a parser may find them expensive: it
