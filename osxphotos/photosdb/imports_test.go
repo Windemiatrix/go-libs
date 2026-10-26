@@ -188,7 +188,7 @@ func TestImports(t *testing.T) {
 			}
 			// The premise of Import: upstream takes the row of ZIMPORTSESSION of
 			// any ZKIND (photosdb/photosdb.py:2383-2393), Import only sessions.
-			if other := count(t, src, "SELECT COUNT(*) FROM ZASSET a JOIN ZGENERICALBUM g ON g.Z_PK = a.ZIMPORTSESSION WHERE g.ZKIND != 1506"); other != 0 {
+			if other := count(t, src, "SELECT COUNT(*) FROM ZASSET a JOIN ZGENERICALBUM g ON g.Z_PK = a.ZIMPORTSESSION WHERE g.ZKIND IS NOT 1506"); other != 0 {
 				t.Errorf("%d assets whose ZIMPORTSESSION is a row of another ZKIND", other)
 			}
 

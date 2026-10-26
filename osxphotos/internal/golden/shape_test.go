@@ -137,10 +137,10 @@ func TestAlbumsMissingOnTheGoSide(t *testing.T) {
 			ref := refOf(refObj(refSelectedFrame()))
 			_, err := Compare(ref, lib, []string{key}, nil)
 			if err == nil || !strings.Contains(err.Error(), missing) || !strings.Contains(err.Error(), "key "+key) {
-				t.Errorf("error = %v, want one about a missing album for %s", err, key)
+				t.Errorf("error = %v, want one about a missing album or import session for %s", err, key)
 			}
 			if err != nil && (strings.Contains(err.Error(), albumAInFolderX) || strings.Contains(err.Error(), importSession)) {
-				t.Errorf("the error names the album: %v", err)
+				t.Errorf("the error names the album or the import session: %v", err)
 			}
 		})
 	}

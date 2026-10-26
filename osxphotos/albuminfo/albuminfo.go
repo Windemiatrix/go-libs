@@ -1,5 +1,5 @@
-// Package albuminfo describes albums and folders of a Photos library as plain
-// values. It does no I/O.
+// Package albuminfo describes albums, folders and import sessions of a Photos
+// library as plain values. It does no I/O.
 package albuminfo
 
 import "time"
