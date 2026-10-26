@@ -16,6 +16,8 @@ type DB struct {
 
 	albumPhotos map[string][]string // photo UUIDs of each album by album UUID, in membership order, repeats kept
 
+	unusedKeywords []string // NFC titles of the ZKEYWORD rows no photo has, sorted, repeats kept
+
 	folders    []*albuminfo.FolderInfo // every folder, those in the trash included, ZUUID order
 	topFolders []*albuminfo.FolderInfo // osxphotos folder_info, ZUUID order
 }

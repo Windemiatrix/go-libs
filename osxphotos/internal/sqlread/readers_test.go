@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -64,6 +65,10 @@ var readers = []struct {
 	}},
 	{"Albums", func(ctx context.Context, d *DB, _ schema.Schema) (int, error) {
 		r, err := d.Albums(ctx)
+		return len(r), err
+	}},
+	{"KeywordTitles", func(ctx context.Context, d *DB, _ schema.Schema) (int, error) {
+		r, err := d.KeywordTitles(ctx)
 		return len(r), err
 	}},
 }
@@ -308,6 +313,17 @@ func TestReadersRows(t *testing.T) {
 				t.Errorf("Keywords: %d rows, want %d", len(kws), want)
 			}
 
+			titles, err := d.KeywordTitles(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantTitles := zkeywordTitles(t, ro)
+			sortTitles(titles)
+			sortTitles(wantTitles)
+			if !slices.Equal(titles, wantTitles) {
+				t.Errorf("KeywordTitles: %d rows differ from the %d titles of SELECT ZTITLE FROM ZKEYWORD", len(titles), len(wantTitles))
+			}
+
 			faces, err := d.Faces(t.Context(), n)
 			if err != nil {
 				t.Fatal(err)
@@ -451,6 +467,33 @@ func TestReadersNull(t *testing.T) {
 		}
 	})
 
+	t.Run("NULL ZKEYWORD.ZTITLE", func(t *testing.T) {
+		t.Parallel()
+		path := filepath.Join(testlib.Open(t, "Test-13.0.0"), "database", "Photos.sqlite")
+		w := openWriter(t, path)
+		total := count(t, w, "SELECT COUNT(*) FROM ZKEYWORD")
+		if total == 0 {
+			t.Fatal("Test-13.0.0 has no keyword: the case is vacuous")
+		}
+		exec(t, w, "UPDATE ZKEYWORD SET ZTITLE = NULL WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZKEYWORD)")
+		if err := w.Close(); err != nil {
+			t.Fatal(err)
+		}
+		titles, err := openDB(t, path).KeywordTitles(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		unnamed := 0
+		for _, title := range titles {
+			if !title.Valid {
+				unnamed++
+			}
+		}
+		if unnamed != 1 || int64(len(titles)) != total {
+			t.Errorf("KeywordTitles: %d rows, %d NULL titles; want %d rows, 1 NULL title", len(titles), unnamed, total)
+		}
+	})
+
 	path := syntheticDB(t)
 	w := openWriter(t, path)
 	exec(t, w,
@@ -498,6 +541,37 @@ func TestReadersNull(t *testing.T) {
 	if a, _ := d.Albums(t.Context()); int64(len(a)) != wantAlbums {
 		t.Errorf("Albums: %d, want %d", len(a), wantAlbums)
 	}
+}
+
+func zkeywordTitles(t *testing.T, ro *sql.DB) []sql.NullString {
+	t.Helper()
+	rows, err := ro.QueryContext(t.Context(), "SELECT ZTITLE FROM ZKEYWORD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []sql.NullString
+	for rows.Next() {
+		var title sql.NullString
+		if err := rows.Scan(&title); err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, title)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	_ = rows.Close()
+	return out
+}
+
+func sortTitles(titles []sql.NullString) {
+	key := func(v sql.NullString) string {
+		if !v.Valid {
+			return "N"
+		}
+		return "V" + v.String
+	}
+	slices.SortFunc(titles, func(a, b sql.NullString) int { return strings.Compare(key(a), key(b)) })
 }
 
 func personFaceCounts(t *testing.T, ro *sql.DB, s schema.Schema, faces []Face) (unnamed int) {
@@ -575,6 +649,7 @@ func TestReadersEmpty(t *testing.T) {
 	exec(t, w,
 		"DELETE FROM Z_33ASSETS",
 		"DELETE FROM Z_1KEYWORDS",
+		"DELETE FROM ZKEYWORD",
 		"DELETE FROM ZDETECTEDFACE",
 		"DELETE FROM ZINTERNALRESOURCE",
 		"DELETE FROM ZADDITIONALASSETATTRIBUTES",

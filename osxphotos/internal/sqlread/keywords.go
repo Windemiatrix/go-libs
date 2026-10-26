@@ -49,3 +49,22 @@ ORDER BY x.ZASSET, k.Z_PK`
 	}
 	return out, nil
 }
+
+// KeywordTitles returns ZKEYWORD.ZTITLE of every keyword, those no asset has
+// as well, repeated titles kept (photosdb.py:490). A NULL title is an invalid
+// value.
+func (d *DB) KeywordTitles(ctx context.Context) ([]sql.NullString, error) {
+	var out []sql.NullString
+	err := d.readRows(ctx, "keyword titles", "SELECT ZTITLE FROM ZKEYWORD", func(rows *sql.Rows) error {
+		var title sql.NullString
+		if err := rows.Scan(&title); err != nil {
+			return err
+		}
+		out = append(out, title)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}

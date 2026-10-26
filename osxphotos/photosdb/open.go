@@ -90,6 +90,10 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 	if err != nil {
 		return nil, err
 	}
+	titles, err := src.KeywordTitles(ctx)
+	if err != nil {
+		return nil, err
+	}
 	albumPhotos := membershipOrder(t.members, t.assets, c.byUUID)
 	albums, err := loadAlbums(t.albums, albumPhotos)
 	if err != nil {
@@ -118,6 +122,8 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 		bursts: indexBursts(c.photos),
 
 		albumPhotos: albumPhotos,
+
+		unusedKeywords: keywordsWithoutPhoto(titles, c.photos),
 
 		folders:    folders,
 		topFolders: topFolders,
