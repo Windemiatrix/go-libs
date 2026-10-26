@@ -90,7 +90,8 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 	if err != nil {
 		return nil, err
 	}
-	albums, err := loadAlbums(t.albums, t.members, t.assets, c.byUUID)
+	albumPhotos := membershipOrder(t.members, t.assets, c.byUUID)
+	albums, err := loadAlbums(t.albums, albumPhotos)
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +116,8 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 		byUUID: c.byUUID,
 		albums: albums,
 		bursts: indexBursts(c.photos),
+
+		albumPhotos: albumPhotos,
 
 		folders:    folders,
 		topFolders: topFolders,

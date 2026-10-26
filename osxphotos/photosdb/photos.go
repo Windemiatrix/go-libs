@@ -14,6 +14,8 @@ type DB struct {
 	albums []*albuminfo.AlbumInfo            // user albums, trashed ones included, ZUUID order
 	bursts map[string][]*photoinfo.PhotoInfo // frames of the bursts by BurstUUID, ZUUID order
 
+	albumPhotos map[string][]string // photo UUIDs of each album by album UUID, in membership order, repeats kept
+
 	folders    []*albuminfo.FolderInfo // every folder, those in the trash included, ZUUID order
 	topFolders []*albuminfo.FolderInfo // osxphotos folder_info, ZUUID order
 }

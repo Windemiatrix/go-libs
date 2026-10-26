@@ -154,7 +154,7 @@ func TestColumnsIncludeJoins(t *testing.T) {
 		"ZKEYWORD":                   {"Z_PK", "ZTITLE"},
 		"ZDETECTEDFACE":              {"ZASSETFORFACE", "ZPERSONFORFACE"},
 		"ZPERSON":                    {"Z_PK", "ZFULLNAME"},
-		"Z_33ASSETS":                 {"Z_33ALBUMS", "Z_3ASSETS"},
+		"Z_33ASSETS":                 {"Z_33ALBUMS", "Z_3ASSETS", "Z_FOK_3ASSETS"},
 		"ZGENERICALBUM":              {"Z_PK", "ZUUID", "ZKIND", "ZCUSTOMSORTKEY", "ZCUSTOMSORTASCENDING", "Z_FOK_PARENTFOLDER"},
 	}
 	for table, cols := range want {
@@ -255,10 +255,25 @@ func TestReadersRows(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if want := count(t, ro, "SELECT COUNT(*) FROM "+n.MemberTable+" m JOIN ZGENERICALBUM g ON g.Z_PK = m."+
-				n.MemberAlbumColumn+" WHERE g.ZKIND = 2 AND m."+n.MemberAssetColumn+" IS NOT NULL AND g.ZUUID IS NOT NULL"); int64(len(members)) != want {
+			memberRows := " FROM " + n.MemberTable + " m JOIN ZGENERICALBUM g ON g.Z_PK = m." +
+				n.MemberAlbumColumn + " WHERE g.ZKIND = 2 AND m." + n.MemberAssetColumn + " IS NOT NULL AND g.ZUUID IS NOT NULL"
+			if want := count(t, ro, "SELECT COUNT(*)"+memberRows); int64(len(members)) != want {
 				t.Errorf("Members: %d rows, want %d", len(members), want)
 			}
+			var ordered, orderSum int64
+			for _, m := range members {
+				if m.Order.Valid {
+					ordered++
+					orderSum += m.Order.Int64
+				}
+			}
+			if want := count(t, ro, "SELECT COUNT(m."+n.MemberOrderColumn+")"+memberRows); ordered != want {
+				t.Errorf("Members: %d with an order, want %d", ordered, want)
+			}
+			if want := count(t, ro, "SELECT COALESCE(SUM(m."+n.MemberOrderColumn+"), 0)"+memberRows); orderSum != want {
+				t.Errorf("Members: sum of the orders %d, want %d", orderSum, want)
+			}
+			t.Logf("Members: %d of %d with an order", ordered, len(members))
 
 			albums, err := d.Albums(t.Context())
 			if err != nil {
@@ -381,6 +396,7 @@ func TestReaderValueType(t *testing.T) {
 		{"asset HDR type", "UPDATE ZASSET SET ZHDRTYPE = 'SECRET-H' WHERE Z_PK = 3", readers[0].run},
 		{"asset spatial type", "UPDATE ZASSET SET ZSPATIALTYPE = 'SECRET-S' WHERE Z_PK = 3", readers[0].run},
 		{"member asset", "UPDATE Z_33ASSETS SET Z_3ASSETS = 'SECRET-M' WHERE rowid = (SELECT MIN(rowid) FROM Z_33ASSETS)", readers[4].run},
+		{"member order", "UPDATE Z_33ASSETS SET Z_FOK_3ASSETS = 'SECRET-F' WHERE rowid = (SELECT MIN(rowid) FROM Z_33ASSETS)", readers[4].run},
 		{"album parent", "UPDATE ZGENERICALBUM SET ZPARENTFOLDER = 'SECRET-P' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
 		{"album sort key", "UPDATE ZGENERICALBUM SET ZCUSTOMSORTKEY = 'SECRET-K' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
 		{"album sort ascending", "UPDATE ZGENERICALBUM SET ZCUSTOMSORTASCENDING = 'SECRET-A' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
@@ -440,6 +456,7 @@ func TestReadersNull(t *testing.T) {
 	exec(t, w,
 		"UPDATE Z_33ASSETS SET Z_3ASSETS = NULL WHERE rowid = (SELECT MIN(rowid) FROM Z_33ASSETS)",
 		"UPDATE Z_33ASSETS SET Z_33ALBUMS = NULL WHERE rowid = (SELECT MAX(rowid) FROM Z_33ASSETS)",
+		"UPDATE Z_33ASSETS SET Z_FOK_3ASSETS = NULL",
 		"UPDATE ZINTERNALRESOURCE SET ZASSET = NULL WHERE Z_PK = 1",
 		"UPDATE ZASSET SET ZUUID = NULL, ZFILENAME = NULL, ZKIND = NULL, ZDATECREATED = NULL, ZHDRTYPE = NULL, ZDEPTHTYPE = NULL, "+
 			"ZVISIBILITYSTATE = NULL, ZCLOUDOWNERHASHEDPERSONID = NULL, ZMOMENTSHARE = NULL, ZSPATIALTYPE = NULL WHERE Z_PK = 2",
@@ -465,8 +482,15 @@ func TestReadersNull(t *testing.T) {
 			t.Errorf("%s: %v", r.name, err)
 		}
 	}
-	if m, _ := d.Members(t.Context(), n); int64(len(m)) != wantMembers {
+	m, _ := d.Members(t.Context(), n)
+	if int64(len(m)) != wantMembers {
 		t.Errorf("Members: %d, want %d", len(m), wantMembers)
+	}
+	for _, r := range m {
+		if r.Order.Valid {
+			t.Errorf("Members: Order %d, want NULL", r.Order.Int64)
+			break
+		}
 	}
 	if r, _ := d.Resources(t.Context()); int64(len(r)) != wantRes {
 		t.Errorf("Resources: %d, want %d", len(r), wantRes)

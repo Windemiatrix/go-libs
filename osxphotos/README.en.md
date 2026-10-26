@@ -86,7 +86,7 @@ Other models, including beta builds outside the ranges, give `ErrUnsupportedSche
 | Photo flags: HDR, panorama, portrait, selfie, spatial, slow motion, time-lapse, screen recording, shared moment, edited in another app, visibility, who imported it | `photosdb`, `photoinfo` | done |
 | Files on disk: original, Live, RAW, edited version and its Live video, adjustment files, previews (`PathEdited`, `PathEditedLive`, `AdjustmentsPath`, `OriginalAdjustmentsPath`, `PathDerivatives`) | `photosdb`, `photoinfo` | done |
 | People on photos: names (`Persons`; a face without a name is `_UNKNOWN_`), for the library `DB.Persons`, `DB.PersonCounts` | `photosdb`, `photoinfo` | done |
-| Albums: title, folder path, members, dates, trash, sort order and place in the sidebar (`AlbumInfo`, `Album`) | `photosdb`, `albuminfo` | done |
+| Albums: title, folder path, members, dates, trash, sort order and place in the sidebar (`AlbumInfo`, `Album`; photos in the order of the album and the place of a photo in it: `AlbumPhotos`, `PhotoIndex`) | `photosdb`, `albuminfo` | done |
 | Folders and their tree, place in the sidebar (`FolderInfo`, `Folder`, `FolderList`) | `photosdb`, `albuminfo` | done |
 | Selection `Query` with `query.Options` filters (album, folder, dates, trash, type, flags, person and others), sorting | `photosdb`, `query` | done |
 | Duplicates (`DB.Duplicates`, `query.Duplicates`, the `Duplicate` option) | `photosdb`, `query` | done |

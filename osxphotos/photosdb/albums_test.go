@@ -95,7 +95,7 @@ func TestLoadAlbums(t *testing.T) {
 		{UUID: "AL-G", Title: "Same", ParentUUID: "F-2", FolderNames: []string{nfcForm, "F2"}, PhotoUUIDs: []string{"P-1"}},
 	}
 
-	got, err := loadAlbums(rows, members, assets, byUUID)
+	got, err := loadAlbums(rows, membershipOrder(members, assets, byUUID))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func TestLoadAlbumsSortOrder(t *testing.T) {
 		r.SortKey, r.SortAscending = tt.key, tt.asc
 		rows = append(rows, r)
 	}
-	got, err := loadAlbums(rows, nil, nil, nil)
+	got, err := loadAlbums(rows, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +196,7 @@ func TestLoadAlbumsListOrder(t *testing.T) {
 		"A-NOPARENT":  {1},
 		"A-UNDERX":    {9999999, 1},
 	}
-	got, err := loadAlbums(sortListRows(), nil, nil, nil)
+	got, err := loadAlbums(sortListRows(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +326,7 @@ func TestLoadAlbumsErrors(t *testing.T) {
 		{"album is its own parent", []sqlread.Album{rootRow, album(2, "SECRET-A", nullInt(2))}, "1 albums whose parent folders"},
 	}
 	for _, tt := range tests {
-		got, err := loadAlbums(tt.rows, nil, nil, nil)
+		got, err := loadAlbums(tt.rows, nil)
 		if err == nil || !strings.Contains(err.Error(), tt.want) || strings.Contains(err.Error(), "SECRET") || got != nil {
 			t.Errorf("%s: loadAlbums = %d albums, %v; want an error with %q and without values", tt.name, len(got), err, tt.want)
 		}
