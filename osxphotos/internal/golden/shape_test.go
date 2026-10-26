@@ -23,26 +23,6 @@ func TestMissingKey(t *testing.T) {
 			}
 		})
 	}
-	t.Run("an album list without its albums key", func(t *testing.T) {
-		t.Parallel()
-		// albums needs album_info for the titles of shared albums.
-		_, err := rules["albums"].ref(Object{"albums": []byte(`[]`)})
-		if err == nil || !strings.Contains(err.Error(), "album_info") {
-			t.Errorf("error = %v, want one about album_info", err)
-		}
-		_, err = rules["albums"].ref(Object{"album_info": []byte(`[]`)})
-		if err == nil || !strings.Contains(err.Error(), "albums") {
-			t.Errorf("error = %v, want one about albums", err)
-		}
-		_, err = rules["folders"].ref(Object{"album_info": []byte(`[]`)})
-		if err == nil || !strings.Contains(err.Error(), "folders") {
-			t.Errorf("error = %v, want one about folders", err)
-		}
-		_, err = rules["burst_albums"].ref(Object{"burst_albums": []byte(`[]`)})
-		if err == nil || !strings.Contains(err.Error(), "burst_album_info") {
-			t.Errorf("error = %v, want one about burst_album_info", err)
-		}
-	})
 }
 
 func TestAlbumShape(t *testing.T) {

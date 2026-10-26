@@ -17,28 +17,12 @@ import (
 // osxphotos ProjectInfo (albuminfo.py:368-392); AlbumPhotos gives its photos.
 // The slice is new on every call, but its values are shared by all calls: do
 // not modify them.
-func (db *DB) ProjectInfo() []*albuminfo.AlbumInfo {
-	var out []*albuminfo.AlbumInfo
-	for _, a := range db.projects {
-		if !a.InTrash {
-			out = append(out, a)
-		}
-	}
-	return out
-}
+func (db *DB) ProjectInfo() []*albuminfo.AlbumInfo { return outsideTrash(db.projects) }
 
 // Project returns the project with this UUID, one in the trash included, as
 // osxphotos ProjectInfo(db, uuid) does (albuminfo.py:368). The value is
 // shared: do not modify it.
-func (db *DB) Project(uuid string) (*albuminfo.AlbumInfo, bool) {
-	i, ok := slices.BinarySearchFunc(db.projects, uuid, func(a *albuminfo.AlbumInfo, u string) int {
-		return strings.Compare(a.UUID, u)
-	})
-	if !ok {
-		return nil, false
-	}
-	return db.projects[i], true
-}
+func (db *DB) Project(uuid string) (*albuminfo.AlbumInfo, bool) { return findAlbum(db.projects, uuid) }
 
 // ProjectInfoOf returns the projects of p outside the trash, sorted by title,
 // then by UUID: osxphotos PhotoInfo.project_info (photoinfo.py:696-703,
@@ -57,13 +41,14 @@ func (db *DB) ProjectInfoOf(p *photoinfo.PhotoInfo) []*albuminfo.AlbumInfo {
 	return out
 }
 
-// Projects inherit parent, sort_order and library_list_order of AlbumInfo,
-// with no folders above them (albuminfo.py:229-234, 237-278, 374-392). The
-// parent is any row of ZGENERICALBUM, as upstream reads all of them; a parent
-// that is not a row is an error, as there (photosdb.py:1977-1980), and so is
-// one without ZUUID, as for albums. rows have passed loadAlbums: one root
-// folder, no empty or repeated ZUUID.
-func loadProjects(rows []sqlread.Album, albumPhotos map[string][]string) ([]*albuminfo.AlbumInfo, error) {
+// Projects and shared albums inherit parent, sort_order and
+// library_list_order of AlbumInfo, with no folders above them
+// (albuminfo.py:229-234, 237-278, 374-392; photosdb.py:1992-1994). The parent
+// is any row of ZGENERICALBUM, as upstream reads all of them; a parent that is
+// not a row is an error, as there (photosdb.py:1977-1980), and so is one
+// without ZUUID, as for albums. rows have passed loadAlbums: one root folder,
+// no empty or repeated ZUUID.
+func loadFolderless(rows []sqlread.Album, albumPhotos map[string][]string, kind int64, plural string) ([]*albuminfo.AlbumInfo, error) {
 	var rootPK int64
 	for _, r := range rows {
 		if r.Kind == sqlread.KindRootFolder {
@@ -73,7 +58,7 @@ func loadProjects(rows []sqlread.Album, albumPhotos map[string][]string) ([]*alb
 	var out []*albuminfo.AlbumInfo
 	badParents := 0
 	for _, r := range rows {
-		if r.Kind != sqlread.KindProject {
+		if r.Kind != kind {
 			continue
 		}
 		a := albumOf(r, albumPhotos)
@@ -90,7 +75,7 @@ func loadProjects(rows []sqlread.Album, albumPhotos map[string][]string) ([]*alb
 		out = append(out, a)
 	}
 	if badParents > 0 {
-		return nil, fmt.Errorf("photosdb: %d projects whose ZPARENTFOLDER is not a row of ZGENERICALBUM with a ZUUID", badParents)
+		return nil, fmt.Errorf("photosdb: %d %s whose ZPARENTFOLDER is not a row of ZGENERICALBUM with a ZUUID", badParents, plural)
 	}
 	slices.SortFunc(out, func(a, b *albuminfo.AlbumInfo) int { return strings.Compare(a.UUID, b.UUID) })
 	return out, nil

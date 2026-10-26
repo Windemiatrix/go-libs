@@ -346,10 +346,9 @@ func TestFolders(t *testing.T) {
 }
 
 type folderAlbumInfo struct {
-	UUID        string          `json:"uuid"`
-	Owner       json.RawMessage `json:"owner"`
-	FolderList  []string        `json:"folder_list"`
-	FolderNames []*string       `json:"folder_names"`
+	UUID        string    `json:"uuid"`
+	FolderList  []string  `json:"folder_list"`
+	FolderNames []*string `json:"folder_names"`
 }
 
 // The reference does not cover folders without albums, folders in the trash,
@@ -370,20 +369,13 @@ func TestFoldersGolden(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			byAlbum := map[string]*albuminfo.AlbumInfo{}
-			for _, a := range db.albums {
-				byAlbum[a.UUID] = a
-			}
 			for _, obj := range slices.Concat(ref.Query, ref.Deleted) {
 				var elements []folderAlbumInfo
 				if json.Unmarshal(obj["album_info"], &elements) != nil {
 					t.Fatal("album_info of an object is not a list of objects")
 				}
 				for _, e := range elements {
-					if len(e.Owner) > 0 && string(e.Owner) != "null" { // shared album, rule 8 of NORMALIZATION.md
-						continue
-					}
-					a, ok := byAlbum[e.UUID]
+					a, ok := db.Album(e.UUID)
 					if !ok {
 						t.Errorf("album %s of album_info is not among the albums read", e.UUID)
 						continue

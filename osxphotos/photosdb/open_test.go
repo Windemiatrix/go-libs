@@ -440,6 +440,8 @@ func TestOpenRemovesCopy(t *testing.T) {
 		{"no metadata", t.Context(), []string{"DELETE FROM Z_METADATA"}, false, "Z_METADATA"},
 		{"missing column", t.Context(), []string{"ALTER TABLE ZASSET RENAME COLUMN ZCLOUDASSETGUID TO ZX"}, true, "ZASSET.ZCLOUDASSETGUID"},
 		{"missing table", t.Context(), []string{"ALTER TABLE ZKEYWORD RENAME TO ZKEYWORDX"}, true, "table ZKEYWORD"},
+		{"missing column of a person name", t.Context(), []string{"ALTER TABLE ZCLOUDSHAREDALBUMINVITATIONRECORD RENAME COLUMN ZINVITEEFULLNAME TO ZX"},
+			true, "ZCLOUDSHAREDALBUMINVITATIONRECORD.ZINVITEEFULLNAME"},
 		{"canceled", canceled, nil, false, "context canceled"},
 	}
 	for _, tt := range tests {
@@ -539,7 +541,7 @@ func TestOpenHostileValues(t *testing.T) {
 				pairs += len(p.AlbumUUIDs)
 			}
 			if want := count(t, src, "SELECT COUNT(*) FROM Z_33ASSETS m JOIN ZGENERICALBUM g ON g.Z_PK = m.Z_33ALBUMS "+
-				"WHERE g.ZKIND = 2 AND m.Z_3ASSETS IS NOT NULL"); pairs != want {
+				"WHERE g.ZKIND IN (2, 1505) AND m.Z_3ASSETS IS NOT NULL"); pairs != want {
 				t.Errorf("%d album memberships, want %d", pairs, want)
 			}
 		})
@@ -582,13 +584,14 @@ func TestOpenDanglingReferences(t *testing.T) {
 	}
 }
 
-// Shared albums (ZKIND 1505) are not read.
+// Upstream lists shared albums (ZKIND 1505) among the albums of a photo
+// (photoinfo.py:2023-2034), but not in album_info (photosdb/photosdb.py:612-637).
 func TestOpenSharedAlbum(t *testing.T) {
 	t.Parallel()
 
 	lib := testlib.OpenPristine(t, "synthetic")
 	var album string
-	err := roDB(t, lib).QueryRowContext(t.Context(), "SELECT g.ZUUID FROM ZGENERICALBUM g WHERE g.ZKIND = 2 AND "+
+	err := roDB(t, lib).QueryRowContext(t.Context(), "SELECT g.ZUUID FROM ZGENERICALBUM g WHERE g.ZKIND = 2 AND g.ZTRASHEDSTATE = 0 AND "+
 		"EXISTS (SELECT 1 FROM Z_33ASSETS m WHERE m.Z_33ALBUMS = g.Z_PK) ORDER BY g.Z_PK LIMIT 1").Scan(&album)
 	if err != nil {
 		t.Fatal(err)
@@ -602,26 +605,31 @@ func TestOpenSharedAlbum(t *testing.T) {
 		}
 		return n
 	}
-	listed := func(db *DB) bool {
-		return slices.ContainsFunc(db.albums, func(a *albuminfo.AlbumInfo) bool { return a.UUID == album })
+	has := func(albums []*albuminfo.AlbumInfo) bool {
+		return slices.ContainsFunc(albums, func(a *albuminfo.AlbumInfo) bool { return a.UUID == album })
 	}
 	before, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inAlbum(before) == 0 || !listed(before) {
-		t.Fatal("the user album has no photos or is not among the albums read before the change")
+	user, ok := before.Album(album)
+	photos := inAlbum(before)
+	if photos == 0 || !ok || !has(before.AlbumInfo()) {
+		t.Fatal("the user album has no photos or is not in AlbumInfo before the change")
 	}
 	change(t, lib, "UPDATE ZGENERICALBUM SET ZKIND = 1505 WHERE ZUUID = '"+album+"'")
 	after, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := inAlbum(after); n != 0 {
-		t.Errorf("%d photos list the shared album", n)
+	if n := inAlbum(after); n != photos {
+		t.Errorf("%d photos list the shared album, want %d", n, photos)
 	}
-	if listed(after) {
-		t.Error("the shared album is among the albums read")
+	if shared, ok := after.Album(album); !ok || !slices.Equal(shared.PhotoUUIDs, user.PhotoUUIDs) {
+		t.Error("Album does not find the shared album with the photos of the user album")
+	}
+	if !has(after.SharedAlbumInfo()) || has(after.AlbumInfo()) {
+		t.Error("the shared album is not in SharedAlbumInfo or is in AlbumInfo")
 	}
 }
 
@@ -722,7 +730,7 @@ func TestOpenAggregates(t *testing.T) {
 				{"Keywords", "(SELECT COUNT(*) FROM Z_1KEYWORDS j JOIN ZKEYWORD k ON k.Z_PK = j." + n.KeywordColumn +
 					" WHERE j.Z_1ASSETATTRIBUTES = x.Z_PK)", func(p *photoInfo) int { return len(p.Keywords) }},
 				{"AlbumUUIDs", "(SELECT COUNT(DISTINCT g.ZUUID) FROM " + n.MemberTable + " m JOIN ZGENERICALBUM g ON g.Z_PK = m." +
-					n.MemberAlbumColumn + " WHERE g.ZKIND = 2 AND m." + n.MemberAssetColumn + " = a.Z_PK)",
+					n.MemberAlbumColumn + " WHERE g.ZKIND IN (2, 1505) AND m." + n.MemberAssetColumn + " = a.Z_PK)",
 					func(p *photoInfo) int { return len(p.AlbumUUIDs) }},
 				{"Resources", "(SELECT COUNT(*) FROM ZINTERNALRESOURCE r WHERE r.ZASSET = a.Z_PK)",
 					func(p *photoInfo) int { return len(p.Resources) }},

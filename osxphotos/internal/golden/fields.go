@@ -30,10 +30,10 @@ var rules = buildRules()
 // exactly the keys of fields.txt.
 func PhotoKeys() []string { return keysOf(false) }
 
-// AlbumKeys returns, sorted, the keys that need Library.Albums: album_info,
-// albums, burst_album_info, burst_albums and folders, the key that needs
-// Library.Imports: import_info, and the key that needs Library.Projects:
-// project_info.
+// AlbumKeys returns, sorted, the keys that need Library.Albums and
+// Library.SharedAlbums: album_info, albums, burst_album_info, burst_albums and
+// folders, the key that needs Library.Imports: import_info, and the key that
+// needs Library.Projects: project_info.
 func AlbumKeys() []string { return keysOf(true) }
 
 func keysOf(needsAlbums bool) []string {
@@ -60,8 +60,8 @@ func buildRules() map[string]rule {
 		{key: "uuid", ref: func(o Object) (any, error) { return decode[string](o, "uuid", false, "a string") }},
 		albumInfoRule("album_info", ownAlbums),
 		albumInfoRule("burst_album_info", burstAlbums),
-		albumsRule("albums", "album_info", ownAlbums),
-		albumsRule("burst_albums", "burst_album_info", burstAlbums),
+		albumsRule("albums", ownAlbums),
+		albumsRule("burst_albums", burstAlbums),
 		foldersRule(),
 		importInfoRule(),
 		projectInfoRule(),
@@ -278,10 +278,8 @@ func burstPhotosRule() rule {
 }
 
 type refAlbum struct {
-	uuid   string
-	title  *string
-	shared bool // owner is not null: a shared album, which the Go side does not read
-	elem   map[string]any
+	uuid string
+	elem map[string]any
 }
 
 func refAlbums(o Object, key string) ([]refAlbum, error) {
@@ -318,7 +316,7 @@ func refAlbumElem(raw json.RawMessage, path string) (refAlbum, error) {
 		CreationDate *string   `json:"creation_date"`
 		StartDate    *string   `json:"start_date"`
 		EndDate      *string   `json:"end_date"`
-		Owner        any       `json:"owner"`
+		Owner        *string   `json:"owner"`
 	}
 	switch {
 	case json.Unmarshal(raw, &e) != nil:
@@ -331,6 +329,7 @@ func refAlbumElem(raw json.RawMessage, path string) (refAlbum, error) {
 	elem := map[string]any{
 		"uuid":         *e.UUID,
 		"title":        deref(e.Title),
+		"owner":        deref(e.Owner),
 		"parent":       deref(e.Parent),
 		"folder_names": derefAll(e.FolderNames),
 	}
@@ -344,32 +343,7 @@ func refAlbumElem(raw json.RawMessage, path string) (refAlbum, error) {
 		}
 		elem[d.key] = goMoment(t, time.Time{})
 	}
-	return refAlbum{uuid: *e.UUID, title: e.Title, shared: e.Owner != nil, elem: elem}, nil
-}
-
-// Shared albums are dropped (general rule 8).
-func keptAndDropped(albums []refAlbum, name func(*string) string) (kept []refAlbum, keptNames, droppedNames map[string]bool) {
-	keptNames, droppedNames = map[string]bool{}, map[string]bool{}
-	for _, a := range albums {
-		if a.shared {
-			droppedNames[name(a.title)] = true
-			continue
-		}
-		kept = append(kept, a)
-		keptNames[name(a.title)] = true
-	}
-	return kept, keptNames, droppedNames
-}
-
-func albumsName(t *string) string { return deref(t) }
-
-// json.dumps writes the key None as null, so folders names an album without a
-// title "null".
-func foldersName(t *string) string {
-	if t == nil {
-		return "null"
-	}
-	return *t
+	return refAlbum{uuid: *e.UUID, elem: elem}, nil
 }
 
 type albumUUIDs func(*env, *photoinfo.PhotoInfo) []string
@@ -387,9 +361,8 @@ func albumInfoRule(key string, uuids albumUUIDs) rule {
 			if err != nil {
 				return nil, err
 			}
-			kept, _, _ := keptAndDropped(albums, albumsName)
 			byUUID := map[string]map[string]any{}
-			for _, a := range kept {
+			for _, a := range albums {
 				if _, dup := byUUID[a.uuid]; !dup {
 					byUUID[a.uuid] = a.elem
 				}
@@ -449,31 +422,11 @@ func sortedElems(byUUID map[string]map[string]any) []any {
 	return out
 }
 
-// The titles of shared albums are removed using infoKey, the list of albums of
-// the reference that the titles belong to.
-func albumsRule(key, infoKey string, uuids albumUUIDs) rule {
+func albumsRule(key string, uuids albumUUIDs) rule {
 	return rule{
 		key:         key,
 		needsAlbums: true,
-		ref: func(o Object) (any, error) {
-			albums, err := refAlbums(o, infoKey)
-			if err != nil {
-				return nil, err
-			}
-			_, keptNames, droppedNames := keptAndDropped(albums, albumsName)
-			titles, err := refStrings(o, key)
-			if err != nil {
-				return nil, err
-			}
-			out := []string{}
-			for _, t := range titles {
-				if droppedNames[t] && !keptNames[t] {
-					continue
-				}
-				out = append(out, t)
-			}
-			return out, nil
-		},
+		ref:         func(o Object) (any, error) { return refStrings(o, key) },
 		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
 			albums, err := members(e.albums, errAlbumMissing, uuids(e, p))
 			if err != nil {
@@ -554,11 +507,6 @@ func foldersRule() rule {
 		key:         "folders",
 		needsAlbums: true,
 		ref: func(o Object) (any, error) {
-			albums, err := refAlbums(o, "album_info")
-			if err != nil {
-				return nil, err
-			}
-			_, keptNames, droppedNames := keptAndDropped(albums, foldersName)
 			const want = "an object of lists of strings"
 			dict, err := decode[map[string][]*string](o, "folders", false, want)
 			if err != nil {
@@ -569,9 +517,7 @@ func foldersRule() rule {
 				if names == nil {
 					return nil, shape("folders", want)
 				}
-				if !droppedNames[title] || keptNames[title] {
-					out[title] = derefAll(names)
-				}
+				out[title] = derefAll(names)
 			}
 			return out, nil
 		},

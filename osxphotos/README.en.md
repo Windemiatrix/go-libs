@@ -87,7 +87,7 @@ Other models, including beta builds outside the ranges, give `ErrUnsupportedSche
 | Files on disk: original, Live, RAW, edited version and its Live video, adjustment files, previews (`PathEdited`, `PathEditedLive`, `AdjustmentsPath`, `OriginalAdjustmentsPath`, `PathDerivatives`); edit data: `Adjustments`, `OriginalAdjustments` | `photosdb`, `photoinfo`, `adjustmentsinfo` | done |
 | People on photos: names (`Persons`; a face without a name is `_UNKNOWN_`), for the library `DB.Persons`, `DB.PersonCounts` | `photosdb`, `photoinfo` | done |
 | Keywords of the library, their counts and those without a photo (`Keywords`, `KeywordCounts`, `KeywordsWithoutPhoto`) | `photosdb` | done |
-| Albums: title, folder path, members, dates, trash, sort order and place in the sidebar (`AlbumInfo`, `Album`; photos in the order of the album and the place of a photo in it: `AlbumPhotos`, `PhotoIndex`) | `photosdb`, `albuminfo` | done |
+| Albums: title, folder path, members, dates, trash, sort order and place in the sidebar (`AlbumInfo`, `Album`; photos in the order of the album and the place of a photo in it: `AlbumPhotos`, `PhotoIndex`); shared albums: `SharedAlbumInfo`, `SharedAlbumTitles`, the owner: `Owner` | `photosdb`, `albuminfo` | done |
 | Import sessions: title, dates, photos, the session of each photo (`ImportInfo`, `Import`, `ImportUUID`) | `photosdb`, `albuminfo` | done |
 | Projects ("My Projects"): title, dates, photos, the projects of each photo (`ProjectInfo`, `Project`, `ProjectInfoOf`, `ProjectUUIDs`) | `photosdb`, `albuminfo` | done |
 | The shared moment and shared library of a photo (`SharedMomentInfo`, `ShareInfo`) | `photosdb`, `photoinfo` | done |
@@ -98,7 +98,7 @@ Other models, including beta builds outside the ranges, give `ErrUnsupportedSche
 | File names on export | `export` | planned |
 | Import, albums, deletion through PhotoKit | `photokit` | planned |
 
-**Not included:** a command line, exporting files and sidecars, face data other than the names of people (face position and size), place names (coordinates are read), EXIF, search by photo content, the list of shared albums (their photos are read: `Shared`) and their comments, database repair, Photos 7 and older. osxphotos itself covers these.
+**Not included:** a command line, exporting files and sidecars, face data other than the names of people (face position and size), place names (coordinates are read), EXIF, search by photo content, comments of shared albums, and shared albums of Photos 11 and later, database repair, Photos 7 and older. osxphotos itself covers these.
 
 ## How it differs from osxphotos
 

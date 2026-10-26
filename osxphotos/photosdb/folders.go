@@ -33,10 +33,13 @@ func (db *DB) Folder(uuid string) (*albuminfo.FolderInfo, bool) {
 
 // FolderList returns the folders that enclose a, outermost first: osxphotos
 // AlbumInfo.folder_list (albuminfo.py:203-213, photosdb/photosdb.py:3091-3123);
-// nil for an album at the top level and for a project, as osxphotos
-// ProjectInfo.folder_list is always empty (albuminfo.py:385-392).
+// nil for an album at the top level, for a shared album, which osxphotos never
+// puts in folders (photosdb/photosdb.py:1992-1994), and for a project, as
+// osxphotos ProjectInfo.folder_list is always empty (albuminfo.py:385-392).
 func (db *DB) FolderList(a *albuminfo.AlbumInfo) []*albuminfo.FolderInfo {
-	if _, ok := db.Project(a.UUID); ok {
+	_, project := db.Project(a.UUID)
+	_, shared := findAlbum(db.sharedAlbums, a.UUID)
+	if project || shared {
 		return nil
 	}
 	var list []*albuminfo.FolderInfo

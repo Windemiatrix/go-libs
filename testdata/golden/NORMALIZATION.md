@@ -15,7 +15,7 @@ Upstream places are written as `file:line` relative to the `osxphotos/` package 
 5. **Lists of strings** are sorted by upstream in `json()` (`photoinfo.py:2279-2285`), except `location`; they are compared in order, and the Go side has to give the same order (by bytes of UTF-8, which is the order of code points). `null` in a list equals `""`. A list that is a set (`album_info`, `burst_album_info`, `project_info`) is compared as a set by `uuid`; `keywords` and `persons` are lists and keep repeats.
 6. **Strings are compared strictly.** Both sides are in Unicode NFC (`unicode.py:12, 76-92`); the comparison does not normalize, so a decomposed string on the Go side is a difference.
 7. **Paths** (`path*`) are not in `fields.txt`: the test libraries have no original files. When they appear, they are compared relative to the root of the library.
-8. **Shared albums are not read.** Upstream lists albums of kind 1505 (shared) together with kind 2 (`photoinfo.py:2023-2034`; `_constants.py:364-365`), the module reads only kind 2. A shared album is told by `owner` not `null` (`albuminfo.py:113-133`); such elements, and their titles when no kept element has the title, are dropped from the reference before the comparison. The rule is applied to the reference, never to Go: the owner of an album of the user is always `null`, so an album of the user that Go lost is not hidden. A shared album with `owner: null` (owner not found) and a shared and a user album with one title on one object (`folders` keeps one value) are not caught: they are records of `divergences.json` by UUID.
+8. **Shared albums are albums.** Upstream lists albums of kind 1505 (shared) together with kind 2 (`photoinfo.py:2023-2034`; `_constants.py:364-365`), and so does the module: `Library.SharedAlbums` holds them. Their `parent` is compared as that of a user album: upstream writes the `ZPARENTFOLDER` row unless it is the root folder (`albuminfo.py:229-234, 296`); only `folder_names` is always `[]` (`photosdb/photosdb.py:1992-1994`).
 
 ## Keys
 
@@ -24,10 +24,10 @@ One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and
 | Key | Go | Rule | Upstream |
 |---|---|---|---|
 | `adjustment_type` | `AdjustmentType` | integer; `null` = `nil`; `0` is not `null` | `photoinfo.py:802-805`; `photosdb/photosdb.py:2183` |
-| `album_info` | `AlbumUUIDs` → `Library.Albums`, albums in the trash left out | Set by `uuid` after rule 8. Per element: `uuid`; `title` (`null` = `""`); `parent` (`null` = `ParentUUID` `""`); `folder_names` in order; `creation_date` (a moment; 2001-01-01T00:00:00 = `nil`, as upstream defaults a missing value to 0 seconds of Core Data); `start_date`, `end_date` (`null` = `nil`). `folder_list`, `owner` and `sort_order` are not compared: Go has no counterpart | `photoinfo.py:655-662, 1991-2034`; `albuminfo.py:76-107, 135-143, 289-297`; `photosdb/photosdb.py:1937-1938` |
-| `albums` | titles of the same albums | Sorted set of titles, repeats merged; titles of dropped shared albums are removed unless a kept element of `album_info` has the title | `photoinfo.py:633-644` |
+| `album_info` | `AlbumUUIDs` → `Library.Albums` and `Library.SharedAlbums`, albums in the trash left out | Set by `uuid` (rule 8). Per element: `uuid`; `title` (`null` = `""`); `owner` (`null` = `Owner` `""`); `parent` (`null` = `ParentUUID` `""`); `folder_names` in order; `creation_date` (a moment; 2001-01-01T00:00:00 = `nil`, as upstream defaults a missing value to 0 seconds of Core Data); `start_date`, `end_date` (`null` = `nil`). `folder_list` and `sort_order` are not compared: Go has no counterpart. The details of the report write an owner as `<name>` | `photoinfo.py:655-662, 1991-2034`; `albuminfo.py:76-143, 289-297`; `photosdb/photosdb.py:1937-1938` |
+| `albums` | titles of the same albums | Sorted set of titles, repeats merged | `photoinfo.py:633-644` |
 | `burst` | `Burst` | boolean | `photosdb/photosdb.py:2212-2223` |
-| `burst_album_info` | `Library.BurstAlbums` (`photosdb.DB.BurstAlbumInfoOf`) → `Library.Albums`, albums in the trash left out | as `album_info` | `photoinfo.py:664-671` |
+| `burst_album_info` | `Library.BurstAlbums` (`photosdb.DB.BurstAlbumInfoOf`) → `Library.Albums` and `Library.SharedAlbums`, albums in the trash left out | as `album_info` | `photoinfo.py:664-671` |
 | `burst_albums` | titles of the same albums | as `albums` (by `burst_album_info`) | `photoinfo.py:646-653` |
 | `burst_default_pick` | `BurstDefaultPick` | boolean | `photoinfo.py:1021-1029`; `_constants.py:678` |
 | `burst_key` | `BurstKey` | boolean | `photoinfo.py:999-1007` |
@@ -44,7 +44,7 @@ One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and
 | `favorite` | `Favorite` | boolean | `photoinfo.py:812-815` |
 | `filename` | `Filename` | strict string | `photoinfo.py:114-140` |
 | `fingerprint` | `Fingerprint` | `null` = `""` | `photoinfo.py:1772-1775` |
-| `folders` | albums of `album_info` | Dictionary "title → `folder_names`" after rule 8: the same titles; with several Go albums of one title the value of the reference must equal `FolderNames` of one of them. An album without a title is the key `"null"` (`json.dumps` writes the key `None` as `null`; a mix of `None` and strings in keys cannot be sorted, so the reference has only that one key then) | `photoinfo.py:2125, 2286-2288` |
+| `folders` | albums of `album_info` | Dictionary "title → `folder_names`": the same titles; with several Go albums of one title the value of the reference must equal `FolderNames` of one of them. An album without a title is the key `"null"` (`json.dumps` writes the key `None` as `null`; a mix of `None` and strings in keys cannot be sorted, so the reference has only that one key then) | `photoinfo.py:2125, 2286-2288` |
 | `has_raw` | `HasRAW` | boolean | `photoinfo.py:1363-1366` |
 | `hasadjustments` | `HasAdjustments` | boolean | `photoinfo.py:738-741` |
 | `hdr` | `HDR` | boolean | `photoinfo.py:1291-1294`; `photosdb/photosdb.py:2248-2249` |
@@ -74,7 +74,7 @@ One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and
 | `panorama` | `Panorama` | boolean | `photoinfo.py:1276-1279`; `photosdb/photosdb.py:2257-2258` |
 | `persons` | `Persons` | list in the order of the reference, a name per face, repeats kept; a person without a name is `_UNKNOWN_` on both sides; the Go list is not sorted by the comparison | `photoinfo.py:597-603`; `photosdb/photosdb.py:1790-1796, 1844-1869`; `_constants.py:337` |
 | `portrait` | `Portrait` | boolean | `photoinfo.py:1306-1309`; `photosdb/photosdb.py:2250-2251` |
-| `project_info` | `ProjectUUIDs` → `Library.Projects` (`photosdb.DB.Project`), projects in the trash left out | as `album_info`, rule 8 included; `folder_names` is `[]`: projects are not in folders. `parent` is not compared: osxphotos writes it only when the parent row holds a folder or a user album outside the trash (`albuminfo.py:296, 525-527`), which depends on the other rows under that parent, not on the project; `TestProjects` checks `ParentUUID` against the database | `photoinfo.py:696-703, 1991-2034, 2228`; `albuminfo.py:289-297, 368-392, 525-527` |
+| `project_info` | `ProjectUUIDs` → `Library.Projects` (`photosdb.DB.Project`), projects in the trash left out | as `album_info`; `folder_names` is `[]`: projects are not in folders. `parent` is not compared: osxphotos writes it only when the parent row holds a folder or a user album outside the trash (`albuminfo.py:296, 525-527`), which depends on the other rows under that parent, not on the project; `TestProjects` checks `ParentUUID` against the database | `photoinfo.py:696-703, 1991-2034, 2228`; `albuminfo.py:289-297, 368-392, 525-527` |
 | `raw_original` | `RawOriginal` | boolean | `photoinfo.py:1373-1378` |
 | `saved_to_library` | `SavedToLibrary` | boolean | `photoinfo.py:1586-1599` |
 | `screen_recording` | `ScreenRecording` | boolean | `photoinfo.py:1301-1304`; `photosdb/photosdb.py:2237` |
@@ -144,7 +144,7 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 5. **Списки строк** upstream сортирует в `json()` (`photoinfo.py:2279-2285`), кроме `location`; сравниваются по порядку, Go обязан дать тот же порядок (по байтам UTF-8, это порядок кодовых точек). `null` в списке равно `""`. Список-множество (`album_info`, `burst_album_info`, `project_info`) сравнивается как множество по `uuid`; `keywords` и `persons` — списки, повторы сохраняются.
 6. **Строки сравниваются строго.** Обе стороны в Unicode NFC (`unicode.py:12, 76-92`); сравнение не нормализует, поэтому строка Go в разложенной форме — расхождение.
 7. **Пути** (`path*`) в `fields.txt` не входят: оригиналов в тестовых медиатеках нет. Появятся — сравниваются относительно корня медиатеки.
-8. **Общие альбомы не переносятся.** Upstream включает альбомы вида 1505 (общие) вместе с видом 2 (`photoinfo.py:2023-2034`; `_constants.py:364-365`), модуль читает только вид 2. Общий альбом узнаётся по `owner` не `null` (`albuminfo.py:113-133`); такие элементы и их названия (если названия нет ни у одного оставшегося элемента) убираются из эталона до сравнения. Правило применяется к эталону, не к Go: у альбома пользователя `owner` всегда `null`, поэтому потерянный Go альбом пользователя не прячется. Общий альбом с `owner: null` (владелец не найден) и общий и пользовательский альбом с одним названием у одного объекта (`folders` хранит одно значение) правило не ловит: это записи `divergences.json` по UUID.
+8. **Общие альбомы — альбомы.** Upstream включает альбомы вида 1505 (общие) вместе с видом 2 (`photoinfo.py:2023-2034`; `_constants.py:364-365`), модуль тоже: они в `Library.SharedAlbums`. Их `parent` сравнивается так же, как у альбома пользователя: upstream пишет строку `ZPARENTFOLDER`, если это не корневая папка (`albuminfo.py:229-234, 296`); только `folder_names` всегда `[]` (`photosdb/photosdb.py:1992-1994`).
 
 ### Ключи
 
@@ -153,10 +153,10 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 | Ключ | Go | Правило | Upstream |
 |---|---|---|---|
 | `adjustment_type` | `AdjustmentType` | целое; `null` = `nil`; `0` — не `null` | `photoinfo.py:802-805`; `photosdb/photosdb.py:2183` |
-| `album_info` | `AlbumUUIDs` → `Library.Albums`, альбомы в корзине не берутся | Множество по `uuid` после правила 8. У элемента: `uuid`; `title` (`null` = `""`); `parent` (`null` = `ParentUUID` `""`); `folder_names` по порядку; `creation_date` (момент; 2001-01-01T00:00:00 = `nil`: upstream подставляет вместо пустого значения 0 секунд Core Data); `start_date`, `end_date` (`null` = `nil`). `folder_list`, `owner` и `sort_order` не сравниваются: в Go их нет | `photoinfo.py:655-662, 1991-2034`; `albuminfo.py:76-107, 135-143, 289-297`; `photosdb/photosdb.py:1937-1938` |
-| `albums` | названия тех же альбомов | Отсортированное множество названий, повторы склеены; названия отброшенных общих альбомов убираются, если такого названия нет у оставшегося элемента `album_info` | `photoinfo.py:633-644` |
+| `album_info` | `AlbumUUIDs` → `Library.Albums` и `Library.SharedAlbums`, альбомы в корзине не берутся | Множество по `uuid` (правило 8). У элемента: `uuid`; `title` (`null` = `""`); `owner` (`null` = `Owner` `""`); `parent` (`null` = `ParentUUID` `""`); `folder_names` по порядку; `creation_date` (момент; 2001-01-01T00:00:00 = `nil`: upstream подставляет вместо пустого значения 0 секунд Core Data); `start_date`, `end_date` (`null` = `nil`). `folder_list` и `sort_order` не сравниваются: в Go их нет. Подробности отчёта пишут владельца как `<name>` | `photoinfo.py:655-662, 1991-2034`; `albuminfo.py:76-143, 289-297`; `photosdb/photosdb.py:1937-1938` |
+| `albums` | названия тех же альбомов | Отсортированное множество названий, повторы склеены | `photoinfo.py:633-644` |
 | `burst` | `Burst` | логическое | `photosdb/photosdb.py:2212-2223` |
-| `burst_album_info` | `Library.BurstAlbums` (`photosdb.DB.BurstAlbumInfoOf`) → `Library.Albums`, альбомы в корзине не берутся | как `album_info` | `photoinfo.py:664-671` |
+| `burst_album_info` | `Library.BurstAlbums` (`photosdb.DB.BurstAlbumInfoOf`) → `Library.Albums` и `Library.SharedAlbums`, альбомы в корзине не берутся | как `album_info` | `photoinfo.py:664-671` |
 | `burst_albums` | названия тех же альбомов | как `albums` (по `burst_album_info`) | `photoinfo.py:646-653` |
 | `burst_default_pick` | `BurstDefaultPick` | логическое | `photoinfo.py:1021-1029`; `_constants.py:678` |
 | `burst_key` | `BurstKey` | логическое | `photoinfo.py:999-1007` |
@@ -173,7 +173,7 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 | `favorite` | `Favorite` | логическое | `photoinfo.py:812-815` |
 | `filename` | `Filename` | строгая строка | `photoinfo.py:114-140` |
 | `fingerprint` | `Fingerprint` | `null` = `""` | `photoinfo.py:1772-1775` |
-| `folders` | альбомы `album_info` | Словарь «название → `folder_names`» после правила 8: названия те же; при нескольких альбомах Go с одним названием значение эталона должно совпасть с `FolderNames` одного из них. Альбом без названия — ключ `"null"` (`json.dumps` пишет ключ `None` как `null`; смесь `None` и строк в ключах не сортируется, поэтому в эталоне тогда только этот ключ) | `photoinfo.py:2125, 2286-2288` |
+| `folders` | альбомы `album_info` | Словарь «название → `folder_names`»: названия те же; при нескольких альбомах Go с одним названием значение эталона должно совпасть с `FolderNames` одного из них. Альбом без названия — ключ `"null"` (`json.dumps` пишет ключ `None` как `null`; смесь `None` и строк в ключах не сортируется, поэтому в эталоне тогда только этот ключ) | `photoinfo.py:2125, 2286-2288` |
 | `has_raw` | `HasRAW` | логическое | `photoinfo.py:1363-1366` |
 | `hasadjustments` | `HasAdjustments` | логическое | `photoinfo.py:738-741` |
 | `hdr` | `HDR` | логическое | `photoinfo.py:1291-1294`; `photosdb/photosdb.py:2248-2249` |
@@ -203,7 +203,7 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 | `panorama` | `Panorama` | логическое | `photoinfo.py:1276-1279`; `photosdb/photosdb.py:2257-2258` |
 | `persons` | `Persons` | список в порядке эталона, имя на каждое лицо, повторы сохраняются; человек без имени — `_UNKNOWN_` с обеих сторон; список Go сравнение не сортирует | `photoinfo.py:597-603`; `photosdb/photosdb.py:1790-1796, 1844-1869`; `_constants.py:337` |
 | `portrait` | `Portrait` | логическое | `photoinfo.py:1306-1309`; `photosdb/photosdb.py:2250-2251` |
-| `project_info` | `ProjectUUIDs` → `Library.Projects` (`photosdb.DB.Project`), проекты в корзине не берутся | как `album_info`, с правилом 8; `folder_names` — `[]`: проекты не лежат в папках. `parent` не сравнивается: osxphotos пишет его, только если в родительской строке есть папка или альбом пользователя вне корзины (`albuminfo.py:296, 525-527`), а это зависит от других строк под тем же родителем, а не от проекта; `ParentUUID` проверяет по базе `TestProjects` | `photoinfo.py:696-703, 1991-2034, 2228`; `albuminfo.py:289-297, 368-392, 525-527` |
+| `project_info` | `ProjectUUIDs` → `Library.Projects` (`photosdb.DB.Project`), проекты в корзине не берутся | как `album_info`; `folder_names` — `[]`: проекты не лежат в папках. `parent` не сравнивается: osxphotos пишет его, только если в родительской строке есть папка или альбом пользователя вне корзины (`albuminfo.py:296, 525-527`), а это зависит от других строк под тем же родителем, а не от проекта; `ParentUUID` проверяет по базе `TestProjects` | `photoinfo.py:696-703, 1991-2034, 2228`; `albuminfo.py:289-297, 368-392, 525-527` |
 | `raw_original` | `RawOriginal` | логическое | `photoinfo.py:1373-1378` |
 | `saved_to_library` | `SavedToLibrary` | логическое | `photoinfo.py:1586-1599` |
 | `screen_recording` | `ScreenRecording` | логическое | `photoinfo.py:1301-1304`; `photosdb/photosdb.py:2237` |

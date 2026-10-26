@@ -49,7 +49,7 @@ func photo(f func(p *photoinfo.PhotoInfo)) func(l *Library) {
 }
 
 func albumOf(l *Library, uuid string) *albuminfo.AlbumInfo {
-	for _, a := range l.Albums {
+	for _, a := range slices.Concat(l.Albums, l.SharedAlbums) {
 		if a.UUID == uuid {
 			return a
 		}
@@ -166,10 +166,17 @@ func photoMutations() []mutation {
 		}, "burst_photos"},
 
 		{"AlbumUUIDs empty", p(func(x *photoinfo.PhotoInfo) { x.AlbumUUIDs = nil }), "album_info albums folders"},
-		{"AlbumUUIDs without Album A in Folder X", p(func(x *photoinfo.PhotoInfo) { x.AlbumUUIDs = []string{albumAInFolderY, albumTrashed} }), "album_info"},
-		{"AlbumUUIDs without Album A in Folder Y", p(func(x *photoinfo.PhotoInfo) { x.AlbumUUIDs = []string{albumAInFolderX} }), "album_info folders"},
+		{"AlbumUUIDs without Album A in Folder X", p(func(x *photoinfo.PhotoInfo) {
+			x.AlbumUUIDs = []string{albumAInFolderY, albumTrashed, albumSharedS, albumSharedTitledA}
+		}), "album_info"},
+		{"AlbumUUIDs without Album A in Folder Y", p(func(x *photoinfo.PhotoInfo) {
+			x.AlbumUUIDs = []string{albumAInFolderX, albumSharedS, albumSharedTitledA}
+		}), "album_info folders"},
+		{"AlbumUUIDs without the shared albums", p(func(x *photoinfo.PhotoInfo) { x.AlbumUUIDs = []string{albumAInFolderX, albumAInFolderY} }), "album_info albums folders"},
 		{"BurstAlbums empty", func(l *Library) { l.BurstAlbums[selectedFrame] = nil }, "burst_album_info burst_albums"},
-		{"BurstAlbums without Album B", func(l *Library) { l.BurstAlbums[selectedFrame] = []string{albumAInFolderX, albumAInFolderY} }, "burst_album_info burst_albums"},
+		{"BurstAlbums without Album B", func(l *Library) {
+			l.BurstAlbums[selectedFrame] = []string{albumAInFolderX, albumAInFolderY, albumSharedS}
+		}, "burst_album_info burst_albums"},
 		{"an album in the trash is listed", func(l *Library) { l.BurstAlbums[selectedFrame] = append(l.BurstAlbums[selectedFrame], albumTrashed) }, ""},
 		{"an album of the library is listed", p(func(x *photoinfo.PhotoInfo) { x.AlbumUUIDs = append(x.AlbumUUIDs, albumOfNoPhoto) }), "album_info albums folders"},
 		{"Album A in Folder X goes to the trash", album(albumAInFolderX, func(a *albuminfo.AlbumInfo) { a.InTrash = true }), "album_info burst_album_info"},
@@ -182,6 +189,18 @@ func photoMutations() []mutation {
 		{"Album creation date by 1us", album(albumAInFolderX, func(a *albuminfo.AlbumInfo) { a.CreationDate = ptr(a.CreationDate.Add(time.Microsecond)) }), "album_info burst_album_info"},
 		{"Album start date", album(albumAInFolderY, func(a *albuminfo.AlbumInfo) { a.StartDate = ptr(utc(2000, 1, 1, 0, 0, 0, 0)) }), "album_info burst_album_info"},
 		{"Album end date", album(albumAInFolderY, func(a *albuminfo.AlbumInfo) { a.EndDate = nil }), "album_info burst_album_info"},
+		{"Album owner", album(albumAInFolderX, func(a *albuminfo.AlbumInfo) { a.Owner = "Owner A" }), "album_info burst_album_info"},
+		{"Shared album owner", album(albumSharedS, func(a *albuminfo.AlbumInfo) { a.Owner = "Owner B" }), "album_info burst_album_info"},
+		{"Shared album owner empty", album(albumSharedS, func(a *albuminfo.AlbumInfo) { a.Owner = "" }), "album_info burst_album_info"},
+		{"Shared album title", album(albumSharedS, func(a *albuminfo.AlbumInfo) { a.Title = "Shared Z" }), "album_info albums burst_album_info burst_albums folders"},
+		{"Shared album folder names", album(albumSharedS, func(a *albuminfo.AlbumInfo) { a.FolderNames = []string{"Folder X"} }), "album_info burst_album_info folders"},
+		{"Shared album creation date", album(albumSharedS, func(a *albuminfo.AlbumInfo) { a.CreationDate = nil }), "album_info burst_album_info"},
+		{"Shared album with the title of a user album goes to the trash", album(albumSharedTitledA, func(a *albuminfo.AlbumInfo) { a.InTrash = true }), "album_info"},
+		{"Shared album parent", album(albumSharedS, func(a *albuminfo.AlbumInfo) { a.ParentUUID = folderX }), "album_info burst_album_info"},
+		{"Shared album with a parent among the user albums", func(l *Library) {
+			l.SharedAlbums[0].ParentUUID = folderX
+			l.Albums, l.SharedAlbums = append(l.Albums, l.SharedAlbums[0]), l.SharedAlbums[1:]
+		}, "album_info burst_album_info"},
 
 		{"ImportUUID empty", p(func(x *photoinfo.PhotoInfo) { x.ImportUUID = "" }), "import_info"},
 		{"ImportUUID of another session", p(func(x *photoinfo.PhotoInfo) { x.ImportUUID = importBare }), "import_info"},
@@ -333,14 +352,46 @@ func TestWriteDetailsPersons(t *testing.T) {
 	}
 }
 
+func TestWriteDetailsOwners(t *testing.T) {
+	t.Parallel()
+	lib := fixtureLib()
+	albumOf(&lib, albumSharedS).Owner = "Owner B"
+	lib.Projects[0].Owner = "Owner C"
+	stale := Divergence{Library: "lib", UUID: emptyPhoto, Field: "burst_album_info", Want: []byte("[" + elemSharedS + "]"), Reason: "r", Upstream: "a.py:1"}
+	unparsed := Divergence{Library: "lib", UUID: emptyPhoto, Field: "project_info", Want: []byte(`{"owner":"Owner D"}`), Reason: "r", Upstream: "a.py:1"}
+	rep := compare(t, fixtureRef(), lib, stale, unparsed)
+	if got := diffKeys(rep); !slices.Equal(got, []string{"album_info", "burst_album_info", "project_info"}) {
+		t.Fatalf("differences in %v, want album_info, burst_album_info and project_info", got)
+	}
+	var b strings.Builder
+	if err := rep.WriteDetails(&b); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"Owner A", "Owner B", "Owner C", "Owner D"} {
+		if strings.Contains(b.String(), name) {
+			t.Errorf("WriteDetails writes the owner %s", name)
+		}
+	}
+	// album_info 2 + 2, burst_album_info 1 + 1, project_info 0 + 1, the stale record 1.
+	if n := strings.Count(b.String(), `"owner":"<name>"`); n != 8 {
+		t.Errorf("%d owners written as <name>, want 8:\n%s", n, b.String())
+	}
+	if !strings.Contains(b.String(), `"owner":""`) || !strings.Contains(b.String(), albumSharedS) {
+		t.Errorf("WriteDetails lost the empty owners or the UUIDs:\n%s", b.String())
+	}
+	if line := "stale project_info " + emptyPhoto + " want=<unparsed> got=*\n"; !strings.Contains(b.String(), line) {
+		t.Errorf("WriteDetails has no line %q:\n%s", line, b.String())
+	}
+}
+
 func TestCompareEquivalent(t *testing.T) {
 	t.Parallel()
 	cases := []mutation{
 		{"Date in the zone of the same offset", photo(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.In(time.FixedZone("X", 19800)) }), ""},
 		{"DateAdded in UTC", photo(func(x *photoinfo.PhotoInfo) { x.DateAdded = ptr(x.DateAdded.UTC()) }), ""},
 		{"albums in another order, a repeat", func(l *Library) {
-			l.Photos[0].AlbumUUIDs = []string{albumAInFolderX, albumAInFolderX, albumTrashed, albumAInFolderY, albumAInFolderY}
-			l.BurstAlbums[selectedFrame] = []string{albumAInFolderY, albumAInFolderX, albumBNoFolder}
+			l.Photos[0].AlbumUUIDs = []string{albumSharedS, albumAInFolderX, albumAInFolderX, albumTrashed, albumAInFolderY, albumSharedTitledA, albumAInFolderY}
+			l.BurstAlbums[selectedFrame] = []string{albumAInFolderY, albumSharedS, albumAInFolderX, albumBNoFolder}
 		}, ""},
 		{"an explicit 2001 for the creation date that osxphotos defaults", album(albumAInFolderY, func(a *albuminfo.AlbumInfo) { a.CreationDate = ptr(utc(2001, 1, 1, 0, 0, 0, 0)) }), ""},
 		{"the unselected frame with another pick", func(l *Library) { l.Photos[1].BurstPickType = 4 }, ""},
@@ -654,9 +705,27 @@ func TestCompareErrors(t *testing.T) {
 		{"a latitude that is a string", func() *Reference { r := fixtureRef(); r.Query[0]["latitude"] = []byte(`"` + marker + `"`); return r }, fixtureLib,
 			[]string{"latitude"}, "latitude: want a number or null"},
 		{"an album that is not an object", func() *Reference { r := fixtureRef(); r.Query[0]["album_info"] = []byte(`[5]`); return r }, fixtureLib,
-			[]string{"albums"}, "album_info[0]: want an object"},
+			[]string{"album_info"}, "album_info[0]: want an object"},
 		{"an album without a title key", func() *Reference { r := fixtureRef(); r.Query[0]["album_info"] = []byte(`[{"uuid": "x"}]`); return r }, fixtureLib,
-			[]string{"albums"}, "album_info[0].title: want a value"},
+			[]string{"album_info"}, "album_info[0].title: want a value"},
+		{"an owner that is not a string", func() *Reference {
+			r := fixtureRef()
+			r.Query[0]["album_info"] = []byte("[" + albumJSON(albumSharedS, `"Shared S"`, "null", "[]", "null", "null", "null", `{"k": "`+marker+`"}`) + "]")
+			return r
+		}, fixtureLib, []string{"album_info"}, "album_info[0]: want an album with values of the types osxphotos writes"},
+		{"a malformed album_info is not read for albums", func() *Reference { r := fixtureRef(); r.Query[0]["album_info"] = []byte(`[5]`); return r }, fixtureLib,
+			[]string{"albums", "folders"}, ""},
+		{"a shared album with the UUID of an album", fixtureRef, func() Library {
+			l := fixtureLib()
+			l.SharedAlbums = append(l.SharedAlbums, &albuminfo.AlbumInfo{UUID: albumOfNoPhoto})
+			return l
+		}, []string{"album_info"}, "an album UUID is repeated in Library.Albums, Library.SharedAlbums or Library.Projects"},
+		{"an album of a photo found only among the shared albums is found", fixtureRef, func() Library {
+			l := fixtureLib()
+			l.SharedAlbums = append(l.SharedAlbums, l.Albums[0])
+			l.Albums = l.Albums[1:]
+			return l
+		}, []string{"albums"}, ""},
 		{"folders that is a list", func() *Reference { r := fixtureRef(); r.Query[0]["folders"] = []byte(`[]`); return r }, fixtureLib,
 			[]string{"folders"}, "folders: want an object"},
 		{"a hasadjustments that is null while orientation is compared", func() *Reference { r := fixtureRef(); r.Query[0]["hasadjustments"] = []byte(`null`); return r }, fixtureLib,
@@ -681,12 +750,12 @@ func TestCompareErrors(t *testing.T) {
 			return l
 		}, []string{"album_info"}, "an album of a photo is missing from Library.Albums"},
 		{"a project UUID repeated", fixtureRef, func() Library { l := fixtureLib(); l.Projects = append(l.Projects, l.Projects[0]); return l },
-			[]string{"project_info"}, "an album UUID is repeated in Library.Albums or Library.Projects"},
+			[]string{"project_info"}, "an album UUID is repeated in Library.Albums, Library.SharedAlbums or Library.Projects"},
 		{"a project with the UUID of an album", fixtureRef, func() Library {
 			l := fixtureLib()
 			l.Projects = append(l.Projects, &albuminfo.AlbumInfo{UUID: albumOfNoPhoto})
 			return l
-		}, []string{"project_info"}, "an album UUID is repeated in Library.Albums or Library.Projects"},
+		}, []string{"project_info"}, "an album UUID is repeated in Library.Albums, Library.SharedAlbums or Library.Projects"},
 		{"an import_info that is a list", func() *Reference { r := fixtureRef(); r.Query[0]["import_info"] = []byte(`[]`); return r }, fixtureLib,
 			[]string{"import_info"}, "query.json element 1: import_info: want an object"},
 		{"an import_info without a title key", func() *Reference { r := fixtureRef(); r.Query[0]["import_info"] = []byte(`{"uuid": "x"}`); return r }, fixtureLib,
@@ -763,24 +832,38 @@ func TestCompareAlbumRules(t *testing.T) {
 		return rep
 	}
 
-	t.Run("shared albums are dropped from the reference", func(t *testing.T) {
+	t.Run("shared albums are compared", func(t *testing.T) {
 		t.Parallel()
 		lib := fixtureLib()
 		if rep := run(t, refObj(refSelectedFrame()), lib); !rep.OK() {
 			t.Errorf("differences %+v, want none", rep.Diffs)
 		}
 	})
-	t.Run("a shared album with owner null is a user album the Go side lost", func(t *testing.T) {
+	t.Run("a shared album that the Go side lost", func(t *testing.T) {
 		t.Parallel()
-		lost := albumJSON(albumSharedS, `"Shared S"`, "null", `["Shared Folder"]`, `"2020-03-03T03:03:03+00:00"`, "null", "null", "null")
-		ref := refObj(refSelectedFrame(), map[string]string{
-			"album_info":       "[" + strings.Join([]string{elemAInFolderX, elemAInFolderY, lost, elemSharedTitledA}, ", ") + "]",
-			"burst_album_info": "[" + strings.Join([]string{elemBNoFolder, elemAInFolderX, elemAInFolderY, lost}, ", ") + "]",
-		})
-		rep := run(t, ref, fixtureLib())
+		lib := fixtureLib()
+		lib.Photos[0].AlbumUUIDs = []string{albumAInFolderY, albumAInFolderX, albumSharedTitledA}
+		lib.BurstAlbums[selectedFrame] = []string{albumBNoFolder, albumAInFolderX, albumAInFolderY}
+		rep := run(t, refObj(refSelectedFrame()), lib)
 		want := []string{"album_info", "albums", "burst_album_info", "burst_albums", "folders"}
 		if got := diffKeys(rep); !slices.Equal(got, want) {
 			t.Errorf("differences in %v, want %v", got, want)
+		}
+	})
+	t.Run("a shared album without an owner", func(t *testing.T) {
+		t.Parallel()
+		unowned := albumJSON(albumSharedS, `"Shared S"`, "null", "[]", `"2020-03-03T03:03:03+00:00"`, "null", "null", "null")
+		ref := refObj(refSelectedFrame(), map[string]string{
+			"album_info":       "[" + strings.Join([]string{elemAInFolderX, elemAInFolderY, unowned, elemSharedTitledA}, ", ") + "]",
+			"burst_album_info": "[" + strings.Join([]string{elemBNoFolder, elemAInFolderX, elemAInFolderY, unowned}, ", ") + "]",
+		})
+		lib := fixtureLib()
+		if got := diffKeys(run(t, ref, lib)); !slices.Equal(got, []string{"album_info", "burst_album_info"}) {
+			t.Errorf("differences in %v, want album_info and burst_album_info", got)
+		}
+		albumOf(&lib, albumSharedS).Owner = ""
+		if rep := run(t, ref, lib); !rep.OK() {
+			t.Errorf("differences %+v, want none: null is the empty owner", rep.Diffs)
 		}
 	})
 	t.Run("only shared albums", func(t *testing.T) {
@@ -790,21 +873,13 @@ func TestCompareAlbumRules(t *testing.T) {
 			"albums":           `["Album A", "Shared S"]`,
 			"burst_album_info": "[" + elemSharedS + "]",
 			"burst_albums":     `["Shared S"]`,
-			"folders":          `{"Album A": ["Shared Folder"], "Shared S": ["Shared Folder"]}`,
+			"folders":          `{"Album A": [], "Shared S": []}`,
 		})
 		lib := fixtureLib()
-		lib.Photos[0].AlbumUUIDs, lib.BurstAlbums = nil, nil
+		lib.Photos[0].AlbumUUIDs = []string{albumSharedTitledA, albumSharedS}
+		lib.BurstAlbums[selectedFrame] = []string{albumSharedS}
 		if rep := run(t, ref, lib); !rep.OK() {
 			t.Errorf("differences %+v, want none", rep.Diffs)
-		}
-	})
-	t.Run("a shared album with the title of a user album keeps the title", func(t *testing.T) {
-		t.Parallel()
-		lib := fixtureLib()
-		lib.Photos[0].AlbumUUIDs = []string{albumTrashed}
-		rep := run(t, refObj(refSelectedFrame()), lib)
-		if got := diffKeys(rep); !slices.Equal(got, []string{"album_info", "albums", "folders"}) {
-			t.Errorf("differences in %v, want album_info, albums, folders: Album A of the user is missing on the Go side", got)
 		}
 	})
 	t.Run("an album without a title", func(t *testing.T) {
@@ -828,19 +903,22 @@ func TestCompareAlbumRules(t *testing.T) {
 	})
 	t.Run("two albums with one title: the reference keeps the last value", func(t *testing.T) {
 		t.Parallel()
-		ref := refObj(refSelectedFrame(), map[string]string{"folders": `{"Album A": ["Folder X"], "Shared S": ["Shared Folder"]}`})
-		if rep := run(t, ref, fixtureLib()); !rep.OK() {
-			t.Errorf("differences %+v, want none", rep.Diffs)
+		for _, folders := range []string{`{"Album A": ["Folder X"], "Shared S": []}`, `{"Album A": [], "Shared S": []}`} {
+			ref := refObj(refSelectedFrame(), map[string]string{"folders": folders})
+			if rep := run(t, ref, fixtureLib()); !rep.OK() {
+				t.Errorf("folders %s: differences %+v, want none", folders, rep.Diffs)
+			}
 		}
-		ref = refObj(refSelectedFrame(), map[string]string{"folders": `{"Album A": ["Folder Q"], "Shared S": ["Shared Folder"]}`})
+		ref := refObj(refSelectedFrame(), map[string]string{"folders": `{"Album A": ["Folder Q"], "Shared S": []}`})
 		rep := run(t, ref, fixtureLib())
 		if len(rep.Diffs) != 1 || rep.Diffs[0].Field != "folders" {
 			t.Fatalf("differences %+v, want folders only", rep.Diffs)
 		}
-		if want := `{"Album A":["Folder Q"]}`; rep.Diffs[0].Want != want {
-			t.Errorf("Want = %s, want %s: with no value to match, the smaller folder list is shown", rep.Diffs[0].Want, want)
+		if want := `{"Album A":["Folder Q"],"Shared S":[]}`; rep.Diffs[0].Want != want {
+			t.Errorf("Want = %s, want %s", rep.Diffs[0].Want, want)
 		}
-		if want := `{"Album A":["Folder X"]}`; rep.Diffs[0].Got != want {
+		// With no value to match, the smaller folder list is shown: that of the shared album.
+		if want := `{"Album A":[],"Shared S":[]}`; rep.Diffs[0].Got != want {
 			t.Errorf("Got = %s, want %s", rep.Diffs[0].Got, want)
 		}
 	})
