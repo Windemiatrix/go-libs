@@ -52,6 +52,14 @@ func copyFiles(ctx context.Context, src, dst string) error {
 }
 
 func copyFile(src, dst string) (err error) {
+	// Opening a named pipe for reading blocks until a writer appears.
+	fi, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if !fi.Mode().IsRegular() {
+		return fmt.Errorf("%s is not a regular file", src)
+	}
 	in, err := os.Open(src) //nolint:gosec // G304: the database path is given by the caller
 	if err != nil {
 		return err

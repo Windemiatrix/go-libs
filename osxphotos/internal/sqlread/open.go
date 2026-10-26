@@ -28,7 +28,9 @@ var afterCopy func(attempt int, copyPath string)
 // tempDir ("" is os.TempDir()), opens the copy read-only and runs
 // quick_check on every ordinary table. A failed open or check is retried
 // with a fresh copy, three attempts in total. Before copying, Open removes
-// copies left under tempDir by processes that no longer run.
+// copies left under tempDir by processes that no longer run. A database or
+// -wal that is not a regular file (a named pipe, a device, a directory) is an
+// error; it is not opened.
 //
 // The -shm file is not copied: SQLite rebuilds the WAL index from -wal on
 // the first connection to the copy, and a -shm taken at another moment than

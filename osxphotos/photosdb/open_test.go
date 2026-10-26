@@ -380,6 +380,8 @@ func TestOpenPathsTempDir(t *testing.T) {
 		{"the library of Photos.sqlite read while Options.LibraryPath is set", openPathDatabase(read),
 			Options{LibraryPath: elsewhere, TempDir: read}, read},
 		{"the library a linked Photos.sqlite points into", link, Options{TempDir: filepath.Join(elsewhere, "database")}, realElsewhere},
+		{"the library directory whose Photos.sqlite is a link", filepath.Dir(filepath.Dir(link)),
+			Options{TempDir: filepath.Join(elsewhere, "database")}, realElsewhere},
 	}
 	for _, tt := range tests {
 		before, beforeElsewhere := snapshotTree(t, read), snapshotTree(t, elsewhere)
@@ -389,6 +391,23 @@ func TestOpenPathsTempDir(t *testing.T) {
 		}
 		assertTree(t, tt.name, before, snapshotTree(t, read))
 		assertTree(t, tt.name, beforeElsewhere, snapshotTree(t, elsewhere))
+	}
+}
+
+func TestOpenNotDatabaseMessage(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "lib", "database")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(dir, "notes.txt")
+	if err := os.WriteFile(file, []byte(strings.Repeat("SECRET-CONTENT\n", 300)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Open(t.Context(), file, Options{TempDir: t.TempDir()})
+	if err == nil || !strings.Contains(err.Error(), "not a database") || strings.Contains(err.Error(), "SECRET") {
+		t.Errorf("Open error %v, want one that says the file is not a database, without its content", err)
 	}
 }
 
