@@ -25,6 +25,9 @@ type DB struct {
 
 	imports    []*albuminfo.ImportInfo // every import session, those in the trash included, ZUUID order
 	importInfo []*albuminfo.ImportInfo // osxphotos import_info, ZUUID order
+
+	momentShares  map[string]*photoinfo.ShareInfo // by photo UUID
+	libraryShares map[string]*photoinfo.ShareInfo // by photo UUID
 }
 
 // Close releases the DB. It releases nothing today: the copy of the

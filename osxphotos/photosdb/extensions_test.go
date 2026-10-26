@@ -146,11 +146,13 @@ func TestExtensionsResources(t *testing.T) {
 func TestExtensionsSharedLibraryAndNulls(t *testing.T) {
 	t.Parallel()
 	m := openMigrated(t, "Test-14.6.0")
-	if p := m.get(t, "shared-library-member"); !p.SharedLibrary || p.LibraryScopeShareState != 2 || p.LibraryScope != 7 {
-		t.Errorf("member: %v, %d, %d", p.SharedLibrary, p.LibraryScopeShareState, p.LibraryScope)
+	member := m.get(t, "shared-library-member")
+	share := m.db.ShareInfo(member)
+	if !member.SharedLibrary || member.LibraryScopeShareState != 2 || share != nil {
+		t.Errorf("member: %v, %d, a ShareInfo %v; want true, 2 and none: ZLIBRARYSCOPE names no ZSHARE row", member.SharedLibrary, member.LibraryScopeShareState, share != nil)
 	}
-	if p := m.get(t, "shared-library-null"); p.SharedLibrary || p.LibraryScopeShareState != 0 || p.LibraryScope != 0 {
-		t.Errorf("null: %v, %d, %d", p.SharedLibrary, p.LibraryScopeShareState, p.LibraryScope)
+	if p := m.get(t, "shared-library-null"); p.SharedLibrary || p.LibraryScopeShareState != 0 || m.db.ShareInfo(p) != nil {
+		t.Errorf("null: %v, %d, a ShareInfo %v", p.SharedLibrary, p.LibraryScopeShareState, m.db.ShareInfo(p) != nil)
 	}
 	p := m.get(t, "tzoffset-null")
 	pristine, ok := m.pristine.Photo(p.UUID)

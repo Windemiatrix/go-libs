@@ -71,6 +71,10 @@ var readers = []struct {
 		r, err := d.KeywordTitles(ctx)
 		return len(r), err
 	}},
+	{"Shares", func(ctx context.Context, d *DB, _ schema.Schema) (int, error) {
+		r, err := d.Shares(ctx)
+		return len(r), err
+	}},
 }
 
 func contains(list []string, s string) bool {
@@ -455,6 +459,8 @@ func TestReaderValueType(t *testing.T) {
 		{"album sort key", "UPDATE ZGENERICALBUM SET ZCUSTOMSORTKEY = 'SECRET-K' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
 		{"album sort ascending", "UPDATE ZGENERICALBUM SET ZCUSTOMSORTASCENDING = 'SECRET-A' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
 		{"album list order", "UPDATE ZGENERICALBUM SET Z_FOK_PARENTFOLDER = 'SECRET-O' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)", readers[5].run},
+		{"share scope type", "UPDATE ZSHARE SET ZSCOPETYPE = 'SECRET-T' WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZSHARE)", readers[7].run},
+		{"share creation date", "UPDATE ZSHARE SET ZCREATIONDATE = 'SECRET-D' WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZSHARE)", readers[7].run},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -693,6 +699,7 @@ func TestReadersEmpty(t *testing.T) {
 		"DELETE FROM ZADDITIONALASSETATTRIBUTES",
 		"DELETE FROM ZASSET",
 		"DELETE FROM ZGENERICALBUM",
+		"DELETE FROM ZSHARE",
 	)
 	if err := w.Close(); err != nil {
 		t.Fatal(err)

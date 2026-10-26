@@ -77,6 +77,7 @@ type tables struct {
 	faces     []sqlread.Face
 	members   []sqlread.Member
 	albums    []sqlread.Album
+	shares    []sqlread.Share
 }
 
 type catalog struct {
@@ -202,7 +203,6 @@ func photo(a sqlread.Asset, res []sqlread.Resource) *photoinfo.PhotoInfo {
 		SavedToLibrary:         !is(a.SyndicationHistory, syndicationHistoryNotSaved),
 		SharedLibrary:          a.ScopeParticipation.Valid && a.ScopeParticipation.Int64 != 0,
 		LibraryScopeShareState: intOf(a.ScopeShareState),
-		LibraryScope:           intOf(a.Scope),
 
 		IsReference: is(a.SavedAssetType, savedReference),
 

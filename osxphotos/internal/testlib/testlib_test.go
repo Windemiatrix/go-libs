@@ -139,7 +139,7 @@ var expected = map[string]libCase{
 			"original-filename-null", "original-filename-empty", "date-created-null"},
 		checks: []check{
 			{"SELECT ZACTIVELIBRARYSCOPEPARTICIPATIONSTATE || '|' || ZLIBRARYSCOPESHARESTATE || '|' || ZLIBRARYSCOPE " +
-				"FROM ZASSET WHERE Z_PK = " + pk("shared-library-member"), "1|2|7"},
+				"FROM ZASSET WHERE Z_PK = " + pk("shared-library-member"), "1|2|999999"},
 			{"SELECT COALESCE(ZACTIVELIBRARYSCOPEPARTICIPATIONSTATE, ZLIBRARYSCOPESHARESTATE, ZLIBRARYSCOPE) " +
 				"FROM ZASSET WHERE Z_PK = " + pk("shared-library-null"), "NULL"},
 			{"SELECT ZTIMEZONEOFFSET FROM ZADDITIONALASSETATTRIBUTES WHERE ZTITLE = 'mig:tzoffset-null'", "NULL"},

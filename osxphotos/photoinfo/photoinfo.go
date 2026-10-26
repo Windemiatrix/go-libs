@@ -1,5 +1,5 @@
-// Package photoinfo describes one photo or video of a Photos library as a
-// plain value. It does no I/O.
+// Package photoinfo describes one photo or video of a Photos library and the
+// share it belongs to as plain values. It does no I/O.
 package photoinfo
 
 import "time"
@@ -67,7 +67,7 @@ type PhotoInfo struct {
 	Hidden, Favorite, InTrash, HasAdjustments bool
 
 	Shared, Syndicated, SavedToLibrary, SharedLibrary bool
-	LibraryScopeShareState, LibraryScope              int // extension: not in osxphotos
+	LibraryScopeShareState                            int // extension: not in osxphotos
 
 	InCloud                              *bool // nil when the asset has no cloud master
 	IsMissing, IsCloudAsset, IsReference bool
@@ -104,3 +104,29 @@ const (
 	BurstPickSelected = 8  // BURST_SELECTED: the frame is selected
 	BurstPickKey      = 16 // BURST_KEY: the key frame of the burst
 )
+
+// ShareInfo is one ZSHARE row, a shared moment or a share of a shared
+// library: osxphotos ShareInfo (shareinfo.py:16-79). A NULL integer is nil, a
+// NULL string "" and NULL bytes nil; so is a column that the library does not
+// have (shareinfo.py:129-139). A date is in the time zone of the computer
+// (time.Local), nil for NULL, for 0 (shareinfo.py:74-75) and for a value
+// outside the years 1-9999 (photos_datetime.py:88-89). ShareURL opens the
+// share for anyone who has it: do not log or store it.
+type ShareInfo struct {
+	PK int64 // osxphotos _pk: ZSHARE.Z_PK
+
+	CloudDeleteState, LocalPublishState, PublicPermission, ScopeType, Status, TrashedState *int
+	AutoSharePolicy, CloudItemCount, CloudLocalState, CloudPhotoCount, CloudVideoCount     *int
+	ExitState, ParticipantCloudUpdateState, PreviewState, ScopeSyncingState, AssetCount    *int
+	ForceSyncAttempted, PhotosCount, ShouldIgnoreBudgets, ShouldNotifyOnUploadCompletion   *int
+	UploadedPhotosCount, UploadedVideosCount, VideosCount                                  *int
+	ExitSource, CountOfAssetsAddedByCameraSmartSharing, ExitType                           *int
+
+	CreationDate, ExpiryDate, TrashedDate, StartDate, EndDate *time.Time
+	LastParticipantAssetTrashNotificationDate                 *time.Time
+	LastParticipantAssetTrashNotificationViewedDate           *time.Time
+
+	ScopeIdentifier, Title, UUID, OriginatingScopeIdentifier, ShareURL string
+
+	RulesData, PreviewData, ThumbnailImageData []byte
+}

@@ -31,6 +31,7 @@ Only what is ported so far. Templates, export and PhotoKit appear together with 
 | `photosdb/_photosdb_process_shared_library.py` | `photosdb` |
 | `photosdb/_photosdb_process_syndicationinfo.py` | `photosdb` |
 | `photoinfo.py` | `photoinfo`, `photosdb` |
+| `shareinfo.py` | `photoinfo`, `photosdb`, `internal/sqlread` |
 | `albuminfo.py` | `albuminfo`, `photosdb` |
 | `photoquery.py` | `query` |
 | `photos_datetime.py` | `photosdb` |
@@ -87,6 +88,7 @@ If you only read three things: (1) models outside the supported table return `Er
 - `AlbumCounts` counts the photos of each album that `Photos()` returns, and an empty album adds 0. Upstream counts the membership rows, members without a `ZADDITIONALASSETATTRIBUTES` row included, sets the count of a title to 0 when an empty album of that title comes after another, and returns a dictionary ordered by the count, which a Go map does not keep (`photosdb/photosdb.py:511-526`, `photosdb/photosdb.py:1873-1901`).
 - `PhotoUUIDs` of an album is a set; `AlbumPhotos` gives the photos in the order of the album. A `NULL` position of a photo in an album comes before the numbers; upstream fails when an album has both (`albuminfo.py:37-53`, `albuminfo.py:165-187`). `PhotoIndex` of a photo not in the album returns -1, false; upstream raises `ValueError` (`albuminfo.py:280-287`).
 - `SystemLibraryPath` has no PhotoKit fallback (`utils.py:206-228`). When neither photolibraryd preferences file holds an absolute path without NUL, it returns `ErrLibraryNotFound`. Upstream returns any value of the key as is (`utils.py:180-206`).
+- `DB.SharedMomentInfo` and `DB.ShareInfo` (osxphotos `shared_moment_info` and `share_info`) come from the rows of `ZSHARE` read once in `Open`; upstream runs its query on every access (`shareinfo.py:129-148`, `photoinfo.py:1606-1626`), so a value of an unexpected type in `ZSHARE` fails `Open` here and only that property upstream. A date of 0 in `ShareInfo` is nil; upstream leaves the number 0 there (`shareinfo.py:74-75`). `DB.ShareInfo` follows `ZASSET.ZLIBRARYSCOPE`, a key that upstream itself calls a guess, ported as is (`shareinfo.py:156-165`). A library without a `ZSHARE` table gives no share, where upstream raises `OperationalError`.
 
 ## Extensions
 
@@ -97,7 +99,6 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `albuminfo.FolderInfo.CloudGUID`
 - `photoinfo.PhotoInfo.CloudAssetGUID`
 - `photoinfo.PhotoInfo.DateModifiedRaw`
-- `photoinfo.PhotoInfo.LibraryScope`
 - `photoinfo.PhotoInfo.LibraryScopeShareState`
 - `photoinfo.PhotoInfo.Resources`
 - `photoinfo.Resource`
@@ -129,6 +130,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 | `photosdb/_photosdb_process_shared_library.py` | `photosdb` |
 | `photosdb/_photosdb_process_syndicationinfo.py` | `photosdb` |
 | `photoinfo.py` | `photoinfo`, `photosdb` |
+| `shareinfo.py` | `photoinfo`, `photosdb`, `internal/sqlread` |
 | `albuminfo.py` | `albuminfo`, `photosdb` |
 | `photoquery.py` | `query` |
 | `photos_datetime.py` | `photosdb` |
@@ -185,6 +187,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `AlbumCounts` считает фото каждого альбома из тех, что отдаёт `Photos()`; пустой альбом добавляет 0. Upstream считает строки членства, включая объекты без строки `ZADDITIONALASSETATTRIBUTES`, обнуляет счёт названия, если пустой альбом с этим названием идёт после другого, и отдаёт словарь по убыванию счёта, а у `map` Go порядка нет (`photosdb/photosdb.py:511-526`, `photosdb/photosdb.py:1873-1901`).
 - `PhotoUUIDs` альбома — множество; фото в порядке альбома даёт `AlbumPhotos`. Позиция фото в альбоме `NULL` идёт раньше чисел; upstream падает, если в альбоме есть и то и другое (`albuminfo.py:37-53`, `albuminfo.py:165-187`). `PhotoIndex` фото не из альбома возвращает -1, false; upstream бросает `ValueError` (`albuminfo.py:280-287`).
 - У `SystemLibraryPath` нет запасного пути через PhotoKit (`utils.py:206-228`). Если ни один из двух файлов настроек photolibraryd не содержит абсолютный путь без NUL, возвращается `ErrLibraryNotFound`. Upstream возвращает любое значение ключа как есть (`utils.py:180-206`).
+- `DB.SharedMomentInfo` и `DB.ShareInfo` (`shared_moment_info` и `share_info` из osxphotos) берутся из строк `ZSHARE`, которые читаются один раз в `Open`; upstream выполняет запрос при каждом обращении (`shareinfo.py:129-148`, `photoinfo.py:1606-1626`), поэтому значение неожиданного типа в `ZSHARE` здесь ломает `Open`, а у upstream — только это свойство. Дата 0 в `ShareInfo` — nil; upstream оставляет там число 0 (`shareinfo.py:74-75`). `DB.ShareInfo` идёт по `ZASSET.ZLIBRARYSCOPE` — ключу, который upstream сам называет догадкой; перенесено как есть (`shareinfo.py:156-165`). Медиатека без таблицы `ZSHARE` не даёт долей, а upstream бросает `OperationalError`.
 
 ### Расширения
 
@@ -195,7 +198,6 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `albuminfo.FolderInfo.CloudGUID`
 - `photoinfo.PhotoInfo.CloudAssetGUID`
 - `photoinfo.PhotoInfo.DateModifiedRaw`
-- `photoinfo.PhotoInfo.LibraryScope`
 - `photoinfo.PhotoInfo.LibraryScopeShareState`
 - `photoinfo.PhotoInfo.Resources`
 - `photoinfo.Resource`

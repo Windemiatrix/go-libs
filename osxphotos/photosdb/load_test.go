@@ -234,14 +234,14 @@ func TestLoadFields(t *testing.T) {
 		{"not syndicated, history 1", func(a *sqlread.Asset) { a.SyndicationHistory = nullInt(1) }, nil,
 			func(p *photoInfo) bool { return !p.Syndicated && p.SavedToLibrary }},
 		{"shared library", func(a *sqlread.Asset) {
-			a.ScopeParticipation, a.ScopeShareState, a.Scope = nullInt(1), nullInt(2), nullInt(7)
+			a.ScopeParticipation, a.ScopeShareState = nullInt(1), nullInt(2)
 		}, nil, func(p *photoInfo) bool {
-			return p.SharedLibrary && p.LibraryScopeShareState == 2 && p.LibraryScope == 7
+			return p.SharedLibrary && p.LibraryScopeShareState == 2
 		}},
 		{"shared library NULL", func(a *sqlread.Asset) {
-			a.ScopeParticipation, a.ScopeShareState, a.Scope = sql.NullInt64{}, sql.NullInt64{}, sql.NullInt64{}
+			a.ScopeParticipation, a.ScopeShareState = sql.NullInt64{}, sql.NullInt64{}
 		}, nil, func(p *photoInfo) bool {
-			return !p.SharedLibrary && p.LibraryScopeShareState == 0 && p.LibraryScope == 0
+			return !p.SharedLibrary && p.LibraryScopeShareState == 0
 		}},
 		{"reference", func(a *sqlread.Asset) { a.SavedAssetType = nullInt(10) }, nil, func(p *photoInfo) bool { return p.IsReference }},
 		{"title and description NFC", func(a *sqlread.Asset) { a.Title, a.Description = nullString(nfd), nullString(nfd+"!") }, nil,

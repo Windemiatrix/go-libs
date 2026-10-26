@@ -111,6 +111,7 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 		return nil, err
 	}
 	imports, importInfo := loadImports(t.albums, c.photos)
+	momentShares, libraryShares := loadShares(t.shares, t.assets)
 	return &DB{
 		info: Info{
 			LibraryPath:   library,
@@ -137,6 +138,9 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 
 		imports:    imports,
 		importInfo: importInfo,
+
+		momentShares:  momentShares,
+		libraryShares: libraryShares,
 	}, nil
 }
 
@@ -207,6 +211,9 @@ func readTables(ctx context.Context, src *sqlread.DB, s schema.Schema) (t tables
 		return tables{}, err
 	}
 	if t.albums, err = src.Albums(ctx); err != nil {
+		return tables{}, err
+	}
+	if t.shares, err = src.Shares(ctx); err != nil {
 		return tables{}, err
 	}
 	return t, nil
