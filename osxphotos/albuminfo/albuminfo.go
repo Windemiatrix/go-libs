@@ -18,12 +18,13 @@ const (
 	AlbumSortTitle       AlbumSortOrder = 5
 )
 
-// AlbumInfo is one user album.
+// AlbumInfo is one user album or project (osxphotos ProjectInfo,
+// albuminfo.py:368-392).
 type AlbumInfo struct {
 	UUID                             string
 	CloudGUID                        string         // extension: not in osxphotos — ZGENERICALBUM.ZCLOUDGUID; "" when absent
 	Title                            string         // in NFC
-	ParentUUID                       string         // the enclosing folder; "" at the top level
+	ParentUUID                       string         // the enclosing folder, for a project its parent row of any ZKIND; "" at the top level
 	FolderNames                      []string       // titles of the enclosing folders, outermost first
 	PhotoUUIDs                       []string       // UUIDs of the member photos, sorted; DB.AlbumPhotos gives the order of the album
 	CreationDate, StartDate, EndDate *time.Time     // nil without a value; osxphotos gives 2001-01-01 for a missing creation date

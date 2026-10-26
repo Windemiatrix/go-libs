@@ -77,9 +77,10 @@ type PhotoInfo struct {
 	Persons             []string // the person of each face, ascending, repeats kept; UnknownPerson for a person without a name (photoinfo.py:597-603)
 	Latitude, Longitude *float64
 
-	AlbumUUIDs []string   // albums of the asset, trashed albums included; ascending
-	ImportUUID string     // ZUUID of the ZGENERICALBUM row of ZASSET.ZIMPORTSESSION, of any ZKIND (DB.Import finds only ZKIND 1506); "" without one (photoinfo.py:673-680)
-	Resources  []Resource // extension: not in osxphotos — in Z_PK order
+	AlbumUUIDs   []string   // albums of the asset, trashed albums included; ascending
+	ProjectUUIDs []string   // projects (ZKIND 1508) of the asset, trashed ones included; ascending (photoinfo.py:696-703, 2022-2034)
+	ImportUUID   string     // ZUUID of the ZGENERICALBUM row of ZASSET.ZIMPORTSESSION, of any ZKIND (DB.Import finds only ZKIND 1506); "" without one (photoinfo.py:673-680)
+	Resources    []Resource // extension: not in osxphotos — in Z_PK order
 }
 
 // UnknownPerson is the name of a person without a name in Persons

@@ -270,16 +270,26 @@ func TestReadersRows(t *testing.T) {
 				t.Fatal(err)
 			}
 			memberRows := " FROM " + n.MemberTable + " m JOIN ZGENERICALBUM g ON g.Z_PK = m." +
-				n.MemberAlbumColumn + " WHERE g.ZKIND = 2 AND m." + n.MemberAssetColumn + " IS NOT NULL AND g.ZUUID IS NOT NULL"
+				n.MemberAlbumColumn + " WHERE g.ZKIND IN (2, 1508) AND m." + n.MemberAssetColumn + " IS NOT NULL AND g.ZUUID IS NOT NULL"
 			if want := count(t, ro, "SELECT COUNT(*)"+memberRows); int64(len(members)) != want {
 				t.Errorf("Members: %d rows, want %d", len(members), want)
 			}
-			var ordered, orderSum int64
+			var ordered, orderSum, ofProjects int64
 			for _, m := range members {
 				if m.Order.Valid {
 					ordered++
 					orderSum += m.Order.Int64
 				}
+				switch m.Kind {
+				case KindProject:
+					ofProjects++
+				case KindUserAlbum:
+				default:
+					t.Errorf("Members: Kind %d", m.Kind)
+				}
+			}
+			if want := count(t, ro, "SELECT COUNT(*)"+memberRows+" AND g.ZKIND = 1508"); ofProjects != want {
+				t.Errorf("Members: %d of projects, want %d", ofProjects, want)
 			}
 			if want := count(t, ro, "SELECT COUNT(m."+n.MemberOrderColumn+")"+memberRows); ordered != want {
 				t.Errorf("Members: %d with an order, want %d", ordered, want)
@@ -293,12 +303,31 @@ func TestReadersRows(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if want := count(t, ro, "SELECT COUNT(*) FROM ZGENERICALBUM WHERE ZKIND IN (2, 1506, 3999, 4000) AND ZUUID IS NOT NULL"); int64(len(albums)) != want {
+			if want := count(t, ro, "SELECT COUNT(*) FROM ZGENERICALBUM WHERE ZKIND IN (2, 1506, 1508, 3999, 4000) AND ZUUID IS NOT NULL"); int64(len(albums)) != want {
 				t.Errorf("Albums: %d rows, want %d", len(albums), want)
 			}
 			for i := 1; i < len(albums); i++ {
 				if albums[i-1].PK >= albums[i].PK {
 					t.Errorf("Albums: row %d out of Z_PK order", i+1)
+				}
+			}
+			var withParent int64
+			for _, a := range albums {
+				if a.ParentUUID.Valid {
+					withParent++
+				}
+			}
+			if want := count(t, ro, "SELECT COUNT(p.ZUUID) FROM ZGENERICALBUM g JOIN ZGENERICALBUM p ON p.Z_PK = g.ZPARENTFOLDER "+
+				"WHERE g.ZKIND IN (2, 1506, 1508, 3999, 4000) AND g.ZUUID IS NOT NULL"); withParent != want {
+				t.Errorf("Albums: %d with the ZUUID of a parent, want %d", withParent, want)
+			}
+			byPK := map[int64]string{}
+			for _, a := range albums {
+				byPK[a.PK] = a.UUID
+			}
+			for _, a := range albums {
+				if u, ok := byPK[a.Parent.Int64]; a.Parent.Valid && ok && a.ParentUUID.String != u {
+					t.Errorf("Albums: row %d: ParentUUID is not the ZUUID of its ZPARENTFOLDER row", a.PK)
 				}
 			}
 			var sums [3]int64
@@ -308,7 +337,7 @@ func TestReadersRows(t *testing.T) {
 				sums[2] += a.ListOrder.Int64 * a.PK
 			}
 			for i, col := range []string{"ZCUSTOMSORTKEY", "ZCUSTOMSORTASCENDING", "Z_FOK_PARENTFOLDER"} {
-				if want := count(t, ro, "SELECT COALESCE(SUM("+col+" * Z_PK), 0) FROM ZGENERICALBUM WHERE ZKIND IN (2, 1506, 3999, 4000) AND ZUUID IS NOT NULL"); sums[i] != want {
+				if want := count(t, ro, "SELECT COALESCE(SUM("+col+" * Z_PK), 0) FROM ZGENERICALBUM WHERE ZKIND IN (2, 1506, 1508, 3999, 4000) AND ZUUID IS NOT NULL"); sums[i] != want {
 					t.Errorf("Albums: sum of %s * Z_PK %d, want %d", col, sums[i], want)
 				}
 			}
@@ -526,7 +555,7 @@ func TestReadersNull(t *testing.T) {
 	}
 	wantMembers := count(t, ro, "SELECT COUNT(*) FROM Z_33ASSETS") - 2
 	wantRes := count(t, ro, "SELECT COUNT(*) FROM ZINTERNALRESOURCE") - 1
-	wantAlbums := count(t, ro, "SELECT COUNT(*) FROM ZGENERICALBUM WHERE ZKIND IN (2, 1506, 3999, 4000)") - 1
+	wantAlbums := count(t, ro, "SELECT COUNT(*) FROM ZGENERICALBUM WHERE ZKIND IN (2, 1506, 1508, 3999, 4000)") - 1
 	d := openDB(t, path)
 	n := schemaByID(t, "photos11_1")
 	for _, r := range readers {

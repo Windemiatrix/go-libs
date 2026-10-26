@@ -89,7 +89,7 @@ func TestAlbumShape(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			for _, key := range []string{"album_info", "burst_album_info"} {
+			for _, key := range []string{"album_info", "burst_album_info", "project_info"} {
 				_, err := rules[key].ref(Object{key: []byte("[" + c.elem + "]")})
 				want := strings.ReplaceAll(c.want, "album_info", key)
 				var se *shapeError
@@ -125,22 +125,25 @@ func TestAlbumsMissingOnTheGoSide(t *testing.T) {
 		t.Run(key, func(t *testing.T) {
 			t.Parallel()
 			lib := Library{
-				Photos:      []*photoinfo.PhotoInfo{{UUID: selectedFrame, IsPhoto: true, AlbumUUIDs: []string{albumAInFolderX}, ImportUUID: importSession}},
+				Photos: []*photoinfo.PhotoInfo{{
+					UUID: selectedFrame, IsPhoto: true, AlbumUUIDs: []string{albumAInFolderX}, ProjectUUIDs: []string{projectP}, ImportUUID: importSession,
+				}},
 				Albums:      []*albuminfo.AlbumInfo{{UUID: albumOfNoPhoto}},
 				BurstAlbums: map[string][]string{selectedFrame: {albumAInFolderX}},
 				Imports:     []*albuminfo.ImportInfo{{UUID: importBare}},
+				Projects:    []*albuminfo.AlbumInfo{{UUID: projectTrashed}},
 			}
-			missing := "missing from Library.Albums"
-			if key == "import_info" {
-				missing = "missing from Library.Imports"
+			missing := map[string]string{"import_info": "missing from Library.Imports", "project_info": "missing from Library.Projects"}[key]
+			if missing == "" {
+				missing = "missing from Library.Albums"
 			}
 			ref := refOf(refObj(refSelectedFrame()))
 			_, err := Compare(ref, lib, []string{key}, nil)
 			if err == nil || !strings.Contains(err.Error(), missing) || !strings.Contains(err.Error(), "key "+key) {
-				t.Errorf("error = %v, want one about a missing album or import session for %s", err, key)
+				t.Errorf("error = %v, want one about a missing album, import session or project for %s", err, key)
 			}
-			if err != nil && (strings.Contains(err.Error(), albumAInFolderX) || strings.Contains(err.Error(), importSession)) {
-				t.Errorf("the error names the album or the import session: %v", err)
+			if err != nil && (strings.Contains(err.Error(), albumAInFolderX) || strings.Contains(err.Error(), importSession) || strings.Contains(err.Error(), projectP)) {
+				t.Errorf("the error names the album, the import session or the project: %v", err)
 			}
 		})
 	}

@@ -28,7 +28,8 @@ type Library struct {
 	// an entry has none; may be nil without AlbumKeys.
 	BurstAlbums map[string][]string
 
-	Imports []*albuminfo.ImportInfo // every import session, trashed ones included: the sessions of PhotoInfo.ImportUUID; may be nil without AlbumKeys
+	Imports  []*albuminfo.ImportInfo // every import session, trashed ones included: the sessions of PhotoInfo.ImportUUID; may be nil without AlbumKeys
+	Projects []*albuminfo.AlbumInfo  // every project, trashed ones included: the projects of PhotoInfo.ProjectUUIDs (photosdb.DB.Project); may be nil without AlbumKeys
 }
 
 // Diff is one difference between the reference and Go.
@@ -54,36 +55,44 @@ func (r *Report) OK() bool { return len(r.Diffs) == 0 && len(r.Stale) == 0 }
 
 type env struct {
 	albums        map[string]*albuminfo.AlbumInfo
-	goAlbumElems  map[string]map[string]any
+	projects      map[string]*albuminfo.AlbumInfo
+	goAlbumElems  map[string]map[string]any // albums and projects
 	goImportElems map[string]map[string]any
 	bursts        map[string][]string
 	burstAlbums   map[string][]string
 }
 
 var (
-	errAlbumMissing  = errors.New("an album of a photo is missing from Library.Albums")
-	errImportMissing = errors.New("an import session of a photo is missing from Library.Imports")
+	errAlbumMissing   = errors.New("an album of a photo is missing from Library.Albums")
+	errImportMissing  = errors.New("an import session of a photo is missing from Library.Imports")
+	errProjectMissing = errors.New("a project of a photo is missing from Library.Projects")
 )
 
 func newEnv(lib Library) (*env, error) {
 	e := &env{
 		albums:        map[string]*albuminfo.AlbumInfo{},
+		projects:      map[string]*albuminfo.AlbumInfo{},
 		goAlbumElems:  map[string]map[string]any{},
 		goImportElems: map[string]map[string]any{},
 		bursts:        map[string][]string{},
 		burstAlbums:   lib.BurstAlbums,
 	}
-	for _, a := range lib.Albums {
-		if _, dup := e.albums[a.UUID]; dup {
-			return nil, errors.New("golden: an album UUID is repeated in Library.Albums")
+	for _, set := range []struct {
+		albums []*albuminfo.AlbumInfo
+		index  map[string]*albuminfo.AlbumInfo
+	}{{lib.Albums, e.albums}, {lib.Projects, e.projects}} {
+		for _, a := range set.albums {
+			if _, dup := e.goAlbumElems[a.UUID]; dup {
+				return nil, errors.New("golden: an album UUID is repeated in Library.Albums or Library.Projects")
+			}
+			set.index[a.UUID] = a
+			e.goAlbumElems[a.UUID] = withDates(map[string]any{
+				"uuid":         a.UUID,
+				"title":        a.Title,
+				"parent":       a.ParentUUID,
+				"folder_names": strs(a.FolderNames),
+			}, a.CreationDate, a.StartDate, a.EndDate)
 		}
-		e.albums[a.UUID] = a
-		e.goAlbumElems[a.UUID] = withDates(map[string]any{
-			"uuid":         a.UUID,
-			"title":        a.Title,
-			"parent":       a.ParentUUID,
-			"folder_names": strs(a.FolderNames),
-		}, a.CreationDate, a.StartDate, a.EndDate)
 	}
 	for _, s := range lib.Imports {
 		if _, dup := e.goImportElems[s.UUID]; dup {
@@ -185,10 +194,10 @@ func selectRules(keys []string) (selected []rule, names []string, err error) {
 // lists uuid; the Go set is what upstream photos() returns
 // (photosdb/photosdb.py:3346-3360). An error is a problem of the input, not
 // a difference: an unknown key, a reference value of the wrong shape, an
-// album UUID missing from lib.Albums or an import session missing from
-// lib.Imports, a UUID repeated in ref (Query and Deleted together), in
-// lib.Photos, in lib.Albums or in lib.Imports. Errors carry no UUID and no
-// value.
+// album UUID missing from lib.Albums, a project missing from lib.Projects or
+// an import session missing from lib.Imports, a UUID repeated in ref (Query
+// and Deleted together), in lib.Photos, in lib.Albums and lib.Projects
+// together or in lib.Imports. Errors carry no UUID and no value.
 func Compare(ref *Reference, lib Library, keys []string, divs []Divergence) (*Report, error) {
 	selected, names, err := selectRules(keys)
 	if err != nil {

@@ -1,7 +1,7 @@
 # Keys of `osxphotos query --json` (PhotoInfo.json(shallow=False),
 # osxphotos/photoinfo.py:2119-2253) kept in testdata/golden. golden-regen.yml
-# keeps only these top-level keys; nested objects (album_info, import_info)
-# are kept whole.
+# keeps only these top-level keys; nested objects (album_info, import_info,
+# project_info) are kept whole.
 adjustment_type
 album_info
 albums
@@ -53,6 +53,7 @@ original_width
 panorama
 persons
 portrait
+project_info
 raw_original
 saved_to_library
 screen_recording

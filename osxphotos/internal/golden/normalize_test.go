@@ -291,7 +291,7 @@ func TestNormalizeGoSide(t *testing.T) {
 			"location": `[null,null]`, "keywords": `[]`, "burst_photos": `[]`, "title": `""`, "width": `0`,
 			"persons": `[]`, "burst_default_pick": `false`,
 			"adjustment_type": `null`, "imported_by": `["",""]`, "spatial": `0`, "tzname": `""`, "visible": `false`,
-			"import_info": `{}`,
+			"import_info": `{}`, "project_info": `[]`,
 		}
 		for key, w := range want {
 			if got := goCanon(t, key, p); got != w {
