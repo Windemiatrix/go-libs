@@ -610,7 +610,7 @@ func TestOpenSharedAlbum(t *testing.T) {
 		t.Fatal(err)
 	}
 	if inAlbum(before) == 0 || !listed(before) {
-		t.Fatal("the user album has no photos or is not in Albums before the change")
+		t.Fatal("the user album has no photos or is not among the albums read before the change")
 	}
 	change(t, lib, "UPDATE ZGENERICALBUM SET ZKIND = 1505 WHERE ZUUID = '"+album+"'")
 	after, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
@@ -621,7 +621,7 @@ func TestOpenSharedAlbum(t *testing.T) {
 		t.Errorf("%d photos list the shared album", n)
 	}
 	if listed(after) {
-		t.Error("the shared album is in Albums")
+		t.Error("the shared album is among the albums read")
 	}
 }
 

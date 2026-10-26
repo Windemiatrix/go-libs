@@ -192,10 +192,10 @@ func TestExtensionsBurst(t *testing.T) {
 			t.Parallel()
 			m := openMigrated(t, name)
 			key := m.get(t, "burst-key")
-			if len(key.AlbumUUIDs) == 0 {
-				t.Fatal("burst-key has no albums")
-			}
 			keyAlbums := lookupUUIDs(m.db.AlbumInfoOf(key))
+			if len(keyAlbums) == 0 {
+				t.Fatal("burst-key has no album outside the trash")
+			}
 			selected := m.db.Query(query.Options{})
 			for _, tt := range []struct {
 				marker                      string

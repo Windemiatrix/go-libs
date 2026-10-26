@@ -306,7 +306,7 @@ func TestFolders(t *testing.T) {
 				}
 				for i, a := range f.Albums {
 					if a != byAlbum[a.UUID] || a.ParentUUID != u || a.InTrash || (i > 0 && f.Albums[i-1].UUID >= a.UUID) {
-						t.Errorf("folder %s: album %d is not the value of Albums(), is not in it, is in the trash or is out of UUID order", u, i)
+						t.Errorf("folder %s: album %d is not the album read, is not in it, is in the trash or is out of UUID order", u, i)
 					}
 				}
 			}
@@ -385,7 +385,7 @@ func TestFoldersGolden(t *testing.T) {
 					}
 					a, ok := byAlbum[e.UUID]
 					if !ok {
-						t.Errorf("album %s of album_info is not in Albums()", e.UUID)
+						t.Errorf("album %s of album_info is not among the albums read", e.UUID)
 						continue
 					}
 					names := make([]string, len(e.FolderNames))

@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
@@ -509,54 +508,6 @@ func TestLoadOtherAssetFingerprint(t *testing.T) {
 	}
 	if c.byUUID["A-1"].IsMissing || !c.byUUID["A-2"].IsMissing {
 		t.Errorf("IsMissing = %v, %v; want false, true", c.byUUID["A-1"].IsMissing, c.byUUID["A-2"].IsMissing)
-	}
-}
-
-func TestBurstAlbumInfoOf(t *testing.T) {
-	t.Parallel()
-
-	burst := func(pk int64, uuid, burstUUID string, pick int64) sqlread.Asset {
-		a := baseAsset(pk, uuid)
-		a.BurstUUID, a.BurstPickType = nullString(burstUUID), nullInt(pick)
-		return a
-	}
-	const withKey, withoutKey = "WITH-KEY", "WITHOUT-KEY"
-	in := tables{
-		assets: []sqlread.Asset{
-			burst(1, "K", withKey, photoinfo.BurstPickKey), burst(2, "S", withKey, photoinfo.BurstPickSelected),
-			burst(3, "U", withKey, pickUnselected),
-			burst(4, "E1", "", photoinfo.BurstPickKey), burst(5, "E2", "", 0),
-			baseAsset(6, "N"),
-			burst(7, "O", withoutKey, pickUnselected),
-		},
-		members: []sqlread.Member{
-			{AssetPK: 1, AlbumUUID: "AL-K"}, {AssetPK: 1, AlbumUUID: "AL-T"}, {AssetPK: 2, AlbumUUID: "AL-S"},
-			{AssetPK: 2, AlbumUUID: "AL-K"}, {AssetPK: 4, AlbumUUID: "AL-E"}, {AssetPK: 6, AlbumUUID: "AL-N"},
-			{AssetPK: 7, AlbumUUID: "AL-O"},
-		},
-	}
-	c, err := load(in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var albums []*albuminfo.AlbumInfo
-	for _, u := range []string{"AL-E", "AL-K", "AL-N", "AL-O", "AL-S", "AL-T"} {
-		albums = append(albums, &albuminfo.AlbumInfo{UUID: u, Title: u, InTrash: u == "AL-T"})
-	}
-	db := &DB{photos: c.photos, byUUID: c.byUUID, albums: albums, bursts: indexBursts(c.photos)}
-	want := map[string][]string{
-		"K":  {"AL-K"},
-		"S":  {"AL-K", "AL-S"},
-		"U":  {"AL-K"},
-		"E1": {"AL-E"},
-		"E2": {"AL-E"},
-		"N":  {"AL-N"},
-		"O":  {"AL-O"},
-	}
-	for uuid, w := range want {
-		if got := lookupUUIDs(db.BurstAlbumInfoOf(c.byUUID[uuid])); !slices.Equal(got, w) {
-			t.Errorf("%s: BurstAlbumInfoOf = %q, want %q", uuid, got, w)
-		}
 	}
 }
 
