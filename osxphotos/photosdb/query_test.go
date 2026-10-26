@@ -52,6 +52,7 @@ type queryRef struct {
 	Panorama         bool            `json:"panorama"`
 	SharedMoment     bool            `json:"shared_moment"`
 	Keywords         []string        `json:"keywords"`
+	Persons          []string        `json:"persons"`
 	Title            string          `json:"title"`
 	Description      string          `json:"description"`
 	OriginalFilename string          `json:"original_filename"`
@@ -246,20 +247,29 @@ func queryValues(refs []queryRef, values func(queryRef) []string) []string {
 
 func queryTextCases(refs []queryRef) []queryCase {
 	var cases []queryCase
-	keywords := queryValues(refs, func(r queryRef) []string { return r.Keywords })
-	for i, k := range keywords {
-		cases = append(cases, queryCase{fmt.Sprintf("keyword %d", i), "keywords", []string{"keywords"}, query.Options{Keyword: []string{k}},
-			func(r queryRef) bool { return slices.Contains(r.Keywords, norm.NFC.String(k)) }})
-		upper := strings.ToUpper(k)
-		if upper == k { // a caseless value cannot catch an ignored IgnoreCase
-			continue
+	for _, f := range []struct {
+		name, key string
+		list      func(queryRef) []string
+		option    func(values []string) query.Options
+	}{
+		{"keyword", "keywords", func(r queryRef) []string { return r.Keywords }, func(v []string) query.Options { return query.Options{Keyword: v} }},
+		{"person", "persons", func(r queryRef) []string { return r.Persons }, func(v []string) query.Options { return query.Options{Person: v} }},
+	} {
+		for i, k := range queryValues(refs, f.list) {
+			cases = append(cases, queryCase{fmt.Sprintf("%s %d", f.name, i), f.key, []string{f.key}, f.option([]string{k}),
+				func(r queryRef) bool { return slices.Contains(f.list(r), norm.NFC.String(k)) }})
+			upper := strings.ToUpper(k)
+			if upper == k { // a caseless value cannot catch an ignored IgnoreCase
+				continue
+			}
+			folded := strings.ToLower(norm.NFC.String(upper))
+			ignoreCase := f.option([]string{upper})
+			ignoreCase.IgnoreCase = true
+			cases = append(cases, queryCase{fmt.Sprintf("%s %d in upper case, ignore case", f.name, i), f.key, []string{f.key}, ignoreCase,
+				func(r queryRef) bool {
+					return slices.ContainsFunc(f.list(r), func(x string) bool { return strings.ToLower(x) == folded })
+				}})
 		}
-		folded := strings.ToLower(norm.NFC.String(upper))
-		cases = append(cases, queryCase{fmt.Sprintf("keyword %d in upper case, ignore case", i), "keywords", []string{"keywords"},
-			query.Options{Keyword: []string{upper}, IgnoreCase: true},
-			func(r queryRef) bool {
-				return slices.ContainsFunc(r.Keywords, func(x string) bool { return strings.ToLower(x) == folded })
-			}})
 	}
 	cases = append(cases, queryCase{"no keyword", "keywords", []string{"keywords"}, query.Options{NoKeyword: true},
 		func(r queryRef) bool { return len(r.Keywords) == 0 }})
@@ -486,7 +496,7 @@ func TestQueryGolden(t *testing.T) {
 			})
 		}
 	})
-	for _, f := range []string{"flags", "keywords", "texts", "albums", "folders", "dates"} {
+	for _, f := range []string{"flags", "keywords", "persons", "texts", "albums", "folders", "dates"} {
 		if expected[f] == 0 {
 			t.Errorf("family %s: no case of any library expects a photo; the test is vacuous", f)
 		}

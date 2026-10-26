@@ -413,6 +413,28 @@ func TestReaderValueType(t *testing.T) {
 func TestReadersNull(t *testing.T) {
 	t.Parallel()
 
+	// Test-13.0.0 has faces of persons (testdata/golden/Test-13.0.0/query.json).
+	t.Run("NULL ZFULLNAME", func(t *testing.T) {
+		t.Parallel()
+		path := filepath.Join(testlib.Open(t, "Test-13.0.0"), "database", "Photos.sqlite")
+		w := openWriter(t, path)
+		exec(t, w, "UPDATE ZPERSON SET ZFULLNAME = NULL")
+		if err := w.Close(); err != nil {
+			t.Fatal(err)
+		}
+		s := schemaByID(t, "photos8")
+		faces, err := openDB(t, path).Faces(t.Context(), s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(faces) == 0 {
+			t.Fatal("Test-13.0.0 has no face of a person: the case is vacuous")
+		}
+		if unnamed := personFaceCounts(t, openRO(t, path), s, faces); unnamed != len(faces) {
+			t.Errorf("Faces: %d with a NULL ZFULLNAME, want all %d", unnamed, len(faces))
+		}
+	})
+
 	path := syntheticDB(t)
 	w := openWriter(t, path)
 	exec(t, w,
@@ -428,7 +450,6 @@ func TestReadersNull(t *testing.T) {
 			"ZCUSTOMSORTKEY = NULL, ZCUSTOMSORTASCENDING = NULL, Z_FOK_PARENTFOLDER = NULL "+
 			"WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)",
 		"UPDATE ZGENERICALBUM SET ZUUID = NULL WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 4000)",
-		"UPDATE ZPERSON SET ZFULLNAME = NULL",
 	)
 	ro := openRO(t, path)
 	if n := count(t, ro, "SELECT COUNT(*) FROM ZGENERICALBUM WHERE ZKIND = 4000 AND ZUUID IS NULL"); n != 1 {
@@ -453,20 +474,14 @@ func TestReadersNull(t *testing.T) {
 	if a, _ := d.Albums(t.Context()); int64(len(a)) != wantAlbums {
 		t.Errorf("Albums: %d, want %d", len(a), wantAlbums)
 	}
-	faces, _ := d.Faces(t.Context(), n)
-	personFaceCounts(t, ro, n, faces)
 }
 
-func personFaceCounts(t *testing.T, ro *sql.DB, s schema.Schema, faces []Face) {
+func personFaceCounts(t *testing.T, ro *sql.DB, s schema.Schema, faces []Face) (unnamed int) {
 	t.Helper()
 	join := " FROM ZDETECTEDFACE f JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn + " WHERE f." + s.FaceAssetColumn + " IS NOT NULL"
-	unnamed := 0
-	for i, f := range faces {
+	for _, f := range faces {
 		if !f.FullName.Valid {
 			unnamed++
-		}
-		if i > 0 && faces[i-1].AssetPK > f.AssetPK {
-			t.Errorf("Faces: row %d out of asset order", i+1)
 		}
 	}
 	if want := count(t, ro, "SELECT COUNT(*)"+join); int64(len(faces)) != want {
@@ -476,6 +491,7 @@ func personFaceCounts(t *testing.T, ro *sql.DB, s schema.Schema, faces []Face) {
 		t.Errorf("Faces: %d with a NULL ZFULLNAME, want %d", unnamed, want)
 	}
 	t.Logf("Faces: %d, %d with a NULL ZFULLNAME", len(faces), unnamed)
+	return unnamed
 }
 
 func TestAssetsSpatialType(t *testing.T) {

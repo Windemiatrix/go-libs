@@ -62,6 +62,7 @@ func TestDivergences(t *testing.T) {
 		{"a local record with null", "[" + record("library", `"local"`, "uuid", `"*"`, "want", "null", "got", "1.5e-7") + "]"},
 		{"two records of one key with other values", "[" + record("want", `"a"`) + ", " + record("want", `"b"`) + "]"},
 		{"two records of one value and other fields", "[" + record() + ", " + record("field", `"width"`) + "]"},
+		{"a record of persons for an object", "[" + record("field", `"persons"`) + "]"},
 	}
 	for _, c := range valid {
 		t.Run("valid/"+c.name, func(t *testing.T) {
@@ -115,6 +116,8 @@ func TestDivergences(t *testing.T) {
 		{"all objects without values", "[" + record("uuid", `"*"`) + "]", `uuid "*" needs both want and got`},
 		{"all objects with want only", "[" + record("uuid", `"*"`, "want", "true") + "]", `uuid "*" needs both want and got`},
 		{"all objects with got only", "[" + record("uuid", `"*"`, "got", "true") + "]", `uuid "*" needs both want and got`},
+		{"persons with want", "[" + record("field", `"persons"`, "want", `["SECRET-N"]`) + "]", "a record of persons takes no want or got"},
+		{"persons with got", "[" + record("field", `"persons"`, "got", `["SECRET-N"]`) + "]", "a record of persons takes no want or got"},
 		{"local with a uuid", "[" + record("library", `"local"`, "want", "true", "got", "false") + "]", `only for uuid "*"`},
 		{"local without values", "[" + record("library", `"local"`, "uuid", `"*"`) + "]", "needs both want and got"},
 		{"local with a string", "[" + record("library", `"local"`, "uuid", `"*"`, "want", `"SECRET-S"`, "got", "1") + "]", "takes true, false, null or a number"},

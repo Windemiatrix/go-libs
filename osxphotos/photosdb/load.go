@@ -339,8 +339,9 @@ func groupKeywords(rows []sqlread.Keyword) map[int64][]string {
 }
 
 // Upstream names a person without a name "_UNKNOWN_" and lists a name once
-// per face (photosdb.py:1792-1796, 1858-1864; photoinfo.py:597-603). named is
-// set before the "_UNKNOWN_" substitution: a person may be called "_UNKNOWN_".
+// per face (photosdb.py:1792-1796, 1858-1864; photoinfo.py:597-603).
+// HasPersons follows ZFULLNAME, not the substituted name: a person may be
+// called "_UNKNOWN_".
 func groupFaces(rows []sqlread.Face) (names map[int64][]string, named map[int64]bool) {
 	names, named = map[int64][]string{}, map[int64]bool{}
 	for _, f := range rows {

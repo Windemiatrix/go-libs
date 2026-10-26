@@ -194,7 +194,7 @@ func orientation() rule {
 	return r
 }
 
-// The Go list is not sorted: its order is the one to check.
+// The reference list is sorted by upstream json() (photoinfo.py:2279-2285).
 func stringList(key string, get func(*photoinfo.PhotoInfo) []string) rule {
 	return simple(key,
 		func(o Object) (any, error) { return refStrings(o, key) },

@@ -3,6 +3,7 @@ package golden
 import (
 	"bytes"
 	"cmp"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -330,19 +331,29 @@ func (r *Report) Summary() string {
 }
 
 // WriteDetails writes one line per difference and per stale record, with
-// UUIDs and values.
+// UUIDs and values; a value of persons is written as its number of names.
 func (r *Report) WriteDetails(w io.Writer) error {
 	for _, d := range r.Diffs {
-		if _, err := fmt.Fprintf(w, "%s %s want=%s got=%s\n", d.Field, d.UUID, d.Want, d.Got); err != nil {
+		if _, err := fmt.Fprintf(w, "%s %s want=%s got=%s\n", d.Field, d.UUID, redact(d.Field, d.Want), redact(d.Field, d.Got)); err != nil {
 			return err
 		}
 	}
 	for _, d := range r.Stale {
-		if _, err := fmt.Fprintf(w, "stale %s %s want=%s got=%s\n", d.Field, d.UUID, orAny(d.Want), orAny(d.Got)); err != nil {
+		if _, err := fmt.Fprintf(w, "stale %s %s want=%s got=%s\n", d.Field, d.UUID,
+			redact(d.Field, orAny(d.Want)), redact(d.Field, orAny(d.Got))); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// The names of persons are personal data, and the details go to the test log.
+func redact(field, value string) string {
+	var names []string
+	if field != "persons" || json.Unmarshal([]byte(value), &names) != nil {
+		return value
+	}
+	return fmt.Sprintf("<%d names>", len(names))
 }
 
 func orAny(raw []byte) string {

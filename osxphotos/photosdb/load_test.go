@@ -457,11 +457,12 @@ func TestLoadPersons(t *testing.T) {
 	const nfd, nfcForm = "Cafe\U00000301", "Caf\U000000e9"
 	face := func(pk int64, name sql.NullString) sqlread.Face { return sqlread.Face{AssetPK: pk, FullName: name} }
 	in := tables{
-		assets: []sqlread.Asset{baseAsset(1, "A-1"), baseAsset(2, "A-2"), baseAsset(3, "A-3"), baseAsset(4, "A-4")},
+		assets: []sqlread.Asset{baseAsset(1, "A-1"), baseAsset(2, "A-2"), baseAsset(3, "A-3"), baseAsset(4, "A-4"), baseAsset(5, "A-5")},
 		faces: []sqlread.Face{
 			face(1, nullString("Person B")), face(1, sql.NullString{}), face(1, nullString("Person A")),
 			face(1, nullString("Person B")), face(1, nullString("")), face(1, nullString(nfd)),
 			face(2, sql.NullString{}), face(3, nullString("")), face(99, nullString("Person C")),
+			face(5, nullString("_UNKNOWN_")),
 		},
 	}
 	c, err := load(in, "Z")
@@ -477,6 +478,7 @@ func TestLoadPersons(t *testing.T) {
 		{"A-2", []string{"_UNKNOWN_"}, false},
 		{"A-3", []string{"_UNKNOWN_"}, false},
 		{"A-4", nil, false},
+		{"A-5", []string{"_UNKNOWN_"}, true},
 	}
 	for _, tt := range tests {
 		p := c.byUUID[tt.uuid]

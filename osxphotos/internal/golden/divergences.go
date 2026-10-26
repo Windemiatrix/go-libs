@@ -39,6 +39,8 @@ const (
 //   - want and got, when present, are kept in the canonical form (compact
 //     JSON, sorted keys), the form of Diff; they are required for uuid "*":
 //     such a record without values would hide the whole key of a library;
+//   - a record of persons has neither want nor got, so it is for one uuid:
+//     the names of persons are personal data;
 //   - library "local" is only for uuid "*", with true, false, null or a number
 //     as values: the file is public and has no UUIDs and no strings of the
 //     library of its owner;
@@ -100,6 +102,8 @@ func (d *Divergence) normalize() error {
 		return errors.New("reason is empty")
 	case !upstreamRef.MatchString(d.Upstream):
 		return errors.New("upstream is not a path from the osxphotos package and a line, such as photosdb/photosdb.py:10-12")
+	case d.Field == "persons" && (len(d.Want) > 0 || len(d.Got) > 0):
+		return errors.New("a record of persons takes no want or got: the names are personal data")
 	case d.UUID == allObjects && (len(d.Want) == 0 || len(d.Got) == 0):
 		return errors.New(`uuid "*" needs both want and got`)
 	case d.Library == localLibrary && d.UUID != allObjects:

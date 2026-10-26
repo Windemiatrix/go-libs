@@ -26,10 +26,10 @@ func personColumns(s schema.Schema) []column {
 }
 
 // Faces returns the detected faces that have an asset and a person, one row
-// per face, ordered by asset (photosdb.py:1844-1853).
+// per face, in no order (photosdb.py:1844-1853).
 func (d *DB) Faces(ctx context.Context, s schema.Schema) ([]Face, error) {
 	q := "SELECT " + selectList(personSelect(s)) + " FROM ZDETECTEDFACE f JOIN ZPERSON p ON p.Z_PK = f." +
-		s.FacePersonColumn + " WHERE f." + s.FaceAssetColumn + " IS NOT NULL ORDER BY 1"
+		s.FacePersonColumn + " WHERE f." + s.FaceAssetColumn + " IS NOT NULL"
 	var out []Face
 	err := d.readRows(ctx, "faces", q, func(rows *sql.Rows) error {
 		var f Face

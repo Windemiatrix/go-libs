@@ -31,8 +31,13 @@ func TestPersons(t *testing.T) {
 	if again := db.Persons(); !slices.Equal(again, want) {
 		t.Error("a change of the slice of Persons() reached the next call")
 	}
-	if got, want := db.PersonCounts(), map[string]int{"Person A": 2, "Person B": 2, "Person C": 1, "_UNKNOWN_": 1}; !maps.Equal(got, want) {
-		t.Errorf("PersonCounts() = %v, want %v", got, want)
+	counts := db.PersonCounts()
+	if want := map[string]int{"Person A": 2, "Person B": 2, "Person C": 1, "_UNKNOWN_": 1}; !maps.Equal(counts, want) {
+		t.Errorf("PersonCounts() has %d names, want %d", len(counts), len(want))
+	}
+	counts["Person A"] = 99
+	if db.PersonCounts()["Person A"] != 2 {
+		t.Error("a change of the map of PersonCounts() reached the next call")
 	}
 
 	empty := &DB{photos: []*photoInfo{{UUID: "A-1"}}}
@@ -40,7 +45,7 @@ func TestPersons(t *testing.T) {
 		t.Errorf("Persons() of a library without faces has %d names, want nil", len(got))
 	}
 	if got := empty.PersonCounts(); got == nil || len(got) != 0 {
-		t.Errorf("PersonCounts() of a library without faces = %v, want an empty map", got)
+		t.Errorf("PersonCounts() of a library without faces: nil %v, %d names; want an empty map", got == nil, len(got))
 	}
 }
 
@@ -50,7 +55,7 @@ func TestPersonsLibraries(t *testing.T) {
 	t.Parallel()
 
 	var mu sync.Mutex
-	faces := 0
+	faces, withPersons := 0, 0
 	t.Run("libraries", func(t *testing.T) {
 		for _, name := range testlib.Libraries(t) {
 			lib := testlib.OpenPristine(t, name)
@@ -60,7 +65,7 @@ func TestPersonsLibraries(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				want := personSQLCounts(t, lib, schemaByID(t, db.Info().SchemaID))
+				want, named := personSQL(t, lib, schemaByID(t, db.Info().SchemaID))
 				n := 0
 				for _, c := range want {
 					n += c
@@ -71,40 +76,52 @@ func TestPersonsLibraries(t *testing.T) {
 				if got := db.Persons(); !slices.Equal(got, slices.Sorted(maps.Keys(want))) {
 					t.Errorf("Persons() has %d names, want %d", len(got), len(want))
 				}
-				t.Logf("%d names, %d faces", len(want), n)
+				for _, p := range db.Photos() {
+					if p.HasPersons != named[p.UUID] {
+						t.Errorf("%s: HasPersons %v, want %v", p.UUID, p.HasPersons, named[p.UUID])
+					}
+				}
+				t.Logf("%d names, %d faces, %d photos with a named person", len(want), n, len(named))
 				mu.Lock()
 				defer mu.Unlock()
 				faces += n
+				withPersons += len(named)
 			})
 		}
 	})
 	if faces == 0 {
 		t.Error("no library has a face of a person: the test is vacuous")
 	}
+	if withPersons == 0 {
+		t.Error("no library has a photo with a named person: the HasPersons check is vacuous")
+	}
 }
 
-func personSQLCounts(t *testing.T, lib string, s schema.Schema) map[string]int {
+func personSQL(t *testing.T, lib string, s schema.Schema) (counts map[string]int, named map[string]bool) {
 	t.Helper()
-	rows, err := roDB(t, lib).QueryContext(t.Context(), "SELECT p.ZFULLNAME FROM ZDETECTEDFACE f JOIN ZPERSON p ON p.Z_PK = f."+s.FacePersonColumn+
+	rows, err := roDB(t, lib).QueryContext(t.Context(), "SELECT a.ZUUID, p.ZFULLNAME FROM ZDETECTEDFACE f JOIN ZPERSON p ON p.Z_PK = f."+s.FacePersonColumn+
 		" JOIN ZASSET a ON a.Z_PK = f."+s.FaceAssetColumn+" JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK") //nolint:gosec // G202: the column names are constants of internal/schema
 	if err != nil {
 		t.Fatal(err)
 	}
-	out := map[string]int{}
+	counts, named = map[string]int{}, map[string]bool{}
 	for rows.Next() {
+		var uuid string
 		var name sql.NullString
-		if err := rows.Scan(&name); err != nil {
+		if err := rows.Scan(&uuid, &name); err != nil {
 			t.Fatal(err)
 		}
 		key := norm.NFC.String(name.String)
 		if key == "" {
 			key = "_UNKNOWN_"
+		} else {
+			named[uuid] = true
 		}
-		out[key]++
+		counts[key]++
 	}
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
 	_ = rows.Close()
-	return out
+	return counts, named
 }

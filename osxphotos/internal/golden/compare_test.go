@@ -281,6 +281,29 @@ func TestCompareValues(t *testing.T) {
 	}
 }
 
+func TestWriteDetailsPersons(t *testing.T) {
+	t.Parallel()
+	lib := fixtureLib()
+	lib.Photos[0].Persons = []string{"Person A"}
+	stale := Divergence{Library: "lib", UUID: emptyPhoto, Field: "persons", Want: []byte(`["Person A"]`), Reason: "r", Upstream: "a.py:1"}
+	rep := compare(t, fixtureRef(), lib, stale)
+	var b strings.Builder
+	if err := rep.WriteDetails(&b); err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{
+		"persons " + selectedFrame + " want=<2 names> got=<1 names>\n",
+		"stale persons " + emptyPhoto + " want=<1 names> got=*\n",
+	} {
+		if !strings.Contains(b.String(), line) {
+			t.Errorf("WriteDetails has no line %q", line)
+		}
+	}
+	if strings.Contains(b.String(), "Person A") {
+		t.Error("WriteDetails writes a name of a person")
+	}
+}
+
 func TestCompareEquivalent(t *testing.T) {
 	t.Parallel()
 	cases := []mutation{
