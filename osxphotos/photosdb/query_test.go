@@ -62,25 +62,14 @@ type queryRef struct {
 	Longitude        *float64        `json:"longitude"`
 }
 
+// album_info holds the user and the shared albums, as the albums that
+// photo_query matches (photoquery.py:671-674, 948).
 type queryRefAlbum struct {
 	Title       string   `json:"title"`
 	FolderNames []string `json:"folder_names"`
-	Owner       any      `json:"owner"`
 }
 
 func (a queryRefAlbum) path() []string { return append(slices.Clone(a.FolderNames), a.Title) }
-
-// Shared albums are left out: the module does not read them (rule 8 of
-// NORMALIZATION.md).
-func (r queryRef) userAlbums() []queryRefAlbum {
-	var out []queryRefAlbum
-	for _, a := range r.AlbumInfo {
-		if a.Owner == nil {
-			out = append(out, a)
-		}
-	}
-	return out
-}
 
 func queryRefs(t *testing.T, objs []golden.Object) []queryRef {
 	t.Helper()
@@ -352,7 +341,7 @@ func queryNFC(parts []string) []string {
 func queryAlbumCases(refs []queryRef) []queryCase {
 	albums, folders := map[string][]string{}, map[string][]string{}
 	for _, r := range refs {
-		for _, a := range r.userAlbums() {
+		for _, a := range r.AlbumInfo {
 			if path, ok := queryPath(a.path()); ok {
 				albums[path] = a.path()
 			}
@@ -369,7 +358,7 @@ func queryAlbumCases(refs []queryRef) []queryCase {
 		parts := queryNFC(albums[path])
 		cases = append(cases, queryCase{fmt.Sprintf("album %d", i), "albums", keys, query.Options{Album: []string{path}},
 			func(r queryRef) bool {
-				return slices.ContainsFunc(r.userAlbums(), func(a queryRefAlbum) bool { return slices.Equal(a.path(), parts) })
+				return slices.ContainsFunc(r.AlbumInfo, func(a queryRefAlbum) bool { return slices.Equal(a.path(), parts) })
 			}})
 		if strings.ToUpper(path) == path { // a caseless value cannot catch an ignored IgnoreCase
 			continue
@@ -381,7 +370,7 @@ func queryAlbumCases(refs []queryRef) []queryCase {
 		cases = append(cases, queryCase{fmt.Sprintf("album %d in upper case, ignore case", i), "albums", keys,
 			query.Options{Album: []string{strings.ToUpper(path)}, IgnoreCase: true},
 			func(r queryRef) bool {
-				return slices.ContainsFunc(r.userAlbums(), func(a queryRefAlbum) bool {
+				return slices.ContainsFunc(r.AlbumInfo, func(a queryRefAlbum) bool {
 					return slices.EqualFunc(a.path(), folded, func(title, want string) bool { return strings.ToLower(title) == want })
 				})
 			}})
@@ -390,14 +379,14 @@ func queryAlbumCases(refs []queryRef) []queryCase {
 		parts := queryNFC(folders[path])
 		cases = append(cases, queryCase{fmt.Sprintf("folder %d", i), "folders", keys, query.Options{Folder: []string{path}},
 			func(r queryRef) bool {
-				return slices.ContainsFunc(r.userAlbums(), func(a queryRefAlbum) bool {
+				return slices.ContainsFunc(r.AlbumInfo, func(a queryRefAlbum) bool {
 					return len(a.FolderNames) >= len(parts) && slices.Equal(a.FolderNames[:len(parts)], parts)
 				})
 			}})
 	}
 	return append(cases,
-		queryCase{"in album", "albums", keys, query.Options{InAlbum: true}, func(r queryRef) bool { return len(r.userAlbums()) > 0 }},
-		queryCase{"not in album", "albums", keys, query.Options{NotInAlbum: true}, func(r queryRef) bool { return len(r.userAlbums()) == 0 }},
+		queryCase{"in album", "albums", keys, query.Options{InAlbum: true}, func(r queryRef) bool { return len(r.AlbumInfo) > 0 }},
+		queryCase{"not in album", "albums", keys, query.Options{NotInAlbum: true}, func(r queryRef) bool { return len(r.AlbumInfo) == 0 }},
 	)
 }
 

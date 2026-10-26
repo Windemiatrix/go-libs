@@ -9,26 +9,30 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// Album returns the user album with this UUID, one in the trash included, as
-// osxphotos AlbumInfo(db, uuid) does (albuminfo.py:150-158). The value is
-// shared: do not modify it.
+// Album returns the user or shared album with this UUID, one in the trash
+// included, as osxphotos AlbumInfo(db, uuid) does (albuminfo.py:150-158). The
+// value is shared: do not modify it.
 func (db *DB) Album(uuid string) (*albuminfo.AlbumInfo, bool) {
-	// db.albums is in strings.Compare order of UUID, as loadAlbums sorts it.
-	i, ok := slices.BinarySearchFunc(db.albums, uuid, func(a *albuminfo.AlbumInfo, u string) int {
+	if a, ok := findAlbum(db.albums, uuid); ok {
+		return a, true
+	}
+	return findAlbum(db.sharedAlbums, uuid)
+}
+
+// albums must be in strings.Compare order of UUID, as the loaders sort them.
+func findAlbum(albums []*albuminfo.AlbumInfo, uuid string) (*albuminfo.AlbumInfo, bool) {
+	i, ok := slices.BinarySearchFunc(albums, uuid, func(a *albuminfo.AlbumInfo, u string) int {
 		return strings.Compare(a.UUID, u)
 	})
 	if !ok {
 		return nil, false
 	}
-	return db.albums[i], true
+	return albums[i], true
 }
 
-// AlbumInfo returns the user albums outside the trash, osxphotos album_info
-// (photosdb/photosdb.py:612-622, 3187-3210), in UUID order. The slice is new
-// on every call, but its values are shared by all calls: do not modify them.
-func (db *DB) AlbumInfo() []*albuminfo.AlbumInfo {
+func outsideTrash(albums []*albuminfo.AlbumInfo) []*albuminfo.AlbumInfo {
 	var out []*albuminfo.AlbumInfo
-	for _, a := range db.albums {
+	for _, a := range albums {
 		if !a.InTrash {
 			out = append(out, a)
 		}
@@ -36,23 +40,46 @@ func (db *DB) AlbumInfo() []*albuminfo.AlbumInfo {
 	return out
 }
 
+// AlbumInfo returns the user albums outside the trash, osxphotos album_info
+// (photosdb/photosdb.py:612-622, 3187-3210), in UUID order. The slice is new
+// on every call, but its values are shared by all calls: do not modify them.
+func (db *DB) AlbumInfo() []*albuminfo.AlbumInfo { return outsideTrash(db.albums) }
+
+// SharedAlbumInfo returns the shared albums (ZKIND 1505) outside the trash,
+// osxphotos album_info_shared (photosdb/photosdb.py:624-637, 3187-3210), in
+// UUID order. The slice is new on every call, but its values are shared by
+// all calls: do not modify them.
+func (db *DB) SharedAlbumInfo() []*albuminfo.AlbumInfo { return outsideTrash(db.sharedAlbums) }
+
 // AlbumTitles returns the titles of AlbumInfo, sorted, each once: osxphotos
 // albums (photosdb/photosdb.py:639-650, 3212-3225).
 func (db *DB) AlbumTitles() []string { return sortedTitles(db.AlbumInfo()) }
 
+// SharedAlbumTitles returns the titles of SharedAlbumInfo, sorted, each once:
+// osxphotos albums_shared (photosdb/photosdb.py:652-667, 3212-3225).
+func (db *DB) SharedAlbumTitles() []string { return sortedTitles(db.SharedAlbumInfo()) }
+
 // AlbumCounts returns the number of photos of the albums of AlbumInfo by
 // title, albums of one title added up: osxphotos albums_as_dict
 // (photosdb/photosdb.py:511-526).
-func (db *DB) AlbumCounts() map[string]int {
+func (db *DB) AlbumCounts() map[string]int { return countsByTitle(db.AlbumInfo()) }
+
+// SharedAlbumCounts returns the number of photos of the albums of
+// SharedAlbumInfo by title, albums of one title added up: osxphotos
+// albums_shared_as_dict (photosdb/photosdb.py:528-545).
+func (db *DB) SharedAlbumCounts() map[string]int { return countsByTitle(db.SharedAlbumInfo()) }
+
+func countsByTitle(albums []*albuminfo.AlbumInfo) map[string]int {
 	counts := map[string]int{}
-	for _, a := range db.AlbumInfo() {
+	for _, a := range albums {
 		counts[a.Title] += len(a.PhotoUUIDs)
 	}
 	return counts
 }
 
-// AlbumInfoOf returns the albums of p outside the trash, sorted by title, then
-// by UUID: osxphotos PhotoInfo.album_info (photoinfo.py:655-662, 2022-2034).
+// AlbumInfoOf returns the user and shared albums of p outside the trash,
+// sorted by title, then by UUID: osxphotos PhotoInfo.album_info
+// (photoinfo.py:655-662, 2022-2034).
 func (db *DB) AlbumInfoOf(p *photoinfo.PhotoInfo) []*albuminfo.AlbumInfo {
 	return db.albumsOf(p.AlbumUUIDs)
 }

@@ -16,7 +16,7 @@ type photo = photoinfo.PhotoInfo
 
 // Apply returns the photos that o selects, as photo_query does over a PhotosDB
 // (photoquery.py:417-885). photos is every photo of a library (DB.Photos()),
-// albums its user albums (DB.AlbumInfo()); albums in the trash are ignored.
+// albums its user and shared albums; albums in the trash are ignored.
 // The result is new, in the order of Sort (reversed with
 // NewestFirst), each photo once unless a Function returns it twice and
 // BurstPhotos is off; its elements are the pointers of photos. photos and

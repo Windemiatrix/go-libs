@@ -71,7 +71,7 @@ func TestLoadProjects(t *testing.T) {
 	if len(albums) != 1 || albums[0].UUID != "AL-1" || !slices.Equal(albums[0].PhotoUUIDs, []string{"P-1"}) {
 		t.Errorf("albums %q, want AL-1 with the photo P-1 alone", lookupUUIDs(albums))
 	}
-	got, err := loadProjects(rows, albumPhotos)
+	got, err := loadFolderless(rows, albumPhotos, sqlread.KindProject, "projects")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,13 +116,13 @@ func TestLoadProjectsParent(t *testing.T) {
 		{"the root folder", project(nullInt(1), "SECRET-ROOT"), true},
 		{"a parent that is not a row", project(nullInt(99), ""), false},
 	} {
-		got, err := loadProjects([]sqlread.Album{root, tt.row}, nil)
+		got, err := loadFolderless([]sqlread.Album{root, tt.row}, nil, sqlread.KindProject, "projects")
 		switch {
 		case tt.ok && (err != nil || len(got) != 1 || got[0].ParentUUID != ""):
-			t.Errorf("%s: loadProjects = %d projects, %v; want one at the top level", tt.name, len(got), err)
+			t.Errorf("%s: loadFolderless = %d projects, %v; want one at the top level", tt.name, len(got), err)
 		case !tt.ok && (err == nil || got != nil || !strings.Contains(err.Error(), "1 projects whose ZPARENTFOLDER is not a row") ||
 			strings.Contains(err.Error(), "SECRET")):
-			t.Errorf("%s: loadProjects = %d projects, %v; want an error without values", tt.name, len(got), err)
+			t.Errorf("%s: loadFolderless = %d projects, %v; want an error without values", tt.name, len(got), err)
 		}
 	}
 }

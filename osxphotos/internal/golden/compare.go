@@ -19,13 +19,14 @@ import (
 
 // Library is the Go side of a comparison, as plain values.
 type Library struct {
-	Photos []*photoinfo.PhotoInfo // every photo of the database: photosdb.DB.Photos()
-	Albums []*albuminfo.AlbumInfo // every user album, trashed ones included; may be nil without AlbumKeys
+	Photos       []*photoinfo.PhotoInfo // every photo of the database: photosdb.DB.Photos()
+	Albums       []*albuminfo.AlbumInfo // every user album, trashed ones included; may be nil without AlbumKeys
+	SharedAlbums []*albuminfo.AlbumInfo // every shared album, trashed ones included; may be nil without AlbumKeys
 
 	// BurstAlbums holds, by photo UUID, the album UUIDs of osxphotos
-	// burst_album_info (photosdb.DB.BurstAlbumInfoOf); each must be in Albums,
-	// and Compare ignores albums in the trash, as in AlbumUUIDs. A photo without
-	// an entry has none; may be nil without AlbumKeys.
+	// burst_album_info (photosdb.DB.BurstAlbumInfoOf); each must be in Albums
+	// or SharedAlbums, and Compare ignores albums in the trash, as in AlbumUUIDs.
+	// A photo without an entry has none; may be nil without AlbumKeys.
 	BurstAlbums map[string][]string
 
 	Imports  []*albuminfo.ImportInfo // every import session, trashed ones included: the sessions of PhotoInfo.ImportUUID; may be nil without AlbumKeys
@@ -54,16 +55,16 @@ type Report struct {
 func (r *Report) OK() bool { return len(r.Diffs) == 0 && len(r.Stale) == 0 }
 
 type env struct {
-	albums        map[string]*albuminfo.AlbumInfo
+	albums        map[string]*albuminfo.AlbumInfo // user and shared albums
 	projects      map[string]*albuminfo.AlbumInfo
-	goAlbumElems  map[string]map[string]any // albums and projects
+	goAlbumElems  map[string]map[string]any // albums, shared albums and projects
 	goImportElems map[string]map[string]any
 	bursts        map[string][]string
 	burstAlbums   map[string][]string
 }
 
 var (
-	errAlbumMissing   = errors.New("an album of a photo is missing from Library.Albums")
+	errAlbumMissing   = errors.New("an album of a photo is missing from Library.Albums and Library.SharedAlbums")
 	errImportMissing  = errors.New("an import session of a photo is missing from Library.Imports")
 	errProjectMissing = errors.New("a project of a photo is missing from Library.Projects")
 )
@@ -80,16 +81,21 @@ func newEnv(lib Library) (*env, error) {
 	for _, set := range []struct {
 		albums []*albuminfo.AlbumInfo
 		index  map[string]*albuminfo.AlbumInfo
-		parent bool // project_info does not compare it: projectInfoRule
-	}{{lib.Albums, e.albums, true}, {lib.Projects, e.projects, false}} {
+		parent bool // false: project_info does not compare it (projectInfoRule)
+	}{
+		{lib.Albums, e.albums, true},
+		{lib.SharedAlbums, e.albums, true},
+		{lib.Projects, e.projects, false},
+	} {
 		for _, a := range set.albums {
 			if _, dup := e.goAlbumElems[a.UUID]; dup {
-				return nil, errors.New("golden: an album UUID is repeated in Library.Albums or Library.Projects")
+				return nil, errors.New("golden: an album UUID is repeated in Library.Albums, Library.SharedAlbums or Library.Projects")
 			}
 			set.index[a.UUID] = a
 			elem := withDates(map[string]any{
 				"uuid":         a.UUID,
 				"title":        a.Title,
+				"owner":        a.Owner,
 				"folder_names": strs(a.FolderNames),
 			}, a.CreationDate, a.StartDate, a.EndDate)
 			if set.parent {
@@ -198,10 +204,11 @@ func selectRules(keys []string) (selected []rule, names []string, err error) {
 // lists uuid; the Go set is what upstream photos() returns
 // (photosdb/photosdb.py:3346-3360). An error is a problem of the input, not
 // a difference: an unknown key, a reference value of the wrong shape, an
-// album UUID missing from lib.Albums, a project missing from lib.Projects or
-// an import session missing from lib.Imports, a UUID repeated in ref (Query
-// and Deleted together), in lib.Photos, in lib.Albums and lib.Projects
-// together or in lib.Imports. Errors carry no UUID and no value.
+// album UUID missing from lib.Albums and lib.SharedAlbums, a project missing
+// from lib.Projects or an import session missing from lib.Imports, a UUID
+// repeated in ref (Query and Deleted together), in lib.Photos, in lib.Albums,
+// lib.SharedAlbums and lib.Projects together or in lib.Imports. Errors carry
+// no UUID and no value.
 func Compare(ref *Reference, lib Library, keys []string, divs []Divergence) (*Report, error) {
 	selected, names, err := selectRules(keys)
 	if err != nil {
@@ -367,7 +374,9 @@ func (r *Report) Summary() string {
 }
 
 // WriteDetails writes one line per difference and per stale record, with
-// UUIDs and values; a value of persons is written as its number of names.
+// UUIDs and values; a value of persons is written as its number of names, the
+// owner of an album as "<name>", and a value of album_info, burst_album_info
+// or project_info that is not a list of objects as "<unparsed>".
 func (r *Report) WriteDetails(w io.Writer) error {
 	for _, d := range r.Diffs {
 		if _, err := fmt.Fprintf(w, "%s %s want=%s got=%s\n", d.Field, d.UUID, redact(d.Field, d.Want), redact(d.Field, d.Got)); err != nil {
@@ -376,25 +385,39 @@ func (r *Report) WriteDetails(w io.Writer) error {
 	}
 	for _, d := range r.Stale {
 		if _, err := fmt.Fprintf(w, "stale %s %s want=%s got=%s\n", d.Field, d.UUID,
-			redact(d.Field, orAny(d.Want)), redact(d.Field, orAny(d.Got))); err != nil {
+			redactOrAny(d.Field, d.Want), redactOrAny(d.Field, d.Got)); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// The names of persons are personal data, and the details go to the test log.
+// The names of persons and of owners are personal data, and the details go to
+// the test log.
 func redact(field, value string) string {
 	var names []string
-	if field != "persons" || json.Unmarshal([]byte(value), &names) != nil {
+	if field == "persons" && json.Unmarshal([]byte(value), &names) == nil {
+		return fmt.Sprintf("<%d names>", len(names))
+	}
+	if !slices.Contains([]string{"album_info", "burst_album_info", "project_info"}, field) {
 		return value
 	}
-	return fmt.Sprintf("<%d names>", len(names))
+	var albums []map[string]any
+	if json.Unmarshal([]byte(value), &albums) != nil {
+		return "<unparsed>"
+	}
+	for _, a := range albums {
+		if owner, _ := a["owner"].(string); owner != "" {
+			a["owner"] = "<name>"
+		}
+	}
+	s, _ := canonical(albums) // decoded JSON holds no NaN
+	return s
 }
 
-func orAny(raw []byte) string {
+func redactOrAny(field string, raw []byte) string {
 	if len(raw) == 0 {
 		return "*"
 	}
-	return string(raw)
+	return redact(field, string(raw))
 }

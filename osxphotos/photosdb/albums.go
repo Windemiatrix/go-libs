@@ -68,6 +68,7 @@ func albumOf(r sqlread.Album, albumPhotos map[string][]string) *albuminfo.AlbumI
 		UUID:         r.UUID,
 		CloudGUID:    r.CloudGUID.String,
 		Title:        nfc(r.Title.String),
+		Owner:        nfc(r.Owner.String),
 		PhotoUUIDs:   sortedSet(slices.Clone(albumPhotos[r.UUID])),
 		CreationDate: optionalTime(r.Created),
 		StartDate:    optionalTime(r.Start),

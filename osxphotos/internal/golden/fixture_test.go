@@ -69,7 +69,7 @@ func fixtureLib() Library {
 				InCloud: ptr(true), IsMissing: true, IsCloudAsset: true, IsReference: true,
 				Title: "Title A", Description: "Desc", Keywords: []string{"alpha", "beta"}, Persons: []string{"Person A", "_UNKNOWN_"},
 				Latitude: ptr(48.8566), Longitude: ptr(2.3522),
-				AlbumUUIDs:   []string{albumAInFolderY, albumTrashed, albumAInFolderX},
+				AlbumUUIDs:   []string{albumAInFolderY, albumTrashed, albumAInFolderX, albumSharedS, albumSharedTitledA},
 				ProjectUUIDs: []string{projectP, projectTrashed},
 				ImportUUID:   importSession,
 			},
@@ -92,7 +92,11 @@ func fixtureLib() Library {
 			{UUID: albumBNoFolder, Title: "Album B", CreationDate: ptr(utc(2020, 2, 2, 2, 2, 2, 0))},
 			{UUID: albumOfNoPhoto, Title: "Unused"},
 		},
-		BurstAlbums: map[string][]string{selectedFrame: {albumBNoFolder, albumAInFolderX, albumAInFolderY}},
+		SharedAlbums: []*albuminfo.AlbumInfo{
+			{UUID: albumSharedS, Title: "Shared S", Owner: "Owner A", CreationDate: ptr(utc(2020, 3, 3, 3, 3, 3, 0))},
+			{UUID: albumSharedTitledA, Title: "Album A", Owner: "Owner A", CreationDate: ptr(utc(2020, 3, 3, 3, 3, 3, 0))},
+		},
+		BurstAlbums: map[string][]string{selectedFrame: {albumBNoFolder, albumAInFolderX, albumAInFolderY, albumSharedS}},
 		Imports: []*albuminfo.ImportInfo{
 			{
 				UUID: importSession, Title: "Import 1", CreationDate: ptr(utc(2020, 6, 7, 1, 2, 3, 0)),
@@ -124,15 +128,15 @@ var (
 		`"2001-01-01T00:00:00+00:00"`, "null", `"2020-12-31T23:59:59.500000+00:00"`, "null")
 	elemBNoFolder = albumJSON(albumBNoFolder, `"Album B"`, "null", "[]",
 		`"2020-02-02T02:02:02+00:00"`, "null", "null", "null")
-	elemSharedS = albumJSON(albumSharedS, `"Shared S"`, "null", `["Shared Folder"]`,
+	elemSharedS = albumJSON(albumSharedS, `"Shared S"`, "null", "[]",
 		`"2020-03-03T03:03:03+00:00"`, "null", "null", `"Owner A"`)
-	elemSharedTitledA = albumJSON(albumSharedTitledA, `"Album A"`, "null", `["Shared Folder"]`,
+	elemSharedTitledA = albumJSON(albumSharedTitledA, `"Album A"`, "null", "[]",
 		`"2020-03-03T03:03:03+00:00"`, "null", "null", `"Owner A"`)
 	elemProjectP = albumJSON(projectP, `"Project P"`, `"`+folderX+`"`, "[]",
 		`"2020-04-04T04:04:04+00:00"`, "null", "null", "null")
 )
 
-// The reference has shared albums that the Go side does not read.
+// A user album and a shared album share the title Album A.
 func refSelectedFrame() map[string]string {
 	return map[string]string{
 		"album_info":           "[" + strings.Join([]string{elemAInFolderX, elemAInFolderY, elemSharedS, elemSharedTitledA}, ", ") + "]",
@@ -153,7 +157,7 @@ func refSelectedFrame() map[string]string {
 		"favorite":             "true",
 		"filename":             `"IMG_0001.HEIC"`,
 		"fingerprint":          `"FP-1"`,
-		"folders":              `{"Album A": ["Folder Y"], "Shared S": ["Shared Folder"]}`,
+		"folders":              `{"Album A": ["Folder Y"], "Shared S": []}`,
 		"has_raw":              "true",
 		"hasadjustments":       "false",
 		"height":               "3024",

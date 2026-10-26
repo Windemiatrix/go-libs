@@ -3,6 +3,7 @@ package photosdb
 import (
 	"database/sql"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/query"
 )
 
 func albumRow(pk int64, uuid string, kind int64, parent sql.NullInt64) sqlread.Album {
@@ -353,13 +355,11 @@ func TestAlbums(t *testing.T) {
 			if want := count(t, src, "SELECT COUNT(*)"+user); len(got) != want {
 				t.Errorf("%d albums, want %d", len(got), want)
 			}
-			byUUID := map[string]*albuminfo.AlbumInfo{}
 			trashed, guids, members := 0, 0, 0
 			for i, a := range got {
 				if i > 0 && got[i-1].UUID >= a.UUID {
 					t.Errorf("album %d out of UUID order or repeated", i+1)
 				}
-				byUUID[a.UUID] = a
 				if a.InTrash {
 					trashed++
 				}
@@ -375,7 +375,7 @@ func TestAlbums(t *testing.T) {
 			photosOf := map[string][]string{}
 			for _, p := range db.Photos() {
 				for _, u := range p.AlbumUUIDs {
-					if byUUID[u] == nil {
+					if _, ok := db.Album(u); !ok {
 						t.Errorf("an album of photo %s is not among the albums read", p.UUID)
 					}
 					photosOf[u] = append(photosOf[u], p.UUID)
@@ -586,4 +586,167 @@ func albumUUIDs(t *testing.T, lib string) []string {
 		t.Fatal("no ZUUID in ZGENERICALBUM")
 	}
 	return out
+}
+
+func TestLoadSharedAlbums(t *testing.T) {
+	t.Parallel()
+
+	const nfd, nfcForm = "Cafe\U00000301", "Caf\U000000e9"
+	none := sql.NullInt64{}
+	user := withTitle(albumRow(3, "AL-1", sqlread.KindUserAlbum, nullInt(2)), "Album")
+	user.Trashed = nullInt(0)
+	shared := withTitle(albumRow(4, "SH-A", sqlread.KindSharedAlbum, nullInt(1)), "Shared")
+	shared.Trashed, shared.ParentUUID, shared.Owner, shared.ListOrder = nullInt(0), nullString("ROOT"), nullString(nfd), nullInt(3)
+	// Photos never puts a shared album in a folder; osxphotos would not list it there either.
+	inFolder := withTitle(albumRow(5, "SH-B", sqlread.KindSharedAlbum, nullInt(2)), "Shared")
+	inFolder.Trashed, inFolder.ParentUUID = nullInt(0), nullString("F-1")
+	trashed := withTitle(albumRow(6, "SH-C", sqlread.KindSharedAlbum, none), "Trashed")
+	trashed.Trashed = nullInt(1)
+	rows := []sqlread.Album{
+		albumRow(1, "ROOT", sqlread.KindRootFolder, none),
+		withTitle(albumRow(2, "F-1", sqlread.KindFolder, nullInt(1)), "F1"),
+		user, shared, inFolder, trashed,
+	}
+	in := tables{
+		assets: []sqlread.Asset{baseAsset(100, "P-1"), baseAsset(101, "P-2"), baseAsset(102, "P-3")},
+		members: []sqlread.Member{
+			{AssetPK: 100, AlbumUUID: "AL-1", Kind: sqlread.KindUserAlbum},
+			{AssetPK: 100, AlbumUUID: "SH-A", Kind: sqlread.KindSharedAlbum},
+			{AssetPK: 101, AlbumUUID: "SH-A", Kind: sqlread.KindSharedAlbum},
+			{AssetPK: 102, AlbumUUID: "SH-C", Kind: sqlread.KindSharedAlbum},
+		},
+		albums: rows,
+	}
+	c, err := load(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Upstream keeps one list for both kinds (photoinfo.py:2022-2034).
+	if got := c.byUUID["P-1"].AlbumUUIDs; !slices.Equal(got, []string{"AL-1", "SH-A"}) {
+		t.Errorf("AlbumUUIDs of P-1 = %q, want the user album and the shared album", got)
+	}
+	albumPhotos := membershipOrder(in.members, in.assets, c.byUUID)
+	albums, err := loadAlbums(rows, albumPhotos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(albums) != 1 || albums[0].UUID != "AL-1" || albums[0].Owner != "" {
+		t.Fatalf("albums %q, want AL-1 alone, without an owner", lookupUUIDs(albums))
+	}
+	got, err := loadFolderless(rows, albumPhotos, sqlread.KindSharedAlbum, "shared albums")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []*albuminfo.AlbumInfo{
+		{UUID: "SH-A", Title: "Shared", Owner: nfcForm, PhotoUUIDs: []string{"P-1", "P-2"}, LibraryListOrder: []int{3}},
+		{UUID: "SH-B", Title: "Shared", ParentUUID: "F-1", LibraryListOrder: []int{noListOrder}},
+		{UUID: "SH-C", Title: "Trashed", PhotoUUIDs: []string{"P-3"}, InTrash: true, LibraryListOrder: []int{noListOrder}},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("%d shared albums, want %d", len(got), len(want))
+	}
+	for i, w := range want {
+		g := got[i]
+		if g.UUID != w.UUID || g.Title != w.Title || g.Owner != w.Owner || g.ParentUUID != w.ParentUUID || g.FolderNames != nil ||
+			!sameStringsNilAware(g.PhotoUUIDs, w.PhotoUUIDs) || g.InTrash != w.InTrash || !slices.Equal(g.LibraryListOrder, w.LibraryListOrder) {
+			t.Errorf("shared album %d = %+v, want %+v", i, *g, *w)
+		}
+	}
+
+	folders, _, err := loadFolders(rows, albums)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := &DB{photos: c.photos, byUUID: c.byUUID, albums: albums, sharedAlbums: got, folders: folders}
+	p1, p3 := c.byUUID["P-1"], c.byUUID["P-3"]
+	for _, tt := range []struct {
+		name      string
+		got, want []string
+	}{
+		{"AlbumInfo", lookupUUIDs(db.AlbumInfo()), []string{"AL-1"}},
+		{"SharedAlbumInfo", lookupUUIDs(db.SharedAlbumInfo()), []string{"SH-A", "SH-B"}},
+		{"SharedAlbumTitles", db.SharedAlbumTitles(), []string{"Shared"}},
+		{"AlbumTitles", db.AlbumTitles(), []string{"Album"}},
+		{"AlbumInfoOf", lookupUUIDs(db.AlbumInfoOf(p1)), []string{"AL-1", "SH-A"}},
+		{"AlbumInfoOf of a photo in a trashed shared album only", lookupUUIDs(db.AlbumInfoOf(p3)), []string{}},
+		{"FolderList of a shared album with a folder as its parent", folderUUIDs(db.FolderList(got[1])), []string{}},
+		{"Query InAlbum", queryIDs(db.Query(query.Options{InAlbum: true}), nil), []string{"P-1", "P-2"}},
+		{"Query NotInAlbum", queryIDs(db.Query(query.Options{NotInAlbum: true}), nil), []string{"P-3"}},
+		{"Query Album", queryIDs(db.Query(query.Options{Album: []string{"Shared"}}), nil), []string{"P-1", "P-2"}},
+		{"Query Folder", queryIDs(db.Query(query.Options{Folder: []string{"F1"}}), nil), []string{"P-1"}},
+	} {
+		if !slices.Equal(tt.got, tt.want) {
+			t.Errorf("%s = %q, want %q", tt.name, tt.got, tt.want)
+		}
+	}
+	if got := db.SharedAlbumCounts(); !maps.Equal(got, map[string]int{"Shared": 2}) {
+		t.Errorf("SharedAlbumCounts = %v, want the two shared albums outside the trash added up under Shared", got)
+	}
+	if got := db.AlbumCounts(); !maps.Equal(got, map[string]int{"Album": 1}) {
+		t.Errorf("AlbumCounts = %v, want the user album alone", got)
+	}
+	if a, ok := db.Album("SH-C"); !ok || !a.InTrash {
+		t.Errorf("Album(SH-C) = %v, %v; want the shared album in the trash", a, ok)
+	}
+	if f, ok := db.Folder("F-1"); !ok || !slices.Equal(lookupUUIDs(f.Albums), []string{"AL-1"}) {
+		t.Errorf("Folder(F-1) = %v, %v; want the user album alone in it", f, ok)
+	}
+
+	dangling := withTitle(albumRow(7, "SECRET-S", sqlread.KindSharedAlbum, nullInt(99)), "SECRET-TITLE")
+	if bad, err := loadFolderless([]sqlread.Album{rows[0], dangling}, nil, sqlread.KindSharedAlbum, "shared albums"); err == nil || bad != nil ||
+		!strings.Contains(err.Error(), "1 shared albums whose ZPARENTFOLDER is not a row") || strings.Contains(err.Error(), "SECRET") {
+		t.Errorf("a parent that is not a row: %d shared albums, %v; want an error without values", len(bad), err)
+	}
+}
+
+// The shared albums of Test-Cloud-13.1 are also in its reference, which
+// TestGolden compares; this checks every library against its database.
+func TestSharedAlbums(t *testing.T) {
+	t.Parallel()
+
+	shared, owned := 0, 0
+	for _, name := range testlib.Libraries(t) {
+		t.Run(name, func(t *testing.T) {
+			lib := testlib.OpenPristine(t, name)
+			db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
+			if err != nil {
+				t.Fatal(err)
+			}
+			src := roDB(t, lib)
+			n := schemaByID(t, libraryModels[name].id)
+			const rows = " FROM ZGENERICALBUM WHERE ZKIND = 1505 AND ZUUID IS NOT NULL"
+			if want := count(t, src, "SELECT COUNT(*)"+rows); len(db.sharedAlbums) != want {
+				t.Errorf("%d shared albums, want %d", len(db.sharedAlbums), want)
+			}
+			if want := count(t, src, "SELECT COUNT(*)"+rows+" AND ZTRASHEDSTATE = 0"); len(db.SharedAlbumInfo()) != want {
+				t.Errorf("%d shared albums outside the trash, want %d", len(db.SharedAlbumInfo()), want)
+			}
+			members := 0
+			for i, a := range db.sharedAlbums {
+				if i > 0 && db.sharedAlbums[i-1].UUID >= a.UUID {
+					t.Errorf("shared album %d out of UUID order or repeated", i+1)
+				}
+				members += len(a.PhotoUUIDs)
+				if a.Owner != "" {
+					owned++
+				}
+				if got, ok := db.Album(a.UUID); !ok || got != a || a.FolderNames != nil || db.FolderList(a) != nil {
+					t.Errorf("shared album %s: not found by Album, or in folders", a.UUID)
+				}
+				parent := testlib.Rows(t, src, "SELECT p.ZUUID FROM ZGENERICALBUM g JOIN ZGENERICALBUM p ON p.Z_PK = g.ZPARENTFOLDER "+
+					"WHERE g.ZUUID = ? AND p.ZKIND != 3999", a.UUID)
+				if want := strings.Join(parent, ""); a.ParentUUID != want {
+					t.Errorf("shared album %s: ParentUUID %q, want %q", a.UUID, a.ParentUUID, want)
+				}
+			}
+			if want := count(t, src, projectMembers(n.MemberTable, n.MemberAlbumColumn, n.MemberAssetColumn, "1505")); members != want {
+				t.Errorf("%d shared album members, want %d", members, want)
+			}
+			shared += len(db.sharedAlbums)
+		})
+	}
+	t.Logf("%d shared albums in all libraries, %d with an owner", shared, owned)
+	if shared == 0 || owned == 0 {
+		t.Error("no shared album with an owner in any library: the test is vacuous")
+	}
 }

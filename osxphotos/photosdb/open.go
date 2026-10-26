@@ -103,7 +103,11 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 	if err != nil {
 		return nil, err
 	}
-	projects, err := loadProjects(t.albums, albumPhotos)
+	projects, err := loadFolderless(t.albums, albumPhotos, sqlread.KindProject, "projects")
+	if err != nil {
+		return nil, err
+	}
+	sharedAlbums, err := loadFolderless(t.albums, albumPhotos, sqlread.KindSharedAlbum, "shared albums")
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +131,8 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 		albums: albums,
 		bursts: indexBursts(c.photos),
 
-		projects: projects,
+		sharedAlbums: sharedAlbums,
+		projects:     projects,
 
 		albumPhotos: albumPhotos,
 

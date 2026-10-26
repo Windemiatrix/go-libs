@@ -327,9 +327,7 @@ var lookupKeys = []lookupKey{
 }
 
 type lookupElem struct {
-	UUID  string  `json:"uuid"`
-	Title *string `json:"title"`
-	Owner any     `json:"owner"`
+	UUID string `json:"uuid"`
 }
 
 func lookupDiverges(divs []golden.Divergence, library, uuid, key string) bool {
@@ -338,9 +336,9 @@ func lookupDiverges(divs []golden.Divergence, library, uuid, key string) bool {
 	})
 }
 
-// Shared albums of the reference (owner not null) are dropped by general rule 8
-// of NORMALIZATION.md, and with them their titles, unless a user album has the
-// same title. Messages carry UUIDs and keys, never values of the reference.
+// The lists of the reference hold the user and the shared albums
+// (photoinfo.py:2022-2034). Messages carry UUIDs and keys, never values of
+// the reference.
 func lookupCompare(t *testing.T, db *DB, o golden.Object, p *photoinfo.PhotoInfo, k lookupKey, library string, divs []golden.Divergence) int {
 	t.Helper()
 	var elems []lookupElem
@@ -348,17 +346,7 @@ func lookupCompare(t *testing.T, db *DB, o golden.Object, p *photoinfo.PhotoInfo
 		t.Fatalf("photo %s: key %s is not a list of albums", p.UUID, k.info)
 	}
 	var wantUUIDs []string
-	kept, dropped := map[string]bool{}, map[string]bool{}
 	for _, e := range elems {
-		title := ""
-		if e.Title != nil {
-			title = *e.Title
-		}
-		if e.Owner != nil {
-			dropped[title] = true
-			continue
-		}
-		kept[title] = true
 		wantUUIDs = append(wantUUIDs, e.UUID)
 	}
 	slices.Sort(wantUUIDs)
@@ -387,9 +375,6 @@ func lookupCompare(t *testing.T, db *DB, o golden.Object, p *photoinfo.PhotoInfo
 		title := ""
 		if s != nil {
 			title = *s
-		}
-		if dropped[title] && !kept[title] {
-			continue
 		}
 		wantTitles = append(wantTitles, title)
 	}
