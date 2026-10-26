@@ -61,7 +61,7 @@ func fixtureLib() Library {
 				Hidden: true, Favorite: true,
 				Shared: true, Syndicated: true, SavedToLibrary: true, SharedLibrary: true,
 				InCloud: ptr(true), IsMissing: true, IsCloudAsset: true, IsReference: true,
-				Title: "Title A", Description: "Desc", Keywords: []string{"alpha", "beta"}, HasPersons: true,
+				Title: "Title A", Description: "Desc", Keywords: []string{"alpha", "beta"}, Persons: []string{"Person A", "_UNKNOWN_"},
 				Latitude: ptr(48.8566), Longitude: ptr(2.3522),
 				AlbumUUIDs:      []string{albumAInFolderY, albumTrashed, albumAInFolderX},
 				BurstAlbumUUIDs: []string{albumBNoFolder, albumAInFolderX, albumAInFolderY},

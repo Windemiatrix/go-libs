@@ -425,7 +425,7 @@ func TestLoadKeywordsAlbumsPersons(t *testing.T) {
 		members: []sqlread.Member{
 			{AssetPK: 1, AlbumUUID: "AL-2"}, {AssetPK: 1, AlbumUUID: "AL-1"}, {AssetPK: 1, AlbumUUID: "AL-2"}, {AssetPK: 99, AlbumUUID: "AL-9"},
 		},
-		persons:   []int64{2, 99},
+		faces:     []sqlread.Face{{AssetPK: 2, FullName: nullString("Person A")}, {AssetPK: 99, FullName: nullString("Person B")}},
 		resources: []sqlread.Resource{{PK: 1, AssetPK: 99, Subtype: nullInt(17)}},
 	}
 	c, err := load(in, "ZMASTERFINGERPRINT")
@@ -441,11 +441,48 @@ func TestLoadKeywordsAlbumsPersons(t *testing.T) {
 	if want := []string{"AL-1", "AL-2"}; !slices.Equal(p1.AlbumUUIDs, want) || !slices.Equal(p1.BurstAlbumUUIDs, want) {
 		t.Errorf("AlbumUUIDs = %q, BurstAlbumUUIDs = %q, want %q", p1.AlbumUUIDs, p1.BurstAlbumUUIDs, want)
 	}
-	if p1.HasPersons || !p2.HasPersons {
-		t.Errorf("HasPersons = %v, %v; want false, true", p1.HasPersons, p2.HasPersons)
+	if p1.HasPersons || !p2.HasPersons || p1.Persons != nil || !slices.Equal(p2.Persons, []string{"Person A"}) {
+		t.Errorf("HasPersons = %v, %v, Persons of %d and %d names; want false, true, 0 and 1", p1.HasPersons, p2.HasPersons, len(p1.Persons), len(p2.Persons))
 	}
 	if len(p2.Keywords) != 0 || len(p2.AlbumUUIDs) != 0 || p2.HasRAW {
 		t.Errorf("A-2 = %+v, want no keywords, albums or RAW", *p2)
+	}
+}
+
+// Upstream names a person without a name "_UNKNOWN_" (photosdb.py:1792-1796)
+// and lists a name once per face (photosdb.py:1858-1864, photoinfo.py:597-603).
+func TestLoadPersons(t *testing.T) {
+	t.Parallel()
+
+	const nfd, nfcForm = "Cafe\U00000301", "Caf\U000000e9"
+	face := func(pk int64, name sql.NullString) sqlread.Face { return sqlread.Face{AssetPK: pk, FullName: name} }
+	in := tables{
+		assets: []sqlread.Asset{baseAsset(1, "A-1"), baseAsset(2, "A-2"), baseAsset(3, "A-3"), baseAsset(4, "A-4")},
+		faces: []sqlread.Face{
+			face(1, nullString("Person B")), face(1, sql.NullString{}), face(1, nullString("Person A")),
+			face(1, nullString("Person B")), face(1, nullString("")), face(1, nullString(nfd)),
+			face(2, sql.NullString{}), face(3, nullString("")), face(99, nullString("Person C")),
+		},
+	}
+	c, err := load(in, "Z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		uuid       string
+		persons    []string
+		hasPersons bool
+	}{
+		{"A-1", []string{nfcForm, "Person A", "Person B", "Person B", "_UNKNOWN_", "_UNKNOWN_"}, true},
+		{"A-2", []string{"_UNKNOWN_"}, false},
+		{"A-3", []string{"_UNKNOWN_"}, false},
+		{"A-4", nil, false},
+	}
+	for _, tt := range tests {
+		p := c.byUUID[tt.uuid]
+		if !slices.Equal(p.Persons, tt.persons) || (p.Persons == nil) != (tt.persons == nil) || p.HasPersons != tt.hasPersons {
+			t.Errorf("%s: %d persons, HasPersons %v; want %d, %v", tt.uuid, len(p.Persons), p.HasPersons, len(tt.persons), tt.hasPersons)
+		}
 	}
 }
 
@@ -611,8 +648,9 @@ func TestLoadProperties(t *testing.T) {
 			in.keywords = append(in.keywords, sqlread.Keyword{AssetPK: a.PK, Title: nullString(fmt.Sprintf("k%d", r.IntN(5)))})
 			in.members = append(in.members, sqlread.Member{AssetPK: a.PK, AlbumUUID: fmt.Sprintf("AL-%d", r.IntN(6))})
 		}
-		if r.IntN(3) == 0 {
-			in.persons = append(in.persons, a.PK)
+		for range r.IntN(3) {
+			name := []sql.NullString{{}, nullString(""), nullString("Cafe\U00000301"), nullString("p1"), nullString("p2")}[r.IntN(5)]
+			in.faces = append(in.faces, sqlread.Face{AssetPK: a.PK, FullName: name})
 		}
 	}
 	want, err := load(in, "Z")
@@ -626,6 +664,9 @@ func TestLoadProperties(t *testing.T) {
 		if !slices.IsSorted(p.Keywords) || !slices.IsSorted(p.AlbumUUIDs) || len(slices.Compact(slices.Clone(p.AlbumUUIDs))) != len(p.AlbumUUIDs) {
 			t.Errorf("%s: Keywords %q or AlbumUUIDs %q not sorted or repeated", p.UUID, p.Keywords, p.AlbumUUIDs)
 		}
+		if !slices.IsSorted(p.Persons) {
+			t.Errorf("%s: Persons not sorted", p.UUID)
+		}
 		for _, u := range p.AlbumUUIDs {
 			if !slices.Contains(p.BurstAlbumUUIDs, u) {
 				t.Errorf("%s: BurstAlbumUUIDs %q lacks %s of AlbumUUIDs", p.UUID, p.BurstAlbumUUIDs, u)
@@ -638,10 +679,10 @@ func TestLoadProperties(t *testing.T) {
 	for range 50 {
 		s := tables{
 			assets: in.assets, resources: in.resources, keywords: slices.Clone(in.keywords),
-			persons: slices.Clone(in.persons), members: slices.Clone(in.members),
+			faces: slices.Clone(in.faces), members: slices.Clone(in.members),
 		}
 		r.Shuffle(len(s.keywords), func(i, j int) { s.keywords[i], s.keywords[j] = s.keywords[j], s.keywords[i] })
-		r.Shuffle(len(s.persons), func(i, j int) { s.persons[i], s.persons[j] = s.persons[j], s.persons[i] })
+		r.Shuffle(len(s.faces), func(i, j int) { s.faces[i], s.faces[j] = s.faces[j], s.faces[i] })
 		r.Shuffle(len(s.members), func(i, j int) { s.members[i], s.members[j] = s.members[j], s.members[i] })
 		got, err := load(s, "Z")
 		if err != nil {

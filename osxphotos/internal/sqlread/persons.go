@@ -7,33 +7,36 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
 )
 
-// The order is that of the Scan in NamedPersonAssets.
+// Face is one detected face of an asset with a person (photosdb.py:1844-1869).
+type Face struct {
+	AssetPK  int64          // schema.Schema.FaceAssetColumn
+	FullName sql.NullString // ZPERSON.ZFULLNAME
+}
+
+// The order is that of the Scan in Faces.
 func personSelect(s schema.Schema) []column {
-	return []column{{"f", "ZDETECTEDFACE", s.FaceAssetColumn}}
+	return []column{{"f", "ZDETECTEDFACE", s.FaceAssetColumn}, {"p", "ZPERSON", "ZFULLNAME"}}
 }
 
 func personColumns(s schema.Schema) []column {
 	return append(personSelect(s),
 		column{"f", "ZDETECTEDFACE", s.FacePersonColumn},
 		column{"p", "ZPERSON", "Z_PK"},
-		column{"p", "ZPERSON", "ZFULLNAME"},
 	)
 }
 
-// NamedPersonAssets returns, sorted and distinct, the ZASSET.Z_PK of the
-// assets with a detected face of a person whose ZFULLNAME is not empty
-// (photosdb.py:1790-1796, 1844-1853).
-func (d *DB) NamedPersonAssets(ctx context.Context, s schema.Schema) ([]int64, error) {
-	q := "SELECT DISTINCT " + selectList(personSelect(s)) + " FROM ZDETECTEDFACE f JOIN ZPERSON p ON p.Z_PK = f." +
-		s.FacePersonColumn + " WHERE f." + s.FaceAssetColumn +
-		" IS NOT NULL AND p.ZFULLNAME IS NOT NULL AND p.ZFULLNAME != '' ORDER BY 1"
-	var out []int64
-	err := d.readRows(ctx, "named person assets", q, func(rows *sql.Rows) error {
-		var pk int64
-		if err := rows.Scan(&pk); err != nil {
+// Faces returns the detected faces that have an asset and a person, one row
+// per face, ordered by asset (photosdb.py:1844-1853).
+func (d *DB) Faces(ctx context.Context, s schema.Schema) ([]Face, error) {
+	q := "SELECT " + selectList(personSelect(s)) + " FROM ZDETECTEDFACE f JOIN ZPERSON p ON p.Z_PK = f." +
+		s.FacePersonColumn + " WHERE f." + s.FaceAssetColumn + " IS NOT NULL ORDER BY 1"
+	var out []Face
+	err := d.readRows(ctx, "faces", q, func(rows *sql.Rows) error {
+		var f Face
+		if err := rows.Scan(&f.AssetPK, &f.FullName); err != nil {
 			return err
 		}
-		out = append(out, pk)
+		out = append(out, f)
 		return nil
 	})
 	if err != nil {

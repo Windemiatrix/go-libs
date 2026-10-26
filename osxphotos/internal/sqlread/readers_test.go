@@ -54,8 +54,8 @@ var readers = []struct {
 		r, err := d.Keywords(ctx, s)
 		return len(r), err
 	}},
-	{"NamedPersonAssets", func(ctx context.Context, d *DB, s schema.Schema) (int, error) {
-		r, err := d.NamedPersonAssets(ctx, s)
+	{"Faces", func(ctx context.Context, d *DB, s schema.Schema) (int, error) {
+		r, err := d.Faces(ctx, s)
 		return len(r), err
 	}},
 	{"Members", func(ctx context.Context, d *DB, s schema.Schema) (int, error) {
@@ -293,19 +293,11 @@ func TestReadersRows(t *testing.T) {
 				t.Errorf("Keywords: %d rows, want %d", len(kws), want)
 			}
 
-			persons, err := d.NamedPersonAssets(t.Context(), n)
+			faces, err := d.Faces(t.Context(), n)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if want := count(t, ro, "SELECT COUNT(DISTINCT f."+n.FaceAssetColumn+") FROM ZDETECTEDFACE f JOIN ZPERSON p ON p.Z_PK = f."+
-				n.FacePersonColumn+" WHERE p.ZFULLNAME != ''"); int64(len(persons)) != want {
-				t.Errorf("NamedPersonAssets: %d, want %d", len(persons), want)
-			}
-			for i := 1; i < len(persons); i++ {
-				if persons[i-1] >= persons[i] {
-					t.Errorf("NamedPersonAssets not sorted and distinct at %d", i)
-				}
-			}
+			personFaceCounts(t, ro, n, faces)
 		})
 	}
 }
@@ -436,6 +428,7 @@ func TestReadersNull(t *testing.T) {
 			"ZCUSTOMSORTKEY = NULL, ZCUSTOMSORTASCENDING = NULL, Z_FOK_PARENTFOLDER = NULL "+
 			"WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)",
 		"UPDATE ZGENERICALBUM SET ZUUID = NULL WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 4000)",
+		"UPDATE ZPERSON SET ZFULLNAME = NULL",
 	)
 	ro := openRO(t, path)
 	if n := count(t, ro, "SELECT COUNT(*) FROM ZGENERICALBUM WHERE ZKIND = 4000 AND ZUUID IS NULL"); n != 1 {
@@ -460,6 +453,29 @@ func TestReadersNull(t *testing.T) {
 	if a, _ := d.Albums(t.Context()); int64(len(a)) != wantAlbums {
 		t.Errorf("Albums: %d, want %d", len(a), wantAlbums)
 	}
+	faces, _ := d.Faces(t.Context(), n)
+	personFaceCounts(t, ro, n, faces)
+}
+
+func personFaceCounts(t *testing.T, ro *sql.DB, s schema.Schema, faces []Face) {
+	t.Helper()
+	join := " FROM ZDETECTEDFACE f JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn + " WHERE f." + s.FaceAssetColumn + " IS NOT NULL"
+	unnamed := 0
+	for i, f := range faces {
+		if !f.FullName.Valid {
+			unnamed++
+		}
+		if i > 0 && faces[i-1].AssetPK > f.AssetPK {
+			t.Errorf("Faces: row %d out of asset order", i+1)
+		}
+	}
+	if want := count(t, ro, "SELECT COUNT(*)"+join); int64(len(faces)) != want {
+		t.Errorf("Faces: %d rows, want %d", len(faces), want)
+	}
+	if want := count(t, ro, "SELECT COUNT(*)"+join+" AND p.ZFULLNAME IS NULL"); int64(unnamed) != want {
+		t.Errorf("Faces: %d with a NULL ZFULLNAME, want %d", unnamed, want)
+	}
+	t.Logf("Faces: %d, %d with a NULL ZFULLNAME", len(faces), unnamed)
 }
 
 func TestAssetsSpatialType(t *testing.T) {
