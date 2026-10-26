@@ -33,8 +33,12 @@ func (db *DB) Folder(uuid string) (*albuminfo.FolderInfo, bool) {
 
 // FolderList returns the folders that enclose a, outermost first: osxphotos
 // AlbumInfo.folder_list (albuminfo.py:203-213, photosdb/photosdb.py:3091-3123);
-// nil for an album at the top level.
+// nil for an album at the top level and for a project, as osxphotos
+// ProjectInfo.folder_list is always empty (albuminfo.py:385-392).
 func (db *DB) FolderList(a *albuminfo.AlbumInfo) []*albuminfo.FolderInfo {
+	if _, ok := db.Project(a.UUID); ok {
+		return nil
+	}
 	var list []*albuminfo.FolderInfo
 	// Open has checked every chain of parents, so the walk ends.
 	for f, ok := db.Folder(a.ParentUUID); ok; f, ok = db.Folder(f.ParentUUID) {

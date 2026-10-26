@@ -7,6 +7,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
@@ -374,58 +375,48 @@ func albumInfoRule(key string, uuids albumUUIDs) rule {
 			return sortedElems(byUUID), nil
 		},
 		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
-			albums, err := e.userAlbums(uuids(e, p))
-			if err != nil {
-				return nil, err
-			}
-			byUUID := map[string]map[string]any{}
-			for _, a := range albums {
-				byUUID[a.UUID] = e.goAlbumElems[a.UUID]
-			}
-			return sortedElems(byUUID), nil
+			return e.elemsOf(members(e.albums, errAlbumMissing, uuids(e, p)))
 		},
 	}
 }
 
 // A project is an album without folders (albuminfo.py:368-392) and has the
 // keys of an album (photoinfo.py:2228), so the reference side is that of
-// album_info. Its parent is not compared: the reference writes it only when
-// the parent row holds a folder or a user album outside the trash
-// (albuminfo.py:296, 525-527), and a row that holds projects holds neither.
+// album_info. Its parent is not compared: osxphotos writes it only when the
+// parent row holds a folder or a user album outside the trash
+// (albuminfo.py:296, 525-527), which depends on the other rows under that
+// parent, not on the project; TestProjects checks ParentUUID against the
+// database. newEnv leaves it out of the Go side.
 func projectInfoRule() rule {
 	r := albumInfoRule("project_info", nil)
 	ref := r.ref
 	r.ref = func(o Object) (any, error) {
 		v, err := ref(o)
+		if err != nil {
+			return nil, err
+		}
 		elems, _ := v.([]any)
-		return withoutParent(elems), err
+		for _, el := range elems {
+			m, _ := el.(map[string]any) // new on every call of ref
+			delete(m, "parent")
+		}
+		return elems, nil
 	}
 	r.got = func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
-		byUUID := map[string]map[string]any{}
-		for _, id := range p.ProjectUUIDs {
-			a, ok := e.projects[id]
-			if !ok {
-				return nil, errProjectMissing
-			}
-			if !a.InTrash {
-				byUUID[id] = e.goAlbumElems[id]
-			}
-		}
-		return withoutParent(sortedElems(byUUID)), nil
+		return e.elemsOf(members(e.projects, errProjectMissing, p.ProjectUUIDs))
 	}
 	return r
 }
 
-// The elements are copied: those of the Go side are shared with album_info.
-func withoutParent(elems []any) []any {
-	out := make([]any, len(elems))
-	for i, e := range elems {
-		m, _ := e.(map[string]any)
-		m = maps.Clone(m)
-		delete(m, "parent")
-		out[i] = m
+func (e *env) elemsOf(albums []*albuminfo.AlbumInfo, err error) (any, error) {
+	if err != nil {
+		return nil, err
 	}
-	return out
+	byUUID := map[string]map[string]any{}
+	for _, a := range albums {
+		byUUID[a.UUID] = e.goAlbumElems[a.UUID]
+	}
+	return sortedElems(byUUID), nil
 }
 
 func sortedElems(byUUID map[string]map[string]any) []any {
@@ -462,7 +453,7 @@ func albumsRule(key, infoKey string, uuids albumUUIDs) rule {
 			return out, nil
 		},
 		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
-			albums, err := e.userAlbums(uuids(e, p))
+			albums, err := members(e.albums, errAlbumMissing, uuids(e, p))
 			if err != nil {
 				return nil, err
 			}
@@ -563,7 +554,7 @@ func foldersRule() rule {
 			return out, nil
 		},
 		got: func(e *env, p *photoinfo.PhotoInfo, want any) (any, error) {
-			albums, err := e.userAlbums(p.AlbumUUIDs)
+			albums, err := members(e.albums, errAlbumMissing, p.AlbumUUIDs)
 			if err != nil {
 				return nil, err
 			}

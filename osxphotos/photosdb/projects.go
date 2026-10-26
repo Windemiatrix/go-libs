@@ -42,8 +42,8 @@ func (db *DB) Project(uuid string) (*albuminfo.AlbumInfo, bool) {
 
 // ProjectInfoOf returns the projects of p outside the trash, sorted by title,
 // then by UUID: osxphotos PhotoInfo.project_info (photoinfo.py:696-703,
-// 2022-2034). Upstream fails on a project without a title, which sorts first
-// here.
+// 2022-2034). A project without a title sorts first; upstream fails when it
+// compares its None title with another.
 func (db *DB) ProjectInfoOf(p *photoinfo.PhotoInfo) []*albuminfo.AlbumInfo {
 	var out []*albuminfo.AlbumInfo
 	for _, u := range p.ProjectUUIDs {
@@ -76,21 +76,10 @@ func loadProjects(rows []sqlread.Album, albumPhotos map[string][]string) ([]*alb
 		if r.Kind != sqlread.KindProject {
 			continue
 		}
-		order := noListOrder
+		a := albumOf(r, albumPhotos)
+		a.LibraryListOrder = []int{noListOrder}
 		if r.ListOrder.Valid {
-			order = intOf(r.ListOrder)
-		}
-		a := &albuminfo.AlbumInfo{
-			UUID:             r.UUID,
-			CloudGUID:        r.CloudGUID.String,
-			Title:            nfc(r.Title.String),
-			PhotoUUIDs:       sortedSet(slices.Clone(albumPhotos[r.UUID])),
-			CreationDate:     optionalTime(r.Created),
-			StartDate:        optionalTime(r.Start),
-			EndDate:          optionalTime(r.End),
-			InTrash:          trashed(r),
-			SortOrder:        sortOrder(r),
-			LibraryListOrder: []int{order},
+			a.LibraryListOrder = []int{intOf(r.ListOrder)}
 		}
 		if r.Parent.Valid && r.Parent.Int64 != rootPK {
 			if !r.ParentUUID.Valid {

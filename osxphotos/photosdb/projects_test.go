@@ -35,6 +35,7 @@ func TestLoadProjects(t *testing.T) {
 	noPhotos := withTitle(projectRow(7, "PR-C", nullInt(9), "PROJECTS"), nfd)
 	noPhotos.CloudGUID, noPhotos.Created, noPhotos.ListOrder = nullString("GUID-P"), nullFloat(694224000), nullInt(4)
 	noPhotos.SortKey, noPhotos.SortAscending = nullInt(1), nullInt(0)
+	noPhotos.Start, noPhotos.End = nullFloat(694310400), nullFloat(694396800)
 	rows := []sqlread.Album{
 		albumRow(1, "ROOT", sqlread.KindRootFolder, none),
 		withTitle(albumRow(2, "F-1", sqlread.KindFolder, nullInt(1)), "F1"),
@@ -75,12 +76,13 @@ func TestLoadProjects(t *testing.T) {
 		t.Fatal(err)
 	}
 	created := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
+	start, end := created.AddDate(0, 0, 1), created.AddDate(0, 0, 2)
 	want := []*albuminfo.AlbumInfo{
 		{UUID: "PR-A", ParentUUID: "F-1", PhotoUUIDs: []string{"P-1", "P-2"}, LibraryListOrder: []int{noListOrder}},
 		{UUID: "PR-B", Title: "Card", PhotoUUIDs: []string{"P-2"}, InTrash: true, LibraryListOrder: []int{noListOrder}},
 		{
 			UUID: "PR-C", CloudGUID: "GUID-P", Title: nfcForm, ParentUUID: "PROJECTS", CreationDate: &created,
-			SortOrder: albuminfo.AlbumSortNewestFirst, LibraryListOrder: []int{4},
+			StartDate: &start, EndDate: &end, SortOrder: albuminfo.AlbumSortNewestFirst, LibraryListOrder: []int{4},
 		},
 	}
 	if len(got) != len(want) {
@@ -91,7 +93,7 @@ func TestLoadProjects(t *testing.T) {
 		if g.UUID != w.UUID || g.CloudGUID != w.CloudGUID || g.Title != w.Title || g.ParentUUID != w.ParentUUID || g.FolderNames != nil ||
 			!sameStringsNilAware(g.PhotoUUIDs, w.PhotoUUIDs) || g.InTrash != w.InTrash || g.SortOrder != w.SortOrder ||
 			!slices.Equal(g.LibraryListOrder, w.LibraryListOrder) ||
-			!sameTime(g.CreationDate, w.CreationDate) || g.StartDate != nil || g.EndDate != nil {
+			!sameTime(g.CreationDate, w.CreationDate) || !sameTime(g.StartDate, w.StartDate) || !sameTime(g.EndDate, w.EndDate) {
 			t.Errorf("project %d = %+v, want %+v", i, *g, *w)
 		}
 	}
@@ -145,15 +147,16 @@ func TestProjectLookup(t *testing.T) {
 	}
 	p1, p2, p3, p4 := project("PR-1", "B", false), project("PR-2", "B", false), project("PR-3", "", false), project("PR-4", "A", true)
 	all := []*albuminfo.AlbumInfo{p1, p2, p3, p4}
-	album := &albuminfo.AlbumInfo{UUID: "AL-1", Title: "A"}
-	db := &DB{projects: slices.Clone(all), albums: []*albuminfo.AlbumInfo{album}}
+	album := &albuminfo.AlbumInfo{UUID: "AL-1", Title: "A", ParentUUID: "F-1"}
+	p1.ParentUUID = "F-1"
+	db := &DB{projects: slices.Clone(all), albums: []*albuminfo.AlbumInfo{album}, folders: []*albuminfo.FolderInfo{{UUID: "F-1"}}}
 	photo := &photoinfo.PhotoInfo{ProjectUUIDs: []string{"PR-1", "PR-2", "PR-3", "PR-4"}, AlbumUUIDs: []string{"AL-1"}}
 
 	for _, tt := range []struct {
 		name      string
 		got, want []*albuminfo.AlbumInfo
 	}{
-		// Upstream fails on the project without a title (photoinfo.py:700-703); "" sorts first here.
+		// Upstream fails when it compares the None title with another (photoinfo.py:700-703); "" sorts first here.
 		{"ProjectInfoOf", db.ProjectInfoOf(photo), []*albuminfo.AlbumInfo{p3, p1, p2}},
 		{"ProjectInfoOf equal titles by UUID", db.ProjectInfoOf(&photoinfo.PhotoInfo{ProjectUUIDs: []string{"PR-2", "PR-1"}}), []*albuminfo.AlbumInfo{p1, p2}},
 		{"ProjectInfoOf of a project in the trash", db.ProjectInfoOf(&photoinfo.PhotoInfo{ProjectUUIDs: []string{"PR-4"}}), nil},
@@ -177,6 +180,13 @@ func TestProjectLookup(t *testing.T) {
 			t.Errorf("Project(%q) = %v, %v; want nil, false", u, a, ok)
 		}
 	}
+	// Upstream ProjectInfo.folder_list is always empty (albuminfo.py:385-392).
+	if got := db.FolderList(p1); got != nil {
+		t.Errorf("FolderList of a project in a folder = %q, want nil", folderUUIDs(got))
+	}
+	if got := folderUUIDs(db.FolderList(album)); !slices.Equal(got, []string{"F-1"}) {
+		t.Errorf("FolderList of an album in a folder = %q, want [F-1]", got)
+	}
 
 	db.ProjectInfo()[0] = nil
 	db.ProjectInfoOf(photo)[0] = nil
@@ -198,7 +208,7 @@ func projectMembers(table, albumCol, assetCol, kind string) string {
 		" WHERE g.ZKIND = " + kind + " AND g.ZUUID IS NOT NULL)"
 }
 
-func projectCheck(t *testing.T, name, lib string) (projects, members int) {
+func projectCheck(t *testing.T, name, lib string) (projects, trashed, members int) {
 	t.Helper()
 	db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
 	if err != nil {
@@ -245,6 +255,9 @@ func projectCheck(t *testing.T, name, lib string) (projects, members int) {
 			t.Errorf("project %s: PhotoUUIDs %q and %d AlbumPhotos, want the photos that list it %q", a.UUID, a.PhotoUUIDs, len(db.AlbumPhotos(a)), want)
 		}
 		members += len(a.PhotoUUIDs)
+		if a.InTrash {
+			trashed++
+		}
 		if _, ok := db.Album(a.UUID); ok || a.FolderNames != nil {
 			t.Errorf("project %s is among the albums or has folders %q", a.UUID, a.FolderNames)
 		}
@@ -254,8 +267,6 @@ func projectCheck(t *testing.T, name, lib string) (projects, members int) {
 			t.Errorf("project %s: ParentUUID %q, want %q", a.UUID, a.ParentUUID, want)
 		}
 	}
-	t.Logf("ZKIND of the parents of projects: %q", testlib.Rows(t, src, "SELECT DISTINCT p.ZKIND FROM ZGENERICALBUM g "+
-		"JOIN ZGENERICALBUM p ON p.Z_PK = g.ZPARENTFOLDER WHERE g.ZKIND = 1508 ORDER BY 1"))
 	if want := count(t, src, projectMembers(n.MemberTable, n.MemberAlbumColumn, n.MemberAssetColumn, "1508")); members != want {
 		t.Errorf("%d project members, want %d", members, want)
 	}
@@ -266,7 +277,7 @@ func projectCheck(t *testing.T, name, lib string) (projects, members int) {
 	if want := count(t, src, projectMembers(n.MemberTable, n.MemberAlbumColumn, n.MemberAssetColumn, "2")); albumMembers != want {
 		t.Errorf("%d album members, want %d: the members of projects reach the albums", albumMembers, want)
 	}
-	return len(db.projects), members
+	return len(db.projects), trashed, members
 }
 
 func TestProjects(t *testing.T) {
@@ -274,20 +285,12 @@ func TestProjects(t *testing.T) {
 
 	for _, name := range testlib.Libraries(t) {
 		t.Run(name, func(t *testing.T) {
-			projects, members := projectCheck(t, name, testlib.OpenPristine(t, name))
-			t.Logf("%d projects, %d members", projects, members)
+			projects, trashed, members := projectCheck(t, name, testlib.OpenPristine(t, name))
+			// Without the projects of reference/004_projects.sql projectCheck checks nothing.
+			if name == "synthetic" && (projects < 2 || members == 0 || trashed == 0 || trashed == projects) {
+				t.Errorf("%d projects, %d of them in the trash, with %d members; want 2 or more, in the trash and outside, with members",
+					projects, trashed, members)
+			}
 		})
 	}
-	// The libraries of upstream may hold no project with photos, so some
-	// albums of the synthetic one become projects, one in two of them trashed.
-	t.Run("synthetic with albums turned into projects", func(t *testing.T) {
-		lib := testlib.OpenPristine(t, "synthetic")
-		change(t, lib,
-			"UPDATE ZGENERICALBUM SET ZKIND = 1508 WHERE ZKIND = 2 AND Z_PK % 2 = 0",
-			"UPDATE ZGENERICALBUM SET ZTRASHEDSTATE = 1 WHERE ZKIND = 1508 AND Z_PK % 4 = 0",
-		)
-		if projects, members := projectCheck(t, "synthetic", lib); projects < 2 || members == 0 {
-			t.Errorf("%d projects with %d members, want some of each", projects, members)
-		}
-	})
 }

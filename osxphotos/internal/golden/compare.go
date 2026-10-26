@@ -80,18 +80,22 @@ func newEnv(lib Library) (*env, error) {
 	for _, set := range []struct {
 		albums []*albuminfo.AlbumInfo
 		index  map[string]*albuminfo.AlbumInfo
-	}{{lib.Albums, e.albums}, {lib.Projects, e.projects}} {
+		parent bool // project_info does not compare it: projectInfoRule
+	}{{lib.Albums, e.albums, true}, {lib.Projects, e.projects, false}} {
 		for _, a := range set.albums {
 			if _, dup := e.goAlbumElems[a.UUID]; dup {
 				return nil, errors.New("golden: an album UUID is repeated in Library.Albums or Library.Projects")
 			}
 			set.index[a.UUID] = a
-			e.goAlbumElems[a.UUID] = withDates(map[string]any{
+			elem := withDates(map[string]any{
 				"uuid":         a.UUID,
 				"title":        a.Title,
-				"parent":       a.ParentUUID,
 				"folder_names": strs(a.FolderNames),
 			}, a.CreationDate, a.StartDate, a.EndDate)
+			if set.parent {
+				elem["parent"] = a.ParentUUID
+			}
+			e.goAlbumElems[a.UUID] = elem
 		}
 	}
 	for _, s := range lib.Imports {
@@ -120,13 +124,13 @@ func withDates(elem map[string]any, created, start, end *time.Time) map[string]a
 	return elem
 }
 
-func (e *env) userAlbums(uuids []string) ([]*albuminfo.AlbumInfo, error) {
+func members(index map[string]*albuminfo.AlbumInfo, missing error, uuids []string) ([]*albuminfo.AlbumInfo, error) {
 	var out []*albuminfo.AlbumInfo
 	seen := map[string]bool{}
 	for _, id := range uuids {
-		a, ok := e.albums[id]
+		a, ok := index[id]
 		if !ok {
-			return nil, errAlbumMissing
+			return nil, missing
 		}
 		if a.InTrash || seen[id] {
 			continue
