@@ -89,7 +89,7 @@ Other models, including beta builds outside the ranges, give `ErrUnsupportedSche
 | Keywords of the library, their counts and those without a photo (`Keywords`, `KeywordCounts`, `KeywordsWithoutPhoto`) | `photosdb` | done |
 | Albums: title, folder path, members, dates, trash, sort order and place in the sidebar (`AlbumInfo`, `Album`; photos in the order of the album and the place of a photo in it: `AlbumPhotos`, `PhotoIndex`) | `photosdb`, `albuminfo` | done |
 | Folders and their tree, place in the sidebar (`FolderInfo`, `Folder`, `FolderList`) | `photosdb`, `albuminfo` | done |
-| Selection `Query` with `query.Options` filters (album, folder, dates, trash, type, flags, person and others), sorting | `photosdb`, `query` | done |
+| Selection `Query` with `query.Options` filters (album, folder, dates, trash, type, flags, person and others), sorting; the selection with the arguments of `photos()`: `PhotosWith` | `photosdb`, `query` | done |
 | Duplicates (`DB.Duplicates`, `query.Duplicates`, the `Duplicate` option) | `photosdb`, `query` | done |
 | Path templates | `template` | planned |
 | File names on export | `export` | planned |

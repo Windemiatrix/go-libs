@@ -89,7 +89,7 @@ osxphotos — самый полный открытый разбор базы «�
 | Ключевые слова медиатеки, их счёт и слова без фото (`Keywords`, `KeywordCounts`, `KeywordsWithoutPhoto`) | `photosdb` | есть |
 | Альбомы: название, путь папок, состав, даты, корзина, порядок сортировки и место в боковой панели (`AlbumInfo`, `Album`; фото в порядке альбома и место фото в нём — `AlbumPhotos`, `PhotoIndex`) | `photosdb`, `albuminfo` | есть |
 | Папки и их дерево, место в боковой панели (`FolderInfo`, `Folder`, `FolderList`) | `photosdb`, `albuminfo` | есть |
-| Выборка `Query` с фильтрами `query.Options` (альбом, папка, даты, корзина, тип, признаки, человек и другие), сортировка | `photosdb`, `query` | есть |
+| Выборка `Query` с фильтрами `query.Options` (альбом, папка, даты, корзина, тип, признаки, человек и другие), сортировка; выборка с аргументами `photos()` — `PhotosWith` | `photosdb`, `query` | есть |
 | Дубликаты (`DB.Duplicates`, `query.Duplicates`, опция `Duplicate`) | `photosdb`, `query` | есть |
 | Шаблоны путей | `template` | запланировано |
 | Имена файлов при выгрузке | `export` | запланировано |
