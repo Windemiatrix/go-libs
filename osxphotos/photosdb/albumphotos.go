@@ -43,8 +43,7 @@ func (db *DB) PhotoIndex(a *albuminfo.AlbumInfo, p *photoinfo.PhotoInfo) (int, b
 
 // Upstream sorts the pairs of position and photo UUID of an album
 // (albuminfo.py:53, 171-174). A NULL position comes before the numbers, where
-// upstream fails comparing None with an int. The photos are those of
-// PhotoUUIDs, as loadAlbums takes them.
+// upstream fails comparing None with an int.
 func membershipOrder(members []sqlread.Member, assets []sqlread.Asset, byUUID map[string]*photoinfo.PhotoInfo) map[string][]string {
 	photoOf := make(map[int64]string, len(assets))
 	for _, a := range assets {

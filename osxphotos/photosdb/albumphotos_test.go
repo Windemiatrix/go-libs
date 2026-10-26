@@ -2,6 +2,7 @@ package photosdb
 
 import (
 	"database/sql"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -37,9 +38,10 @@ func orderDB() *DB {
 		byUUID[p.UUID] = p
 		assets = append(assets, sqlread.Asset{PK: int64(i + 1), UUID: nullString(p.UUID), HasAttributes: true})
 	}
-	assets = append(assets, sqlread.Asset{PK: 9, UUID: nullString("P-1")})
+	assets = append(assets, sqlread.Asset{PK: 9, UUID: nullString("P-1")}, sqlread.Asset{PK: 8, UUID: nullString("P-9"), HasAttributes: true})
 	none := sql.NullInt64{}
 	members := []sqlread.Member{
+		{AssetPK: 8, AlbumUUID: "A", Order: nullInt(2)},
 		{AssetPK: 1, AlbumUUID: "A", Order: nullInt(20)},
 		{AssetPK: 4, AlbumUUID: "A", Order: nullInt(40)},
 		{AssetPK: 9, AlbumUUID: "A", Order: nullInt(5)},
@@ -111,6 +113,61 @@ func TestPhotoIndex(t *testing.T) {
 			t.Errorf("%s: PhotoIndex = %d, %v; want %d, %v", tt.name, got, ok, tt.want, tt.wantOK)
 		}
 	}
+	// Upstream compares the UUIDs, not the objects (albuminfo.py:282-284).
+	a := &albuminfo.AlbumInfo{UUID: "A", SortOrder: albuminfo.AlbumSortManual}
+	if got, ok := db.PhotoIndex(a, &photoinfo.PhotoInfo{UUID: "P-4"}); got != 1 || !ok {
+		t.Errorf("PhotoIndex of another value with the UUID of a photo = %d, %v; want 1, true", got, ok)
+	}
+}
+
+func stabilityDB() (db *DB, album []string) {
+	byUUID := map[string]*photoinfo.PhotoInfo{}
+	var assets []sqlread.Asset
+	var members []sqlread.Member
+	for k := range 24 {
+		p := &photoinfo.PhotoInfo{UUID: fmt.Sprintf("S-%02d", k*7%24), Date: orderDay(1 + k%2)}
+		if k%2 == 0 {
+			p.Title = "x"
+		}
+		byUUID[p.UUID] = p
+		album = append(album, p.UUID)
+		pk := int64(100 + k)
+		assets = append(assets, sqlread.Asset{PK: pk, UUID: nullString(p.UUID), HasAttributes: true})
+		members = append(members, sqlread.Member{AssetPK: pk, AlbumUUID: "S", Order: nullInt(int64(k))})
+	}
+	return &DB{byUUID: byUUID, albumPhotos: membershipOrder(members, assets, byUUID)}, album
+}
+
+// Python sorted is stable, with reverse=True as well (albuminfo.py:176-184).
+// More than 12 photos with alternating keys: slices.SortFunc sorts up to 12
+// by insertion, which is stable, and returns sorted input as it is.
+func TestAlbumPhotosStable(t *testing.T) {
+	t.Parallel()
+
+	db, album := stabilityDB()
+	var even, odd []string
+	for k, u := range album {
+		if k%2 == 0 {
+			even = append(even, u)
+		} else {
+			odd = append(odd, u)
+		}
+	}
+	tests := []struct {
+		order albuminfo.AlbumSortOrder
+		want  []string
+	}{
+		{albuminfo.AlbumSortManual, album},
+		{albuminfo.AlbumSortOldestFirst, slices.Concat(even, odd)},
+		{albuminfo.AlbumSortNewestFirst, slices.Concat(odd, even)},
+		{albuminfo.AlbumSortTitle, slices.Concat(odd, even)},
+	}
+	for _, tt := range tests {
+		got := orderUUIDs(db.AlbumPhotos(&albuminfo.AlbumInfo{UUID: "S", SortOrder: tt.order}))
+		if !slices.Equal(got, tt.want) {
+			t.Errorf("sort order %d: AlbumPhotos %q, want %q", tt.order, got, tt.want)
+		}
+	}
 }
 
 var orderKeys = map[albuminfo.AlbumSortOrder]func(p, q *photoinfo.PhotoInfo) int{
@@ -129,7 +186,8 @@ func orderCheckLibrary(t *testing.T, name, lib string) (manual, reordered, sorte
 	n := schemaByID(t, libraryModels[name].id)
 	membership := "SELECT a.ZUUID FROM " + n.MemberTable + " m JOIN ZGENERICALBUM g ON g.Z_PK = m." + n.MemberAlbumColumn +
 		" JOIN ZASSET a ON a.Z_PK = m." + n.MemberAssetColumn +
-		" WHERE EXISTS (SELECT 1 FROM ZADDITIONALASSETATTRIBUTES x WHERE x.ZASSET = a.Z_PK) AND g.ZUUID = '"
+		" WHERE EXISTS (SELECT 1 FROM ZADDITIONALASSETATTRIBUTES x WHERE x.ZASSET = a.Z_PK) AND g.ZUUID = ?" +
+		" ORDER BY m." + n.MemberOrderColumn + ", a.ZUUID"
 	for _, a := range db.albums {
 		photos := db.AlbumPhotos(a)
 		got := orderUUIDs(photos)
@@ -143,22 +201,27 @@ func orderCheckLibrary(t *testing.T, name, lib string) (manual, reordered, sorte
 				t.Errorf("album %s: PhotoIndex(%s) = %d, %v; want %d, true", a.UUID, p.UUID, j, ok, i)
 			}
 		}
-		if key, ok := orderKeys[a.SortOrder]; ok {
+		key, byKey := orderKeys[a.SortOrder]
+		if !byKey && a.SortOrder != albuminfo.AlbumSortManual {
+			continue
+		}
+		want := testlib.Rows(t, src, membership, a.UUID)
+		if byKey {
 			sorted++
-			if !slices.IsSortedFunc(photos, key) {
-				t.Errorf("album %s: AlbumPhotos %q not in the sort order %d", a.UUID, got, a.SortOrder)
+			inOrder := make([]*photoinfo.PhotoInfo, len(want))
+			for i, u := range want {
+				inOrder[i] = db.byUUID[u]
 			}
-			continue
+			slices.SortStableFunc(inOrder, key)
+			want = orderUUIDs(inOrder)
+		} else {
+			manual++
+			if !slices.Equal(got, a.PhotoUUIDs) {
+				reordered++
+			}
 		}
-		if a.SortOrder != albuminfo.AlbumSortManual {
-			continue
-		}
-		manual++
-		if want := testlib.Rows(t, src, membership+a.UUID+"' ORDER BY m."+n.MemberOrderColumn+", a.ZUUID"); !slices.Equal(got, want) {
+		if !slices.Equal(got, want) {
 			t.Errorf("album %s: AlbumPhotos %q, want %q", a.UUID, got, want)
-		}
-		if !slices.Equal(got, a.PhotoUUIDs) {
-			reordered++
 		}
 	}
 	return manual, reordered, sorted

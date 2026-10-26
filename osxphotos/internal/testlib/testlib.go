@@ -245,9 +245,9 @@ func Count(t testing.TB, db *sql.DB, query string) int {
 }
 
 // Rows returns the first column of every row of query.
-func Rows(t testing.TB, db *sql.DB, query string) []string {
+func Rows(t testing.TB, db *sql.DB, query string, args ...any) []string {
 	t.Helper()
-	rows, err := db.QueryContext(t.Context(), query)
+	rows, err := db.QueryContext(t.Context(), query, args...)
 	if err != nil {
 		t.Fatalf("%s: %v", query, err)
 	}

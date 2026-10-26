@@ -93,7 +93,7 @@ func TestLoadFolders(t *testing.T) {
 		folderAlbum(14, "A-FT", 5, nullInt(0)),
 		folderAlbum(15, "A-FS", 4, nullInt(0)),
 	}
-	albums, err := loadAlbums(rows, nil, nil, nil)
+	albums, err := loadAlbums(rows, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestLoadFoldersListOrder(t *testing.T) {
 		"F-X":  {9999999},
 	}
 	rows := sortListRows()
-	albums, err := loadAlbums(rows, nil, nil, nil)
+	albums, err := loadAlbums(rows, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func TestLoadFoldersErrors(t *testing.T) {
 		}, 3},
 	}
 	for _, tt := range tests {
-		albums, err := loadAlbums(tt.rows, nil, nil, nil)
+		albums, err := loadAlbums(tt.rows, nil)
 		if err != nil {
 			t.Fatalf("%s: loadAlbums: %v; the case must pass it", tt.name, err)
 		}
