@@ -45,7 +45,7 @@ Reaching the same result another way (a direct GitHub API request, another clien
 
 The model is [bxcodec/go-clean-arch](https://github.com/bxcodec/go-clean-arch), applied to a library: the module knows nothing about the applications that use it.
 
-- Pure packages without I/O (`photoinfo`, `albuminfo`, `query`, `template`, `export`) hold plain structs and rules; they do not import `os`, `io`, SQLite or cgo. The linter enforces the boundaries of these packages (depguard in `.golangci.yml`).
+- Pure packages without I/O (`photoinfo`, `albuminfo`, `adjustmentsinfo`, `query`, `template`, `export`) hold plain structs and rules; they do not import `os`, `io`, SQLite or cgo. The linter enforces the boundaries of these packages (depguard in `.golangci.yml`).
 - I/O lives in `photosdb` (reading a copy of `Photos.sqlite`) and `photokit`; everything internal is in `internal/` (schemas as data, SQL reading, the PhotoKit bridge).
 - cgo only in `photokit`; it has a stub for other OSes with the same signatures.
 - Interfaces are declared by the consumer, not in a separate interfaces package; dependencies point inward, toward the pure packages.

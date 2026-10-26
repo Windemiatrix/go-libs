@@ -13,8 +13,9 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
 )
 
-// maxPlistSize bounds every property list this package parses: Z_PLIST of a
-// real database and the photolibraryd preferences are a few KiB.
+// maxPlistSize bounds every property list this package parses, and the inflated
+// adjustmentData: Z_PLIST of a real database and the photolibraryd preferences
+// are a few KiB; an adjustment file over it is not decoded (UPSTREAM.md).
 const maxPlistSize = 1 << 20
 
 const modelKey = "PLModelVersion"

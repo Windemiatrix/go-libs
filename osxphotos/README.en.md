@@ -69,7 +69,7 @@ Other models, including beta builds outside the ranges, give `ErrUnsupportedSche
 ## Safety of your photos
 
 - **The original is never changed.** Only a copy of `Photos.sqlite` is read, together with its `-wal` file (without `-shm`, which SQLite rebuilds), opened with `mode=ro`. The copy goes into a temporary directory with mode `0700` (files `0600`) and is deleted before `Open` returns, after an error as well; a temporary directory inside the library is refused.
-- **The read packages** (`photosdb`, `photoinfo`, `albuminfo`, `query`) cannot write to the library. Only the future `photokit` package (macOS, cgo) will change Photos, and only if you import it and grant the macOS permission; macOS confirms a deletion from Photos in its own dialog (one per batch). Its tests that modify a library will run only by hand, under a separate account, never in CI.
+- **The read packages** (`photosdb`, `photoinfo`, `albuminfo`, `adjustmentsinfo`, `query`) cannot write to the library. Only the future `photokit` package (macOS, cgo) will change Photos, and only if you import it and grant the macOS permission; macOS confirms a deletion from Photos in its own dialog (one per batch). Its tests that modify a library will run only by hand, under a separate account, never in CI.
 - **No network.** The module makes no network calls and starts no processes; the linter enforces this (the `library` rule in [.golangci.yml](https://github.com/Windemiatrix/go-libs/blob/main/.golangci.yml)). No telemetry.
 - **macOS permissions.** The library in `~/Pictures` is protected by the system: the program that reads it (for example, Terminal) needs Full Disk Access in System Settings → Privacy & Security.
 - **The copy is your data:** places, names of people, captions. If you set `Options.TempDir`, pick a directory only you can read.
@@ -84,12 +84,13 @@ Other models, including beta builds outside the ranges, give `ErrUnsupportedSche
 | Opening a library (`Open`): a `.photoslibrary` directory or a database file, also outside its library (`Options.LibraryPath` says where the originals are); the database path and Photos version (`Info.DBPath`, `Info.PhotosVersion`) | `photosdb` | done |
 | Photos: dates with time zone and its name, sizes, keywords, Live, RAW+JPEG, bursts, iCloud, Shared Library | `photosdb`, `photoinfo` | done |
 | Photo flags: HDR, panorama, portrait, selfie, spatial, slow motion, time-lapse, screen recording, shared moment, edited in another app, visibility, who imported it | `photosdb`, `photoinfo` | done |
-| Files on disk: original, Live, RAW, edited version and its Live video, adjustment files, previews (`PathEdited`, `PathEditedLive`, `AdjustmentsPath`, `OriginalAdjustmentsPath`, `PathDerivatives`) | `photosdb`, `photoinfo` | done |
+| Files on disk: original, Live, RAW, edited version and its Live video, adjustment files, previews (`PathEdited`, `PathEditedLive`, `AdjustmentsPath`, `OriginalAdjustmentsPath`, `PathDerivatives`); edit data: `Adjustments`, `OriginalAdjustments` | `photosdb`, `photoinfo`, `adjustmentsinfo` | done |
 | People on photos: names (`Persons`; a face without a name is `_UNKNOWN_`), for the library `DB.Persons`, `DB.PersonCounts` | `photosdb`, `photoinfo` | done |
 | Keywords of the library, their counts and those without a photo (`Keywords`, `KeywordCounts`, `KeywordsWithoutPhoto`) | `photosdb` | done |
 | Albums: title, folder path, members, dates, trash, sort order and place in the sidebar (`AlbumInfo`, `Album`; photos in the order of the album and the place of a photo in it: `AlbumPhotos`, `PhotoIndex`) | `photosdb`, `albuminfo` | done |
 | Import sessions: title, dates, photos, the session of each photo (`ImportInfo`, `Import`, `ImportUUID`) | `photosdb`, `albuminfo` | done |
 | Projects ("My Projects"): title, dates, photos, the projects of each photo (`ProjectInfo`, `Project`, `ProjectInfoOf`, `ProjectUUIDs`) | `photosdb`, `albuminfo` | done |
+| The shared moment and shared library of a photo (`SharedMomentInfo`, `ShareInfo`) | `photosdb`, `photoinfo` | done |
 | Folders and their tree, place in the sidebar (`FolderInfo`, `Folder`, `FolderList`) | `photosdb`, `albuminfo` | done |
 | Selection `Query` with `query.Options` filters (album, folder, dates, trash, type, flags, person and others), sorting; the selection with the arguments of `photos()`: `PhotosWith` | `photosdb`, `query` | done |
 | Duplicates (`DB.Duplicates`, `query.Duplicates`, the `Duplicate` option) | `photosdb`, `query` | done |
@@ -97,7 +98,7 @@ Other models, including beta builds outside the ranges, give `ErrUnsupportedSche
 | File names on export | `export` | planned |
 | Import, albums, deletion through PhotoKit | `photokit` | planned |
 
-**Not included:** a command line, exporting files and sidecars, face data other than the names of people (face position and size), place names (coordinates are read), EXIF, search by photo content, parsing of adjustment files (their paths are read), the list of shared albums (their photos are read: `Shared`) and their comments, database repair, Photos 7 and older. osxphotos itself covers these.
+**Not included:** a command line, exporting files and sidecars, face data other than the names of people (face position and size), place names (coordinates are read), EXIF, search by photo content, the list of shared albums (their photos are read: `Shared`) and their comments, database repair, Photos 7 and older. osxphotos itself covers these.
 
 ## How it differs from osxphotos
 
@@ -114,7 +115,7 @@ Semver by tags `osxphotos/vX.Y.Z`, independent of osxphotos. Before `v1.0.0` inc
 ## FAQ
 
 - **Can I read while Photos is open?** Yes: a copy of the database is read together with its `-wal` file, and Photos is not blocked.
-- **Does it read the photos themselves?** No: only the catalog (metadata) and the paths of files in the library: originals, edited versions, adjustment files and previews. File contents are never opened.
+- **Does it read the photos themselves?** No: only the catalog (metadata), the paths of files in the library (originals, edited versions, adjustment files and previews) and the adjustment files themselves (property lists). Photo files are never opened.
 - **Photos only in iCloud ("Optimize Storage")?** The catalog is read in full; for a photo whose original is not on disk, `Path` is empty, and `IsMissing`/`InCloud` show where it is.
 
 ## License
