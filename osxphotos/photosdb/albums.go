@@ -5,8 +5,11 @@ import (
 	"slices"
 	"strings"
 
+	"howett.net/plist"
+
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
+	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
 // One root folder is required (photosdb.py:1958-1967). An empty or repeated
@@ -68,7 +71,7 @@ func albumOf(r sqlread.Album, albumPhotos map[string][]string) *albuminfo.AlbumI
 		UUID:         r.UUID,
 		CloudGUID:    r.CloudGUID.String,
 		Title:        nfc(r.Title.String),
-		Owner:        nfc(r.Owner.String),
+		Owner:        ownerName(r),
 		PhotoUUIDs:   sortedSet(slices.Clone(albumPhotos[r.UUID])),
 		CreationDate: optionalTime(r.Created),
 		StartDate:    optionalTime(r.Start),
@@ -143,3 +146,84 @@ func libraryListOrder(r sqlread.Album, byPK map[int64]sqlread.Album, rootPK int6
 // trashed is one rule for albums and folders: Python None != 0 holds, so a
 // NULL state counts as trashed (photosdb.py:1936).
 func trashed(r sqlread.Album) bool { return !r.Trashed.Valid || r.Trashed.Int64 != 0 }
+
+// Upstream decodes ZNAMECOMPONENTS, a keyed archive of NSPersonNameComponents,
+// joins the given and the family name and skips an archive without a name
+// (shareparticipant.py:90-117, 153-187; _photosdb_process_comments.py:172-187).
+func ownerName(r sqlread.Album) string {
+	for _, archive := range r.OwnerComponents {
+		if name := personName(archive); name != "" {
+			return name
+		}
+	}
+	return nfc(r.Owner.String)
+}
+
+func personName(archive []byte) string {
+	var keyed struct {
+		Objects []any          `plist:"$objects"`
+		Top     map[string]any `plist:"$top"`
+	}
+	if len(archive) > maxPlistSize || decodePlist(archive, &keyed) != nil {
+		return ""
+	}
+	object := func(ref any) any {
+		uid, ok := ref.(plist.UID)
+		if !ok || uint64(uid) >= uint64(len(keyed.Objects)) || keyed.Objects[uid] == "$null" {
+			return nil
+		}
+		return keyed.Objects[uid]
+	}
+	person, _ := object(keyed.Top["root"]).(map[string]any)
+	data, _ := object(person["NSnameComponentsPrivate"]).(map[string]any)
+	var parts []string
+	for _, key := range []string{"NSgivenName", "NSfamilyName"} {
+		if s, _ := object(data[key]).(string); s != "" {
+			parts = append(parts, s)
+		}
+	}
+	return nfc(strings.Join(parts, " "))
+}
+
+// ZSHARE and ZGENERICALBUM number their rows apart, so a CollectionShare stays
+// out of loadAlbums and loadFolders (photosdb.py:2914-2916). A ZUUID of both
+// tables, which upstream merges in one dictionary, is an error, as within
+// ZGENERICALBUM; rows have passed loadAlbums.
+func loadSharedAlbums(rows, shares []sqlread.Album, albumPhotos map[string][]string) ([]*albuminfo.AlbumInfo, error) {
+	all := slices.Concat(rows, shares)
+	seen, bad := map[string]bool{"": true}, 0
+	for _, r := range all {
+		if seen[r.UUID] {
+			bad++
+		}
+		seen[r.UUID] = true
+	}
+	if bad > 0 {
+		return nil, fmt.Errorf("photosdb: %d CollectionShare rows of ZSHARE with an empty ZUUID or the ZUUID of another album", bad)
+	}
+	return loadFolderless(all, albumPhotos, sqlread.KindSharedAlbum, "shared albums")
+}
+
+const resSharedVideo = 8 // ZDATASTORESUBTYPE of the video of a shared album, UUID.medium.MP4 (_constants.py:373)
+
+// Upstream: photosdb.py:2518-2519, 2918-2942. The video is a resource apart from
+// the poster frame; of several, the one with the highest Z_PK decides, as in isMissing.
+func markSharedVideosMissing(shareMembers []sqlread.Member, assets []sqlread.Asset, resources []sqlread.Resource,
+	byUUID map[string]*photoinfo.PhotoInfo,
+) {
+	shared := map[int64]bool{}
+	for _, m := range shareMembers {
+		shared[m.AssetPK] = true
+	}
+	videos := map[int64]*photoinfo.PhotoInfo{}
+	for _, a := range assets {
+		if p := byUUID[a.UUID.String]; p != nil && a.HasAttributes && shared[a.PK] && is(a.Kind, kindMovie) {
+			videos[a.PK] = p
+		}
+	}
+	for _, r := range resources {
+		if p := videos[r.AssetPK]; p != nil && is(r.Subtype, resSharedVideo) {
+			p.IsMissing = !is(r.Local, localAvailable)
+		}
+	}
+}

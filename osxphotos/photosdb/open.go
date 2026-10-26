@@ -90,6 +90,7 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 	if err != nil {
 		return nil, err
 	}
+	markSharedVideosMissing(t.shareMembers, t.assets, t.resources, c.byUUID)
 	titles, err := src.KeywordTitles(ctx)
 	if err != nil {
 		return nil, err
@@ -107,7 +108,7 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 	if err != nil {
 		return nil, err
 	}
-	sharedAlbums, err := loadFolderless(t.albums, albumPhotos, sqlread.KindSharedAlbum, "shared albums")
+	sharedAlbums, err := loadSharedAlbums(t.albums, t.collectionShares, albumPhotos)
 	if err != nil {
 		return nil, err
 	}
@@ -221,5 +222,10 @@ func readTables(ctx context.Context, src *sqlread.DB, s schema.Schema) (t tables
 	if t.shares, err = src.Shares(ctx); err != nil {
 		return tables{}, err
 	}
+	if t.collectionShares, t.shareMembers, err = src.CollectionShares(ctx); err != nil {
+		return tables{}, err
+	}
+	// groupMembers and membershipOrder sort; nothing relies on the order of members.
+	t.members = append(t.members, t.shareMembers...)
 	return t, nil
 }

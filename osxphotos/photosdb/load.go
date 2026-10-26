@@ -78,6 +78,9 @@ type tables struct {
 	members   []sqlread.Member
 	albums    []sqlread.Album
 	shares    []sqlread.Share
+
+	collectionShares []sqlread.Album  // CollectionShare rows of ZSHARE: their PK is a ZSHARE.Z_PK
+	shareMembers     []sqlread.Member // also appended to members
 }
 
 type catalog struct {

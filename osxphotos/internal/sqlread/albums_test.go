@@ -3,6 +3,7 @@ package sqlread
 import (
 	"database/sql"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -116,5 +117,142 @@ func TestAlbumsOwner(t *testing.T) {
 		case !ok && strings.HasPrefix(owners[pk].String, "TEST-"):
 			t.Errorf("row %d: Owner %v, a name of the changed rows", pk, owners[pk])
 		}
+	}
+}
+
+// The rows are synthetic: the test writes its own entity number, shares,
+// participants and names over the synthetic library, so that the CollectionShare
+// of reference/006_shared-album.sql and the other ZSHARE rows fall outside it.
+func collectionShareDB(t *testing.T, stmts ...string) string {
+	t.Helper()
+	path := syntheticDB(t)
+	w := openWriter(t, path)
+	exec(t, w,
+		"DELETE FROM Z_PRIMARYKEY WHERE Z_NAME = 'CollectionShare'",
+		"INSERT INTO Z_PRIMARYKEY (Z_ENT, Z_NAME, Z_SUPER, Z_MAX) VALUES (900, 'CollectionShare', 0, 0)",
+		"INSERT INTO ZSHARE (Z_PK, Z_ENT, ZUUID, ZTITLE, ZTRASHEDSTATE, ZCREATIONDATE, ZSTARTDATE, ZENDDATE, ZCUSTOMSORTKEY, ZCUSTOMSORTASCENDING) VALUES "+
+			"(900001, 900, 'TEST-SHARE-A', 'TEST-TITLE-A', NULL, 694224000, 694224100, 694224200, 1, 0), "+
+			"(900002, 900, 'TEST-SHARE-B', NULL, 1, NULL, NULL, NULL, NULL, NULL), "+
+			"(900003, 900, NULL, 'TEST-NO-UUID', 0, NULL, NULL, NULL, NULL, NULL), "+
+			"(900004, 901, 'TEST-SHARE-OTHER', 'TEST-OTHER', 0, NULL, NULL, NULL, NULL, NULL)",
+		"UPDATE ZASSET SET ZCOLLECTIONSHARE = 900001, ZCLOUDBATCHPUBLISHDATE = CASE Z_PK WHEN 7 THEN 100 ELSE 200 END WHERE Z_PK IN (5, 6, 7)",
+		"UPDATE ZASSET SET ZCOLLECTIONSHARE = 900002, ZCLOUDBATCHPUBLISHDATE = NULL WHERE Z_PK = 10",
+		"UPDATE ZASSET SET ZCOLLECTIONSHARE = 900003 WHERE Z_PK = 8",
+		"UPDATE ZASSET SET ZCOLLECTIONSHARE = 900004 WHERE Z_PK = 9",
+		"INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZSHARE, ZROLE, ZHASHEDPERSONID, ZNAMECOMPONENTS) VALUES "+
+			"(900001, 900001, 1, 'TEST-P-NAMED', X'09'), (900002, 900001, 2, 'TEST-P-MEMBER', NULL), "+
+			"(900003, 900002, 1, 'TEST-P-UNNAMED', X'03'), (900004, 900002, 1, 'TEST-P-UNNAMED', X'0102'), "+
+			"(900005, 900002, 2, 'TEST-P-UNNAMED', X'0102')",
+		"INSERT INTO ZCLOUDSHAREDALBUMINVITATIONRECORD (Z_PK, ZINVITEEHASHEDPERSONID, ZINVITEEFIRSTNAME, ZINVITEEFULLNAME) VALUES "+
+			"(900001, 'TEST-P-NAMED', 'TEST-F', 'TEST-NAME-1')",
+	)
+	exec(t, w, stmts...)
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestCollectionShares(t *testing.T) {
+	t.Parallel()
+
+	// Upstream reads the trashed state with bool(): NULL is outside the trash (photosdb.py:2906).
+	shareA := Album{
+		PK: 900001, UUID: "TEST-SHARE-A", Kind: KindSharedAlbum, Title: sql.NullString{String: "TEST-TITLE-A", Valid: true},
+		Trashed: sql.NullInt64{Valid: true}, SortKey: sql.NullInt64{Int64: 1, Valid: true}, SortAscending: sql.NullInt64{Valid: true},
+		Created: sql.NullFloat64{Float64: 694224000, Valid: true}, Start: sql.NullFloat64{Float64: 694224100, Valid: true},
+		End: sql.NullFloat64{Float64: 694224200, Valid: true},
+	}
+	shareB := Album{PK: 900002, UUID: "TEST-SHARE-B", Kind: KindSharedAlbum, Trashed: sql.NullInt64{Int64: 1, Valid: true}}
+	member := func(asset int64, share string, order int64) Member {
+		return Member{AssetPK: asset, AlbumUUID: share, Order: sql.NullInt64{Int64: order, Valid: true}, Kind: KindSharedAlbum}
+	}
+	// A NULL publish date sorts first, a tie goes by Z_PK (photosdb.py:2817-2832).
+	wantMembers := []Member{member(10, "TEST-SHARE-B", 0), member(7, "TEST-SHARE-A", 1), member(5, "TEST-SHARE-A", 2), member(6, "TEST-SHARE-A", 3)}
+
+	tests := []struct {
+		name   string
+		stmts  []string
+		owners func(a, b *Album)
+	}{
+		{"ZROLE", nil, func(a, b *Album) {
+			// A named owner takes the name of the UNION, not its ZNAMECOMPONENTS.
+			a.Owner = sql.NullString{String: "TEST-NAME-1", Valid: true}
+			b.OwnerComponents = [][]byte{{1, 2}, {3}}
+		}},
+		// Photos 12 renames the column (photosdb.py:2845-2847); ZROLE is then not read.
+		{"ZCPLROLE", []string{
+			"ALTER TABLE ZSHAREPARTICIPANT ADD COLUMN ZCPLROLE INTEGER",
+			"UPDATE ZSHAREPARTICIPANT SET ZCPLROLE = 1 WHERE Z_PK IN (900002, 900005)",
+		}, func(_, b *Album) { b.OwnerComponents = [][]byte{{1, 2}, {3}} }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			albums, members, err := openDB(t, collectionShareDB(t, tt.stmts...)).CollectionShares(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			a, b := shareA, shareB
+			tt.owners(&a, &b)
+			if len(albums) != 2 {
+				t.Fatalf("%d shares, want 2", len(albums))
+			}
+			for i, want := range []Album{a, b} {
+				if !reflect.DeepEqual(albums[i], want) {
+					t.Errorf("share %d (%s): not the row written (owner %v, %d name archives)", i+1, albums[i].UUID,
+						albums[i].Owner.Valid, len(albums[i].OwnerComponents))
+				}
+			}
+			if !reflect.DeepEqual(members, wantMembers) {
+				t.Errorf("members %+v, want %+v", members, wantMembers)
+			}
+		})
+	}
+
+	t.Run("no CollectionShare entity", func(t *testing.T) {
+		t.Parallel()
+		path := filepath.Join(testlib.OpenPristine(t, "Test-13.0.0"), "database", "Photos.sqlite")
+		if n := count(t, openRO(t, path), "SELECT COUNT(*) FROM Z_PRIMARYKEY WHERE Z_NAME = 'CollectionShare'"); n != 0 {
+			t.Fatal("Test-13.0.0 has the CollectionShare entity; the test needs a library without it")
+		}
+		albums, members, err := openDB(t, path).CollectionShares(t.Context())
+		if albums != nil || members != nil || err != nil {
+			t.Errorf("CollectionShares = %d, %d, %v; want nil, nil, nil", len(albums), len(members), err)
+		}
+	})
+}
+
+// A named participant of an ID of the UNION is skipped, as upstream does
+// (_photosdb_process_comments.py:172-174); the album owner of ZGENERICALBUM
+// also takes the names of ZSHAREPARTICIPANT.
+func TestAlbumsOwnerComponents(t *testing.T) {
+	t.Parallel()
+
+	path := collectionShareDB(t,
+		"UPDATE ZGENERICALBUM SET ZCLOUDOWNERHASHEDPERSONID = 'TEST-P-UNNAMED' WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)",
+		"UPDATE ZGENERICALBUM SET ZCLOUDOWNERHASHEDPERSONID = 'TEST-P-NAMED' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)",
+	)
+	albums, err := openDB(t, path).Albums(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := 0
+	for _, a := range albums {
+		switch {
+		case a.Owner.String == "TEST-NAME-1":
+			found++
+			if a.OwnerComponents != nil {
+				t.Errorf("album %d: a named owner with %d name archives", a.PK, len(a.OwnerComponents))
+			}
+		case a.OwnerComponents != nil:
+			found++
+			if a.Owner.Valid || !reflect.DeepEqual(a.OwnerComponents, [][]byte{{1, 2}, {3}}) {
+				t.Errorf("album %d: Owner %v, name archives %v; want none and the two of the participant", a.PK, a.Owner.Valid, a.OwnerComponents)
+			}
+		}
+	}
+	if found != 2 {
+		t.Errorf("%d albums with the owners written, want 2", found)
 	}
 }
