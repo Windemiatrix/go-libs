@@ -6,7 +6,7 @@
 
 **Read your Mac's Photos library from Go — no Python, and the library is never changed.**
 
-The first library here is `osxphotos`. It gives you the Photos catalog: items, albums, dates, keywords, iCloud identifiers. No Python, and Photos does not need to be running: the module reads a copy of the `Photos.sqlite` database. An unofficial port of parts of [osxphotos](https://github.com/RhetTbull/osxphotos).
+The first library here is `osxphotos`. It gives you the Photos catalog: photos and videos, albums and folders, dates, keywords, people on photos, paths to originals, edited versions, adjustment files and previews, iCloud identifiers; it selects photos by filters and finds duplicates. No Python, and Photos does not need to be running: the module reads a copy of the `Photos.sqlite` database. An unofficial port of parts of [osxphotos](https://github.com/RhetTbull/osxphotos).
 
 The schemas of macOS 13–27 are data: an unknown schema is an error, not wrong data.
 
