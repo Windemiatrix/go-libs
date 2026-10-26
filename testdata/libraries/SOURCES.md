@@ -62,7 +62,7 @@ Cases (the expected values are in the tests of the package that reads the field)
 | `cloud-master` | `InCloud` is `false` (master not in iCloud) or `nil` (no master), `CloudMasterGUID` | `Test-Cloud-13.1` |
 | `fingerprint-schema` | `Fingerprint` from each of the two fingerprint columns (`ZMASTERFINGERPRINT`, `ZORIGINALSTABLEHASH`); empty fingerprint | `Test-13.0.0`, `Test-26.1`, `Test-27.0_DevBeta` |
 | `resources` | `Resources`, `IsMissing`; `HasRAW` only in `Test-14.0.0` (`Test-26.1` has no RAW resource) | `Test-14.0.0`, `Test-26.1` |
-| `shared-library` | `SharedLibrary`, `LibraryScopeShareState`, `LibraryScope` | `Test-14.6.0` |
+| `shared-library` | `SharedLibrary`, `LibraryScopeShareState`, `DB.ShareInfo` (`ZLIBRARYSCOPE`) | `Test-14.6.0` |
 | `attrs-null` | `NULL` in the time zone offset, original file name and creation date | `Test-14.6.0` |
 | `date-modified-raw` | `DateModifiedRaw` apart from `DateModified` | `Test-16.0.0-beta` |
 | `burst-frames` | every burst pick type, the selection of burst frames by `Query`, `BurstAlbumInfoOf` | `Test-13.0.0`, `Test-26.1` |
@@ -137,7 +137,7 @@ To add a case: a new file `NNN_<case>.sql` (lowercase letters, digits and hyphen
 | `cloud-master` | `InCloud` равно `false` (мастер не в iCloud) или `nil` (мастера нет), `CloudMasterGUID` | `Test-Cloud-13.1` |
 | `fingerprint-schema` | `Fingerprint` из каждой из двух колонок отпечатка (`ZMASTERFINGERPRINT`, `ZORIGINALSTABLEHASH`); пустой отпечаток | `Test-13.0.0`, `Test-26.1`, `Test-27.0_DevBeta` |
 | `resources` | `Resources`, `IsMissing`; `HasRAW` — только в `Test-14.0.0` (в `Test-26.1` нет RAW-ресурса) | `Test-14.0.0`, `Test-26.1` |
-| `shared-library` | `SharedLibrary`, `LibraryScopeShareState`, `LibraryScope` | `Test-14.6.0` |
+| `shared-library` | `SharedLibrary`, `LibraryScopeShareState`, `DB.ShareInfo` (`ZLIBRARYSCOPE`) | `Test-14.6.0` |
 | `attrs-null` | `NULL` в смещении пояса, исходном имени файла и дате создания | `Test-14.6.0` |
 | `date-modified-raw` | `DateModifiedRaw` отдельно от `DateModified` | `Test-16.0.0-beta` |
 | `burst-frames` | все виды отметок серий, выборка кадров серий в `Query`, `BurstAlbumInfoOf` | `Test-13.0.0`, `Test-26.1` |
