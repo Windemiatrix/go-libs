@@ -106,6 +106,7 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 	if err := setPaths(library, t.assets, c); err != nil {
 		return nil, err
 	}
+	imports, importInfo := loadImports(t.albums, c.photos)
 	return &DB{
 		info: Info{
 			LibraryPath:   library,
@@ -127,6 +128,9 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 
 		folders:    folders,
 		topFolders: topFolders,
+
+		imports:    imports,
+		importInfo: importInfo,
 	}, nil
 }
 

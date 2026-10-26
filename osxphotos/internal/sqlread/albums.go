@@ -5,19 +5,20 @@ import (
 	"database/sql"
 )
 
-// Values of ZGENERICALBUM.ZKIND (_constants.py:364-368).
+// Values of ZGENERICALBUM.ZKIND (_constants.py:364-369).
 const (
-	KindUserAlbum  = 2
-	KindRootFolder = 3999
-	KindFolder     = 4000
+	KindUserAlbum     = 2
+	KindImportSession = 1506
+	KindRootFolder    = 3999
+	KindFolder        = 4000
 )
 
-// Album is one user album, folder or root folder of ZGENERICALBUM
-// (photosdb.py:1904-1948).
+// Album is one user album, import session, folder or root folder of
+// ZGENERICALBUM (photosdb.py:1904-1948).
 type Album struct {
 	PK                  int64           // Z_PK
 	UUID                string          // ZUUID
-	Kind                int64           // ZKIND: KindUserAlbum, KindRootFolder or KindFolder
+	Kind                int64           // ZKIND: one of the Kind constants
 	Parent              sql.NullInt64   // ZPARENTFOLDER: Z_PK of the enclosing folder
 	Title, CloudGUID    sql.NullString  // ZTITLE, ZCLOUDGUID
 	Trashed             sql.NullInt64   // ZTRASHEDSTATE
@@ -37,12 +38,12 @@ func albumSelect() []column {
 	}
 }
 
-// Albums returns the user albums, folders and root folders that have a
-// ZUUID, ordered by Z_PK. A row without ZUUID is left out, as Members leaves
-// out its memberships.
+// Albums returns the user albums, import sessions, folders and root folders
+// that have a ZUUID, ordered by Z_PK. A row without ZUUID is left out, as
+// Members leaves out its memberships.
 func (d *DB) Albums(ctx context.Context) ([]Album, error) {
 	q := "SELECT " + selectList(albumSelect()) +
-		" FROM ZGENERICALBUM g WHERE g.ZKIND IN (?, ?, ?) AND g.ZUUID IS NOT NULL ORDER BY g.Z_PK"
+		" FROM ZGENERICALBUM g WHERE g.ZKIND IN (?, ?, ?, ?) AND g.ZUUID IS NOT NULL ORDER BY g.Z_PK"
 	var out []Album
 	err := d.readRows(ctx, "albums", q, func(rows *sql.Rows) error {
 		var a Album
@@ -52,7 +53,7 @@ func (d *DB) Albums(ctx context.Context) ([]Album, error) {
 		}
 		out = append(out, a)
 		return nil
-	}, KindUserAlbum, KindRootFolder, KindFolder)
+	}, KindUserAlbum, KindImportSession, KindRootFolder, KindFolder)
 	if err != nil {
 		return nil, err
 	}

@@ -125,16 +125,21 @@ func TestAlbumsMissingOnTheGoSide(t *testing.T) {
 		t.Run(key, func(t *testing.T) {
 			t.Parallel()
 			lib := Library{
-				Photos:      []*photoinfo.PhotoInfo{{UUID: selectedFrame, IsPhoto: true, AlbumUUIDs: []string{albumAInFolderX}}},
+				Photos:      []*photoinfo.PhotoInfo{{UUID: selectedFrame, IsPhoto: true, AlbumUUIDs: []string{albumAInFolderX}, ImportUUID: importSession}},
 				Albums:      []*albuminfo.AlbumInfo{{UUID: albumOfNoPhoto}},
 				BurstAlbums: map[string][]string{selectedFrame: {albumAInFolderX}},
+				Imports:     []*albuminfo.ImportInfo{{UUID: importBare}},
+			}
+			missing := "missing from Library.Albums"
+			if key == "import_info" {
+				missing = "missing from Library.Imports"
 			}
 			ref := refOf(refObj(refSelectedFrame()))
 			_, err := Compare(ref, lib, []string{key}, nil)
-			if err == nil || !strings.Contains(err.Error(), "missing from Library.Albums") || !strings.Contains(err.Error(), "key "+key) {
+			if err == nil || !strings.Contains(err.Error(), missing) || !strings.Contains(err.Error(), "key "+key) {
 				t.Errorf("error = %v, want one about a missing album for %s", err, key)
 			}
-			if err != nil && strings.Contains(err.Error(), albumAInFolderX) {
+			if err != nil && (strings.Contains(err.Error(), albumAInFolderX) || strings.Contains(err.Error(), importSession)) {
 				t.Errorf("the error names the album: %v", err)
 			}
 		})

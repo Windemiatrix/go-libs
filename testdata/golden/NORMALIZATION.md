@@ -19,7 +19,7 @@ Upstream places are written as `file:line` relative to the `osxphotos/` package 
 
 ## Keys
 
-One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and `albuminfo.AlbumInfo`).
+One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and `albuminfo.AlbumInfo`, `albuminfo.ImportInfo`).
 
 | Key | Go | Rule | Upstream |
 |---|---|---|---|
@@ -50,6 +50,7 @@ One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and
 | `hdr` | `HDR` | boolean | `photoinfo.py:1291-1294`; `photosdb/photosdb.py:2248-2249` |
 | `height` | `Height` | integer, `null` = 0 | `photoinfo.py:1380-1383` |
 | `hidden` | `Hidden` | boolean | `photoinfo.py:827-830` |
+| `import_info` | `ImportUUID` → `Library.Imports` (`photosdb.DB.Import`), sessions in the trash included | `{}` for a photo without a session (`ImportUUID` `""`). Otherwise an object: `uuid`; `title` (`null` = `""`); `creation_date`, `start_date`, `end_date` as in `album_info` | `photoinfo.py:673-680, 2223-2225`; `albuminfo.py:300-358`; `photosdb/photosdb.py:2377-2402` |
 | `imported_by` | `[ImportedByName, ImportedByBundleID]` | pair, the order matters, each `null` = `""` | `photoinfo.py:682-694`; `photosdb/photosdb.py:2070-2075, 2324-2325` |
 | `incloud` | `InCloud` | `null` = `nil`; `false` is not `null` | `photoinfo.py:958-964` |
 | `intrash` | `InTrash` | boolean | `photoinfo.py:837-840` |
@@ -146,7 +147,7 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 
 ### Ключи
 
-Одна строка на ключ `fields.txt`. «Go» — поле `photoinfo.PhotoInfo` (и `albuminfo.AlbumInfo`).
+Одна строка на ключ `fields.txt`. «Go» — поле `photoinfo.PhotoInfo` (и `albuminfo.AlbumInfo`, `albuminfo.ImportInfo`).
 
 | Ключ | Go | Правило | Upstream |
 |---|---|---|---|
@@ -177,6 +178,7 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 | `hdr` | `HDR` | логическое | `photoinfo.py:1291-1294`; `photosdb/photosdb.py:2248-2249` |
 | `height` | `Height` | целое, `null` = 0 | `photoinfo.py:1380-1383` |
 | `hidden` | `Hidden` | логическое | `photoinfo.py:827-830` |
+| `import_info` | `ImportUUID` → `Library.Imports` (`photosdb.DB.Import`), сессии в корзине тоже | `{}` у фото без сессии (`ImportUUID` `""`). Иначе объект: `uuid`; `title` (`null` = `""`); `creation_date`, `start_date`, `end_date` — как в `album_info` | `photoinfo.py:673-680, 2223-2225`; `albuminfo.py:300-358`; `photosdb/photosdb.py:2377-2402` |
 | `imported_by` | `[ImportedByName, ImportedByBundleID]` | пара, порядок значим, каждый `null` = `""` | `photoinfo.py:682-694`; `photosdb/photosdb.py:2070-2075, 2324-2325` |
 | `incloud` | `InCloud` | `null` = `nil`; `false` — не `null` | `photoinfo.py:958-964` |
 | `intrash` | `InTrash` | логическое | `photoinfo.py:837-840` |

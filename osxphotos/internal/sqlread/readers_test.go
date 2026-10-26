@@ -149,7 +149,7 @@ func TestColumnsIncludeJoins(t *testing.T) {
 
 	c := Columns(schemaByID(t, "photos11_1"))
 	want := map[string][]string{
-		"ZASSET":                     {"ZMASTER", "ZCLOUDASSETGUID", "ZADJUSTMENTSSTATE", "ZHDRTYPE", "ZDEPTHTYPE", "ZVISIBILITYSTATE", "ZCLOUDOWNERHASHEDPERSONID", "ZMOMENTSHARE"},
+		"ZASSET":                     {"ZMASTER", "ZCLOUDASSETGUID", "ZADJUSTMENTSSTATE", "ZHDRTYPE", "ZDEPTHTYPE", "ZVISIBILITYSTATE", "ZCLOUDOWNERHASHEDPERSONID", "ZMOMENTSHARE", "ZIMPORTSESSION"},
 		"ZADDITIONALASSETATTRIBUTES": {"ZASSET", "ZASSETDESCRIPTION", "ZORIGINALSTABLEHASH", "ZCAMERACAPTUREDEVICE", "ZTIMEZONENAME", "ZIMPORTEDBYDISPLAYNAME", "ZIMPORTEDBYBUNDLEIDENTIFIER", "ZUNMANAGEDADJUSTMENT"},
 		"ZUNMANAGEDADJUSTMENT":       {"Z_PK", "ZADJUSTMENTFORMATIDENTIFIER"},
 		"ZASSETDESCRIPTION":          {"Z_PK", "ZLONGDESCRIPTION"},
@@ -241,6 +241,15 @@ func TestReadersRows(t *testing.T) {
 			}
 			_ = rows.Close()
 			t.Logf("Assets: %d with an adjustment format", formats)
+			imported := 0
+			for _, a := range assets {
+				if a.ImportUUID.Valid {
+					imported++
+				}
+			}
+			if want := count(t, ro, "SELECT COUNT(g.ZUUID) FROM ZASSET a JOIN ZGENERICALBUM g ON g.Z_PK = a.ZIMPORTSESSION"); int64(imported) != want {
+				t.Errorf("Assets: %d with an import session, want %d", imported, want)
+			}
 
 			res, err := d.Resources(t.Context())
 			if err != nil {
@@ -284,7 +293,7 @@ func TestReadersRows(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if want := count(t, ro, "SELECT COUNT(*) FROM ZGENERICALBUM WHERE ZKIND IN (2, 3999, 4000) AND ZUUID IS NOT NULL"); int64(len(albums)) != want {
+			if want := count(t, ro, "SELECT COUNT(*) FROM ZGENERICALBUM WHERE ZKIND IN (2, 1506, 3999, 4000) AND ZUUID IS NOT NULL"); int64(len(albums)) != want {
 				t.Errorf("Albums: %d rows, want %d", len(albums), want)
 			}
 			for i := 1; i < len(albums); i++ {
@@ -299,7 +308,7 @@ func TestReadersRows(t *testing.T) {
 				sums[2] += a.ListOrder.Int64 * a.PK
 			}
 			for i, col := range []string{"ZCUSTOMSORTKEY", "ZCUSTOMSORTASCENDING", "Z_FOK_PARENTFOLDER"} {
-				if want := count(t, ro, "SELECT COALESCE(SUM("+col+" * Z_PK), 0) FROM ZGENERICALBUM WHERE ZKIND IN (2, 3999, 4000) AND ZUUID IS NOT NULL"); sums[i] != want {
+				if want := count(t, ro, "SELECT COALESCE(SUM("+col+" * Z_PK), 0) FROM ZGENERICALBUM WHERE ZKIND IN (2, 1506, 3999, 4000) AND ZUUID IS NOT NULL"); sums[i] != want {
 					t.Errorf("Albums: sum of %s * Z_PK %d, want %d", col, sums[i], want)
 				}
 			}
@@ -517,7 +526,7 @@ func TestReadersNull(t *testing.T) {
 	}
 	wantMembers := count(t, ro, "SELECT COUNT(*) FROM Z_33ASSETS") - 2
 	wantRes := count(t, ro, "SELECT COUNT(*) FROM ZINTERNALRESOURCE") - 1
-	wantAlbums := count(t, ro, "SELECT COUNT(*) FROM ZGENERICALBUM WHERE ZKIND IN (2, 3999, 4000)") - 1
+	wantAlbums := count(t, ro, "SELECT COUNT(*) FROM ZGENERICALBUM WHERE ZKIND IN (2, 1506, 3999, 4000)") - 1
 	d := openDB(t, path)
 	n := schemaByID(t, "photos11_1")
 	for _, r := range readers {

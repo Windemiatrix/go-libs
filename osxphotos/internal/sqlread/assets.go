@@ -9,8 +9,9 @@ import (
 )
 
 // Asset is one ZASSET row with its ZADDITIONALASSETATTRIBUTES,
-// ZASSETDESCRIPTION, ZUNMANAGEDADJUSTMENT and ZCLOUDMASTER rows (LEFT JOIN):
-// the columns of photosdb.py:2023-2090, 2404-2412, 2423-2439, 2521-2529,
+// ZASSETDESCRIPTION, ZUNMANAGEDADJUSTMENT and ZCLOUDMASTER rows and the
+// ZGENERICALBUM row of its import session (LEFT JOIN): the columns of
+// photosdb.py:2023-2090, 2377-2412, 2423-2439, 2521-2529,
 // _photosdb_process_shared_library.py:43-51 and
 // _photosdb_process_syndicationinfo.py:42-51 in one query.
 type Asset struct {
@@ -52,6 +53,8 @@ type Asset struct {
 	HasMaster       bool           // the ZCLOUDMASTER row of ZASSET.ZMASTER exists
 	CloudLocalState sql.NullInt64  // ZCLOUDMASTER.ZCLOUDLOCALSTATE
 	CloudMasterGUID sql.NullString // ZCLOUDMASTER.ZCLOUDMASTERGUID
+
+	ImportUUID sql.NullString // ZGENERICALBUM.ZUUID of ZASSET.ZIMPORTSESSION, a row of any ZKIND
 }
 
 // The order is that of the Scan in Assets.
@@ -74,6 +77,7 @@ func assetSelect(s schema.Schema) []column {
 		x("ZCAMERACAPTUREDEVICE"), x("ZTIMEZONENAME"), x("ZIMPORTEDBYDISPLAYNAME"), x("ZIMPORTEDBYBUNDLEIDENTIFIER"),
 		{"u", "ZUNMANAGEDADJUSTMENT", "ZADJUSTMENTFORMATIDENTIFIER"},
 		{"m", "ZCLOUDMASTER", "Z_PK"}, {"m", "ZCLOUDMASTER", "ZCLOUDLOCALSTATE"}, {"m", "ZCLOUDMASTER", "ZCLOUDMASTERGUID"},
+		{"i", "ZGENERICALBUM", "ZUUID"},
 	}
 }
 
@@ -85,12 +89,14 @@ func assetColumns(s schema.Schema) []column {
 		column{"d", "ZASSETDESCRIPTION", "Z_PK"},
 		column{"x", "ZADDITIONALASSETATTRIBUTES", "ZUNMANAGEDADJUSTMENT"},
 		column{"u", "ZUNMANAGEDADJUSTMENT", "Z_PK"},
+		column{"a", "ZASSET", "ZIMPORTSESSION"},
+		column{"i", "ZGENERICALBUM", "Z_PK"},
 	)
 }
 
 // Assets returns every ZASSET row, ordered by ZUUID, then Z_PK.
 //
-// Upstream reads these columns in eight queries, the first one with an inner
+// Upstream reads these columns in nine queries, the first one with an inner
 // join of ZADDITIONALASSETATTRIBUTES. The joined rows are one to one, so one
 // query with LEFT JOIN reads the same values and also returns an asset
 // without its attributes row (HasAttributes false), which upstream drops.
@@ -110,6 +116,7 @@ LEFT JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK
 LEFT JOIN ZASSETDESCRIPTION d ON d.Z_PK = x.ZASSETDESCRIPTION
 LEFT JOIN ZUNMANAGEDADJUSTMENT u ON u.Z_PK = x.ZUNMANAGEDADJUSTMENT
 LEFT JOIN ZCLOUDMASTER m ON m.Z_PK = a.ZMASTER
+LEFT JOIN ZGENERICALBUM i ON i.Z_PK = a.ZIMPORTSESSION
 ORDER BY a.ZUUID, a.Z_PK`
 	var out []Asset
 	err = d.readRows(ctx, "assets", q, func(rows *sql.Rows) error {
@@ -131,7 +138,7 @@ ORDER BY a.ZUUID, a.Z_PK`
 			&r.HDRType, &r.DepthType, &r.VisibilityState, &r.CloudOwnerHashedID, &r.MomentShare,
 			&r.CameraCaptureDevice, &r.TZName, &r.ImportedByName, &r.ImportedByBundleID,
 			&r.AdjustmentFormat,
-			&mastPK, &r.CloudLocalState, &r.CloudMasterGUID, &r.SpatialType); err != nil {
+			&mastPK, &r.CloudLocalState, &r.CloudMasterGUID, &r.ImportUUID, &r.SpatialType); err != nil {
 			return err
 		}
 		r.HasAttributes, r.HasMaster = attrPK.Valid, mastPK.Valid

@@ -78,6 +78,7 @@ type PhotoInfo struct {
 	Latitude, Longitude *float64
 
 	AlbumUUIDs []string   // albums of the asset, trashed albums included; ascending
+	ImportUUID string     // the import session of the asset, the ZGENERICALBUM row of ZASSET.ZIMPORTSESSION; "" without one (photoinfo.py:673-680)
 	Resources  []Resource // extension: not in osxphotos — in Z_PK order
 }
 

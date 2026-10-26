@@ -27,7 +27,7 @@ func TestKeysCoverFields(t *testing.T) {
 	if !slices.Equal(all, want) {
 		t.Errorf("PhotoKeys and AlbumKeys give %d keys, fields.txt has %d\n got %v\nwant %v", len(all), len(want), all, want)
 	}
-	if want := []string{"album_info", "albums", "burst_album_info", "burst_albums", "folders"}; !slices.Equal(album, want) {
+	if want := []string{"album_info", "albums", "burst_album_info", "burst_albums", "folders", "import_info"}; !slices.Equal(album, want) {
 		t.Errorf("AlbumKeys = %v, want %v", album, want)
 	}
 }

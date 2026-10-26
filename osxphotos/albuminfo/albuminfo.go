@@ -32,6 +32,14 @@ type AlbumInfo struct {
 	LibraryListOrder                 []int          // the place in the sidebar of Photos, of the enclosing folders first, for comparing as a sort key (albuminfo.py:258-278); 9999999 stands for a row without a stored order, and the folders above it are dropped, as upstream (albuminfo.py:266-278, 501-513), so [9999999, 6] when the enclosing folder has none
 }
 
+// ImportInfo is one import session (albuminfo.py:300-365).
+type ImportInfo struct {
+	UUID                             string
+	Title                            string     // in NFC
+	CreationDate, StartDate, EndDate *time.Time // nil without a value; osxphotos gives 2001-01-01 for a missing creation date
+	PhotoUUIDs                       []string   // UUIDs of the photos imported in it, those in the trash included, sorted; nil without photos
+}
+
 // FolderInfo is one folder (albuminfo.py:395-527).
 type FolderInfo struct {
 	UUID             string

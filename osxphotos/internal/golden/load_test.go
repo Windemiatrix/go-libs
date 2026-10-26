@@ -33,8 +33,8 @@ func TestReadFields(t *testing.T) {
 	t.Run("the file of the repository", func(t *testing.T) {
 		t.Parallel()
 		keys := fieldsTxt(t)
-		if len(keys) != 72 || keys[0] != "adjustment_type" || keys[len(keys)-1] != "width" {
-			t.Errorf("got %d keys from %q to %q, want 72 from adjustment_type to width", len(keys), keys[0], keys[len(keys)-1])
+		if len(keys) != 73 || keys[0] != "adjustment_type" || keys[len(keys)-1] != "width" {
+			t.Errorf("got %d keys from %q to %q, want 73 from adjustment_type to width", len(keys), keys[0], keys[len(keys)-1])
 		}
 	})
 	t.Run("comments and empty lines are skipped, the order is kept", func(t *testing.T) {
