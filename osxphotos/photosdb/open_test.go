@@ -596,14 +596,14 @@ func TestOpenSharedAlbum(t *testing.T) {
 	inAlbum := func(db *DB) int {
 		n := 0
 		for _, p := range db.Photos() {
-			if slices.Contains(p.AlbumUUIDs, album) || slices.Contains(p.BurstAlbumUUIDs, album) {
+			if slices.Contains(p.AlbumUUIDs, album) {
 				n++
 			}
 		}
 		return n
 	}
 	listed := func(db *DB) bool {
-		return slices.ContainsFunc(db.Albums(), func(a *albuminfo.AlbumInfo) bool { return a.UUID == album })
+		return slices.ContainsFunc(db.albums, func(a *albuminfo.AlbumInfo) bool { return a.UUID == album })
 	}
 	before, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
 	if err != nil {

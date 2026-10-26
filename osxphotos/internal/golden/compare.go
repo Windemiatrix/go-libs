@@ -20,6 +20,12 @@ import (
 type Library struct {
 	Photos []*photoinfo.PhotoInfo // every photo of the database: photosdb.DB.Photos()
 	Albums []*albuminfo.AlbumInfo // every user album, trashed ones included; may be nil without AlbumKeys
+
+	// BurstAlbums holds, by photo UUID, the album UUIDs of osxphotos
+	// burst_album_info (photosdb.DB.BurstAlbumInfoOf); albums in the trash are
+	// left out, as for AlbumUUIDs. A photo without an entry has none; may be nil
+	// without AlbumKeys.
+	BurstAlbums map[string][]string
 }
 
 // Diff is one difference between the reference and Go.
@@ -47,6 +53,7 @@ type env struct {
 	albums       map[string]*albuminfo.AlbumInfo
 	goAlbumElems map[string]map[string]any
 	bursts       map[string][]string
+	burstAlbums  map[string][]string
 }
 
 var errAlbumMissing = errors.New("an album of a photo is missing from Library.Albums")
@@ -56,6 +63,7 @@ func newEnv(lib Library) (*env, error) {
 		albums:       map[string]*albuminfo.AlbumInfo{},
 		goAlbumElems: map[string]map[string]any{},
 		bursts:       map[string][]string{},
+		burstAlbums:  lib.BurstAlbums,
 	}
 	for _, a := range lib.Albums {
 		if _, dup := e.albums[a.UUID]; dup {
@@ -142,7 +150,8 @@ func indexRef(ref *Reference) ([]refObject, error) {
 // objects that are neither a photo nor a movie, as they have no type
 // (photosdb.py:2197-2204, 3355-3360).
 func inGoSet(p *photoinfo.PhotoInfo) bool {
-	return !p.BurstUnselected() && (p.IsPhoto || p.IsMovie)
+	unselected := p.Burst && p.BurstPickType != 0 && p.BurstPickType&(photoinfo.BurstPickSelected|photoinfo.BurstPickKey) == 0
+	return !unselected && (p.IsPhoto || p.IsMovie)
 }
 
 func selectRules(keys []string) (selected []rule, names []string, err error) {

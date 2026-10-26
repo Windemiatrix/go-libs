@@ -117,6 +117,44 @@ func TestApplySelection(t *testing.T) {
 	}, nil)
 }
 
+func TestBurstUnselected(t *testing.T) {
+	t.Parallel()
+
+	const unrelatedBit = 32
+	tests := []struct {
+		name  string
+		burst bool
+		pick  int
+		want  bool
+	}{
+		{"not a burst frame", false, 2, false},
+		{"no pick type", true, 0, false},
+		{"bit 1 only", true, 1, true},
+		{"bit 2 only", true, 2, true},
+		{"bits 1 and 2", true, 3, true},
+		{"default pick only", true, photoinfo.BurstPickDefault, true},
+		{"default pick and bit 2", true, photoinfo.BurstPickDefault | 2, true},
+		{"selected", true, photoinfo.BurstPickSelected, false},
+		{"selected and bit 2", true, photoinfo.BurstPickSelected | 2, false},
+		{"key", true, photoinfo.BurstPickKey, false},
+		{"key and default pick", true, photoinfo.BurstPickKey | photoinfo.BurstPickDefault, false},
+		{"key and selected", true, photoinfo.BurstPickKey | photoinfo.BurstPickSelected, false},
+		{"unrelated bit only", true, unrelatedBit, true},
+		{"unrelated bit and selected", true, unrelatedBit | photoinfo.BurstPickSelected, false},
+		{"unrelated bit and key", true, unrelatedBit | photoinfo.BurstPickKey, false},
+	}
+	for _, tt := range tests {
+		p := &photoinfo.PhotoInfo{Burst: tt.burst, BurstPickType: tt.pick}
+		if got := burstUnselected(p); got != tt.want {
+			t.Errorf("%s: burstUnselected(PhotoInfo{Burst: %v, BurstPickType: %d}) = %v, want %v", tt.name, tt.burst, tt.pick, got, tt.want)
+		}
+	}
+
+	if burstUnselected(&photoinfo.PhotoInfo{}) {
+		t.Error("burstUnselected(PhotoInfo{}) = true, want false")
+	}
+}
+
 type applyPair struct {
 	name    string
 	x, notX func(*Options)

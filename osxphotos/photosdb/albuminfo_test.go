@@ -87,14 +87,12 @@ func TestAlbumLookupUnit(t *testing.T) {
 	a5, a6 := album("A-5", "C", false, "P-1", "P-2"), album("A-6", "C", false, "P-3")
 	a7 := album("A-7", "D", false)
 	all := []*albuminfo.AlbumInfo{a1, a2, a3, a4, a5, a6, a7}
-	db := &DB{albums: slices.Clone(all)}
 
-	p := &photoinfo.PhotoInfo{
-		AlbumUUIDs:      []string{"A-1", "A-2", "A-3", "A-4", "A-UNKNOWN"},
-		BurstAlbumUUIDs: []string{"A-5", "A-1"},
-	}
+	p := &photoinfo.PhotoInfo{UUID: "P-1", Burst: true, BurstUUID: "B", AlbumUUIDs: []string{"A-1", "A-2", "A-3", "A-4", "A-UNKNOWN"}}
+	key := &photoinfo.PhotoInfo{UUID: "P-2", Burst: true, BurstUUID: "B", BurstKey: true, AlbumUUIDs: []string{"A-5", "A-1", "A-4"}}
 	reversed := &photoinfo.PhotoInfo{AlbumUUIDs: []string{"A-2", "A-1"}}
-	hidden := &photoinfo.PhotoInfo{AlbumUUIDs: []string{"A-4", "A-UNKNOWN"}, BurstAlbumUUIDs: []string{"A-4"}}
+	hidden := &photoinfo.PhotoInfo{AlbumUUIDs: []string{"A-4", "A-UNKNOWN"}}
+	db := &DB{albums: slices.Clone(all), bursts: indexBursts([]*photoinfo.PhotoInfo{p, key})}
 
 	albumsCases := []struct {
 		name string
@@ -103,10 +101,11 @@ func TestAlbumLookupUnit(t *testing.T) {
 	}{
 		{"AlbumInfoOf", db.AlbumInfoOf(p), []*albuminfo.AlbumInfo{a3, a1, a2}},
 		{"AlbumInfoOf equal titles by UUID", db.AlbumInfoOf(reversed), []*albuminfo.AlbumInfo{a1, a2}},
-		{"BurstAlbumInfoOf", db.BurstAlbumInfoOf(p), []*albuminfo.AlbumInfo{a1, a5}},
-		{"BurstAlbumInfoOf without BurstAlbumUUIDs", db.BurstAlbumInfoOf(reversed), nil},
+		{"BurstAlbumInfoOf", db.BurstAlbumInfoOf(p), []*albuminfo.AlbumInfo{a3, a1, a2, a5}},
+		{"BurstAlbumInfoOf of the key photo", db.BurstAlbumInfoOf(key), []*albuminfo.AlbumInfo{a1, a5}},
+		{"BurstAlbumInfoOf outside a burst", db.BurstAlbumInfoOf(reversed), []*albuminfo.AlbumInfo{a1, a2}},
 		{"AlbumInfoOf trashed and unknown only", db.AlbumInfoOf(hidden), nil},
-		{"BurstAlbumInfoOf trashed only", db.BurstAlbumInfoOf(hidden), nil},
+		{"BurstAlbumInfoOf trashed and unknown only", db.BurstAlbumInfoOf(hidden), nil},
 		{"AlbumInfo", db.AlbumInfo(), []*albuminfo.AlbumInfo{a1, a2, a3, a5, a6, a7}},
 	}
 	for _, tt := range albumsCases {
@@ -120,9 +119,9 @@ func TestAlbumLookupUnit(t *testing.T) {
 		got, want []string
 	}{
 		{"AlbumTitlesOf", db.AlbumTitlesOf(p), []string{"", "B"}},
-		{"BurstAlbumTitlesOf", db.BurstAlbumTitlesOf(p), []string{"B", "C"}},
+		{"BurstAlbumTitlesOf", db.BurstAlbumTitlesOf(p), []string{"", "B", "C"}},
 		{"AlbumTitlesOf trashed and unknown only", db.AlbumTitlesOf(hidden), nil},
-		{"BurstAlbumTitlesOf trashed only", db.BurstAlbumTitlesOf(hidden), nil},
+		{"BurstAlbumTitlesOf trashed and unknown only", db.BurstAlbumTitlesOf(hidden), nil},
 		{"AlbumTitles", db.AlbumTitles(), []string{"", "B", "C", "D"}},
 	}
 	for _, tt := range titlesCases {
@@ -177,8 +176,11 @@ func TestAlbumLookupUnit(t *testing.T) {
 	if got := db.AlbumInfoOf(p); !slices.Equal(got, []*albuminfo.AlbumInfo{a3, a1, a2}) {
 		t.Errorf("AlbumInfoOf after a write into a result = %q", lookupUUIDs(got))
 	}
-	if got := db.BurstAlbumInfoOf(p); !slices.Equal(got, []*albuminfo.AlbumInfo{a1, a5}) {
+	if got := db.BurstAlbumInfoOf(p); !slices.Equal(got, []*albuminfo.AlbumInfo{a3, a1, a2, a5}) {
 		t.Errorf("BurstAlbumInfoOf after a write into a result = %q", lookupUUIDs(got))
+	}
+	if want := []string{"A-5", "A-1", "A-4"}; !slices.Equal(key.AlbumUUIDs, want) {
+		t.Errorf("AlbumUUIDs of the key photo after BurstAlbumInfoOf = %q, want %q", key.AlbumUUIDs, want)
 	}
 	if got := db.AlbumTitles(); !slices.Equal(got, []string{"", "B", "C", "D"}) {
 		t.Errorf("AlbumTitles after a write into a result = %q", got)
@@ -186,7 +188,7 @@ func TestAlbumLookupUnit(t *testing.T) {
 	if got := db.AlbumTitlesOf(p); !slices.Equal(got, []string{"", "B"}) {
 		t.Errorf("AlbumTitlesOf after a write into a result = %q", got)
 	}
-	if got := db.BurstAlbumTitlesOf(p); !slices.Equal(got, []string{"B", "C"}) {
+	if got := db.BurstAlbumTitlesOf(p); !slices.Equal(got, []string{"", "B", "C"}) {
 		t.Errorf("BurstAlbumTitlesOf after a write into a result = %q", got)
 	}
 	if want := map[string]int{"": 0, "B": 0, "C": 3, "D": 0}; !maps.Equal(db.AlbumCounts(), want) {
@@ -220,9 +222,9 @@ func TestAlbumLookup(t *testing.T) {
 				}
 			}
 
-			for _, a := range db.Albums() {
+			for _, a := range db.albums {
 				if got, ok := db.Album(a.UUID); !ok || got != a {
-					t.Errorf("Album(%s) = %p, %v; want the album of Albums()", a.UUID, got, ok)
+					t.Errorf("Album(%s) = %p, %v; want the album read", a.UUID, got, ok)
 				}
 			}
 			// The root folder (ZKIND 3999) and the folders (4000) are not albums.

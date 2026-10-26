@@ -63,8 +63,7 @@ func fixtureLib() Library {
 				InCloud: ptr(true), IsMissing: true, IsCloudAsset: true, IsReference: true,
 				Title: "Title A", Description: "Desc", Keywords: []string{"alpha", "beta"}, Persons: []string{"Person A", "_UNKNOWN_"},
 				Latitude: ptr(48.8566), Longitude: ptr(2.3522),
-				AlbumUUIDs:      []string{albumAInFolderY, albumTrashed, albumAInFolderX},
-				BurstAlbumUUIDs: []string{albumBNoFolder, albumAInFolderX, albumAInFolderY},
+				AlbumUUIDs: []string{albumAInFolderY, albumTrashed, albumAInFolderX},
 			},
 			{UUID: unselectedFrame, IsPhoto: true, Burst: true, BurstUUID: "BURST-A", BurstPickType: 2},
 			{
@@ -85,6 +84,7 @@ func fixtureLib() Library {
 			{UUID: albumBNoFolder, Title: "Album B", CreationDate: ptr(utc(2020, 2, 2, 2, 2, 2, 0))},
 			{UUID: albumOfNoPhoto, Title: "Unused"},
 		},
+		BurstAlbums: map[string][]string{selectedFrame: {albumBNoFolder, albumAInFolderX, albumAInFolderY}},
 	}
 }
 

@@ -270,7 +270,7 @@ func TestFolders(t *testing.T) {
 			}
 
 			byAlbum := map[string]*albuminfo.AlbumInfo{}
-			for _, a := range db.Albums() {
+			for _, a := range db.albums {
 				byAlbum[a.UUID] = a
 			}
 			all := testlib.Rows(t, src, "SELECT ZUUID FROM ZGENERICALBUM WHERE ZKIND = 4000 AND ZUUID IS NOT NULL ORDER BY ZUUID")
@@ -319,7 +319,7 @@ func TestFolders(t *testing.T) {
 				}
 			}
 
-			for _, a := range db.Albums() {
+			for _, a := range db.albums {
 				list := db.FolderList(a)
 				if got := folderTitles(list); !slices.Equal(got, a.FolderNames) {
 					t.Errorf("album %s: the titles of FolderList differ from FolderNames", a.UUID)
@@ -371,7 +371,7 @@ func TestFoldersGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 			byAlbum := map[string]*albuminfo.AlbumInfo{}
-			for _, a := range db.Albums() {
+			for _, a := range db.albums {
 				byAlbum[a.UUID] = a
 			}
 			for _, obj := range slices.Concat(ref.Query, ref.Deleted) {

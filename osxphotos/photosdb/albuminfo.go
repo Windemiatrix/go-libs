@@ -63,10 +63,17 @@ func (db *DB) AlbumTitlesOf(p *photoinfo.PhotoInfo) []string {
 	return sortedTitles(db.AlbumInfoOf(p))
 }
 
-// BurstAlbumInfoOf is AlbumInfoOf over BurstAlbumUUIDs, the albums of p and of
-// the key photos of its burst: osxphotos burst_album_info (photoinfo.py:664-671).
+// BurstAlbumInfoOf returns the albums of p and of the key photos of its burst
+// outside the trash, each once, in the order of AlbumInfoOf: osxphotos
+// burst_album_info (photoinfo.py:664-671).
 func (db *DB) BurstAlbumInfoOf(p *photoinfo.PhotoInfo) []*albuminfo.AlbumInfo {
-	return db.albumsOf(p.BurstAlbumUUIDs)
+	uuids := slices.Clone(p.AlbumUUIDs)
+	for _, f := range db.BurstPhotos(p) {
+		if f.BurstKey {
+			uuids = append(uuids, f.AlbumUUIDs...)
+		}
+	}
+	return db.albumsOf(sortedSet(uuids))
 }
 
 // BurstAlbumTitlesOf returns the titles of BurstAlbumInfoOf(p), sorted, each

@@ -166,9 +166,9 @@ func photoMutations() []mutation {
 		{"AlbumUUIDs empty", p(func(x *photoinfo.PhotoInfo) { x.AlbumUUIDs = nil }), "album_info albums folders"},
 		{"AlbumUUIDs without Album A in Folder X", p(func(x *photoinfo.PhotoInfo) { x.AlbumUUIDs = []string{albumAInFolderY, albumTrashed} }), "album_info"},
 		{"AlbumUUIDs without Album A in Folder Y", p(func(x *photoinfo.PhotoInfo) { x.AlbumUUIDs = []string{albumAInFolderX} }), "album_info folders"},
-		{"BurstAlbumUUIDs empty", p(func(x *photoinfo.PhotoInfo) { x.BurstAlbumUUIDs = nil }), "burst_album_info burst_albums"},
-		{"BurstAlbumUUIDs without Album B", p(func(x *photoinfo.PhotoInfo) { x.BurstAlbumUUIDs = []string{albumAInFolderX, albumAInFolderY} }), "burst_album_info burst_albums"},
-		{"an album in the trash is listed", p(func(x *photoinfo.PhotoInfo) { x.BurstAlbumUUIDs = append(x.BurstAlbumUUIDs, albumTrashed) }), ""},
+		{"BurstAlbums empty", func(l *Library) { l.BurstAlbums[selectedFrame] = nil }, "burst_album_info burst_albums"},
+		{"BurstAlbums without Album B", func(l *Library) { l.BurstAlbums[selectedFrame] = []string{albumAInFolderX, albumAInFolderY} }, "burst_album_info burst_albums"},
+		{"an album in the trash is listed", func(l *Library) { l.BurstAlbums[selectedFrame] = append(l.BurstAlbums[selectedFrame], albumTrashed) }, ""},
 		{"an album of the library is listed", p(func(x *photoinfo.PhotoInfo) { x.AlbumUUIDs = append(x.AlbumUUIDs, albumOfNoPhoto) }), "album_info albums folders"},
 		{"Album A in Folder X goes to the trash", album(albumAInFolderX, func(a *albuminfo.AlbumInfo) { a.InTrash = true }), "album_info burst_album_info"},
 		{"Album title", album(albumAInFolderY, func(a *albuminfo.AlbumInfo) { a.Title = "Album Z" }), "album_info albums burst_album_info burst_albums folders"},
@@ -311,10 +311,10 @@ func TestCompareEquivalent(t *testing.T) {
 		{"Date in another zone", photo(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.In(time.FixedZone("X", -7*3600)) }), ""},
 		{"Date in a zone with seconds", photo(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.In(time.FixedZone("X", 5640+28)) }), ""},
 		{"DateAdded in UTC", photo(func(x *photoinfo.PhotoInfo) { x.DateAdded = ptr(x.DateAdded.UTC()) }), ""},
-		{"albums in another order, a repeat", photo(func(x *photoinfo.PhotoInfo) {
-			x.AlbumUUIDs = []string{albumAInFolderX, albumAInFolderX, albumTrashed, albumAInFolderY, albumAInFolderY}
-			x.BurstAlbumUUIDs = []string{albumAInFolderY, albumAInFolderX, albumBNoFolder}
-		}), ""},
+		{"albums in another order, a repeat", func(l *Library) {
+			l.Photos[0].AlbumUUIDs = []string{albumAInFolderX, albumAInFolderX, albumTrashed, albumAInFolderY, albumAInFolderY}
+			l.BurstAlbums[selectedFrame] = []string{albumAInFolderY, albumAInFolderX, albumBNoFolder}
+		}, ""},
 		{"an explicit 2001 for the creation date that osxphotos defaults", album(albumAInFolderY, func(a *albuminfo.AlbumInfo) { a.CreationDate = ptr(utc(2001, 1, 1, 0, 0, 0, 0)) }), ""},
 		{"the unselected frame with another pick", func(l *Library) { l.Photos[1].BurstPickType = 4 }, ""},
 		{"an album of a trashed state not listed", album(albumOfNoPhoto, func(a *albuminfo.AlbumInfo) { a.InTrash = true }), ""},
@@ -416,7 +416,6 @@ func TestCompareNulls(t *testing.T) {
 		{"Keywords empty, not nil", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Keywords = []string{} }), ""},
 		{"Persons", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Persons = []string{"_UNKNOWN_"} }), "persons"},
 		{"Persons empty, not nil", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Persons = []string{} }), ""},
-		{"HasPersons is not compared", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.HasPersons = true }), ""},
 		{"AlbumUUIDs of a trashed album", func(l *Library) { l.Photos[2].AlbumUUIDs = []string{albumTrashed} }, ""},
 		{"AlbumUUIDs", func(l *Library) { l.Photos[2].AlbumUUIDs = []string{albumBNoFolder} }, "album_info albums folders"},
 	}
@@ -717,7 +716,7 @@ func TestCompareAlbumRules(t *testing.T) {
 			"folders":          `{"Album A": ["Shared Folder"], "Shared S": ["Shared Folder"]}`,
 		})
 		lib := fixtureLib()
-		lib.Photos[0].AlbumUUIDs, lib.Photos[0].BurstAlbumUUIDs = nil, nil
+		lib.Photos[0].AlbumUUIDs, lib.BurstAlbums = nil, nil
 		if rep := run(t, ref, lib); !rep.OK() {
 			t.Errorf("differences %+v, want none", rep.Diffs)
 		}
@@ -736,7 +735,7 @@ func TestCompareAlbumRules(t *testing.T) {
 		lib := fixtureLib()
 		lib.Albums = append(lib.Albums, &albuminfo.AlbumInfo{UUID: "00000000-0000-0000-0000-0000000000a7", FolderNames: []string{"Folder X"}})
 		lib.Photos[0].AlbumUUIDs = []string{"00000000-0000-0000-0000-0000000000a7"}
-		lib.Photos[0].BurstAlbumUUIDs = []string{"00000000-0000-0000-0000-0000000000a7"}
+		lib.BurstAlbums[selectedFrame] = []string{"00000000-0000-0000-0000-0000000000a7"}
 		untitled := albumJSON("00000000-0000-0000-0000-0000000000a7", "null", "null", `["Folder X"]`, `"2001-01-01T00:00:00+00:00"`, "null", "null", "null")
 		ref := refObj(refSelectedFrame(), map[string]string{
 			"album_info": "[" + untitled + "]", "albums": "[null]", "burst_album_info": "[" + untitled + "]",
