@@ -3,6 +3,7 @@ package photosdb
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -282,11 +283,330 @@ func TestPaths(t *testing.T) {
 
 	t.Run("originals is a file", func(t *testing.T) {
 		t.Parallel()
-		lib := testlib.OpenPristine(t, "Test-14.0.0")
+		lib := testlib.Open(t, "Test-14.0.0")
+		_, uuid, _, _ := marked(t, lib, "mig:resources-original")
+		change(t, lib, "UPDATE ZASSET SET ZHASADJUSTMENTS = 1 WHERE ZUUID = '"+uuid+"'")
 		writeFile(t, filepath.Join(lib, "originals"))
-		_, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
-		if err == nil || !strings.Contains(err.Error(), lib) {
-			t.Errorf("Open error %v, want one naming the library", err)
+		want := filepath.Join(lib, "resources", "renders", uuid[:1], uuid+".plist")
+		writeFile(t, want)
+		if p := openPhoto(t, lib, uuid); p.AdjustmentsPath != want || p.Path != "" || p.OriginalAdjustmentsPath != "" {
+			t.Errorf("AdjustmentsPath %q, Path %q, OriginalAdjustmentsPath %q; want %q, \"\", \"\"",
+				p.AdjustmentsPath, p.Path, p.OriginalAdjustmentsPath, want)
+		}
+	})
+
+	t.Run("library cannot be opened", func(t *testing.T) {
+		t.Parallel()
+		lib := filepath.Join(t.TempDir(), "none")
+		if err := setPaths(lib, nil, nil); err == nil || !strings.Contains(err.Error(), lib) {
+			t.Errorf("setPaths error %v, want one naming the library", err)
+		}
+	})
+}
+
+func editedLibrary(t *testing.T, asset, attrs string) (lib, uuid string) {
+	t.Helper()
+	lib, uuid, _, _ = pathsLibrary(t)
+	stmts := []string{"UPDATE ZASSET SET " + asset + " WHERE ZUUID = '" + uuid + "'"}
+	if attrs != "" {
+		stmts = append(stmts, "UPDATE ZADDITIONALASSETATTRIBUTES SET "+attrs+
+			" WHERE ZASSET = (SELECT Z_PK FROM ZASSET WHERE ZUUID = '"+uuid+"')")
+	}
+	change(t, lib, stmts...)
+	return lib, uuid
+}
+
+func editedWrite(t *testing.T, lib, rel string, size int) {
+	t.Helper()
+	name := filepath.Join(lib, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(name), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(name, []byte(strings.Repeat("x", size)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func editedMkdir(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestEditedPaths(t *testing.T) {
+	t.Parallel()
+
+	allRenders := []string{"_1_201_a.heic", "_1_201_a.jpeg", "_2_0_a.mov", "_2_100_a.mov", ".plist"}
+	const (
+		heic = "ZHASADJUSTMENTS = 1, ZUNIFORMTYPEIDENTIFIER = 'public.heic'"
+		jpeg = "ZHASADJUSTMENTS = 1, ZUNIFORMTYPEIDENTIFIER = 'public.jpeg'"
+	)
+	tests := []struct {
+		name, asset                           string
+		renders                               []string
+		aae                                   bool
+		editedSuffix, plistSuffix, liveSuffix string
+	}{
+		{"HEIC photo", "ZKIND = 0, ZKINDSUBTYPE = 2, " + heic, allRenders, true, "_1_201_a.heic", ".plist", "_2_100_a.mov"},
+		{"JPEG photo", "ZKIND = 0, ZKINDSUBTYPE = 2, " + jpeg, allRenders, true, "_1_201_a.jpeg", ".plist", "_2_100_a.mov"},
+		{"video", "ZKIND = 1, ZKINDSUBTYPE = 2, " + jpeg, allRenders, true, "_2_0_a.mov", ".plist", "_2_100_a.mov"},
+		{"neither photo nor video", "ZKIND = 2, ZKINDSUBTYPE = 2, " + jpeg, allRenders, true, "", ".plist", "_2_100_a.mov"},
+		{"not adjusted", "ZKIND = 0, ZKINDSUBTYPE = 2, ZHASADJUSTMENTS = 0", allRenders, true, "", "", ""},
+		{"not Live", "ZKIND = 0, ZKINDSUBTYPE = 0, " + jpeg, allRenders, true, "_1_201_a.jpeg", ".plist", ""},
+		{"no files", "ZKIND = 0, ZKINDSUBTYPE = 2, " + jpeg, nil, false, "", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			lib, uuid := editedLibrary(t, tt.asset, "")
+			x := uuid[:1]
+			for _, f := range tt.renders {
+				editedWrite(t, lib, "resources/renders/"+x+"/"+uuid+f, 1)
+			}
+			aae := ""
+			if tt.aae {
+				editedWrite(t, lib, "originals/"+x+"/"+uuid+"_5.aae", 1)
+				aae = filepath.Join(lib, "originals", x, uuid+"_5.aae")
+			}
+			render := func(suffix string) string {
+				if suffix == "" {
+					return ""
+				}
+				return filepath.Join(lib, "resources", "renders", x, uuid+suffix)
+			}
+			p := openPhoto(t, lib, uuid)
+			got := []string{p.PathEdited, p.AdjustmentsPath, p.PathEditedLive, p.OriginalAdjustmentsPath}
+			want := []string{render(tt.editedSuffix), render(tt.plistSuffix), render(tt.liveSuffix), aae}
+			if !slices.Equal(got, want) {
+				t.Errorf("PathEdited, AdjustmentsPath, PathEditedLive, OriginalAdjustmentsPath = %q, want %q", got, want)
+			}
+		})
+	}
+
+	outsideFile := filepath.Join(t.TempDir(), "outside.jpeg")
+	writeFile(t, outsideFile)
+	for _, tt := range []struct {
+		name   string
+		create func(t *testing.T, name string)
+	}{
+		{"links inside the library are not files", func(t *testing.T, name string) {
+			writeFile(t, filepath.Join(filepath.Dir(name), "regular"))
+			editedSymlink(t, "regular", name)
+		}},
+		{"links out of the library are not files", func(t *testing.T, name string) { editedSymlink(t, outsideFile, name) }},
+		{"directories are not files", editedMkdir},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			lib, uuid := editedLibrary(t, "ZKIND = 0, ZKINDSUBTYPE = 2, "+jpeg, "")
+			for _, name := range libraryFileNames(lib, uuid) {
+				tt.create(t, name)
+			}
+			assertNoLibraryFiles(t, openPhoto(t, lib, uuid))
+		})
+	}
+
+	// A ZUUID is not checked for its form, and os.Root lets ".." through while
+	// the path stays inside the library.
+	t.Run("UUID with a slash", func(t *testing.T) {
+		t.Parallel()
+		lib, uuid := editedLibrary(t, "ZKIND = 0, ZKINDSUBTYPE = 2, "+jpeg, "")
+		x := uuid[:1]
+		bad := x + "/../" + uuid
+		change(t, lib, "UPDATE ZASSET SET ZUUID = '"+bad+"' WHERE ZUUID = '"+uuid+"'")
+		for _, name := range libraryFileNames(lib, uuid) {
+			writeFile(t, name)
+			editedMkdir(t, filepath.Join(filepath.Dir(name), x))
+		}
+		assertNoLibraryFiles(t, openPhoto(t, lib, bad))
+	})
+
+	t.Run("missing photo", func(t *testing.T) {
+		t.Parallel()
+		lib := testlib.Open(t, "Test-14.0.0")
+		_, uuid, _, _ := marked(t, lib, "mig:resources-missing")
+		change(t, lib, "UPDATE ZASSET SET ZKIND = 0, "+jpeg+" WHERE ZUUID = '"+uuid+"'")
+		want := filepath.Join(lib, "resources", "renders", uuid[:1], uuid+"_1_201_a.jpeg")
+		writeFile(t, want)
+		if p := openPhoto(t, lib, uuid); !p.IsMissing || p.PathEdited != want {
+			t.Errorf("IsMissing %v, PathEdited %q; want true, %q", p.IsMissing, p.PathEdited, want)
+		}
+	})
+
+	t.Run("directories link outside", func(t *testing.T) {
+		t.Parallel()
+		lib, uuid := editedLibrary(t, "ZKIND = 0, ZKINDSUBTYPE = 2, "+jpeg, "")
+		x := uuid[:1]
+		outside := t.TempDir()
+		editedWrite(t, outside, uuid+"_1_201_a.jpeg", 1)
+		editedWrite(t, outside, uuid+"_1.jpeg", 1)
+		for _, dir := range []string{"resources/renders", "resources/derivatives"} {
+			editedSymlink(t, outside, filepath.Join(lib, filepath.FromSlash(dir), x))
+		}
+		p := openPhoto(t, lib, uuid)
+		if p.PathEdited != "" || len(p.PathDerivatives) != 0 {
+			t.Errorf("paths %q, %q; want both empty", p.PathEdited, p.PathDerivatives)
+		}
+	})
+}
+
+func editedSymlink(t *testing.T, target, name string) {
+	t.Helper()
+	editedMkdir(t, filepath.Dir(name))
+	if err := os.Symlink(target, name); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func libraryFileNames(lib, uuid string) []string {
+	x := uuid[:1]
+	renders := filepath.Join(lib, "resources", "renders", x, uuid)
+	derivatives := filepath.Join(lib, "resources", "derivatives")
+	return []string{
+		renders + "_1_201_a.jpeg",
+		renders + "_2_100_a.mov",
+		renders + ".plist",
+		filepath.Join(lib, "originals", x, uuid+"_5.aae"),
+		filepath.Join(derivatives, x, uuid+"_1.jpeg"),
+		filepath.Join(derivatives, "masters", x, uuid+"_4_5005_c.jpeg"),
+	}
+}
+
+func assertNoLibraryFiles(t *testing.T, p *photoInfo) {
+	t.Helper()
+	if p.PathEdited != "" || p.AdjustmentsPath != "" || p.PathEditedLive != "" || p.OriginalAdjustmentsPath != "" || len(p.PathDerivatives) != 0 {
+		t.Errorf("paths %q, %q, %q, %q, %q; want all empty",
+			p.PathEdited, p.AdjustmentsPath, p.PathEditedLive, p.OriginalAdjustmentsPath, p.PathDerivatives)
+	}
+}
+
+func TestPathDerivatives(t *testing.T) {
+	t.Parallel()
+
+	const (
+		regular   = "resources/derivatives/{x}/"
+		masters   = "resources/derivatives/masters/{x}/{u}_4_5005_c.jpeg"
+		moment    = "scopes/momentshared/resources/derivatives/"
+		syndicate = "scopes/syndication/resources/derivatives/"
+		shared    = "scopes/cloudsharing/resources/derivatives/masters/{x}/{u}_4_5005_c.jpeg"
+		notSaved  = "ZSYNDICATIONIDENTIFIER = 'TEST-SYND', ZSYNDICATIONHISTORY = 0"
+		saved     = "ZSYNDICATIONIDENTIFIER = 'TEST-SYND', ZSYNDICATIONHISTORY = 1"
+	)
+	type file struct {
+		rel  string
+		size int
+	}
+	tests := []struct {
+		name, asset, attrs string
+		files              []file
+		want               []string
+	}{
+		{"largest first, the thumbnail last", "ZKIND = 0", "", []file{
+			{regular + "{u}_1_100_c.jpeg", 200},
+			{regular + "{u}_1_105_c.jpeg", 300},
+			{regular + "{u}_1_101_c.THM", 900},
+			{regular + "{u}_1_102_c.thm", 800},
+			{regular + "{l}_1_103_c.jpeg", 700},
+			{regular + "other_1.jpeg", 600},
+			{masters, 1000},
+		}, []string{regular + "{u}_1_105_c.jpeg", regular + "{u}_1_100_c.jpeg", masters}},
+		{"equal sizes in name order", "ZKIND = 0", "", []file{
+			{regular + "{u}_1_105_c.jpeg", 300},
+			{regular + "{u}_1_104_c.jpeg", 300},
+		}, []string{regular + "{u}_1_104_c.jpeg", regular + "{u}_1_105_c.jpeg"}},
+		{"video of a photo goes second", "ZKIND = 0", "", []file{
+			{regular + "{u}_2_0_c.MOV", 500},
+			{regular + "{u}_1_0_c.jpeg", 100},
+		}, []string{regular + "{u}_1_0_c.jpeg", regular + "{u}_2_0_c.MOV"}},
+		{"video before the thumbnail", "ZKIND = 0", "", []file{
+			{regular + "{u}_2_0_c.mov", 500},
+			{masters, 50},
+		}, []string{masters, regular + "{u}_2_0_c.mov"}},
+		{"a single video", "ZKIND = 0", "", []file{
+			{regular + "{u}_2_0_c.mov", 500},
+		}, []string{regular + "{u}_2_0_c.mov"}},
+		{"video of a video stays first", "ZKIND = 1", "", []file{
+			{regular + "{u}_2_0_c.MOV", 500},
+			{regular + "{u}_1_0_c.jpeg", 100},
+		}, []string{regular + "{u}_2_0_c.MOV", regular + "{u}_1_0_c.jpeg"}},
+		{"shared", "ZKIND = 0, ZCLOUDBATCHPUBLISHDATE = 1", "", []file{
+			{shared, 10},
+			{"scopes/cloudsharing/resources/derivatives/masters/{x}/{u}_other.jpeg", 20},
+			{regular + "{u}_1.jpeg", 100},
+		}, []string{shared}},
+		{"shared without a thumbnail", "ZKIND = 0, ZCLOUDBATCHPUBLISHDATE = 1", "", []file{
+			{"scopes/cloudsharing/resources/derivatives/masters/{x}/{u}_other.jpeg", 20},
+			{regular + "{u}_1.jpeg", 100},
+		}, nil},
+		{"shared and shared moment", "ZKIND = 0, ZCLOUDBATCHPUBLISHDATE = 1, ZMOMENTSHARE = 1", "", []file{
+			{shared, 10},
+			{moment + "{x}/{u}_1.jpeg", 100},
+		}, []string{shared}},
+		{"shared moment", "ZKIND = 0, ZMOMENTSHARE = 1", "", []file{
+			{moment + "{x}/{u}_1.jpeg", 100},
+			{moment + "masters/{x}/{u}_4_5005_c.jpeg", 10},
+			{regular + "{u}_2.jpeg", 500},
+		}, []string{moment + "{x}/{u}_1.jpeg", moment + "masters/{x}/{u}_4_5005_c.jpeg"}},
+		{"shared moment, shared with you, not saved", "ZKIND = 0, ZMOMENTSHARE = 1", notSaved, []file{
+			{moment + "{x}/{u}_1.jpeg", 100},
+			{moment + "masters/{x}/{u}_4_5005_c.jpeg", 10},
+			{syndicate + "{x}/{u}_2.jpeg", 500},
+			{syndicate + "masters/{x}/{u}_4_5005_c.jpeg", 20},
+		}, []string{moment + "{x}/{u}_1.jpeg", moment + "masters/{x}/{u}_4_5005_c.jpeg"}},
+		{"shared with you, not saved", "ZKIND = 0", notSaved, []file{
+			{syndicate + "{x}/{u}_1.jpeg", 100},
+			{syndicate + "masters/{x}/{u}_4_5005_c.jpeg", 10},
+			{regular + "{u}_2.jpeg", 500},
+		}, []string{syndicate + "{x}/{u}_1.jpeg", syndicate + "masters/{x}/{u}_4_5005_c.jpeg"}},
+		{"shared with you, saved", "ZKIND = 0", saved, []file{
+			{syndicate + "{x}/{u}_1.jpeg", 100},
+			{regular + "{u}_2.jpeg", 500},
+		}, []string{regular + "{u}_2.jpeg"}},
+		{"no files", "ZKIND = 0", "", nil, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			lib, uuid := editedLibrary(t, tt.asset, tt.attrs)
+			if strings.ToLower(uuid) == uuid {
+				t.Fatalf("the UUID %q has no upper-case letter", uuid)
+			}
+			expand := strings.NewReplacer("{x}", uuid[:1], "{u}", uuid, "{l}", strings.ToLower(uuid)).Replace
+			for _, f := range tt.files {
+				editedWrite(t, lib, expand(f.rel), f.size)
+			}
+			want := make([]string, len(tt.want))
+			for i, rel := range tt.want {
+				want[i] = filepath.Join(lib, filepath.FromSlash(expand(rel)))
+			}
+			if got := openPhoto(t, lib, uuid).PathDerivatives; !slices.Equal(got, want) {
+				t.Errorf("PathDerivatives = %q, want %q", got, want)
+			}
+		})
+	}
+
+	t.Run("directory cannot be read", func(t *testing.T) {
+		t.Parallel()
+		lib, uuid := editedLibrary(t, "ZKIND = 0", "")
+		x := uuid[:1]
+		editedWrite(t, lib, "resources/derivatives/"+x+"/"+uuid+"_1.jpeg", 10)
+		editedWrite(t, lib, "resources/derivatives/masters/"+x+"/"+uuid+"_4_5005_c.jpeg", 1)
+		dir := filepath.Join(lib, "resources", "derivatives", x)
+		info, err := os.Stat(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(dir, 0o300); err != nil { //nolint:gosec // G302: a directory that can be searched but not read
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(dir, info.Mode().Perm()) })
+		if entries, err := os.ReadDir(dir); err == nil {
+			t.Skipf("the directory is readable without the read bit (%d entries): running as root?", len(entries))
+		}
+		want := []string{filepath.Join(lib, "resources", "derivatives", "masters", x, uuid+"_4_5005_c.jpeg")}
+		if got := openPhoto(t, lib, uuid).PathDerivatives; !slices.Equal(got, want) {
+			t.Errorf("PathDerivatives = %q, want %q", got, want)
 		}
 	})
 }
