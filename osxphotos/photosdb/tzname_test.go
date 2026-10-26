@@ -2,13 +2,8 @@ package photosdb
 
 import (
 	"database/sql"
-	"encoding/json"
-	"slices"
 	"testing"
 	"time"
-
-	"github.com/Windemiatrix/go-libs/osxphotos/internal/golden"
-	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
 
 func TestAssetDateZoneName(t *testing.T) {
@@ -33,6 +28,9 @@ func TestAssetDateZoneName(t *testing.T) {
 		// The range error is raised only by the fixed zone (photos_datetime.py:64-67).
 		{"IANA, offset out of range", winterTS, nullInt(86400), "Europe/Paris", winter, 3600, "Europe/Paris"},
 		{"IANA with spaces", winterTS, nullInt(7200), " Europe/Paris\t", winter, 3600, "Europe/Paris"},
+		// EST is an IANA name and an override; the name wins (tzcanonical.py:402-424).
+		{"IANA name before override", summerTS, nullInt(-14400), "EST", summer, -18000, "EST"},
+		{"IANA name before override, winter", winterTS, nullInt(-18000), "EST", winter, -18000, "EST"},
 		{"GMT+0300, equal offset", winterTS, nullInt(10800), "GMT+0300", winter, 10800, ""},
 		{"GMT+0300, another offset", winterTS, nullInt(7200), "GMT+0300", winter, 7200, ""},
 		{"GMT+0530", winterTS, nullInt(19800), "GMT+0530", winter, 19800, ""},
@@ -51,6 +49,9 @@ func TestAssetDateZoneName(t *testing.T) {
 		{"spaces only", winterTS, nullInt(3600), "  ", winter, 3600, ""},
 		{"Local", winterTS, nullInt(3600), "Local", winter, 3600, ""},
 		{"path out of the database", winterTS, nullInt(3600), "../Europe/Paris", winter, 3600, ""},
+		{"path with a dot", winterTS, nullInt(3600), "./Europe/Paris", winter, 3600, ""},
+		{"path with a double slash", winterTS, nullInt(3600), "Europe//Paris", winter, 3600, ""},
+		{"absolute path", winterTS, nullInt(3600), "/usr/share/zoneinfo/Europe/Paris", winter, 3600, ""},
 		{"no date", sql.NullFloat64{}, nullInt(3600), "Europe/Paris", epoch, 0, "UTC"},
 	}
 	for _, tt := range tests {
@@ -76,63 +77,17 @@ func TestTZOverrides(t *testing.T) {
 	}
 }
 
-// TestGolden compares date as a moment; the zone shows only in the offset.
-func TestDateOffsetGolden(t *testing.T) {
+func TestLoadZoneCache(t *testing.T) {
 	t.Parallel()
 
-	dir := testlib.RepoDir(t, "golden")
-	for _, lib := range goldenLibraries(t) {
-		t.Run(lib.name, func(t *testing.T) {
-			t.Parallel()
-			db, err := Open(t.Context(), lib.path, Options{TempDir: t.TempDir()})
-			if err != nil {
-				t.Fatal(err)
-			}
-			ref, err := golden.Load(dir, lib.name)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dates := map[string]time.Time{}
-			for _, p := range db.Photos() {
-				dates[p.UUID] = p.Date
-			}
-			compared, differ := 0, 0
-			for _, o := range slices.Concat(ref.Query, ref.Deleted) {
-				var uuid, date string
-				if json.Unmarshal(o["uuid"], &uuid) != nil || json.Unmarshal(o["date"], &date) != nil {
-					t.Fatal("a reference object without the strings uuid and date")
-				}
-				want, ok := parseIsoformat(date)
-				if !ok {
-					t.Fatal("a reference date is not ISO 8601")
-				}
-				got, ok := dates[uuid]
-				if !ok {
-					continue // TestGolden reports the missing photo
-				}
-				compared++
-				_, wantOff := want.Zone()
-				if _, gotOff := got.Zone(); gotOff != wantOff {
-					if differ == 0 {
-						t.Errorf("first difference: offset %d, osxphotos %d", gotOff, wantOff)
-					}
-					differ++
-				}
-			}
-			if compared == 0 || differ > 0 {
-				t.Errorf("%d of %d dates have an offset other than that of osxphotos", differ, compared)
-			}
-		})
+	if a, b := loadZone("Europe/Paris"), loadZone("Europe/Paris"); a == nil || a != b {
+		t.Errorf("loadZone gives %p and %p, want one Location", a, b)
 	}
-}
-
-// Python isoformat writes the seconds of an offset that has them, which
-// time.RFC3339Nano does not read.
-func parseIsoformat(s string) (time.Time, bool) {
-	for _, layout := range []string{time.RFC3339Nano, "2006-01-02T15:04:05.999999999-07:00:00"} {
-		if t, err := time.Parse(layout, s); err == nil {
-			return t, true
-		}
+	const missing = "Nowhere/Cached"
+	if z := loadZone(missing); z != nil {
+		t.Fatalf("loadZone(%q) = %v, want nil", missing, z)
 	}
-	return time.Time{}, false
+	if v, ok := zones.Load(missing); !ok || v.(*time.Location) != nil {
+		t.Errorf("zones has %v, %v for %q; want a cached nil", v, ok, missing)
+	}
 }

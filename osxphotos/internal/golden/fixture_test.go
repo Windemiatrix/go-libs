@@ -76,7 +76,7 @@ func fixtureLib() Library {
 			{UUID: unselectedFrame, IsPhoto: true, Burst: true, BurstUUID: "BURST-A", BurstPickType: 2},
 			{
 				UUID: emptyPhoto, Filename: "IMG_0003.JPG", OriginalFilename: "IMG_0003.JPG",
-				Date: time.Unix(0, 0), UTI: "public.jpeg", UTIOriginal: "public.jpeg", IsPhoto: true,
+				Date: time.Unix(0, 0).UTC(), UTI: "public.jpeg", UTIOriginal: "public.jpeg", IsPhoto: true,
 			},
 		},
 		Albums: []*albuminfo.AlbumInfo{

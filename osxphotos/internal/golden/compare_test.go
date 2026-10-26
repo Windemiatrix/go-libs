@@ -132,6 +132,8 @@ func photoMutations() []mutation {
 		{"Date minus 1us", p(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.Add(-time.Microsecond) }), "date"},
 		{"Date plus 1ns", p(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.Add(time.Nanosecond) }), "date"},
 		{"Date plus 5h30m", p(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.Add(5*time.Hour + 30*time.Minute) }), "date"},
+		{"Date in another zone, the same moment", p(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.In(time.FixedZone("X", -7*3600)) }), "date"},
+		{"Date in UTC, the same moment", p(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.UTC() }), "date"},
 		{"DateAdded", p(func(x *photoinfo.PhotoInfo) { x.DateAdded = ptr(x.DateAdded.Add(time.Second)) }), "date_added"},
 		{"DateAdded nil", p(func(x *photoinfo.PhotoInfo) { x.DateAdded = nil }), "date_added"},
 		{"DateModified nil", p(func(x *photoinfo.PhotoInfo) { x.DateModified = nil }), "date_modified"},
@@ -288,7 +290,7 @@ func TestCompareValues(t *testing.T) {
 		got[d.Field] = d
 	}
 	want := map[string][2]string{
-		"date":               {`"2020-06-06T14:15:24.725564Z"`, `"2020-06-06T14:15:24.725565Z"`},
+		"date":               {`["2020-06-06T14:15:24.725564Z",19800]`, `["2020-06-06T14:15:24.725565Z",19800]`},
 		"keywords":           {`["alpha","beta"]`, `["beta","alpha"]`},
 		"incloud":            {`true`, `null`},
 		"latitude":           {`48.8566`, `1.5`},
@@ -334,9 +336,7 @@ func TestWriteDetailsPersons(t *testing.T) {
 func TestCompareEquivalent(t *testing.T) {
 	t.Parallel()
 	cases := []mutation{
-		{"Date in UTC", photo(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.UTC() }), ""},
-		{"Date in another zone", photo(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.In(time.FixedZone("X", -7*3600)) }), ""},
-		{"Date in a zone with seconds", photo(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.In(time.FixedZone("X", 5640+28)) }), ""},
+		{"Date in the zone of the same offset", photo(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.In(time.FixedZone("X", 19800)) }), ""},
 		{"DateAdded in UTC", photo(func(x *photoinfo.PhotoInfo) { x.DateAdded = ptr(x.DateAdded.UTC()) }), ""},
 		{"albums in another order, a repeat", func(l *Library) {
 			l.Photos[0].AlbumUUIDs = []string{albumAInFolderX, albumAInFolderX, albumTrashed, albumAInFolderY, albumAInFolderY}
@@ -365,7 +365,8 @@ func TestCompareEquivalent(t *testing.T) {
 		t.Parallel()
 		lib := fixtureLib()
 		lib.Photos[0].Title, lib.Photos[0].Keywords = `x"y`, []string{"<&>", `x"y`}
-		for _, date := range []string{`"2020-06-06T15:49:00.725564+01:33:36"`, `"2020-06-06T12:41:48.725564-01:33:36"`} {
+		for date, offset := range map[string]int{`"2020-06-06T15:49:00.725564+01:33:36"`: 5616, `"2020-06-06T12:41:48.725564-01:33:36"`: -5616} {
+			lib.Photos[0].Date = lib.Photos[0].Date.In(time.FixedZone("", offset))
 			ref := refOf(refObj(refSelectedFrame(), map[string]string{"date": date, "title": `"x\"y"`, "keywords": `["<&>", "x\"y"]`}), refObj(refEmptyPhoto()))
 			if rep := compare(t, ref, lib); !rep.OK() {
 				t.Errorf("date %s: differences %+v, want none", date, rep.Diffs)
@@ -487,7 +488,7 @@ func TestCompareSets(t *testing.T) {
 	const only = "00000000-0000-0000-0000-0000000000e1"
 	emptyGo := func(uuid string) *photoinfo.PhotoInfo {
 		return &photoinfo.PhotoInfo{
-			UUID: uuid, Filename: "IMG_0003.JPG", OriginalFilename: "IMG_0003.JPG", Date: time.Unix(0, 0),
+			UUID: uuid, Filename: "IMG_0003.JPG", OriginalFilename: "IMG_0003.JPG", Date: time.Unix(0, 0).UTC(),
 			UTI: "public.jpeg", UTIOriginal: "public.jpeg", IsPhoto: true,
 		}
 	}

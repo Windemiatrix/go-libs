@@ -4,8 +4,8 @@
 -- in ZUUID order after 002_columns.sql, the 15th, which no earlier file changes, gets ZTIMEZONENAME
 -- 'Europe/Paris' and ZTIMEZONEOFFSET 10800, never an offset of Paris, so its date stays put.
 -- Expects: the reference (golden-regen.yml applies this file too) has tzoffset 10800, tzname
--- Europe/Paris and date with the offset of Paris at that moment (+01:00 or +02:00); TestGolden and
--- TestDateOffsetGolden find no difference.
+-- Europe/Paris and date with the offset of Paris at that moment (+01:00 or +02:00); TestGolden finds
+-- no difference.
 
 UPDATE ZADDITIONALASSETATTRIBUTES SET ZTIMEZONENAME = 'Europe/Paris', ZTIMEZONEOFFSET = 10800
 WHERE ZASSET = (SELECT Z_PK FROM ZASSET

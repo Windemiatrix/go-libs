@@ -155,7 +155,9 @@ func TestExtensionsSharedLibraryAndNulls(t *testing.T) {
 	p := m.get(t, "tzoffset-null")
 	pristine, ok := m.pristine.Photo(p.UUID)
 	// The name still gives the zone, as photos_datetime does with tzoffset None (photos_datetime.py:50-59).
-	if p.TZOffset != nil || p.TZName == "" || p.Date.Location().String() != p.TZName || !ok || !p.Date.Equal(pristine.Date) {
+	// UTC would pass with no zone of the name: Date without an offset is in UTC.
+	if p.TZOffset != nil || p.TZName == "" || p.TZName == "UTC" || p.Date.Location().String() != p.TZName ||
+		!ok || !p.Date.Equal(pristine.Date) {
 		t.Errorf("tzoffset-null: TZOffset %v, Date %v; pristine %v", p.TZOffset, p.Date, pristine)
 	}
 	for _, mk := range []string{"original-filename-null", "original-filename-empty"} {
