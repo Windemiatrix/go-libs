@@ -8,7 +8,7 @@
 
 ## Status
 
-**Early development.** Releases are on the [Releases](https://github.com/Windemiatrix/go-libs/releases) page; the API may change before `v1.0.0`. Reading photos and albums works (`photosdb.Open`); folders and filters come next, path templates and PhotoKit are planned. Details: ["What exists and what is next"](#what-exists-and-what-is-next).
+**Early development.** Releases are on the [Releases](https://github.com/Windemiatrix/go-libs/releases) page; the API may change before `v1.0.0`. Reading photos, albums, folders and people, query filters and duplicate search work (`photosdb.Open`); path templates and PhotoKit are planned. Details: ["What exists and what is next"](#what-exists-and-what-is-next).
 
 ## Quick start
 
@@ -46,7 +46,7 @@ osxphotos is the most complete open decoder of the Photos database, but it is Py
 - stable identifiers of photos and albums, iCloud ones included, to recognize them across runs;
 - an unknown database version is an error, not silently wrong data.
 
-What you can build: laying files out by a template such as `2024/05-01 - Holidays/IMG_0001.HEIC`, a library report, duplicate search.
+What you can build: laying files out by a template such as `2024/05-01 - Holidays/IMG_0001.HEIC`, a library report, a duplicates report.
 
 It was written for [photosync](https://github.com/Windemiatrix/photosync), a tool that syncs Photos with Yandex Disk (in development), but it knows nothing about syncing.
 
@@ -81,16 +81,20 @@ Other models, including beta builds outside the ranges, give `ErrUnsupportedSche
 |---|---|---|
 | Schema detection, macOS 13–27 | `photosdb` | done |
 | System library path (`SystemLibraryPath`) | `photosdb` | done |
-| Opening a library (`Open`) | `photosdb` | done |
-| Photos: dates with time zone, sizes, keywords, Live, RAW+JPEG, bursts, iCloud, Shared Library | `photosdb`, `photoinfo` | done |
-| Albums: title, folder path, members, dates, trash (`Albums`) | `photosdb`, `albuminfo` | done |
-| Folders, album lookup | `photosdb`, `albuminfo` | next |
-| `QueryOptions` filters (album, dates, trash, type and others) | `query` | next (only sorting today) |
+| Opening a library (`Open`): a `.photoslibrary` directory or a database file, also outside its library (`Options.LibraryPath` says where the originals are); the database path and Photos version (`Info.DBPath`, `Info.PhotosVersion`) | `photosdb` | done |
+| Photos: dates with time zone and its name, sizes, keywords, Live, RAW+JPEG, bursts, iCloud, Shared Library | `photosdb`, `photoinfo` | done |
+| Photo flags: HDR, panorama, portrait, selfie, spatial, slow motion, time-lapse, screen recording, shared moment, edited in another app, visibility, who imported it | `photosdb`, `photoinfo` | done |
+| Files on disk: original, Live, RAW, edited version and its Live video, adjustment files, previews (`PathEdited`, `PathEditedLive`, `AdjustmentsPath`, `OriginalAdjustmentsPath`, `PathDerivatives`) | `photosdb`, `photoinfo` | done |
+| People on photos: names (`Persons`; a face without a name is `_UNKNOWN_`), for the library `DB.Persons`, `DB.PersonCounts` | `photosdb`, `photoinfo` | done |
+| Albums: title, folder path, members, dates, trash, sort order and place in the sidebar (`Albums`, `Album`) | `photosdb`, `albuminfo` | done |
+| Folders and their tree, place in the sidebar (`FolderInfo`, `Folder`, `FolderList`) | `photosdb`, `albuminfo` | done |
+| Selection `Query` with `query.Options` filters (album, folder, dates, trash, type, flags, person and others), sorting | `photosdb`, `query` | done |
+| Duplicates (`DB.Duplicates`, `query.Duplicates`, the `Duplicate` option) | `photosdb`, `query` | done |
 | Path templates | `template` | planned |
 | File names on export | `export` | planned |
 | Import, albums, deletion through PhotoKit | `photokit` | planned |
 
-**Not included:** a command line, exporting files and sidecars, face recognition (only the "named people present" flag is read), place names (coordinates are read), EXIF, search, shared albums, database repair, Photos 7 and older. osxphotos itself covers these.
+**Not included:** a command line, exporting files and sidecars, face data other than the names of people (face position and size), place names (coordinates are read), EXIF, search by photo content, parsing of adjustment files (their paths are read), the list of shared albums (their photos are read: `Shared`) and their comments, database repair, Photos 7 and older. osxphotos itself covers these.
 
 ## How it differs from osxphotos
 
@@ -107,7 +111,7 @@ Semver by tags `osxphotos/vX.Y.Z`, independent of osxphotos. Before `v1.0.0` inc
 ## FAQ
 
 - **Can I read while Photos is open?** Yes: a copy of the database is read together with its `-wal` file, and Photos is not blocked.
-- **Does it read the photos themselves?** No: only the catalog (metadata) and the paths of the original files.
+- **Does it read the photos themselves?** No: only the catalog (metadata) and the paths of files in the library: originals, edited versions, adjustment files and previews. File contents are never opened.
 - **Photos only in iCloud ("Optimize Storage")?** The catalog is read in full; for a photo whose original is not on disk, `Path` is empty, and `IsMissing`/`InCloud` show where it is.
 
 ## License
