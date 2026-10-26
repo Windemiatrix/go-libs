@@ -263,11 +263,11 @@ func TestPinnedSynthetic(t *testing.T) {
 	db := OpenDB(t, dbFile(OpenPristine(t, "synthetic")))
 	want := map[string]string{
 		"ZADDITIONALASSETATTRIBUTES": "860d022e4d7f3cd4206cd6172d39044cd9898ae9aa3f9a1b84484c11351eea5c",
-		"ZASSET":                     "9c1c6a653a2067ee5ae3a1ac8130fb97d0b96b92cc9268373a48114fb4dcf78c",
+		"ZASSET":                     "feff8bbd4ef94443006e36daa656e41387a7b8bf47aa474b47006ce0910e546d",
 		"ZCLOUDMASTER":               "0b16088332ad364ce67bf0430bcccfc8cbd138fcca4f2898f9e6a65bbee5fa77",
 		"ZGENERICALBUM":              "3b117bf5872207f478e931c82eff9af6304eaf50727bde88c89f5525197b10c4",
 		"ZINTERNALRESOURCE":          "a0c7073c0e59cfe254990ca61fdf0426231418c89d7a1b93747336597f063080",
-		"ZSHARE":                     "91ccadb230eadb3630ded0ca16977f6d9b1d4bb1472effcebf4de6bc1e32780e",
+		"ZSHARE":                     "e44580f016a919e919dc8ade7d5deac1673fb2eff9345c8559f6c19843fb8d69",
 		"Z_33ASSETS":                 "185264c4115e8f4d0030fefd689b1a8cb69c3d7b6007361aa60d8e716dc7e044",
 		"Z_METADATA":                 "1499d1544d311f49bf443419b78f525da0f1027e769fea8bce2ee62b9b4d0816",
 		"Z_PRIMARYKEY":               "217ea8c9942c73296138c4e5449e5bf4e3d9436fcf8167d8169729bd98136e46",
