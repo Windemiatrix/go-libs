@@ -82,8 +82,6 @@ func appendSized(b []byte, v uint64, size int) []byte {
 	return b
 }
 
-// The count is the low nibble of the marker, so it is under 15; a dictionary
-// takes its key references first.
 func bpRefs(marker byte, count, size int, refs ...int) []byte {
 	o := []byte{marker<<4 | byte(count)}
 	for _, r := range refs {
@@ -295,51 +293,65 @@ func TestDecodePlistFormat(t *testing.T) {
 	}
 }
 
-type sharedCase struct {
+type expansionCase struct {
 	name string
 	data []byte
 	want error
 }
 
-func sharedCases() []sharedCase {
+// The arrays hold distinct values, so that the writer cannot merge them.
+func nestedBinary(t testing.TB) []byte {
+	t.Helper()
+	root := map[string]any{}
+	for i := range 20 {
+		ints := make([]int, 20)
+		for j := range ints {
+			ints[j] = i*20 + j
+		}
+		root[string(rune('a'+i))] = map[string]any{"ints": ints, "dict": map[string]any{"n": i}}
+	}
+	return marshal(t, root, plist.BinaryFormat)
+}
+
+func expansionCases(t testing.TB) []expansionCase {
+	t.Helper()
 	str := func(s string) []byte { return append([]byte{0x50 | byte(len(s))}, s...) }
 	twice := func(container []byte) []byte {
 		return binaryPlist([][]byte{bpRefs(0xA, 2, 1, 1, 1), container}, 1)
 	}
-	// Past the 15 references that fit the marker.
-	long := func(arrayRefs int) []byte {
-		refs := append(repeatRef(2, 15), repeatRef(1, arrayRefs)...)
-		return binaryPlist([][]byte{bpLongRefs(0xA, refs...), {0xA0}, str("x")}, 2)
-	}
-	longCount := func(marker byte, count uint64) []byte {
-		return binaryPlist([][]byte{binary.BigEndian.AppendUint64([]byte{marker<<4 | 0xF, 0x13}, count)}, 1)
-	}
-	return []sharedCase{
-		{"a shared array", twice([]byte{0xA0}), errSharedContainer},
-		{"a shared ordered set", twice([]byte{0xB0}), errSharedContainer},
-		{"a shared set", twice([]byte{0xC0}), errSharedContainer},
-		{"a shared dictionary", twice([]byte{0xD0}), errSharedContainer},
-		{"a dictionary key shared with its value", binaryPlist([][]byte{bpRefs(0xD, 1, 1, 1, 1), {0xA0}}, 1), errSharedContainer},
-		{"a shared array after 15 references", long(2), errSharedContainer},
-		{"a chain of shared arrays", binaryPlist(binaryArrayChain(0, 12, 2, 1), 1), errSharedContainer},
-		{"600 indices of one array of 2000 references", aliasedArrays(600, 2000), errSharedContainer},
-		{"a reference out of the list", binaryPlist([][]byte{bpRefs(0xA, 1, 1, 5), {0x10, 0x00}}, 1), errSharedContainer},
-		{"a long count without an integer", binaryPlist([][]byte{{0xAF, 0x51, 'x'}}, 1), errSharedContainer},
-		{"a long count of 16 bytes", binaryPlist([][]byte{append([]byte{0xAF, 0x14}, make([]byte, 64)...)}, 1), errSharedContainer},
-		{"a long count cut short", binaryPlist([][]byte{{0xAF, 0x13, 0x00}}, 1), errSharedContainer},
-		{"a count that does not fit", longCount(0xA, 1<<40), errSharedContainer},
-		{"a dictionary count of 2^63", longCount(0xD, 1<<63), errSharedContainer},
-
+	// Index 2 is the root and every other index the integer, so the offset
+	// table and the first bytes of the trailer read as valid references.
+	intoTrailer := setTrailer(withOffsetTable(append([]byte("bplist00"), 0x10, 0x00, 0xAE),
+		[]uint64{8, 8, 10, 8, 8, 8, 8, 8, 8, 8, 8}, 1), trailerTop, 8, 2)
+	// The offset of the root, 16, reads as the marker of a one-byte integer.
+	countInTrailer := withOffsetTable(append(append([]byte("bplist00"), make([]byte, 8)...), 0xAF), []uint64{16}, 1)
+	return []expansionCase{
+		{"an empty array shared twice", twice([]byte{0xA0}), nil},
+		{"an empty dictionary shared twice", twice([]byte{0xD0}), nil},
+		{"an array shared three times", binaryPlist([][]byte{bpRefs(0xA, 3, 1, 1, 1, 1), bpRefs(0xA, 2, 1, 2, 2), str("x")}, 1), nil},
 		{"a shared string", binaryPlist([][]byte{bpRefs(0xD, 2, 1, 1, 2, 3, 3), str("a"), str("b"), str("x")}, 1), nil},
-		{"an array after 15 references", long(1), nil},
+		{"marshaled nested containers", nestedBinary(t), nil},
 		{"one index per array", aliasedArrays(1, 20), nil},
 		{"an array of 4095 references", flatArray(maxBinaryObjects), nil},
+
+		{"600 indices of one array of 2000 references", aliasedArrays(600, 2000), errBinaryExpansion},
+		{"a chain of shared arrays of depth 40", binaryPlist(binaryArrayChain(0, 40, 2, 1), 1), errBinaryExpansion},
+		{"a root array that references itself", binaryPlist([][]byte{bpRefs(0xA, 1, 1, 0)}, 1), errBinaryExpansion},
+		{"two arrays that reference each other", binaryPlist([][]byte{bpRefs(0xA, 1, 1, 1), bpRefs(0xA, 1, 1, 0)}, 1), errBinaryExpansion},
+		{"a reference out of the list", binaryPlist([][]byte{bpRefs(0xA, 1, 1, 5), {0x10, 0x00}}, 1), errBinaryExpansion},
+		{"references past the input", setTrailer(binaryPlist([][]byte{make([]byte, 60), {0xAF, 0x10, 70}}, 1), trailerTop, 8, 1), errBinaryExpansion},
+		{"references that run into the trailer", intoTrailer, errBinaryExpansion},
+		{"a long count that is not an integer", binaryPlist([][]byte{{0xAF, 0x50, 0x00}}, 1), errBinaryExpansion},
+		{"a long count in the trailer", countInTrailer, errBinaryExpansion},
+		{"a long count of 16 bytes", binaryPlist([][]byte{append([]byte{0xAF, 0x14}, make([]byte, 64)...)}, 1), errBinaryExpansion},
+		{"a dictionary count of 2^63", binaryPlist([][]byte{binary.BigEndian.AppendUint64([]byte{0xDF, 0x13}, 1<<63)}, 1), errBinaryExpansion},
+		{"an object at the offset table", withOffsetTable(append([]byte("bplist00"), 0xA0), []uint64{9}, 1), errBinaryExpansion},
 	}
 }
 
-func TestDecodePlistShared(t *testing.T) {
+func TestDecodePlistExpansion(t *testing.T) {
 	t.Parallel()
-	for _, tt := range sharedCases() {
+	for _, tt := range expansionCases(t) {
 		var v any
 		if err := decodePlist(tt.data, &v); !errors.Is(err, tt.want) {
 			t.Errorf("%s: decodePlist = %v, want %v", tt.name, err, tt.want)
@@ -347,13 +359,57 @@ func TestDecodePlistShared(t *testing.T) {
 	}
 }
 
+// The bytes are the edges of a size or an offset and the markers of fill, of
+// an integer of 2^15 bytes, of an array with a long count and of an empty
+// dictionary.
+func TestDecodePlistNoPanic(t *testing.T) {
+	t.Parallel()
+	for _, tt := range expansionCases(t) {
+		if len(tt.data) >= 256 {
+			continue
+		}
+		for i := range tt.data {
+			for _, b := range []byte{0x00, 0x0F, 0x1F, 0xAF, 0xD0, 0xFF} {
+				data := bytes.Clone(tt.data)
+				data[i] = b
+				var v any
+				_ = decodePlist(data, &v)
+			}
+		}
+	}
+}
+
+// A dictionary key counts as a value, as its reference does in the input.
+func countValues(v any) int {
+	n := 1
+	switch v := v.(type) {
+	case []any:
+		for _, e := range v {
+			n += countValues(e)
+		}
+	case map[string]any:
+		for _, e := range v {
+			n += 1 + countValues(e)
+		}
+	}
+	return n
+}
+
 func FuzzDecodePlist(f *testing.F) {
-	for _, c := range sharedCases() {
+	for _, c := range expansionCases(f) {
 		f.Add(c.data)
 	}
-	f.Fuzz(func(_ *testing.T, data []byte) {
+	for _, c := range binaryCases(f) {
+		f.Add(c.plist)
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
 		var v any
-		_ = decodePlist(data, &v)
+		if decodePlist(data, &v) != nil {
+			return
+		}
+		if n := countValues(v); n > len(data) {
+			t.Fatalf("decodePlist gave %d values from %d bytes", n, len(data))
+		}
 	})
 }
 
@@ -363,8 +419,8 @@ func FuzzDecodePlist(f *testing.F) {
 // to the nesting maxBinaryObjects allows, modelChain a dictionary and a key.
 func referenceCases() []detectCase {
 	return []detectCase{
-		{name: "shared references at the root", plist: binaryPlist(binaryArrayChain(0, 40, 2, 1), 1), errText: []string{msgNoKey, msgNotPlist}},
-		{name: "shared references in PLModelVersion", plist: modelChain(40, 2, 1), errText: []string{msgNotInteger, msgNotPlist}},
+		{name: "shared references at the root", plist: binaryPlist(binaryArrayChain(0, 40, 2, 1), 1), errText: []string{errBinaryExpansion.Error()}},
+		{name: "shared references in PLModelVersion", plist: modelChain(40, 2, 1), errText: []string{errBinaryExpansion.Error()}},
 		{name: "deepest binary arrays at the root", plist: binaryPlist(binaryArrayChain(0, maxBinaryObjects-1, 1, 2), 2), errText: []string{msgNoKey, msgNotPlist}},
 		{name: "deepest binary arrays in PLModelVersion", plist: modelChain(maxBinaryObjects-3, 1, 2), errText: []string{msgNotInteger, msgNotPlist}},
 		{name: "deepest text arrays", plist: fillToLimit("", "("), errText: []string{msgNotPlist}},

@@ -103,9 +103,8 @@ func asciiDigits(s string) bool {
 // nested containers in time quadratic in the depth, and the depth can be as
 // large as the number of objects: 100000 nested arrays in 900 KB took 2.5 s
 // (about 20 s with the race detector), 4096 take a few milliseconds. A real
-// Z_PLIST has fewer than 200 objects (144 to 189 in the test libraries). The
-// bound applies to every caller of decodePlist: the photolibraryd
-// preferences that SystemLibraryPath reads as well.
+// Z_PLIST, which detectSchema reads through decodePlist, has fewer than 200
+// objects (144 to 189 in the test libraries).
 const maxBinaryObjects = 1 << 12
 
 var (
@@ -113,7 +112,7 @@ var (
 	errPlistFormat     = errors.New("not an XML or binary property list")
 	errBinaryTrailer   = errors.New("binary property list trailer does not fit the input")
 	errBinaryObjects   = fmt.Errorf("binary property list has more than %d objects", maxBinaryObjects)
-	errSharedContainer = errors.New("binary property list references an array or a dictionary more than once")
+	errBinaryExpansion = errors.New("binary property list expands beyond its size or has references out of range")
 )
 
 // Only XML and binary lists are accepted, the two formats that osxphotos reads
@@ -125,7 +124,7 @@ var (
 // 256 MB stack (1.6 s and 512 MB with the race detector). An XML input that
 // the XML parser refuses still falls back to the text parser and is refused
 // after it; as text it starts with "<", which opens data, not nesting. v may
-// be any: sharesContainers refuses the lists that any would expand.
+// be any: expandsBeyondSize refuses the lists that any would expand.
 func decodePlist(data []byte, v any) error {
 	if len(data) == 0 {
 		return errEmptyPlist
@@ -136,8 +135,8 @@ func decodePlist(data []byte, v any) error {
 	if err := checkBinaryTrailer(data); err != nil {
 		return err
 	}
-	if sharesContainers(data) {
-		return errSharedContainer
+	if expandsBeyondSize(data) {
+		return errBinaryExpansion
 	}
 	format, err := plist.Unmarshal(data, v)
 	if err != nil {
@@ -198,56 +197,61 @@ func checkBinaryTrailer(data []byte) error {
 }
 
 // howett.net/plist decodes a container that several references share into
-// any once per path, so a few KiB can grow exponentially; Apple's writer
-// shares only strings, numbers, dates and data. The offset table need not be
-// one-to-one, so containers of distinct indices may still be one object: the
-// references are bounded by the bytes that can hold them as well. A reference
-// that does not fit the input counts as shared. data has passed
+// any once per path, so a small input can grow exponentially. Sharing itself
+// is legal: CoreFoundation writes one container instance that occurs twice,
+// such as the empty NSArray, as one object (CFBinaryPList.c _flattenPlist),
+// and plistlib keeps the object graph. So only the expansion is bounded, by
+// the references the input could hold. A path longer than the number of
+// objects repeats an index, a cycle. Every writer (Apple, plistlib,
+// howett.net/plist) puts the objects before the offset table. data has passed
 // checkBinaryTrailer.
-func sharesContainers(data []byte) bool {
+func expandsBeyondSize(data []byte) bool {
 	if !bytes.HasPrefix(data, []byte("bplist")) {
 		return false
 	}
 	t := data[len(data)-bplistTrailerSize:]
 	offsetSize, refSize, n := uint64(t[6]), uint64(t[7]), binary.BigEndian.Uint64(t[8:16])
-	table, limit := binary.BigEndian.Uint64(t[24:32]), uint64(len(data))-bplistTrailerSize
-	object := func(i uint64) (offset uint64, container bool) {
-		offset = bplistUint(data[table+i*offsetSize:], offsetSize)
-		return offset, offset < limit && data[offset]>>4 >= 0xA && data[offset]>>4 <= 0xD
-	}
-	seen := make([]bool, n)
-	refs := limit / refSize
-	for i := range n {
-		off, container := object(i)
-		if !container {
-			continue
+	top, table := binary.BigEndian.Uint64(t[16:24]), binary.BigEndian.Uint64(t[24:32])
+	limit := uint64(len(data)) - bplistTrailerSize
+	budget := limit / refSize
+	var expands func(ref, depth uint64) bool
+	expands = func(ref, depth uint64) bool {
+		if ref >= n || depth >= n {
+			return true
+		}
+		off := bplistUint(data[table+ref*offsetSize:], offsetSize)
+		if off >= table {
+			return true
+		}
+		marker := data[off] >> 4
+		if marker < 0xA || marker > 0xD {
+			return false
 		}
 		// CFBinaryPList: a count of 15 or more is the integer object after
 		// the marker, and a dictionary holds its keys, then its values.
 		count, pos := uint64(data[off]&0xF), off+1
 		if count == 0xF {
-			if pos >= limit || data[pos]>>4 != 1 || data[pos]&0xF > 3 || 1<<(data[pos]&0xF) > limit-pos-1 {
+			size := uint64(1) << (data[pos] & 0xF)
+			if data[pos]>>4 != 1 || size > 8 || pos+1+size > limit {
 				return true
 			}
-			size := uint64(1) << (data[pos] & 0xF)
 			count, pos = bplistUint(data[pos+1:], size), pos+1+size
 		}
-		if data[off]>>4 == 0xD {
+		if marker == 0xD {
 			count = min(count, limit) * 2
 		}
-		if count > (limit-pos)/refSize || count > refs {
+		if count > (limit-pos)/refSize || count > budget {
 			return true
 		}
-		refs -= count
-		for j := range count {
-			ref := bplistUint(data[pos+j*refSize:], refSize)
-			if ref >= n || seen[ref] {
+		budget -= count
+		for refs := data[pos : pos+count*refSize]; len(refs) > 0; refs = refs[refSize:] {
+			if expands(bplistUint(refs, refSize), depth+1) {
 				return true
 			}
-			_, seen[ref] = object(ref)
 		}
+		return false
 	}
-	return false
+	return expands(top, 0)
 }
 
 func bplistUint(b []byte, size uint64) uint64 {
