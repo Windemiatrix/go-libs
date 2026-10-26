@@ -376,7 +376,7 @@ func TestAlbums(t *testing.T) {
 			for _, p := range db.Photos() {
 				for _, u := range p.AlbumUUIDs {
 					if byUUID[u] == nil {
-						t.Errorf("an album of photo %s is not in Albums()", p.UUID)
+						t.Errorf("an album of photo %s is not among the albums read", p.UUID)
 					}
 					photosOf[u] = append(photosOf[u], p.UUID)
 				}

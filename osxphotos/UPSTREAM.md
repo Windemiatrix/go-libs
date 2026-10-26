@@ -26,7 +26,7 @@ Only what is ported so far. Templates, export and PhotoKit appear together with 
 |---|---|
 | `photosdb/photosdb.py` | `photosdb`, `internal/sqlread` |
 | `photosdb/photosdb_utils.py` | `photosdb` |
-| `_constants.py` | `internal/schema` |
+| `_constants.py` | `internal/schema`, `photoinfo` |
 | `sqlite_utils.py` | `internal/sqlread` |
 | `photosdb/_photosdb_process_shared_library.py` | `photosdb` |
 | `photosdb/_photosdb_process_syndicationinfo.py` | `photosdb` |
@@ -116,7 +116,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 |---|---|
 | `photosdb/photosdb.py` | `photosdb`, `internal/sqlread` |
 | `photosdb/photosdb_utils.py` | `photosdb` |
-| `_constants.py` | `internal/schema` |
+| `_constants.py` | `internal/schema`, `photoinfo` |
 | `sqlite_utils.py` | `internal/sqlread` |
 | `photosdb/_photosdb_process_shared_library.py` | `photosdb` |
 | `photosdb/_photosdb_process_syndicationinfo.py` | `photosdb` |

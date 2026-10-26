@@ -3,7 +3,7 @@
 -- Changes: the first user album (ZKIND 2) not in the trash is renamed mig:album-cloud-guid and gets
 -- the GUID TEST-ALBUM-GUID-0001; the first folder (ZKIND 4000, not the root folder 3999) is renamed
 -- mig:folder-cloud-guid and gets TEST-FOLDER-GUID-0001.
--- Expects: Albums() has the album titled mig:album-cloud-guid with CloudGUID "TEST-ALBUM-GUID-0001";
+-- Expects: AlbumInfo() has the album titled mig:album-cloud-guid with CloudGUID "TEST-ALBUM-GUID-0001";
 -- Folders() has the folder titled mig:folder-cloud-guid with CloudGUID "TEST-FOLDER-GUID-0001";
 -- other albums have CloudGUID "".
 

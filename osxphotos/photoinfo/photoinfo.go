@@ -10,7 +10,13 @@ type PhotoInfo struct {
 	UUID            string
 	CloudAssetGUID  string // extension: not in osxphotos — ZASSET.ZCLOUDASSETGUID; "" when absent
 	CloudMasterGUID string // osxphotos cloud_guid
-	Fingerprint     string
+
+	// osxphotos fingerprint (photoinfo.py:1772-1775); "" when absent. Read from
+	// ZMASTERFINGERPRINT before Photos 10 and from ZORIGINALSTABLEHASH from
+	// Photos 10 (_constants.py:176, 193, 210): values of the two columns do not
+	// compare, so compare fingerprints only between libraries on the same side
+	// of Info().PhotosVersion 10.
+	Fingerprint string
 
 	Filename         string
 	OriginalFilename string // Filename when the database has none, as osxphotos
@@ -75,7 +81,9 @@ type PhotoInfo struct {
 	Resources  []Resource // extension: not in osxphotos — in Z_PK order
 }
 
-// UnknownPerson is the name of a person without a name (_constants.py:337).
+// UnknownPerson is the name of a person without a name in Persons
+// (_constants.py:337); a person named "_UNKNOWN_" gives the same value, as in
+// osxphotos.
 const UnknownPerson = "_UNKNOWN_"
 
 // Resource is one ZINTERNALRESOURCE row of an asset.
