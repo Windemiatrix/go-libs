@@ -10,13 +10,14 @@ import (
 // Member is one asset of a user album (ZKIND 2, _constants.py:364), trashed
 // albums included (photosdb.py:1873-1901).
 type Member struct {
-	AssetPK   int64  // schema.Schema.MemberAssetColumn
-	AlbumUUID string // ZGENERICALBUM.ZUUID
+	AssetPK   int64         // schema.Schema.MemberAssetColumn
+	AlbumUUID string        // ZGENERICALBUM.ZUUID
+	Order     sql.NullInt64 // schema.Schema.MemberOrderColumn: the position in the album (ALBUM_SORT_ORDER)
 }
 
 // The order is that of the Scan in Members.
 func memberSelect(s schema.Schema) []column {
-	return []column{{"m", s.MemberTable, s.MemberAssetColumn}, {"g", "ZGENERICALBUM", "ZUUID"}}
+	return []column{{"m", s.MemberTable, s.MemberAssetColumn}, {"g", "ZGENERICALBUM", "ZUUID"}, {"m", s.MemberTable, s.MemberOrderColumn}}
 }
 
 func memberColumns(s schema.Schema) []column {
@@ -37,7 +38,7 @@ func (d *DB) Members(ctx context.Context, s schema.Schema) ([]Member, error) {
 	var out []Member
 	err := d.readRows(ctx, "members", q, func(rows *sql.Rows) error {
 		var m Member
-		if err := rows.Scan(&m.AssetPK, &m.AlbumUUID); err != nil {
+		if err := rows.Scan(&m.AssetPK, &m.AlbumUUID, &m.Order); err != nil {
 			return err
 		}
 		out = append(out, m)

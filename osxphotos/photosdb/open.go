@@ -116,6 +116,8 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 		albums: albums,
 		bursts: indexBursts(c.photos),
 
+		albumPhotos: membershipOrder(t.members, t.assets, c.byUUID),
+
 		folders:    folders,
 		topFolders: topFolders,
 	}, nil

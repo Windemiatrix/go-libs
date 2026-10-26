@@ -86,7 +86,7 @@ osxphotos — самый полный открытый разбор базы «�
 | Признаки фото: HDR, панорама, портрет, селфи, пространственное фото, замедленная съёмка, таймлапс, запись экрана, общий момент, правка в другом приложении, видимость, кто импортировал | `photosdb`, `photoinfo` | есть |
 | Файлы на диске: оригинал, Live, RAW, правленая версия и её Live-видео, файлы правок, превью (`PathEdited`, `PathEditedLive`, `AdjustmentsPath`, `OriginalAdjustmentsPath`, `PathDerivatives`) | `photosdb`, `photoinfo` | есть |
 | Люди на фото: имена (`Persons`; лицо без имени — `_UNKNOWN_`), по медиатеке — `DB.Persons`, `DB.PersonCounts` | `photosdb`, `photoinfo` | есть |
-| Альбомы: название, путь папок, состав, даты, корзина, порядок сортировки и место в боковой панели (`AlbumInfo`, `Album`) | `photosdb`, `albuminfo` | есть |
+| Альбомы: название, путь папок, состав, даты, корзина, порядок сортировки и место в боковой панели (`AlbumInfo`, `Album`; фото в порядке альбома — `AlbumPhotos`) | `photosdb`, `albuminfo` | есть |
 | Папки и их дерево, место в боковой панели (`FolderInfo`, `Folder`, `FolderList`) | `photosdb`, `albuminfo` | есть |
 | Выборка `Query` с фильтрами `query.Options` (альбом, папка, даты, корзина, тип, признаки, человек и другие), сортировка | `photosdb`, `query` | есть |
 | Дубликаты (`DB.Duplicates`, `query.Duplicates`, опция `Duplicate`) | `photosdb`, `query` | есть |

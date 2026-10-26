@@ -77,7 +77,7 @@ If you only read three things: (1) models outside the supported table return `Er
 - `AlbumInfo()` is in UUID order, `AlbumTitles()` and `AlbumTitlesOf` are sorted, `AlbumInfoOf` sorts by title, then by UUID. Upstream keeps the order of the rows of `ZGENERICALBUM`, of a Python set and of the membership rows (`photosdb/photosdb.py:612-650`, `photosdb/photosdb.py:3212-3225`, `photoinfo.py:655-662`).
 - `BurstAlbumInfoOf` lists an album once. Upstream lists it twice when both the photo and the key photo of its burst are in it: it makes a set of `AlbumInfo` objects, which have no equality (`photoinfo.py:664-671`).
 - `AlbumCounts` counts the photos of each album that `Photos()` returns, and an empty album adds 0. Upstream counts the membership rows, members without a `ZADDITIONALASSETATTRIBUTES` row included, sets the count of a title to 0 when an empty album of that title comes after another, and returns a dictionary ordered by the count, which a Go map does not keep (`photosdb/photosdb.py:511-526`, `photosdb/photosdb.py:1873-1901`).
-- The order of photos in an album is not stored: `PhotoUUIDs` is a set.
+- `PhotoUUIDs` of an album is a set; `AlbumPhotos` gives the photos in the order of the album. A `NULL` position of a photo in an album comes before the numbers; upstream fails when an album has both (`albuminfo.py:37-53`, `albuminfo.py:165-187`).
 - `SystemLibraryPath` has no PhotoKit fallback (`utils.py:206-228`). When neither photolibraryd preferences file holds an absolute path without NUL, it returns `ErrLibraryNotFound`. Upstream returns any value of the key as is (`utils.py:180-206`).
 
 ## Extensions
@@ -167,7 +167,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `AlbumInfo()` идёт по UUID, `AlbumTitles()` и `AlbumTitlesOf` отсортированы, `AlbumInfoOf` сортирует по названию, затем по UUID. Upstream сохраняет порядок строк `ZGENERICALBUM`, множества Python и строк членства (`photosdb/photosdb.py:612-650`, `photosdb/photosdb.py:3212-3225`, `photoinfo.py:655-662`).
 - `BurstAlbumInfoOf` называет альбом один раз. Upstream называет его дважды, если в нём и само фото, и ключевой кадр его серии: это множество объектов `AlbumInfo`, у которых нет равенства (`photoinfo.py:664-671`).
 - `AlbumCounts` считает фото каждого альбома из тех, что отдаёт `Photos()`; пустой альбом добавляет 0. Upstream считает строки членства, включая объекты без строки `ZADDITIONALASSETATTRIBUTES`, обнуляет счёт названия, если пустой альбом с этим названием идёт после другого, и отдаёт словарь по убыванию счёта, а у `map` Go порядка нет (`photosdb/photosdb.py:511-526`, `photosdb/photosdb.py:1873-1901`).
-- Порядок фото в альбоме не хранится: `PhotoUUIDs` — множество.
+- `PhotoUUIDs` альбома — множество; фото в порядке альбома даёт `AlbumPhotos`. Позиция фото в альбоме `NULL` идёт раньше чисел; upstream падает, если в альбоме есть и то и другое (`albuminfo.py:37-53`, `albuminfo.py:165-187`).
 - У `SystemLibraryPath` нет запасного пути через PhotoKit (`utils.py:206-228`). Если ни один из двух файлов настроек photolibraryd не содержит абсолютный путь без NUL, возвращается `ErrLibraryNotFound`. Upstream возвращает любое значение ключа как есть (`utils.py:180-206`).
 
 ### Расширения
