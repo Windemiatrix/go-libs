@@ -86,7 +86,7 @@ Other models, including beta builds outside the ranges, give `ErrUnsupportedSche
 | Photo flags: HDR, panorama, portrait, selfie, spatial, slow motion, time-lapse, screen recording, shared moment, edited in another app, visibility, who imported it | `photosdb`, `photoinfo` | done |
 | Files on disk: original, Live, RAW, edited version and its Live video, adjustment files, previews (`PathEdited`, `PathEditedLive`, `AdjustmentsPath`, `OriginalAdjustmentsPath`, `PathDerivatives`) | `photosdb`, `photoinfo` | done |
 | People on photos: names (`Persons`; a face without a name is `_UNKNOWN_`), for the library `DB.Persons`, `DB.PersonCounts` | `photosdb`, `photoinfo` | done |
-| Albums: title, folder path, members, dates, trash, sort order and place in the sidebar (`Albums`, `Album`) | `photosdb`, `albuminfo` | done |
+| Albums: title, folder path, members, dates, trash, sort order and place in the sidebar (`AlbumInfo`, `Album`) | `photosdb`, `albuminfo` | done |
 | Folders and their tree, place in the sidebar (`FolderInfo`, `Folder`, `FolderList`) | `photosdb`, `albuminfo` | done |
 | Selection `Query` with `query.Options` filters (album, folder, dates, trash, type, flags, person and others), sorting | `photosdb`, `query` | done |
 | Duplicates (`DB.Duplicates`, `query.Duplicates`, the `Duplicate` option) | `photosdb`, `query` | done |
@@ -98,7 +98,7 @@ Other models, including beta builds outside the ranges, give `ErrUnsupportedSche
 
 ## How it differs from osxphotos
 
-Tag `v0.77.2` is ported. The same database reading plus: cloud identifiers of photos and albums, sizes of Live and RAW resources without downloading, a strict error instead of a guess on an unknown schema, and `Photos()` without hidden filters (the osxphotos selection is `!p.InTrash && !p.BurstUnselected() && (p.IsPhoto || p.IsMovie)`). Later: writing to Photos through PhotoKit. The full list of extensions and intentional differences, with links to the osxphotos source, is in [UPSTREAM.md](UPSTREAM.md); extensions are marked in code with `// extension: not in osxphotos`.
+Tag `v0.77.2` is ported. The same database reading plus: cloud identifiers of photos and albums, sizes of Live and RAW resources without downloading, a strict error instead of a guess on an unknown schema, and `Photos()` without hidden filters (`Query(query.Options{})` makes the osxphotos selection: photos and movies outside the trash, without unselected burst frames). Later: writing to Photos through PhotoKit. The full list of extensions and intentional differences, with links to the osxphotos source, is in [UPSTREAM.md](UPSTREAM.md); extensions are marked in code with `// extension: not in osxphotos`.
 
 ## How it is verified
 

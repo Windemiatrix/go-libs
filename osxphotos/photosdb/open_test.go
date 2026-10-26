@@ -596,21 +596,21 @@ func TestOpenSharedAlbum(t *testing.T) {
 	inAlbum := func(db *DB) int {
 		n := 0
 		for _, p := range db.Photos() {
-			if slices.Contains(p.AlbumUUIDs, album) || slices.Contains(p.BurstAlbumUUIDs, album) {
+			if slices.Contains(p.AlbumUUIDs, album) {
 				n++
 			}
 		}
 		return n
 	}
 	listed := func(db *DB) bool {
-		return slices.ContainsFunc(db.Albums(), func(a *albuminfo.AlbumInfo) bool { return a.UUID == album })
+		return slices.ContainsFunc(db.albums, func(a *albuminfo.AlbumInfo) bool { return a.UUID == album })
 	}
 	before, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if inAlbum(before) == 0 || !listed(before) {
-		t.Fatal("the user album has no photos or is not in Albums before the change")
+		t.Fatal("the user album has no photos or is not among the albums read before the change")
 	}
 	change(t, lib, "UPDATE ZGENERICALBUM SET ZKIND = 1505 WHERE ZUUID = '"+album+"'")
 	after, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
@@ -621,7 +621,7 @@ func TestOpenSharedAlbum(t *testing.T) {
 		t.Errorf("%d photos list the shared album", n)
 	}
 	if listed(after) {
-		t.Error("the shared album is in Albums")
+		t.Error("the shared album is among the albums read")
 	}
 }
 

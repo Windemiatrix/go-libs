@@ -54,10 +54,10 @@ func buildRules() map[string]rule {
 	list := []rule{
 		// uuid has no Go side: the sets of objects are compared by Compare itself.
 		{key: "uuid", ref: func(o Object) (any, error) { return decode[string](o, "uuid", false, "a string") }},
-		albumInfoRule("album_info", func(p *photoinfo.PhotoInfo) []string { return p.AlbumUUIDs }),
-		albumInfoRule("burst_album_info", func(p *photoinfo.PhotoInfo) []string { return p.BurstAlbumUUIDs }),
-		albumsRule("albums", "album_info", func(p *photoinfo.PhotoInfo) []string { return p.AlbumUUIDs }),
-		albumsRule("burst_albums", "burst_album_info", func(p *photoinfo.PhotoInfo) []string { return p.BurstAlbumUUIDs }),
+		albumInfoRule("album_info", ownAlbums),
+		albumInfoRule("burst_album_info", burstAlbums),
+		albumsRule("albums", "album_info", ownAlbums),
+		albumsRule("burst_albums", "burst_album_info", burstAlbums),
 		foldersRule(),
 		burstPhotosRule(),
 		stringList("persons", func(p *photoinfo.PhotoInfo) []string { return p.Persons }),
@@ -344,7 +344,13 @@ func foldersName(t *string) string {
 	return *t
 }
 
-func albumInfoRule(key string, uuids func(*photoinfo.PhotoInfo) []string) rule {
+type albumUUIDs func(*env, *photoinfo.PhotoInfo) []string
+
+func ownAlbums(_ *env, p *photoinfo.PhotoInfo) []string { return p.AlbumUUIDs }
+
+func burstAlbums(e *env, p *photoinfo.PhotoInfo) []string { return e.burstAlbums[p.UUID] }
+
+func albumInfoRule(key string, uuids albumUUIDs) rule {
 	return rule{
 		key:         key,
 		needsAlbums: true,
@@ -363,7 +369,7 @@ func albumInfoRule(key string, uuids func(*photoinfo.PhotoInfo) []string) rule {
 			return sortedElems(byUUID), nil
 		},
 		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
-			albums, err := e.userAlbums(uuids(p))
+			albums, err := e.userAlbums(uuids(e, p))
 			if err != nil {
 				return nil, err
 			}
@@ -386,7 +392,7 @@ func sortedElems(byUUID map[string]map[string]any) []any {
 
 // The titles of shared albums are removed using infoKey, the list of albums of
 // the reference that the titles belong to.
-func albumsRule(key, infoKey string, uuids func(*photoinfo.PhotoInfo) []string) rule {
+func albumsRule(key, infoKey string, uuids albumUUIDs) rule {
 	return rule{
 		key:         key,
 		needsAlbums: true,
@@ -410,7 +416,7 @@ func albumsRule(key, infoKey string, uuids func(*photoinfo.PhotoInfo) []string) 
 			return out, nil
 		},
 		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
-			albums, err := e.userAlbums(uuids(p))
+			albums, err := e.userAlbums(uuids(e, p))
 			if err != nil {
 				return nil, err
 			}

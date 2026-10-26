@@ -16,8 +16,8 @@ type photo = photoinfo.PhotoInfo
 
 // Apply returns the photos that o selects, as photo_query does over a PhotosDB
 // (photoquery.py:417-885). photos is every photo of a library (DB.Photos()),
-// albums every user album, the albums that PhotoInfo.AlbumUUIDs refers to
-// (DB.Albums()). The result is new, in the order of Sort (reversed with
+// albums its user albums (DB.AlbumInfo()); albums in the trash are ignored.
+// The result is new, in the order of Sort (reversed with
 // NewestFirst), each photo once unless a Function returns it twice and
 // BurstPhotos is off; its elements are the pointers of photos. photos and
 // albums are not modified.
@@ -49,11 +49,16 @@ func Apply(o Options, photos []*photoinfo.PhotoInfo, albums []*albuminfo.AlbumIn
 // photo_query starts from the photos() calls (photoquery.py:426-445;
 // photosdb/photosdb.py:3268-3360).
 func inSelection(o Options, p *photo) bool {
-	return inTrashSelection(o, p) && !p.BurstUnselected() &&
+	return inTrashSelection(o, p) && !burstUnselected(p) &&
 		((p.IsPhoto && !o.OnlyMovies) || (p.IsMovie && !o.OnlyPhotos)) &&
 		(len(o.UUID) == 0 || slices.Contains(o.UUID, p.UUID)) &&
 		(o.FromDate.IsZero() || !p.Date.Before(o.FromDate)) &&
 		(o.ToDate.IsZero() || p.Date.Before(o.ToDate))
+}
+
+// photosdb.py:3347-3351.
+func burstUnselected(p *photo) bool {
+	return p.Burst && p.BurstPickType != 0 && p.BurstPickType&(photoinfo.BurstPickSelected|photoinfo.BurstPickKey) == 0
 }
 
 func inTrashSelection(o Options, p *photo) bool {

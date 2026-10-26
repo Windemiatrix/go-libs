@@ -270,7 +270,7 @@ func TestFolders(t *testing.T) {
 			}
 
 			byAlbum := map[string]*albuminfo.AlbumInfo{}
-			for _, a := range db.Albums() {
+			for _, a := range db.albums {
 				byAlbum[a.UUID] = a
 			}
 			all := testlib.Rows(t, src, "SELECT ZUUID FROM ZGENERICALBUM WHERE ZKIND = 4000 AND ZUUID IS NOT NULL ORDER BY ZUUID")
@@ -306,7 +306,7 @@ func TestFolders(t *testing.T) {
 				}
 				for i, a := range f.Albums {
 					if a != byAlbum[a.UUID] || a.ParentUUID != u || a.InTrash || (i > 0 && f.Albums[i-1].UUID >= a.UUID) {
-						t.Errorf("folder %s: album %d is not the value of Albums(), is not in it, is in the trash or is out of UUID order", u, i)
+						t.Errorf("folder %s: album %d is not the album read, is not in it, is in the trash or is out of UUID order", u, i)
 					}
 				}
 			}
@@ -319,7 +319,7 @@ func TestFolders(t *testing.T) {
 				}
 			}
 
-			for _, a := range db.Albums() {
+			for _, a := range db.albums {
 				list := db.FolderList(a)
 				if got := folderTitles(list); !slices.Equal(got, a.FolderNames) {
 					t.Errorf("album %s: the titles of FolderList differ from FolderNames", a.UUID)
@@ -371,7 +371,7 @@ func TestFoldersGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 			byAlbum := map[string]*albuminfo.AlbumInfo{}
-			for _, a := range db.Albums() {
+			for _, a := range db.albums {
 				byAlbum[a.UUID] = a
 			}
 			for _, obj := range slices.Concat(ref.Query, ref.Deleted) {
@@ -385,7 +385,7 @@ func TestFoldersGolden(t *testing.T) {
 					}
 					a, ok := byAlbum[e.UUID]
 					if !ok {
-						t.Errorf("album %s of album_info is not in Albums()", e.UUID)
+						t.Errorf("album %s of album_info is not among the albums read", e.UUID)
 						continue
 					}
 					names := make([]string, len(e.FolderNames))

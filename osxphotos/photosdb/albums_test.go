@@ -237,7 +237,7 @@ func sortCheckLibrary(t *testing.T, lib string, seen map[albuminfo.AlbumSortOrde
 		t.Fatal(err)
 	}
 	src := roDB(t, lib)
-	for _, a := range db.Albums() {
+	for _, a := range db.albums {
 		seen[a.SortOrder]++
 		if want := testlib.Count(t, src, sortCase+a.UUID+"'"); int(a.SortOrder) != want {
 			t.Errorf("album %s: SortOrder %d, want %d", a.UUID, a.SortOrder, want)
@@ -348,7 +348,7 @@ func TestAlbums(t *testing.T) {
 			n := schemaByID(t, libraryModels[name].id)
 			const user = " FROM ZGENERICALBUM WHERE ZKIND = 2 AND ZUUID IS NOT NULL"
 
-			got := db.Albums()
+			got := db.albums
 			albums += len(got)
 			if want := count(t, src, "SELECT COUNT(*)"+user); len(got) != want {
 				t.Errorf("%d albums, want %d", len(got), want)
@@ -374,12 +374,10 @@ func TestAlbums(t *testing.T) {
 
 			photosOf := map[string][]string{}
 			for _, p := range db.Photos() {
-				for _, u := range slices.Concat(p.AlbumUUIDs, p.BurstAlbumUUIDs) {
-					if byUUID[u] == nil {
-						t.Errorf("an album of photo %s is not in Albums()", p.UUID)
-					}
-				}
 				for _, u := range p.AlbumUUIDs {
+					if byUUID[u] == nil {
+						t.Errorf("an album of photo %s is not among the albums read", p.UUID)
+					}
 					photosOf[u] = append(photosOf[u], p.UUID)
 				}
 			}
@@ -435,7 +433,7 @@ func TestAlbumsCloudGUID(t *testing.T) {
 				t.Fatal(err)
 			}
 			found := false
-			for _, a := range db.Albums() {
+			for _, a := range db.albums {
 				switch {
 				case a.Title == tt.marker:
 					found = true
@@ -485,7 +483,7 @@ func TestAlbumsTrash(t *testing.T) {
 		t.Fatal(err)
 	}
 	inTrash := map[string]bool{}
-	for _, a := range before.Albums() {
+	for _, a := range before.albums {
 		inTrash[a.UUID] = a.InTrash
 	}
 	photosOf := func(db *DB, album string) []string {
@@ -511,7 +509,7 @@ func TestAlbumsTrash(t *testing.T) {
 		t.Fatal(err)
 	}
 	inTrash[picked[0]], inTrash[picked[1]] = true, true
-	got := after.Albums()
+	got := after.albums
 	if len(got) != len(inTrash) {
 		t.Errorf("%d albums after the change, want %d", len(got), len(inTrash))
 	}

@@ -180,7 +180,7 @@ func FuzzLoad(f *testing.F) {
 
 func BenchmarkCompare20k(b *testing.B) {
 	const n, perBurst = 20000, 5
-	lib := Library{}
+	lib := Library{BurstAlbums: map[string][]string{}}
 	for i := 0; i < 30; i++ {
 		lib.Albums = append(lib.Albums, &albuminfo.AlbumInfo{UUID: fmt.Sprintf("00000000-0000-0000-0001-%012x", i+1), Title: fmt.Sprintf("Album %d", i)})
 	}
@@ -193,7 +193,7 @@ func BenchmarkCompare20k(b *testing.B) {
 			IsPhoto: true, Burst: true, BurstUUID: burst,
 			AlbumUUIDs: []string{lib.Albums[i%30].UUID, lib.Albums[(i+1)%30].UUID, lib.Albums[(i+2)%30].UUID},
 		}
-		p.BurstAlbumUUIDs = p.AlbumUUIDs
+		lib.BurstAlbums[id] = p.AlbumUUIDs
 		lib.Photos = append(lib.Photos, p)
 
 		var others []string

@@ -68,9 +68,6 @@ const (
 
 	// ZSYNDICATIONHISTORY of a photo not saved to the library (photoinfo.py:1597).
 	syndicationHistoryNotSaved = 0
-
-	// The name of a person without a name (_constants.py:337).
-	unknownPerson = "_UNKNOWN_"
 )
 
 type tables struct {
@@ -101,11 +98,11 @@ func nfc(s string) string { return norm.NFC.String(s) }
 // that order.
 //
 // load never indexes by a value of the database, so no content makes it panic.
-func load(t tables, fingerprintColumn string) (*catalog, error) {
+func load(t tables) (*catalog, error) {
 	resources := groupResources(t.resources)
 	keywords := groupKeywords(t.keywords)
 	albums := groupMembers(t.members)
-	persons, named := groupFaces(t.faces)
+	persons := groupFaces(t.faces)
 
 	c := &catalog{byUUID: make(map[string]*photoinfo.PhotoInfo, len(t.assets))}
 	var noUUID, dupUUID int
@@ -122,11 +119,10 @@ func load(t tables, fingerprintColumn string) (*catalog, error) {
 			dupUUID++
 			continue
 		}
-		p := photo(a, resources[a.PK], fingerprintColumn)
+		p := photo(a, resources[a.PK])
 		p.Keywords = keywords[a.PK]
 		p.AlbumUUIDs = albums[a.PK]
 		p.Persons = persons[a.PK]
-		p.HasPersons = named[a.PK]
 		c.photos = append(c.photos, p)
 		c.byUUID[p.UUID] = p
 	}
@@ -136,11 +132,10 @@ func load(t tables, fingerprintColumn string) (*catalog, error) {
 	if dupUUID > 0 {
 		return nil, fmt.Errorf("photosdb: %d assets with the ZASSET.ZUUID of another asset", dupUUID)
 	}
-	setBurstAlbums(c.photos)
 	return c, nil
 }
 
-func photo(a sqlread.Asset, res []sqlread.Resource, fingerprintColumn string) *photoinfo.PhotoInfo {
+func photo(a sqlread.Asset, res []sqlread.Resource) *photoinfo.PhotoInfo {
 	p := &photoinfo.PhotoInfo{
 		UUID:           a.UUID.String,
 		CloudAssetGUID: a.CloudAssetGUID.String,
@@ -212,9 +207,6 @@ func photo(a sqlread.Asset, res []sqlread.Resource, fingerprintColumn string) *p
 
 		Title:       nfc(a.Title.String),
 		Description: nfc(a.Description.String),
-	}
-	if p.Fingerprint != "" {
-		p.FingerprintSchema = fingerprintColumn
 	}
 	p.OriginalFilename = nfc(a.OriginalFilename.String)
 	if p.OriginalFilename == "" {
@@ -295,28 +287,6 @@ func isMissing(res []sqlread.Resource, fingerprint string) bool {
 	return last != nil && !is(last.Local, localAvailable)
 }
 
-// Upstream: photoinfo.py:646-653, 1031-1044. A burst is the frames with Burst
-// and one BurstUUID, "" included. A burst may hold every asset, so the albums
-// of its key frames are made distinct once per burst, not once per frame.
-func setBurstAlbums(photos []*photoinfo.PhotoInfo) {
-	keyAlbums := map[string][]string{}
-	for _, p := range photos {
-		if p.Burst && p.BurstKey {
-			keyAlbums[p.BurstUUID] = append(keyAlbums[p.BurstUUID], p.AlbumUUIDs...)
-		}
-	}
-	for b, s := range keyAlbums {
-		keyAlbums[b] = sortedSet(s)
-	}
-	for _, p := range photos {
-		if !p.Burst {
-			p.BurstAlbumUUIDs = slices.Clone(p.AlbumUUIDs)
-			continue
-		}
-		p.BurstAlbumUUIDs = sortedSet(slices.Concat(p.AlbumUUIDs, keyAlbums[p.BurstUUID]))
-	}
-}
-
 func groupResources(rows []sqlread.Resource) map[int64][]sqlread.Resource {
 	out := map[int64][]sqlread.Resource{}
 	for _, r := range rows {
@@ -340,23 +310,19 @@ func groupKeywords(rows []sqlread.Keyword) map[int64][]string {
 
 // Upstream names a person without a name "_UNKNOWN_" and lists a name once
 // per face (photosdb.py:1792-1796, 1858-1864; photoinfo.py:597-603).
-// HasPersons follows ZFULLNAME, not the substituted name: a person may be
-// called "_UNKNOWN_".
-func groupFaces(rows []sqlread.Face) (names map[int64][]string, named map[int64]bool) {
-	names, named = map[int64][]string{}, map[int64]bool{}
+func groupFaces(rows []sqlread.Face) map[int64][]string {
+	names := map[int64][]string{}
 	for _, f := range rows {
 		name := nfc(f.FullName.String)
 		if name == "" {
-			name = unknownPerson
-		} else {
-			named[f.AssetPK] = true
+			name = photoinfo.UnknownPerson
 		}
 		names[f.AssetPK] = append(names[f.AssetPK], name)
 	}
 	for _, g := range names {
 		slices.Sort(g)
 	}
-	return names, named
+	return names
 }
 
 func groupMembers(rows []sqlread.Member) map[int64][]string {

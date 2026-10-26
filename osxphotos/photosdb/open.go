@@ -86,7 +86,7 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 	if err != nil {
 		return nil, err
 	}
-	c, err := load(t, s.FingerprintColumn)
+	c, err := load(t)
 	if err != nil {
 		return nil, err
 	}

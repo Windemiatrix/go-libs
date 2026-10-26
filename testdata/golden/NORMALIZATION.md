@@ -8,7 +8,7 @@ Upstream places are written as `file:line` relative to the `osxphotos/` package 
 
 ## General rules
 
-1. **By UUID.** The reference holds the objects of `query.json` and `deleted.json` together; a UUID repeated in them, or repeated on the Go side, is an error of the input. The Go side is the photos that upstream `photos()` would return: not an unselected burst frame (`BurstUnselected()`) and a photo or a movie (other kinds have no type upstream). An object on one side only is a difference of the key `uuid`; the other keys are compared for the objects both sides have.
+1. **By UUID.** The reference holds the objects of `query.json` and `deleted.json` together; a UUID repeated in them, or repeated on the Go side, is an error of the input. The Go side is the photos that upstream `photos()` would return: not an unselected burst frame (pick type not 0 and with neither the selected nor the key bit) and a photo or a movie (other kinds have no type upstream). An object on one side only is a difference of the key `uuid`; the other keys are compared for the objects both sides have.
 2. **A date is a moment**, to the microsecond (the resolution of Python `datetime`). A reference string (ISO 8601, offset `±HH:MM`, or `±HH:MM:SS` for some zones) is read as a moment; the Go value is compared as it is, without rounding, in UTC. The offset written in the string `date` is **not** compared: upstream takes it from the time zone name (`tzname`), which the module does not apply to `Date`. The offset of the asset is the key `tzoffset`.
 3. **`null` equals a zero Go value** only for the keys whose row says so: a string is `""`, an integer is `0`, a pointer is `nil`. `null` where a row does not allow it (a boolean, a strict string) is an error of the form of the reference.
 4. **Integers are exact** (a JSON integer that fits `int64`; `3024.0` is not accepted). **Floats** (`latitude`, `longitude`) are exact too: both sides read one IEEE double and neither Python `repr` nor Go changes it, so there is no tolerance (a tolerance would hide a wrong column).
@@ -27,7 +27,7 @@ One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and
 | `album_info` | `AlbumUUIDs` → `Library.Albums`, albums in the trash left out | Set by `uuid` after rule 8. Per element: `uuid`; `title` (`null` = `""`); `parent` (`null` = `ParentUUID` `""`); `folder_names` in order; `creation_date` (a moment; 2001-01-01T00:00:00 = `nil`, as upstream defaults a missing value to 0 seconds of Core Data); `start_date`, `end_date` (`null` = `nil`). `folder_list`, `owner` and `sort_order` are not compared: Go has no counterpart | `photoinfo.py:655-662, 1991-2034`; `albuminfo.py:76-107, 135-143, 289-297`; `photosdb/photosdb.py:1937-1938` |
 | `albums` | titles of the same albums | Sorted set of titles, repeats merged; titles of dropped shared albums are removed unless a kept element of `album_info` has the title | `photoinfo.py:633-644` |
 | `burst` | `Burst` | boolean | `photosdb/photosdb.py:2212-2223` |
-| `burst_album_info` | `BurstAlbumUUIDs` → `Library.Albums`, albums in the trash left out | as `album_info` | `photoinfo.py:664-671` |
+| `burst_album_info` | `Library.BurstAlbums` (`photosdb.DB.BurstAlbumInfoOf`) → `Library.Albums`, albums in the trash left out | as `album_info` | `photoinfo.py:664-671` |
 | `burst_albums` | titles of the same albums | as `albums` (by `burst_album_info`) | `photoinfo.py:646-653` |
 | `burst_default_pick` | `BurstDefaultPick` | boolean | `photoinfo.py:1021-1029`; `_constants.py:678` |
 | `burst_key` | `BurstKey` | boolean | `photoinfo.py:999-1007` |
@@ -135,7 +135,7 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 
 ### Общие правила
 
-1. **По UUID.** Эталон — объекты `query.json` и `deleted.json` вместе; UUID, повторённый в них или на стороне Go, — ошибка входа. Сторона Go — фото, которые вернул бы `photos()` upstream: не невыбранный кадр серии (`BurstUnselected()`) и фото или видео (у остальных видов в upstream нет типа). Объект только с одной стороны — расхождение ключа `uuid`; остальные ключи сравниваются у объектов, которые есть с обеих сторон.
+1. **По UUID.** Эталон — объекты `query.json` и `deleted.json` вместе; UUID, повторённый в них или на стороне Go, — ошибка входа. Сторона Go — фото, которые вернул бы `photos()` upstream: не невыбранный кадр серии (отметка не 0 и без бита выбранного и бита ключевого кадра) и фото или видео (у остальных видов в upstream нет типа). Объект только с одной стороны — расхождение ключа `uuid`; остальные ключи сравниваются у объектов, которые есть с обеих сторон.
 2. **Дата — момент**, с точностью до микросекунды (разрешение `datetime` Python). Строка эталона (ISO 8601, смещение `±HH:MM`, у некоторых зон `±HH:MM:SS`) читается как момент; значение Go сравнивается как есть, без округления, в UTC. Смещение в строке `date` **не** сравнивается: upstream берёт его из названия часового пояса (`tzname`), которое модуль к `Date` не применяет. Смещение объекта — ключ `tzoffset`.
 3. **`null` равно нулевому значению Go** только у ключей, где это сказано в строке: строка — `""`, целое — `0`, указатель — `nil`. `null` там, где строка его не допускает (логическое значение, строгая строка), — ошибка формы эталона.
 4. **Целые — точно** (целое JSON, помещающееся в `int64`; `3024.0` не принимается). **Дробные** (`latitude`, `longitude`) — тоже точно: обе стороны читают один IEEE double, ни `repr` Python, ни Go его не меняют, допуска нет (допуск спрятал бы чтение не той колонки).
@@ -154,7 +154,7 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 | `album_info` | `AlbumUUIDs` → `Library.Albums`, альбомы в корзине не берутся | Множество по `uuid` после правила 8. У элемента: `uuid`; `title` (`null` = `""`); `parent` (`null` = `ParentUUID` `""`); `folder_names` по порядку; `creation_date` (момент; 2001-01-01T00:00:00 = `nil`: upstream подставляет вместо пустого значения 0 секунд Core Data); `start_date`, `end_date` (`null` = `nil`). `folder_list`, `owner` и `sort_order` не сравниваются: в Go их нет | `photoinfo.py:655-662, 1991-2034`; `albuminfo.py:76-107, 135-143, 289-297`; `photosdb/photosdb.py:1937-1938` |
 | `albums` | названия тех же альбомов | Отсортированное множество названий, повторы склеены; названия отброшенных общих альбомов убираются, если такого названия нет у оставшегося элемента `album_info` | `photoinfo.py:633-644` |
 | `burst` | `Burst` | логическое | `photosdb/photosdb.py:2212-2223` |
-| `burst_album_info` | `BurstAlbumUUIDs` → `Library.Albums`, альбомы в корзине не берутся | как `album_info` | `photoinfo.py:664-671` |
+| `burst_album_info` | `Library.BurstAlbums` (`photosdb.DB.BurstAlbumInfoOf`) → `Library.Albums`, альбомы в корзине не берутся | как `album_info` | `photoinfo.py:664-671` |
 | `burst_albums` | названия тех же альбомов | как `albums` (по `burst_album_info`) | `photoinfo.py:646-653` |
 | `burst_default_pick` | `BurstDefaultPick` | логическое | `photoinfo.py:1021-1029`; `_constants.py:678` |
 | `burst_key` | `BurstKey` | логическое | `photoinfo.py:999-1007` |

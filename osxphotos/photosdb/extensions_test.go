@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
+	"github.com/Windemiatrix/go-libs/osxphotos/query"
 )
 
 // The cases of this file are the migrations of testdata/libraries: each
@@ -97,19 +98,17 @@ func TestExtensionsCloud(t *testing.T) {
 
 func TestExtensionsFingerprint(t *testing.T) {
 	t.Parallel()
-	for _, tt := range []struct{ name, column string }{
-		{"Test-13.0.0", "ZMASTERFINGERPRINT"},
-		{"Test-26.1", "ZORIGINALSTABLEHASH"},
-		{"Test-27.0_DevBeta", "ZORIGINALSTABLEHASH"},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
+	// Both fingerprint columns: ZMASTERFINGERPRINT of photos8 and
+	// ZORIGINALSTABLEHASH of the later schemas.
+	for _, name := range []string{"Test-13.0.0", "Test-26.1", "Test-27.0_DevBeta"} {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			m := openMigrated(t, tt.name)
-			if p := m.get(t, "fingerprint-value"); p.Fingerprint != "TEST-FP-0001" || p.FingerprintSchema != tt.column {
-				t.Errorf("value: %q, %q; want TEST-FP-0001, %s", p.Fingerprint, p.FingerprintSchema, tt.column)
+			m := openMigrated(t, name)
+			if p := m.get(t, "fingerprint-value"); p.Fingerprint != "TEST-FP-0001" {
+				t.Errorf("value: %q; want TEST-FP-0001", p.Fingerprint)
 			}
-			if p := m.get(t, "fingerprint-null"); p.Fingerprint != "" || p.FingerprintSchema != "" {
-				t.Errorf("null: %q, %q; want empty", p.Fingerprint, p.FingerprintSchema)
+			if p := m.get(t, "fingerprint-null"); p.Fingerprint != "" {
+				t.Errorf("null: %q; want empty", p.Fingerprint)
 			}
 		})
 	}
@@ -193,9 +192,11 @@ func TestExtensionsBurst(t *testing.T) {
 			t.Parallel()
 			m := openMigrated(t, name)
 			key := m.get(t, "burst-key")
-			if len(key.AlbumUUIDs) == 0 {
-				t.Fatal("burst-key has no albums")
+			keyAlbums := lookupUUIDs(m.db.AlbumInfoOf(key))
+			if len(keyAlbums) == 0 {
+				t.Fatal("burst-key has no album outside the trash")
 			}
+			selected := m.db.Query(query.Options{})
 			for _, tt := range []struct {
 				marker                      string
 				pick                        int
@@ -209,16 +210,17 @@ func TestExtensionsBurst(t *testing.T) {
 				{"burst-null", 0, false, false, false},
 			} {
 				p := m.get(t, tt.marker)
+				queried := slices.Contains(selected, p)
 				if !p.Burst || p.BurstUUID != "TEST-BURST-0001" || p.BurstPickType != tt.pick || p.BurstKey != tt.isKey ||
-					p.BurstSelected != tt.selected || p.BurstUnselected() != tt.unselected {
-					t.Errorf("%s: Burst %v %q, pick %d, key %v, selected %v, unselected %v", tt.marker, p.Burst, p.BurstUUID,
-						p.BurstPickType, p.BurstKey, p.BurstSelected, p.BurstUnselected())
+					p.BurstSelected != tt.selected || queried == tt.unselected {
+					t.Errorf("%s: Burst %v %q, pick %d, key %v, selected %v, in Query %v", tt.marker, p.Burst, p.BurstUUID,
+						p.BurstPickType, p.BurstKey, p.BurstSelected, queried)
 				}
 				if !tt.isKey && len(p.AlbumUUIDs) != 0 {
 					t.Errorf("%s: AlbumUUIDs %q, want none", tt.marker, p.AlbumUUIDs)
 				}
-				if !slices.Equal(p.BurstAlbumUUIDs, key.AlbumUUIDs) {
-					t.Errorf("%s: BurstAlbumUUIDs %q, want %q", tt.marker, p.BurstAlbumUUIDs, key.AlbumUUIDs)
+				if got := lookupUUIDs(m.db.BurstAlbumInfoOf(p)); !slices.Equal(got, keyAlbums) {
+					t.Errorf("%s: BurstAlbumInfoOf %q, want %q", tt.marker, got, keyAlbums)
 				}
 			}
 		})

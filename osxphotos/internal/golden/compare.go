@@ -14,12 +14,19 @@ import (
 
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/query"
 )
 
 // Library is the Go side of a comparison, as plain values.
 type Library struct {
 	Photos []*photoinfo.PhotoInfo // every photo of the database: photosdb.DB.Photos()
 	Albums []*albuminfo.AlbumInfo // every user album, trashed ones included; may be nil without AlbumKeys
+
+	// BurstAlbums holds, by photo UUID, the album UUIDs of osxphotos
+	// burst_album_info (photosdb.DB.BurstAlbumInfoOf); each must be in Albums,
+	// and Compare ignores albums in the trash, as in AlbumUUIDs. A photo without
+	// an entry has none; may be nil without AlbumKeys.
+	BurstAlbums map[string][]string
 }
 
 // Diff is one difference between the reference and Go.
@@ -47,6 +54,7 @@ type env struct {
 	albums       map[string]*albuminfo.AlbumInfo
 	goAlbumElems map[string]map[string]any
 	bursts       map[string][]string
+	burstAlbums  map[string][]string
 }
 
 var errAlbumMissing = errors.New("an album of a photo is missing from Library.Albums")
@@ -56,6 +64,7 @@ func newEnv(lib Library) (*env, error) {
 		albums:       map[string]*albuminfo.AlbumInfo{},
 		goAlbumElems: map[string]map[string]any{},
 		bursts:       map[string][]string{},
+		burstAlbums:  lib.BurstAlbums,
 	}
 	for _, a := range lib.Albums {
 		if _, dup := e.albums[a.UUID]; dup {
@@ -138,13 +147,6 @@ func indexRef(ref *Reference) ([]refObject, error) {
 	return out, nil
 }
 
-// Upstream photos() skips unselected burst frames (photosdb.py:3346-3353) and
-// objects that are neither a photo nor a movie, as they have no type
-// (photosdb.py:2197-2204, 3355-3360).
-func inGoSet(p *photoinfo.PhotoInfo) bool {
-	return !p.BurstUnselected() && (p.IsPhoto || p.IsMovie)
-}
-
 func selectRules(keys []string) (selected []rule, names []string, err error) {
 	names = slices.Clone(keys)
 	slices.Sort(names)
@@ -219,15 +221,16 @@ func Compare(ref *Reference, lib Library, keys []string, divs []Divergence) (*Re
 
 func indexGo(lib Library) (map[string]*photoinfo.PhotoInfo, error) {
 	all := make(map[string]bool, len(lib.Photos))
-	set := map[string]*photoinfo.PhotoInfo{}
 	for _, p := range lib.Photos {
 		if all[p.UUID] {
 			return nil, errors.New("golden: a UUID is repeated in Library.Photos")
 		}
 		all[p.UUID] = true
-		if inGoSet(p) {
-			set[p.UUID] = p
-		}
+	}
+	set := map[string]*photoinfo.PhotoInfo{}
+	// Deleted: the reference holds the trash too (deleted.json).
+	for _, p := range query.Apply(query.Options{Deleted: true}, lib.Photos, nil) {
+		set[p.UUID] = p
 	}
 	return set, nil
 }

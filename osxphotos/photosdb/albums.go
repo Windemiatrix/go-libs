@@ -10,14 +10,6 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// Albums returns every user album of the library, those in the trash
-// included, ordered by UUID: the albums that PhotoInfo.AlbumUUIDs refers to.
-// osxphotos album_info, without the albums in the trash, is AlbumInfo. Shared
-// albums are not read. The slice is new on every call, but its values are
-// shared by all calls: do not modify them.
-// extension: not in osxphotos — osxphotos lists no album in the trash.
-func (db *DB) Albums() []*albuminfo.AlbumInfo { return slices.Clone(db.albums) }
-
 // One root folder is required (photosdb.py:1958-1967). An empty or repeated
 // ZUUID is an error, as for assets in load: it would merge the members of two
 // albums. So is a chain of parents that does not end, a parent missing from

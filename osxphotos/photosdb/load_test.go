@@ -41,7 +41,7 @@ func loadOne(t *testing.T, a sqlread.Asset, res ...sqlread.Resource) *photoinfo.
 			res[i].PK = int64(i + 1)
 		}
 	}
-	c, err := load(tables{assets: []sqlread.Asset{a}, resources: res}, "ZORIGINALSTABLEHASH")
+	c, err := load(tables{assets: []sqlread.Asset{a}, resources: res})
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -78,10 +78,10 @@ func TestLoadFields(t *testing.T) {
 		{"cloud master in iCloud", func(a *sqlread.Asset) { a.HasMaster, a.CloudLocalState = true, nullInt(3) }, nil,
 			func(p *photoInfo) bool { return p.InCloud != nil && *p.InCloud && p.CloudMasterGUID == "" }},
 		{"fingerprint", func(a *sqlread.Asset) { a.Fingerprint = nullString("FP") }, nil,
-			func(p *photoInfo) bool { return p.Fingerprint == "FP" && p.FingerprintSchema == "ZORIGINALSTABLEHASH" }},
-		{"fingerprint NULL", nil, nil, func(p *photoInfo) bool { return p.Fingerprint == "" && p.FingerprintSchema == "" }},
+			func(p *photoInfo) bool { return p.Fingerprint == "FP" }},
+		{"fingerprint NULL", nil, nil, func(p *photoInfo) bool { return p.Fingerprint == "" }},
 		{"fingerprint empty", func(a *sqlread.Asset) { a.Fingerprint = nullString("") }, nil,
-			func(p *photoInfo) bool { return p.Fingerprint == "" && p.FingerprintSchema == "" }},
+			func(p *photoInfo) bool { return p.Fingerprint == "" }},
 		{"file names NFC", func(a *sqlread.Asset) {
 			a.Filename, a.OriginalFilename = nullString(nfd+".jpeg"), nullString(nfd+".JPG")
 		}, nil, func(p *photoInfo) bool {
@@ -428,7 +428,7 @@ func TestLoadKeywordsAlbumsPersons(t *testing.T) {
 		faces:     []sqlread.Face{{AssetPK: 2, FullName: nullString("Person A")}, {AssetPK: 99, FullName: nullString("Person B")}},
 		resources: []sqlread.Resource{{PK: 1, AssetPK: 99, Subtype: nullInt(17)}},
 	}
-	c, err := load(in, "ZMASTERFINGERPRINT")
+	c, err := load(in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -438,11 +438,11 @@ func TestLoadKeywordsAlbumsPersons(t *testing.T) {
 	if want := []string{"", "B", "Caf\U000000e9", "b", "b"}; !slices.Equal(p1.Keywords, want) {
 		t.Errorf("Keywords = %q, want %q", p1.Keywords, want)
 	}
-	if want := []string{"AL-1", "AL-2"}; !slices.Equal(p1.AlbumUUIDs, want) || !slices.Equal(p1.BurstAlbumUUIDs, want) {
-		t.Errorf("AlbumUUIDs = %q, BurstAlbumUUIDs = %q, want %q", p1.AlbumUUIDs, p1.BurstAlbumUUIDs, want)
+	if want := []string{"AL-1", "AL-2"}; !slices.Equal(p1.AlbumUUIDs, want) {
+		t.Errorf("AlbumUUIDs = %q, want %q", p1.AlbumUUIDs, want)
 	}
-	if p1.HasPersons || !p2.HasPersons || p1.Persons != nil || !slices.Equal(p2.Persons, []string{"Person A"}) {
-		t.Errorf("HasPersons = %v, %v, Persons of %d and %d names; want false, true, 0 and 1", p1.HasPersons, p2.HasPersons, len(p1.Persons), len(p2.Persons))
+	if p1.Persons != nil || !slices.Equal(p2.Persons, []string{"Person A"}) {
+		t.Errorf("Persons of %d and %d names; want 0 and 1", len(p1.Persons), len(p2.Persons))
 	}
 	if len(p2.Keywords) != 0 || len(p2.AlbumUUIDs) != 0 || p2.HasRAW {
 		t.Errorf("A-2 = %+v, want no keywords, albums or RAW", *p2)
@@ -465,25 +465,24 @@ func TestLoadPersons(t *testing.T) {
 			face(5, nullString("_UNKNOWN_")),
 		},
 	}
-	c, err := load(in, "Z")
+	c, err := load(in)
 	if err != nil {
 		t.Fatal(err)
 	}
 	tests := []struct {
-		uuid       string
-		persons    []string
-		hasPersons bool
+		uuid    string
+		persons []string
 	}{
-		{"A-1", []string{nfcForm, "Person A", "Person B", "Person B", "_UNKNOWN_", "_UNKNOWN_"}, true},
-		{"A-2", []string{"_UNKNOWN_"}, false},
-		{"A-3", []string{"_UNKNOWN_"}, false},
-		{"A-4", nil, false},
-		{"A-5", []string{"_UNKNOWN_"}, true},
+		{"A-1", []string{nfcForm, "Person A", "Person B", "Person B", "_UNKNOWN_", "_UNKNOWN_"}},
+		{"A-2", []string{"_UNKNOWN_"}},
+		{"A-3", []string{"_UNKNOWN_"}},
+		{"A-4", nil},
+		{"A-5", []string{"_UNKNOWN_"}},
 	}
 	for _, tt := range tests {
 		p := c.byUUID[tt.uuid]
-		if !slices.Equal(p.Persons, tt.persons) || (p.Persons == nil) != (tt.persons == nil) || p.HasPersons != tt.hasPersons {
-			t.Errorf("%s: %d persons, HasPersons %v; want %d, %v", tt.uuid, len(p.Persons), p.HasPersons, len(tt.persons), tt.hasPersons)
+		if !slices.Equal(p.Persons, tt.persons) || (p.Persons == nil) != (tt.persons == nil) {
+			t.Errorf("%s: %d persons; want %d", tt.uuid, len(p.Persons), len(tt.persons))
 		}
 	}
 }
@@ -503,7 +502,7 @@ func TestLoadOtherAssetFingerprint(t *testing.T) {
 			{PK: 3, AssetPK: 2, Subtype: nullInt(1), Local: nullInt(0), Fingerprint: nullString("FP")},
 		},
 	}
-	c, err := load(in, "Z")
+	c, err := load(in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -512,54 +511,12 @@ func TestLoadOtherAssetFingerprint(t *testing.T) {
 	}
 }
 
-func TestLoadBurstAlbums(t *testing.T) {
-	t.Parallel()
-
-	burst := func(pk int64, uuid, burstUUID string, pick int64) sqlread.Asset {
-		a := baseAsset(pk, uuid)
-		a.BurstUUID, a.BurstPickType = nullString(burstUUID), nullInt(pick)
-		return a
-	}
-	const withKey, withoutKey = "WITH-KEY", "WITHOUT-KEY"
-	in := tables{
-		assets: []sqlread.Asset{
-			burst(1, "K", withKey, photoinfo.BurstPickKey), burst(2, "S", withKey, photoinfo.BurstPickSelected),
-			burst(3, "U", withKey, pickUnselected),
-			burst(4, "E1", "", photoinfo.BurstPickKey), burst(5, "E2", "", 0),
-			baseAsset(6, "N"),
-			burst(7, "O", withoutKey, pickUnselected),
-		},
-		members: []sqlread.Member{
-			{AssetPK: 1, AlbumUUID: "AL-K"}, {AssetPK: 2, AlbumUUID: "AL-S"}, {AssetPK: 4, AlbumUUID: "AL-E"},
-			{AssetPK: 6, AlbumUUID: "AL-N"}, {AssetPK: 7, AlbumUUID: "AL-O"},
-		},
-	}
-	c, err := load(in, "ZORIGINALSTABLEHASH")
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := map[string][]string{
-		"K":  {"AL-K"},
-		"S":  {"AL-K", "AL-S"},
-		"U":  {"AL-K"},
-		"E1": {"AL-E"},
-		"E2": {"AL-E"},
-		"N":  {"AL-N"},
-		"O":  {"AL-O"},
-	}
-	for uuid, w := range want {
-		if got := c.byUUID[uuid].BurstAlbumUUIDs; !slices.Equal(got, w) {
-			t.Errorf("%s: BurstAlbumUUIDs = %q, want %q", uuid, got, w)
-		}
-	}
-}
-
 func TestLoadSkippedAndUUID(t *testing.T) {
 	t.Parallel()
 
 	skipped := baseAsset(3, "A-3")
 	skipped.HasAttributes = false
-	c, err := load(tables{assets: []sqlread.Asset{baseAsset(1, "A-1"), skipped, baseAsset(2, "A-2")}}, "Z")
+	c, err := load(tables{assets: []sqlread.Asset{baseAsset(1, "A-1"), skipped, baseAsset(2, "A-2")}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -582,7 +539,7 @@ func TestLoadSkippedAndUUID(t *testing.T) {
 		{"empty UUID", []sqlread.Asset{noUUID, emptyUUID}, "2 assets without ZASSET.ZUUID"},
 	}
 	for _, tt := range tests {
-		_, err := load(tables{assets: tt.assets}, "Z")
+		_, err := load(tables{assets: tt.assets})
 		if err == nil || !strings.Contains(err.Error(), tt.want) || strings.Contains(err.Error(), "SECRET") {
 			t.Errorf("%s: load error %v, want one with %q and without values", tt.name, err, tt.want)
 		}
@@ -594,34 +551,12 @@ func TestLoadSkippedAndUUID(t *testing.T) {
 	skippedNoUUID.UUID, skippedNoUUID.HasAttributes = sql.NullString{}, false
 	skippedDup := baseAsset(7, "A-1")
 	skippedDup.HasAttributes = false
-	c, err = load(tables{assets: []sqlread.Asset{baseAsset(1, "A-1"), skippedNoUUID, skippedDup}}, "Z")
+	c, err = load(tables{assets: []sqlread.Asset{baseAsset(1, "A-1"), skippedNoUUID, skippedDup}})
 	if err != nil {
 		t.Fatalf("assets without attributes, NULL and repeated ZUUID: %v", err)
 	}
 	if c.skipped != 2 || len(c.photos) != 1 || c.byUUID["A-1"] == nil || c.byUUID["A-1"].UUID != "A-1" {
 		t.Errorf("load: skipped %d, %d photos; want 2, 1 (A-1)", c.skipped, len(c.photos))
-	}
-}
-
-func TestLoadHostileBurst(t *testing.T) {
-	t.Parallel()
-
-	const n = 20000
-	in := tables{assets: make([]sqlread.Asset, 0, n), members: make([]sqlread.Member, 0, n)}
-	for i := range n {
-		a := baseAsset(int64(i+1), fmt.Sprintf("U-%05d", i))
-		a.BurstUUID, a.BurstPickType = nullString(""), nullInt(16)
-		in.assets = append(in.assets, a)
-		in.members = append(in.members, sqlread.Member{AssetPK: a.PK, AlbumUUID: "AL"})
-	}
-	c, err := load(in, "Z")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, p := range c.photos {
-		if got := p.BurstAlbumUUIDs; len(got) != 1 || got[0] != "AL" {
-			t.Fatalf("%s: BurstAlbumUUIDs %q, want [AL]", p.UUID, got)
-		}
 	}
 }
 
@@ -655,7 +590,7 @@ func TestLoadProperties(t *testing.T) {
 			in.faces = append(in.faces, sqlread.Face{AssetPK: a.PK, FullName: name})
 		}
 	}
-	want, err := load(in, "Z")
+	want, err := load(in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -669,14 +604,6 @@ func TestLoadProperties(t *testing.T) {
 		if !slices.IsSorted(p.Persons) {
 			t.Errorf("%s: Persons not sorted", p.UUID)
 		}
-		for _, u := range p.AlbumUUIDs {
-			if !slices.Contains(p.BurstAlbumUUIDs, u) {
-				t.Errorf("%s: BurstAlbumUUIDs %q lacks %s of AlbumUUIDs", p.UUID, p.BurstAlbumUUIDs, u)
-			}
-		}
-		if !p.Burst && !slices.Equal(p.BurstAlbumUUIDs, p.AlbumUUIDs) {
-			t.Errorf("%s: not a burst, BurstAlbumUUIDs %q != AlbumUUIDs %q", p.UUID, p.BurstAlbumUUIDs, p.AlbumUUIDs)
-		}
 	}
 	for range 50 {
 		s := tables{
@@ -686,7 +613,7 @@ func TestLoadProperties(t *testing.T) {
 		r.Shuffle(len(s.keywords), func(i, j int) { s.keywords[i], s.keywords[j] = s.keywords[j], s.keywords[i] })
 		r.Shuffle(len(s.faces), func(i, j int) { s.faces[i], s.faces[j] = s.faces[j], s.faces[i] })
 		r.Shuffle(len(s.members), func(i, j int) { s.members[i], s.members[j] = s.members[j], s.members[i] })
-		got, err := load(s, "Z")
+		got, err := load(s)
 		if err != nil {
 			t.Fatal(err)
 		}

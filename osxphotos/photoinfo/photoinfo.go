@@ -7,11 +7,16 @@ import "time"
 // PhotoInfo is one asset of the library. Fields marked "extension" have no
 // counterpart in osxphotos.
 type PhotoInfo struct {
-	UUID              string
-	CloudAssetGUID    string // extension: not in osxphotos — ZASSET.ZCLOUDASSETGUID; "" when absent
-	CloudMasterGUID   string // osxphotos cloud_guid
-	Fingerprint       string
-	FingerprintSchema string // extension: not in osxphotos — the column Fingerprint was read from (ZMASTERFINGERPRINT or ZORIGINALSTABLEHASH), "" without a fingerprint; values of one column compare across schemas, values of different columns do not
+	UUID            string
+	CloudAssetGUID  string // extension: not in osxphotos — ZASSET.ZCLOUDASSETGUID; "" when absent
+	CloudMasterGUID string // osxphotos cloud_guid
+
+	// osxphotos fingerprint (photoinfo.py:1772-1775); "" when absent. Read from
+	// ZMASTERFINGERPRINT before Photos 10 and from ZORIGINALSTABLEHASH from
+	// Photos 10 (_constants.py:176, 193, 210): values of the two columns do not
+	// compare, so compare fingerprints only between libraries on the same side
+	// of Info().PhotosVersion 10.
+	Fingerprint string
 
 	Filename         string
 	OriginalFilename string // Filename when the database has none, as osxphotos
@@ -69,14 +74,17 @@ type PhotoInfo struct {
 
 	Title, Description  string
 	Keywords            []string // ascending
-	Persons             []string // the person of each face, ascending, repeats kept; "_UNKNOWN_" for a person without a name (photoinfo.py:597-603)
-	HasPersons          bool     // extension: not in osxphotos — some face has a person with a non-empty name
+	Persons             []string // the person of each face, ascending, repeats kept; UnknownPerson for a person without a name (photoinfo.py:597-603)
 	Latitude, Longitude *float64
 
-	AlbumUUIDs      []string   // albums of the asset, trashed albums included; ascending
-	BurstAlbumUUIDs []string   // extension: not in osxphotos — own albums plus those of the burst's key frame; ascending
-	Resources       []Resource // extension: not in osxphotos — in Z_PK order
+	AlbumUUIDs []string   // albums of the asset, trashed albums included; ascending
+	Resources  []Resource // extension: not in osxphotos — in Z_PK order
 }
+
+// UnknownPerson is the name of a person without a name in Persons
+// (_constants.py:337); a person named "_UNKNOWN_" gives the same value, as in
+// osxphotos.
+const UnknownPerson = "_UNKNOWN_"
 
 // Resource is one ZINTERNALRESOURCE row of an asset.
 // extension: not in osxphotos.
@@ -94,12 +102,3 @@ const (
 	BurstPickSelected = 8  // BURST_SELECTED: the frame is selected
 	BurstPickKey      = 16 // BURST_KEY: the key frame of the burst
 )
-
-// BurstUnselected reports a burst frame that osxphotos photos() leaves out:
-// it has a pick type (not 0), and the type is neither selected nor key
-// (photosdb.py:3347-3351).
-// extension: not in osxphotos.
-func (p *PhotoInfo) BurstUnselected() bool {
-	pick := p.BurstPickType
-	return p.Burst && pick != 0 && pick&(BurstPickSelected|BurstPickKey) == 0
-}

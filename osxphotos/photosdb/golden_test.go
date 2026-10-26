@@ -9,6 +9,7 @@ import (
 
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/golden"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
+	"github.com/Windemiatrix/go-libs/osxphotos/query"
 )
 
 // The path is a pristine copy: the osxphotos output was made from the
@@ -44,19 +45,18 @@ func TestGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 			photos := db.Photos()
-			rep, err := golden.Compare(ref, golden.Library{Photos: photos, Albums: db.Albums()},
+			burstAlbums := map[string][]string{}
+			for _, p := range photos {
+				burstAlbums[p.UUID] = lookupUUIDs(db.BurstAlbumInfoOf(p))
+			}
+			rep, err := golden.Compare(ref, golden.Library{Photos: photos, Albums: db.albums, BurstAlbums: burstAlbums},
 				slices.Concat(golden.PhotoKeys(), golden.AlbumKeys()), divs)
 			if err != nil {
 				t.Fatal(err)
 			}
 			// Not vacuous: the objects compared are those that upstream
-			// photos() returns.
-			selected := 0
-			for _, p := range photos {
-				if !p.BurstUnselected() && (p.IsPhoto || p.IsMovie) {
-					selected++
-				}
-			}
+			// photos() returns, in the trash or not.
+			selected := len(db.Query(query.Options{Deleted: true}))
 			if rep.Objects == 0 || selected != rep.Objects {
 				t.Errorf("%d reference objects, %d selected Go photos", rep.Objects, selected)
 			}

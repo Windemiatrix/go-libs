@@ -125,8 +125,9 @@ func TestAlbumsMissingOnTheGoSide(t *testing.T) {
 		t.Run(key, func(t *testing.T) {
 			t.Parallel()
 			lib := Library{
-				Photos: []*photoinfo.PhotoInfo{{UUID: selectedFrame, IsPhoto: true, AlbumUUIDs: []string{albumAInFolderX}, BurstAlbumUUIDs: []string{albumAInFolderX}}},
-				Albums: []*albuminfo.AlbumInfo{{UUID: albumOfNoPhoto}},
+				Photos:      []*photoinfo.PhotoInfo{{UUID: selectedFrame, IsPhoto: true, AlbumUUIDs: []string{albumAInFolderX}}},
+				Albums:      []*albuminfo.AlbumInfo{{UUID: albumOfNoPhoto}},
+				BurstAlbums: map[string][]string{selectedFrame: {albumAInFolderX}},
 			}
 			ref := refOf(refObj(refSelectedFrame()))
 			_, err := Compare(ref, lib, []string{key}, nil)
