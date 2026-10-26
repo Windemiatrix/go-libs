@@ -144,7 +144,7 @@ func photo(a sqlread.Asset, res []sqlread.Resource) *photoinfo.PhotoInfo {
 
 		Filename: nfc(a.Filename.String),
 
-		Date:            assetDate(a.Created, a.TZOffset),
+		Date:            assetDate(a.Created, a.TZOffset, a.TZName),
 		TZOffset:        optionalInt(a.TZOffset),
 		TZName:          a.TZName.String,
 		DateAdded:       optionalTime(a.Added),
