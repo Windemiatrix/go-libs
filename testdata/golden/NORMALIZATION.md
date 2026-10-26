@@ -9,7 +9,7 @@ Upstream places are written as `file:line` relative to the `osxphotos/` package 
 ## General rules
 
 1. **By UUID.** The reference holds the objects of `query.json` and `deleted.json` together; a UUID repeated in them, or repeated on the Go side, is an error of the input. The Go side is the photos that upstream `photos()` would return: not an unselected burst frame (pick type not 0 and with neither the selected nor the key bit) and a photo or a movie (other kinds have no type upstream). An object on one side only is a difference of the key `uuid`; the other keys are compared for the objects both sides have.
-2. **A date is a moment**, to the microsecond (the resolution of Python `datetime`). A reference string (ISO 8601, offset `±HH:MM`, or `±HH:MM:SS` for some zones) is read as a moment; the Go value is compared as it is, without rounding, in UTC. The offset written in the string `date` is **not** compared: upstream takes it from the time zone name (`tzname`), which the module does not apply to `Date`. The offset of the asset is the key `tzoffset`.
+2. **A date is a moment**, to the microsecond (the resolution of Python `datetime`). A reference string (ISO 8601, offset `±HH:MM`, or `±HH:MM:SS` for some zones) is read as a moment; the Go value is compared as it is, without rounding, in UTC. Only `date` has its offset compared too: upstream gives it in the zone of the photo (`photos_datetime.py:47-67`). The other dates are in the zone of the computer that wrote the reference (`photos_datetime_local`, `photos_datetime.py:70-89`), so only their moment counts.
 3. **`null` equals a zero Go value** only for the keys whose row says so: a string is `""`, an integer is `0`, a pointer is `nil`. `null` where a row does not allow it (a boolean, a strict string) is an error of the form of the reference.
 4. **Integers are exact** (a JSON integer that fits `int64`; `3024.0` is not accepted). **Floats** (`latitude`, `longitude`) are exact too: both sides read one IEEE double and neither Python `repr` nor Go changes it, so there is no tolerance (a tolerance would hide a wrong column).
 5. **Lists of strings** are sorted by upstream in `json()` (`photoinfo.py:2279-2285`), except `location`; they are compared in order, and the Go side has to give the same order (by bytes of UTF-8, which is the order of code points). `null` in a list equals `""`. A list that is a set (`album_info`, `burst_album_info`, `project_info`) is compared as a set by `uuid`; `keywords` and `persons` are lists and keep repeats.
@@ -35,7 +35,7 @@ One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and
 | `burst_selected` | `BurstSelected` | boolean | `photoinfo.py:989-997` |
 | `cloud_guid` | `CloudMasterGUID` | `null` = `""` | `photoinfo.py:1762-1765` |
 | `cloud_owner_hashed_id` | `CloudOwnerHashedID` | `null` = `""` | `photoinfo.py:1767-1770`; `photosdb/photosdb.py:2320` |
-| `date` | `Date` | moment (rule 2) | `photosdb/photosdb.py:2159-2167`; `photos_datetime.py:27-67` |
+| `date` | `Date` | moment and offset (rule 2): the pair `[moment in UTC, offset in seconds]` | `photosdb/photosdb.py:2159-2167`; `photos_datetime.py:27-67` |
 | `date_added` | `DateAdded` | moment; the reference 1970-01-01T00:00:00 (the default of upstream) = `nil` or that moment | `photosdb/photosdb.py:2317`; `photos_datetime.py:19-21, 77-78`; `photoinfo.py:849-855` |
 | `date_modified` | `DateModified` | moment; `null` = `nil` | `photosdb/photosdb.py:2156-2157`; `photoinfo.py:165-177` |
 | `date_trashed` | `DateTrashed` | moment; `null` = `nil` | `photosdb/photosdb.py:2292-2293`; `photoinfo.py:842-847` |
@@ -138,7 +138,7 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 ### Общие правила
 
 1. **По UUID.** Эталон — объекты `query.json` и `deleted.json` вместе; UUID, повторённый в них или на стороне Go, — ошибка входа. Сторона Go — фото, которые вернул бы `photos()` upstream: не невыбранный кадр серии (отметка не 0 и без бита выбранного и бита ключевого кадра) и фото или видео (у остальных видов в upstream нет типа). Объект только с одной стороны — расхождение ключа `uuid`; остальные ключи сравниваются у объектов, которые есть с обеих сторон.
-2. **Дата — момент**, с точностью до микросекунды (разрешение `datetime` Python). Строка эталона (ISO 8601, смещение `±HH:MM`, у некоторых зон `±HH:MM:SS`) читается как момент; значение Go сравнивается как есть, без округления, в UTC. Смещение в строке `date` **не** сравнивается: upstream берёт его из названия часового пояса (`tzname`), которое модуль к `Date` не применяет. Смещение объекта — ключ `tzoffset`.
+2. **Дата — момент**, с точностью до микросекунды (разрешение `datetime` Python). Строка эталона (ISO 8601, смещение `±HH:MM`, у некоторых зон `±HH:MM:SS`) читается как момент; значение Go сравнивается как есть, без округления, в UTC. Только у `date` сравнивается и смещение: upstream даёт её в поясе снимка (`photos_datetime.py:47-67`). Остальные даты — в поясе компьютера, который записал эталон (`photos_datetime_local`, `photos_datetime.py:70-89`), поэтому у них сравнивается только момент.
 3. **`null` равно нулевому значению Go** только у ключей, где это сказано в строке: строка — `""`, целое — `0`, указатель — `nil`. `null` там, где строка его не допускает (логическое значение, строгая строка), — ошибка формы эталона.
 4. **Целые — точно** (целое JSON, помещающееся в `int64`; `3024.0` не принимается). **Дробные** (`latitude`, `longitude`) — тоже точно: обе стороны читают один IEEE double, ни `repr` Python, ни Go его не меняют, допуска нет (допуск спрятал бы чтение не той колонки).
 5. **Списки строк** upstream сортирует в `json()` (`photoinfo.py:2279-2285`), кроме `location`; сравниваются по порядку, Go обязан дать тот же порядок (по байтам UTF-8, это порядок кодовых точек). `null` в списке равно `""`. Список-множество (`album_info`, `burst_album_info`, `project_info`) сравнивается как множество по `uuid`; `keywords` и `persons` — списки, повторы сохраняются.
@@ -164,7 +164,7 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 | `burst_selected` | `BurstSelected` | логическое | `photoinfo.py:989-997` |
 | `cloud_guid` | `CloudMasterGUID` | `null` = `""` | `photoinfo.py:1762-1765` |
 | `cloud_owner_hashed_id` | `CloudOwnerHashedID` | `null` = `""` | `photoinfo.py:1767-1770`; `photosdb/photosdb.py:2320` |
-| `date` | `Date` | момент (правило 2) | `photosdb/photosdb.py:2159-2167`; `photos_datetime.py:27-67` |
+| `date` | `Date` | момент и смещение (правило 2): пара `[момент в UTC, смещение в секундах]` | `photosdb/photosdb.py:2159-2167`; `photos_datetime.py:27-67` |
 | `date_added` | `DateAdded` | момент; эталон 1970-01-01T00:00:00 (умолчание upstream) = `nil` или этот момент | `photosdb/photosdb.py:2317`; `photos_datetime.py:19-21, 77-78`; `photoinfo.py:849-855` |
 | `date_modified` | `DateModified` | момент; `null` = `nil` | `photosdb/photosdb.py:2156-2157`; `photoinfo.py:165-177` |
 | `date_trashed` | `DateTrashed` | момент; `null` = `nil` | `photosdb/photosdb.py:2292-2293`; `photoinfo.py:842-847` |

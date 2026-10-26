@@ -262,7 +262,7 @@ func TestPinnedSynthetic(t *testing.T) {
 	t.Parallel()
 	db := OpenDB(t, dbFile(OpenPristine(t, "synthetic")))
 	want := map[string]string{
-		"ZADDITIONALASSETATTRIBUTES": "0f235f7c920d9b8e648bf0823274e65e11a8b1256f830148f43a2ed8c4e9d171",
+		"ZADDITIONALASSETATTRIBUTES": "860d022e4d7f3cd4206cd6172d39044cd9898ae9aa3f9a1b84484c11351eea5c",
 		"ZASSET":                     "9c1c6a653a2067ee5ae3a1ac8130fb97d0b96b92cc9268373a48114fb4dcf78c",
 		"ZCLOUDMASTER":               "0b16088332ad364ce67bf0430bcccfc8cbd138fcca4f2898f9e6a65bbee5fa77",
 		"ZGENERICALBUM":              "3b117bf5872207f478e931c82eff9af6304eaf50727bde88c89f5525197b10c4",

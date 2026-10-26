@@ -77,10 +77,10 @@ func buildRules() map[string]rule {
 		value("adjustment_type", true, "an integer or null", func(p *photoinfo.PhotoInfo) *int { return p.AdjustmentType }),
 		importedBy(),
 
-		moment("date", true, time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return &p.Date }),
-		moment("date_added", false, defaultDateAdded, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateAdded }),
-		moment("date_modified", false, time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateModified }),
-		moment("date_trashed", false, time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateTrashed }),
+		zonedDate(),
+		moment("date_added", defaultDateAdded, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateAdded }),
+		moment("date_modified", time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateModified }),
+		moment("date_trashed", time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateTrashed }),
 
 		flag("burst", func(p *photoinfo.PhotoInfo) bool { return p.Burst }),
 		flag("burst_default_pick", func(p *photoinfo.PhotoInfo) bool { return p.BurstDefaultPick }),
@@ -180,16 +180,38 @@ func number(key string, get func(*photoinfo.PhotoInfo) int64) rule {
 	return value(key, true, "an integer", get)
 }
 
-func moment(key string, nullIsError bool, missingDefault time.Time, get func(*photoinfo.PhotoInfo) *time.Time) rule {
+// Upstream gives these dates in the zone of the computer that wrote the
+// reference (photos_datetime_local, photosdb/photosdb.py:2157, 2293, 2317), so
+// only the moment counts.
+func moment(key string, missingDefault time.Time, get func(*photoinfo.PhotoInfo) *time.Time) rule {
 	return simple(key,
 		func(o Object) (any, error) {
-			t, err := refTime(o, key, !nullIsError)
+			t, err := refTime(o, key, true)
 			if err != nil {
 				return nil, err
 			}
 			return goMoment(t, time.Time{}), nil
 		},
 		func(p *photoinfo.PhotoInfo) any { return goMoment(get(p), missingDefault) })
+}
+
+// Upstream gives date in the zone of the photo (photos_datetime.py:47-67), so
+// its offset counts too.
+func zonedDate() rule {
+	return simple("date",
+		func(o Object) (any, error) {
+			t, err := refTime(o, "date", false)
+			if err != nil {
+				return nil, err
+			}
+			return zonedMoment(*t), nil
+		},
+		func(p *photoinfo.PhotoInfo) any { return zonedMoment(p.Date) })
+}
+
+func zonedMoment(t time.Time) []any {
+	_, offset := t.Zone()
+	return []any{momentString(t), offset}
 }
 
 // Not compared for an adjusted photo: upstream reads the adjustments plist,

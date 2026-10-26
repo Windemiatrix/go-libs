@@ -21,9 +21,9 @@ type PhotoInfo struct {
 	Filename         string
 	OriginalFilename string // Filename when the database has none, as osxphotos
 
-	Date            time.Time  // the moment, in the fixed zone of TZOffset (UTC when TZOffset is nil); 1970-01-01T00:00:00Z when the database has no date, as osxphotos
-	TZOffset        *int       // seconds east of UTC; nil when unknown (osxphotos then uses UTC)
-	TZName          string     // the time zone name of Date, such as "Europe/Paris"; "" when unknown; Date does not use it
+	Date            time.Time  // the moment, in the zone of TZName when it is an IANA name or an abbreviation of osxphotos TZ_OVERRIDES whose zone has the offset TZOffset at that moment, otherwise in the fixed zone of TZOffset (UTC when TZOffset is nil) (photos_datetime.py:47-67); 1970-01-01T00:00:00Z when the database has no date, as osxphotos
+	TZOffset        *int       // seconds east of UTC; nil when unknown (osxphotos then takes the offset 0, photos_datetime.py:50)
+	TZName          string     // the time zone name of Date, such as "Europe/Paris"; "" when unknown
 	DateAdded       *time.Time // nil when the database has no value
 	DateModified    *time.Time // ZASSET.ZADJUSTMENTTIMESTAMP, as osxphotos; nil when the database has no value
 	DateTrashed     *time.Time // nil when the database has no value

@@ -94,10 +94,11 @@ func TestNormalize(t *testing.T) {
 		want           string
 		wantErr        string
 	}{
-		{name: "date", key: "date", raw: `"2020-06-06T14:15:24.725564+00:00"`, want: `"2020-06-06T14:15:24.725564Z"`},
-		{name: "date in another offset", key: "date", raw: `"2020-06-06T19:45:24.725564+05:30"`, want: `"2020-06-06T14:15:24.725564Z"`},
-		{name: "date in -07:00", key: "date", raw: `"2020-06-06T07:15:24.725564-07:00"`, want: `"2020-06-06T14:15:24.725564Z"`},
-		{name: "date with an offset in seconds", key: "date", raw: `"2020-06-06T15:49:00+01:33:36"`, want: `"2020-06-06T14:15:24Z"`},
+		{name: "date", key: "date", raw: `"2020-06-06T14:15:24.725564+00:00"`, want: `["2020-06-06T14:15:24.725564Z",0]`},
+		{name: "date in another offset", key: "date", raw: `"2020-06-06T19:45:24.725564+05:30"`, want: `["2020-06-06T14:15:24.725564Z",19800]`},
+		{name: "date in -07:00", key: "date", raw: `"2020-06-06T07:15:24.725564-07:00"`, want: `["2020-06-06T14:15:24.725564Z",-25200]`},
+		{name: "date with an offset in seconds", key: "date", raw: `"2020-06-06T15:49:00+01:33:36"`, want: `["2020-06-06T14:15:24Z",5616]`},
+		{name: "date_added in another offset", key: "date_added", raw: `"2020-06-06T19:45:24.725564+05:30"`, want: `"2020-06-06T14:15:24.725564Z"`},
 		{name: "date null", key: "date", raw: `null`, wantErr: "date: want an ISO 8601 string"},
 		{name: "date number", key: "date", raw: `5`, wantErr: "date: want an ISO 8601 string"},
 		{name: "date nonsense", key: "date", raw: `"SECRET-DATE"`, wantErr: "date: want an ISO 8601 string"},
@@ -266,11 +267,24 @@ func TestNormalizeGoSide(t *testing.T) {
 	t.Parallel()
 	ist := time.FixedZone("IST", 19800)
 	when := time.Date(2020, 6, 6, 19, 45, 24, 725564000, ist)
-	t.Run("a moment in any zone", func(t *testing.T) {
+	zones := []*time.Location{time.UTC, ist, time.FixedZone("W", -7*3600), time.FixedZone("S", 5640+28)}
+	t.Run("date is the moment and the offset of its zone", func(t *testing.T) {
 		t.Parallel()
-		for _, loc := range []*time.Location{time.UTC, ist, time.FixedZone("W", -7*3600), time.FixedZone("S", 5640+28)} {
-			p := &photoinfo.PhotoInfo{Date: when.In(loc)}
-			if got := goCanon(t, "date", p); got != `"2020-06-06T14:15:24.725564Z"` {
+		for i, want := range []string{
+			`["2020-06-06T14:15:24.725564Z",0]`, `["2020-06-06T14:15:24.725564Z",19800]`,
+			`["2020-06-06T14:15:24.725564Z",-25200]`, `["2020-06-06T14:15:24.725564Z",5668]`,
+		} {
+			p := &photoinfo.PhotoInfo{Date: when.In(zones[i])}
+			if got := goCanon(t, "date", p); got != want {
+				t.Errorf("zone %v: %s, want %s", zones[i], got, want)
+			}
+		}
+	})
+	t.Run("date_added is a moment in any zone", func(t *testing.T) {
+		t.Parallel()
+		for _, loc := range zones {
+			p := &photoinfo.PhotoInfo{DateAdded: ptr(when.In(loc))}
+			if got := goCanon(t, "date_added", p); got != `"2020-06-06T14:15:24.725564Z"` {
 				t.Errorf("zone %v: %s", loc, got)
 			}
 		}
@@ -278,7 +292,7 @@ func TestNormalizeGoSide(t *testing.T) {
 	t.Run("nanoseconds are not rounded", func(t *testing.T) {
 		t.Parallel()
 		p := &photoinfo.PhotoInfo{Date: when.Add(time.Nanosecond)}
-		if got := goCanon(t, "date", p); got != `"2020-06-06T14:15:24.725564001Z"` {
+		if got := goCanon(t, "date", p); got != `["2020-06-06T14:15:24.725564001Z",19800]` {
 			t.Errorf("got %s", got)
 		}
 	})
