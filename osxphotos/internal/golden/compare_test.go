@@ -30,8 +30,8 @@ func TestCompareNoDifferences(t *testing.T) {
 	if !rep.OK() || len(rep.Diffs) != 0 || len(rep.Explained) != 0 || len(rep.Stale) != 0 {
 		t.Fatalf("report = %+v, want no differences", rep)
 	}
-	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 73 {
-		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 73", rep.Library, rep.Objects, len(rep.Keys))
+	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 74 {
+		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 74", rep.Library, rep.Objects, len(rep.Keys))
 	}
 	if !slices.IsSorted(rep.Keys) {
 		t.Error("Keys are not sorted")
@@ -192,6 +192,21 @@ func photoMutations() []mutation {
 			l.Imports[0].StartDate, l.Imports[0].EndDate = l.Imports[0].EndDate, l.Imports[0].StartDate
 		}, "import_info"},
 		{"Import UUID", func(l *Library) { l.Imports[0].UUID, l.Imports[1].UUID = importBare, importSession }, "import_info"},
+
+		{"ProjectUUIDs empty", p(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = nil }), "project_info"},
+		{"ProjectUUIDs without the project outside the trash", p(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = []string{projectTrashed} }), "project_info"},
+		{"Project goes to the trash", func(l *Library) { l.Projects[0].InTrash = true }, "project_info"},
+		{"Project in the trash comes out of it", func(l *Library) { l.Projects[1].InTrash = false }, "project_info"},
+		{"Project title", func(l *Library) { l.Projects[0].Title = "Project Q" }, "project_info"},
+		{"Project folder names", func(l *Library) { l.Projects[0].FolderNames = []string{"Folder X"} }, "project_info"},
+		{"Project creation date", func(l *Library) { l.Projects[0].CreationDate = nil }, "project_info"},
+		{"Project end date", func(l *Library) { l.Projects[0].EndDate = ptr(utc(2020, 4, 5, 0, 0, 0, 0)) }, "project_info"},
+		{"a project among the albums of the photo", func(l *Library) {
+			l.Projects = l.Projects[1:]
+			l.Albums = append(l.Albums, &albuminfo.AlbumInfo{UUID: projectP, Title: "Project P", ParentUUID: folderX, CreationDate: ptr(utc(2020, 4, 4, 4, 4, 4, 0))})
+			l.Photos[0].AlbumUUIDs = append(l.Photos[0].AlbumUUIDs, projectP)
+			l.Photos[0].ProjectUUIDs = []string{projectTrashed}
+		}, "album_info albums folders project_info"},
 	}
 }
 
@@ -330,6 +345,9 @@ func TestCompareEquivalent(t *testing.T) {
 		{"an explicit 2001 for the creation date that osxphotos defaults", album(albumAInFolderY, func(a *albuminfo.AlbumInfo) { a.CreationDate = ptr(utc(2001, 1, 1, 0, 0, 0, 0)) }), ""},
 		{"the unselected frame with another pick", func(l *Library) { l.Photos[1].BurstPickType = 4 }, ""},
 		{"an album of a trashed state not listed", album(albumOfNoPhoto, func(a *albuminfo.AlbumInfo) { a.InTrash = true }), ""},
+		{"projects in another order, a repeat", photo(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = []string{projectTrashed, projectP, projectP} }), ""},
+		// osxphotos writes the parent of a project as null when the parent row holds no folder or user album.
+		{"the parent of a project is not compared", func(l *Library) { l.Projects[0].ParentUUID = "" }, ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -446,6 +464,8 @@ func TestCompareNulls(t *testing.T) {
 		{"AlbumUUIDs of a trashed album", func(l *Library) { l.Photos[2].AlbumUUIDs = []string{albumTrashed} }, ""},
 		{"AlbumUUIDs", func(l *Library) { l.Photos[2].AlbumUUIDs = []string{albumBNoFolder} }, "album_info albums folders"},
 		{"ImportUUID", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ImportUUID = importBare }), "import_info"},
+		{"ProjectUUIDs of a trashed project", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = []string{projectTrashed} }), ""},
+		{"ProjectUUIDs", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = []string{projectP} }), "project_info"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -651,6 +671,21 @@ func TestCompareErrors(t *testing.T) {
 			[]string{"import_info"}, "query.json element 1: key import_info: an import session of a photo is missing from Library.Imports"},
 		{"an import session UUID repeated", fixtureRef, func() Library { l := fixtureLib(); l.Imports = append(l.Imports, l.Imports[0]); return l },
 			[]string{"import_info"}, "an import session UUID is repeated"},
+		{"a project of a photo that Library does not have", fixtureRef, func() Library { l := fixtureLib(); l.Projects = l.Projects[1:]; return l },
+			[]string{"project_info"}, "query.json element 1: key project_info: a project of a photo is missing from Library.Projects"},
+		{"an album of a photo found only among the projects", fixtureRef, func() Library {
+			l := fixtureLib()
+			l.Projects = append(l.Projects, l.Albums[0])
+			l.Albums = l.Albums[1:]
+			return l
+		}, []string{"album_info"}, "an album of a photo is missing from Library.Albums"},
+		{"a project UUID repeated", fixtureRef, func() Library { l := fixtureLib(); l.Projects = append(l.Projects, l.Projects[0]); return l },
+			[]string{"project_info"}, "an album UUID is repeated in Library.Albums or Library.Projects"},
+		{"a project with the UUID of an album", fixtureRef, func() Library {
+			l := fixtureLib()
+			l.Projects = append(l.Projects, &albuminfo.AlbumInfo{UUID: albumOfNoPhoto})
+			return l
+		}, []string{"project_info"}, "an album UUID is repeated in Library.Albums or Library.Projects"},
 		{"an import_info that is a list", func() *Reference { r := fixtureRef(); r.Query[0]["import_info"] = []byte(`[]`); return r }, fixtureLib,
 			[]string{"import_info"}, "query.json element 1: import_info: want an object"},
 		{"an import_info without a title key", func() *Reference { r := fixtureRef(); r.Query[0]["import_info"] = []byte(`{"uuid": "x"}`); return r }, fixtureLib,

@@ -101,7 +101,7 @@ func nfc(s string) string { return norm.NFC.String(s) }
 func load(t tables) (*catalog, error) {
 	resources := groupResources(t.resources)
 	keywords := groupKeywords(t.keywords)
-	albums := groupMembers(t.members)
+	albums, projects := groupMembers(t.members)
 	persons := groupFaces(t.faces)
 
 	c := &catalog{byUUID: make(map[string]*photoinfo.PhotoInfo, len(t.assets))}
@@ -122,6 +122,7 @@ func load(t tables) (*catalog, error) {
 		p := photo(a, resources[a.PK])
 		p.Keywords = keywords[a.PK]
 		p.AlbumUUIDs = albums[a.PK]
+		p.ProjectUUIDs = projects[a.PK]
 		p.Persons = persons[a.PK]
 		c.photos = append(c.photos, p)
 		c.byUUID[p.UUID] = p
@@ -327,15 +328,23 @@ func groupFaces(rows []sqlread.Face) map[int64][]string {
 	return names
 }
 
-func groupMembers(rows []sqlread.Member) map[int64][]string {
-	out := map[int64][]string{}
+// Upstream keeps both kinds in one list per photo and splits it by ZKIND
+// (photoinfo.py:2022-2034).
+func groupMembers(rows []sqlread.Member) (albums, projects map[int64][]string) {
+	albums, projects = map[int64][]string{}, map[int64][]string{}
 	for _, m := range rows {
+		out := albums
+		if m.Kind == sqlread.KindProject {
+			out = projects
+		}
 		out[m.AssetPK] = append(out[m.AssetPK], m.AlbumUUID)
 	}
-	for pk, g := range out {
-		out[pk] = sortedSet(g)
+	for _, out := range []map[int64][]string{albums, projects} {
+		for pk, g := range out {
+			out[pk] = sortedSet(g)
+		}
 	}
-	return out
+	return albums, projects
 }
 
 func sortedSet(s []string) []string {

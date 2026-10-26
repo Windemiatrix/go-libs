@@ -48,19 +48,8 @@ func loadAlbums(rows []sqlread.Album, albumPhotos map[string][]string) ([]*album
 			badParents++
 			continue
 		}
-		a := &albuminfo.AlbumInfo{
-			UUID:             r.UUID,
-			CloudGUID:        r.CloudGUID.String,
-			Title:            nfc(r.Title.String),
-			FolderNames:      folders,
-			PhotoUUIDs:       sortedSet(slices.Clone(albumPhotos[r.UUID])),
-			CreationDate:     optionalTime(r.Created),
-			StartDate:        optionalTime(r.Start),
-			EndDate:          optionalTime(r.End),
-			InTrash:          trashed(r),
-			SortOrder:        sortOrder(r),
-			LibraryListOrder: libraryListOrder(r, byPK, rootPK),
-		}
+		a := albumOf(r, albumPhotos)
+		a.FolderNames, a.LibraryListOrder = folders, libraryListOrder(r, byPK, rootPK)
 		if r.Parent.Valid && r.Parent.Int64 != rootPK { // albuminfo.py:228-234
 			a.ParentUUID = byPK[r.Parent.Int64].UUID
 		}
@@ -71,6 +60,21 @@ func loadAlbums(rows []sqlread.Album, albumPhotos map[string][]string) ([]*album
 	}
 	slices.SortFunc(out, func(a, b *albuminfo.AlbumInfo) int { return strings.Compare(a.UUID, b.UUID) })
 	return out, nil
+}
+
+// osxphotos ProjectInfo inherits these from AlbumInfo (albuminfo.py:368-392).
+func albumOf(r sqlread.Album, albumPhotos map[string][]string) *albuminfo.AlbumInfo {
+	return &albuminfo.AlbumInfo{
+		UUID:         r.UUID,
+		CloudGUID:    r.CloudGUID.String,
+		Title:        nfc(r.Title.String),
+		PhotoUUIDs:   sortedSet(slices.Clone(albumPhotos[r.UUID])),
+		CreationDate: optionalTime(r.Created),
+		StartDate:    optionalTime(r.Start),
+		EndDate:      optionalTime(r.End),
+		InTrash:      trashed(r),
+		SortOrder:    sortOrder(r),
+	}
 }
 
 // Upstream: photosdb.py:1987-1991, 2944-2965, 3013-3050. A chain with more

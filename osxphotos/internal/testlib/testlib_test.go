@@ -265,7 +265,7 @@ func TestPinnedSynthetic(t *testing.T) {
 		"ZADDITIONALASSETATTRIBUTES": "0f235f7c920d9b8e648bf0823274e65e11a8b1256f830148f43a2ed8c4e9d171",
 		"ZASSET":                     "9c1c6a653a2067ee5ae3a1ac8130fb97d0b96b92cc9268373a48114fb4dcf78c",
 		"ZCLOUDMASTER":               "0b16088332ad364ce67bf0430bcccfc8cbd138fcca4f2898f9e6a65bbee5fa77",
-		"ZGENERICALBUM":              "0edff7f44c9549940cca5fb5ece6afd2ee993e93e1ca41aa3f7491f5b533a8e8",
+		"ZGENERICALBUM":              "3b117bf5872207f478e931c82eff9af6304eaf50727bde88c89f5525197b10c4",
 		"ZINTERNALRESOURCE":          "a0c7073c0e59cfe254990ca61fdf0426231418c89d7a1b93747336597f063080",
 		"ZSHARE":                     "91ccadb230eadb3630ded0ca16977f6d9b1d4bb1472effcebf4de6bc1e32780e",
 		"Z_33ASSETS":                 "185264c4115e8f4d0030fefd689b1a8cb69c3d7b6007361aa60d8e716dc7e044",

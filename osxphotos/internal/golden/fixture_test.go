@@ -32,6 +32,9 @@ const (
 
 	importSession = "00000000-0000-0000-0000-0000000000e5"
 	importBare    = "00000000-0000-0000-0000-0000000000e6"
+
+	projectP       = "00000000-0000-0000-0000-0000000000a6"
+	projectTrashed = "00000000-0000-0000-0000-0000000000a8"
 )
 
 func ptr[T any](v T) *T { return &v }
@@ -66,8 +69,9 @@ func fixtureLib() Library {
 				InCloud: ptr(true), IsMissing: true, IsCloudAsset: true, IsReference: true,
 				Title: "Title A", Description: "Desc", Keywords: []string{"alpha", "beta"}, Persons: []string{"Person A", "_UNKNOWN_"},
 				Latitude: ptr(48.8566), Longitude: ptr(2.3522),
-				AlbumUUIDs: []string{albumAInFolderY, albumTrashed, albumAInFolderX},
-				ImportUUID: importSession,
+				AlbumUUIDs:   []string{albumAInFolderY, albumTrashed, albumAInFolderX},
+				ProjectUUIDs: []string{projectP, projectTrashed},
+				ImportUUID:   importSession,
 			},
 			{UUID: unselectedFrame, IsPhoto: true, Burst: true, BurstUUID: "BURST-A", BurstPickType: 2},
 			{
@@ -96,6 +100,10 @@ func fixtureLib() Library {
 			},
 			{UUID: importBare},
 		},
+		Projects: []*albuminfo.AlbumInfo{
+			{UUID: projectP, Title: "Project P", ParentUUID: folderX, CreationDate: ptr(utc(2020, 4, 4, 4, 4, 4, 0))},
+			{UUID: projectTrashed, Title: "Project T", InTrash: true},
+		},
 	}
 }
 
@@ -120,6 +128,8 @@ var (
 		`"2020-03-03T03:03:03+00:00"`, "null", "null", `"Owner A"`)
 	elemSharedTitledA = albumJSON(albumSharedTitledA, `"Album A"`, "null", `["Shared Folder"]`,
 		`"2020-03-03T03:03:03+00:00"`, "null", "null", `"Owner A"`)
+	elemProjectP = albumJSON(projectP, `"Project P"`, `"`+folderX+`"`, "[]",
+		`"2020-04-04T04:04:04+00:00"`, "null", "null", "null")
 )
 
 // The reference has shared albums that the Go side does not read.
@@ -194,6 +204,7 @@ func refSelectedFrame() map[string]string {
 		"imported_by":           `["Camera", "com.example.camera"]`,
 		"panorama":              "true",
 		"portrait":              "true",
+		"project_info":          "[" + elemProjectP + "]",
 		"selfie":                "true",
 		"shared_moment":         "true",
 		"spatial":               "1",
@@ -219,7 +230,7 @@ func refEmptyPhoto() map[string]string {
 		"screen_recording": "false", "slow_mo": "false", "time_lapse": "false", "uti_edited": "null",
 		"uti": `"public.jpeg"`, "uti_original": `"public.jpeg"`, "uti_raw": "null", "uuid": `"` + emptyPhoto + `"`, "width": "null",
 		"adjustment_type": "null", "cloud_owner_hashed_id": "null", "external_edit": "false", "hdr": "false",
-		"import_info": "{}", "imported_by": "[null, null]", "panorama": "false", "portrait": "false", "selfie": "false",
+		"import_info": "{}", "imported_by": "[null, null]", "panorama": "false", "portrait": "false", "project_info": "[]", "selfie": "false",
 		"shared_moment": "false", "spatial": "0", "tzname": "null", "visible": "false",
 	}
 }

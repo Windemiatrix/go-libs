@@ -424,6 +424,8 @@ func TestLoadKeywordsAlbumsPersons(t *testing.T) {
 		},
 		members: []sqlread.Member{
 			{AssetPK: 1, AlbumUUID: "AL-2"}, {AssetPK: 1, AlbumUUID: "AL-1"}, {AssetPK: 1, AlbumUUID: "AL-2"}, {AssetPK: 99, AlbumUUID: "AL-9"},
+			{AssetPK: 1, AlbumUUID: "PR-2", Kind: sqlread.KindProject}, {AssetPK: 1, AlbumUUID: "PR-1", Kind: sqlread.KindProject},
+			{AssetPK: 1, AlbumUUID: "AL-3", Kind: sqlread.KindUserAlbum},
 		},
 		faces:     []sqlread.Face{{AssetPK: 2, FullName: nullString("Person A")}, {AssetPK: 99, FullName: nullString("Person B")}},
 		resources: []sqlread.Resource{{PK: 1, AssetPK: 99, Subtype: nullInt(17)}},
@@ -438,8 +440,11 @@ func TestLoadKeywordsAlbumsPersons(t *testing.T) {
 	if want := []string{"", "B", "Caf\U000000e9", "b", "b"}; !slices.Equal(p1.Keywords, want) {
 		t.Errorf("Keywords = %q, want %q", p1.Keywords, want)
 	}
-	if want := []string{"AL-1", "AL-2"}; !slices.Equal(p1.AlbumUUIDs, want) {
+	if want := []string{"AL-1", "AL-2", "AL-3"}; !slices.Equal(p1.AlbumUUIDs, want) {
 		t.Errorf("AlbumUUIDs = %q, want %q", p1.AlbumUUIDs, want)
+	}
+	if want := []string{"PR-1", "PR-2"}; !slices.Equal(p1.ProjectUUIDs, want) || p2.ProjectUUIDs != nil {
+		t.Errorf("ProjectUUIDs = %q and %q, want %q and none", p1.ProjectUUIDs, p2.ProjectUUIDs, want)
 	}
 	if p1.Persons != nil || !slices.Equal(p2.Persons, []string{"Person A"}) {
 		t.Errorf("Persons of %d and %d names; want 0 and 1", len(p1.Persons), len(p2.Persons))
@@ -583,7 +588,8 @@ func TestLoadProperties(t *testing.T) {
 		}
 		for range r.IntN(3) {
 			in.keywords = append(in.keywords, sqlread.Keyword{AssetPK: a.PK, Title: nullString(fmt.Sprintf("k%d", r.IntN(5)))})
-			in.members = append(in.members, sqlread.Member{AssetPK: a.PK, AlbumUUID: fmt.Sprintf("AL-%d", r.IntN(6))})
+			kind := []int64{sqlread.KindUserAlbum, sqlread.KindProject}[r.IntN(2)]
+			in.members = append(in.members, sqlread.Member{AssetPK: a.PK, AlbumUUID: fmt.Sprintf("AL-%d-%d", kind, r.IntN(6)), Kind: kind})
 		}
 		for range r.IntN(3) {
 			name := []sql.NullString{{}, nullString(""), nullString("Cafe\U00000301"), nullString("p1"), nullString("p2")}[r.IntN(5)]
@@ -603,6 +609,13 @@ func TestLoadProperties(t *testing.T) {
 		}
 		if !slices.IsSorted(p.Persons) {
 			t.Errorf("%s: Persons not sorted", p.UUID)
+		}
+		if !slices.IsSorted(p.ProjectUUIDs) || len(slices.Compact(slices.Clone(p.ProjectUUIDs))) != len(p.ProjectUUIDs) {
+			t.Errorf("%s: ProjectUUIDs %q not sorted or repeated", p.UUID, p.ProjectUUIDs)
+		}
+		if slices.ContainsFunc(p.AlbumUUIDs, func(u string) bool { return !strings.HasPrefix(u, "AL-2-") }) ||
+			slices.ContainsFunc(p.ProjectUUIDs, func(u string) bool { return !strings.HasPrefix(u, "AL-1508-") }) {
+			t.Errorf("%s: AlbumUUIDs %q or ProjectUUIDs %q hold a member of the other ZKIND", p.UUID, p.AlbumUUIDs, p.ProjectUUIDs)
 		}
 	}
 	for range 50 {

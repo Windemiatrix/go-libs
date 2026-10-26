@@ -57,6 +57,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -180,6 +181,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -303,6 +305,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -426,6 +429,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -507,6 +511,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -630,6 +635,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -711,6 +717,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -834,6 +841,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -957,6 +965,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -1080,6 +1089,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -1161,6 +1171,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -1242,6 +1253,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -1365,6 +1377,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -1446,6 +1459,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -1569,6 +1583,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -1692,6 +1707,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -1773,6 +1789,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -1854,6 +1871,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -1879,49 +1897,11 @@
   },
   {
     "adjustment_type": 0,
-    "album_info": [
-      {
-        "creation_date": "2023-11-04T01:41:30+00:00",
-        "end_date": "2025-07-11T00:57:51+00:00",
-        "folder_list": [
-          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
-        ],
-        "folder_names": [
-          "Отпуск 1"
-        ],
-        "owner": null,
-        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
-        "sort_order": null,
-        "start_date": "2011-02-21T05:54:59+00:00",
-        "title": "2010/05-03 - Café 4",
-        "uuid": "03B11B6C-AF1C-46C5-906D-F8E94AF5092D"
-      }
-    ],
-    "albums": [
-      "2010/05-03 - Café 4"
-    ],
+    "album_info": [],
+    "albums": [],
     "burst": false,
-    "burst_album_info": [
-      {
-        "creation_date": "2023-11-04T01:41:30+00:00",
-        "end_date": "2025-07-11T00:57:51+00:00",
-        "folder_list": [
-          "5AF16A54-CFE8-492D-99DD-8C13FD4800BC"
-        ],
-        "folder_names": [
-          "Отпуск 1"
-        ],
-        "owner": null,
-        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
-        "sort_order": null,
-        "start_date": "2011-02-21T05:54:59+00:00",
-        "title": "2010/05-03 - Café 4",
-        "uuid": "03B11B6C-AF1C-46C5-906D-F8E94AF5092D"
-      }
-    ],
-    "burst_albums": [
-      "2010/05-03 - Café 4"
-    ],
+    "burst_album_info": [],
+    "burst_albums": [],
     "burst_default_pick": false,
     "burst_key": false,
     "burst_photos": [],
@@ -1937,11 +1917,7 @@
     "favorite": false,
     "filename": "0BDF442C-A149-4DD3-B9D8-0E1BE1B980DD.mp4",
     "fingerprint": "ARuao4iVkCBBmuKBpqz7K2K2kBTl",
-    "folders": {
-      "2010/05-03 - Café 4": [
-        "Отпуск 1"
-      ]
-    },
+    "folders": {},
     "has_raw": false,
     "hasadjustments": false,
     "hdr": false,
@@ -1977,6 +1953,20 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [
+      {
+        "creation_date": "2023-11-04T01:41:30+00:00",
+        "end_date": "2025-07-11T00:57:51+00:00",
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": "5AF16A54-CFE8-492D-99DD-8C13FD4800BC",
+        "sort_order": null,
+        "start_date": "2011-02-21T05:54:59+00:00",
+        "title": "2010/05-03 - Café 4",
+        "uuid": "03B11B6C-AF1C-46C5-906D-F8E94AF5092D"
+      }
+    ],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,
@@ -2090,6 +2080,7 @@
     "panorama": false,
     "persons": [],
     "portrait": false,
+    "project_info": [],
     "raw_original": false,
     "saved_to_library": false,
     "screen_recording": false,

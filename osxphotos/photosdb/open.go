@@ -103,6 +103,10 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 	if err != nil {
 		return nil, err
 	}
+	projects, err := loadProjects(t.albums, albumPhotos)
+	if err != nil {
+		return nil, err
+	}
 	if err := setPaths(library, t.assets, c); err != nil {
 		return nil, err
 	}
@@ -121,6 +125,8 @@ func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error
 		byUUID: c.byUUID,
 		albums: albums,
 		bursts: indexBursts(c.photos),
+
+		projects: projects,
 
 		albumPhotos: albumPhotos,
 

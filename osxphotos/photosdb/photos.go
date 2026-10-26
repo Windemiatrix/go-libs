@@ -14,7 +14,9 @@ type DB struct {
 	albums []*albuminfo.AlbumInfo            // user albums, trashed ones included, ZUUID order
 	bursts map[string][]*photoinfo.PhotoInfo // frames of the bursts by BurstUUID, ZUUID order
 
-	albumPhotos map[string][]string // photo UUIDs of each album by album UUID, in membership order, repeats kept
+	projects []*albuminfo.AlbumInfo // projects, those in the trash included, ZUUID order
+
+	albumPhotos map[string][]string // photo UUIDs of each album and project by its UUID, in membership order, repeats kept
 
 	unusedKeywords []string // NFC titles of the ZKEYWORD rows no photo has, sorted, repeats kept
 

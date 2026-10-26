@@ -49,7 +49,7 @@ func TestGolden(t *testing.T) {
 			for _, p := range photos {
 				burstAlbums[p.UUID] = lookupUUIDs(db.BurstAlbumInfoOf(p))
 			}
-			rep, err := golden.Compare(ref, golden.Library{Photos: photos, Albums: db.albums, BurstAlbums: burstAlbums, Imports: db.imports},
+			rep, err := golden.Compare(ref, golden.Library{Photos: photos, Albums: db.albums, BurstAlbums: burstAlbums, Imports: db.imports, Projects: db.projects},
 				slices.Concat(golden.PhotoKeys(), golden.AlbumKeys()), divs)
 			if err != nil {
 				t.Fatal(err)
