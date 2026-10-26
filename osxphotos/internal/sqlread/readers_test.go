@@ -54,8 +54,8 @@ var readers = []struct {
 		r, err := d.Keywords(ctx, s)
 		return len(r), err
 	}},
-	{"NamedPersonAssets", func(ctx context.Context, d *DB, s schema.Schema) (int, error) {
-		r, err := d.NamedPersonAssets(ctx, s)
+	{"Faces", func(ctx context.Context, d *DB, s schema.Schema) (int, error) {
+		r, err := d.Faces(ctx, s)
 		return len(r), err
 	}},
 	{"Members", func(ctx context.Context, d *DB, s schema.Schema) (int, error) {
@@ -293,19 +293,11 @@ func TestReadersRows(t *testing.T) {
 				t.Errorf("Keywords: %d rows, want %d", len(kws), want)
 			}
 
-			persons, err := d.NamedPersonAssets(t.Context(), n)
+			faces, err := d.Faces(t.Context(), n)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if want := count(t, ro, "SELECT COUNT(DISTINCT f."+n.FaceAssetColumn+") FROM ZDETECTEDFACE f JOIN ZPERSON p ON p.Z_PK = f."+
-				n.FacePersonColumn+" WHERE p.ZFULLNAME != ''"); int64(len(persons)) != want {
-				t.Errorf("NamedPersonAssets: %d, want %d", len(persons), want)
-			}
-			for i := 1; i < len(persons); i++ {
-				if persons[i-1] >= persons[i] {
-					t.Errorf("NamedPersonAssets not sorted and distinct at %d", i)
-				}
-			}
+			personFaceCounts(t, ro, n, faces)
 		})
 	}
 }
@@ -421,6 +413,28 @@ func TestReaderValueType(t *testing.T) {
 func TestReadersNull(t *testing.T) {
 	t.Parallel()
 
+	// Test-13.0.0 has faces of persons (testdata/golden/Test-13.0.0/query.json).
+	t.Run("NULL ZFULLNAME", func(t *testing.T) {
+		t.Parallel()
+		path := filepath.Join(testlib.Open(t, "Test-13.0.0"), "database", "Photos.sqlite")
+		w := openWriter(t, path)
+		exec(t, w, "UPDATE ZPERSON SET ZFULLNAME = NULL")
+		if err := w.Close(); err != nil {
+			t.Fatal(err)
+		}
+		s := schemaByID(t, "photos8")
+		faces, err := openDB(t, path).Faces(t.Context(), s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(faces) == 0 {
+			t.Fatal("Test-13.0.0 has no face of a person: the case is vacuous")
+		}
+		if unnamed := personFaceCounts(t, openRO(t, path), s, faces); unnamed != len(faces) {
+			t.Errorf("Faces: %d with a NULL ZFULLNAME, want all %d", unnamed, len(faces))
+		}
+	})
+
 	path := syntheticDB(t)
 	w := openWriter(t, path)
 	exec(t, w,
@@ -460,6 +474,24 @@ func TestReadersNull(t *testing.T) {
 	if a, _ := d.Albums(t.Context()); int64(len(a)) != wantAlbums {
 		t.Errorf("Albums: %d, want %d", len(a), wantAlbums)
 	}
+}
+
+func personFaceCounts(t *testing.T, ro *sql.DB, s schema.Schema, faces []Face) (unnamed int) {
+	t.Helper()
+	join := " FROM ZDETECTEDFACE f JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn + " WHERE f." + s.FaceAssetColumn + " IS NOT NULL"
+	for _, f := range faces {
+		if !f.FullName.Valid {
+			unnamed++
+		}
+	}
+	if want := count(t, ro, "SELECT COUNT(*)"+join); int64(len(faces)) != want {
+		t.Errorf("Faces: %d rows, want %d", len(faces), want)
+	}
+	if want := count(t, ro, "SELECT COUNT(*)"+join+" AND p.ZFULLNAME IS NULL"); int64(unnamed) != want {
+		t.Errorf("Faces: %d with a NULL ZFULLNAME, want %d", unnamed, want)
+	}
+	t.Logf("Faces: %d, %d with a NULL ZFULLNAME", len(faces), unnamed)
+	return unnamed
 }
 
 func TestAssetsSpatialType(t *testing.T) {

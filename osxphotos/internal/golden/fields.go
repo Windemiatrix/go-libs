@@ -50,10 +50,6 @@ var (
 	defaultCreationDate = time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
 )
 
-// unknownPerson is how upstream names a person without a name
-// (photosdb.py:1790-1796, _constants.py:337).
-const unknownPerson = "_UNKNOWN_"
-
 func buildRules() map[string]rule {
 	list := []rule{
 		// uuid has no Go side: the sets of objects are compared by Compare itself.
@@ -64,8 +60,8 @@ func buildRules() map[string]rule {
 		albumsRule("burst_albums", "burst_album_info", func(p *photoinfo.PhotoInfo) []string { return p.BurstAlbumUUIDs }),
 		foldersRule(),
 		burstPhotosRule(),
-		persons(),
-		keywords(),
+		stringList("persons", func(p *photoinfo.PhotoInfo) []string { return p.Persons }),
+		stringList("keywords", func(p *photoinfo.PhotoInfo) []string { return p.Keywords }),
 		location(),
 		orientation(),
 		value("incloud", true, "a boolean or null", func(p *photoinfo.PhotoInfo) *bool { return p.InCloud }),
@@ -198,24 +194,11 @@ func orientation() rule {
 	return r
 }
 
-func keywords() rule {
-	return simple("keywords",
-		func(o Object) (any, error) { return refStrings(o, "keywords") },
-		func(p *photoinfo.PhotoInfo) any { return strs(p.Keywords) }) // not sorted: the order is the one to check
-}
-
-// The Go side only tells whether there are people with a name, so the names of
-// the reference are reduced to that.
-func persons() rule {
-	return simple("persons",
-		func(o Object) (any, error) {
-			names, err := refStrings(o, "persons")
-			if err != nil {
-				return nil, err
-			}
-			return slices.ContainsFunc(names, func(n string) bool { return n != "" && n != unknownPerson }), nil
-		},
-		func(p *photoinfo.PhotoInfo) any { return p.HasPersons })
+// The reference list is sorted by upstream json() (photoinfo.py:2279-2285).
+func stringList(key string, get func(*photoinfo.PhotoInfo) []string) rule {
+	return simple(key,
+		func(o Object) (any, error) { return refStrings(o, key) },
+		func(p *photoinfo.PhotoInfo) any { return strs(get(p)) })
 }
 
 func location() rule {

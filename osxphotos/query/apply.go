@@ -93,13 +93,12 @@ func filters(o Options, in photoAlbums) (before, after []filter) {
 		when(len(values) == 0 && none, func(p *photo) bool { return field(p) == "" })
 	}
 	albums, folders := parseAlbumPaths(o.Album, fold), parseAlbumPaths(o.Folder, fold)
-	keywords, names := searchValues(o.Keyword, fold), searchValues(o.Name, fold)
+	keywords, persons, names := searchValues(o.Keyword, fold), searchValues(o.Person, fold), searchValues(o.Name, fold)
 
 	when(len(albums.paths) > 0, func(p *photo) bool { return in.has(p, albums.namesAlbum) })
-	when(len(keywords) > 0, func(p *photo) bool {
-		return slices.ContainsFunc(p.Keywords, func(k string) bool { return slices.Contains(keywords, fold.apply(k)) })
-	})
+	when(len(keywords) > 0, func(p *photo) bool { return fold.anyEqual(p.Keywords, keywords) })
 	when(len(keywords) == 0 && o.NoKeyword, func(p *photo) bool { return len(p.Keywords) == 0 })
+	when(len(persons) > 0, func(p *photo) bool { return fold.anyEqual(p.Persons, persons) })
 	when(len(folders.paths) > 0, func(p *photo) bool { return in.has(p, folders.enclosesAlbum) })
 	text(searchValues(o.Title, fold), o.NoTitle, func(p *photo) string { return p.Title })
 	text(searchValues(o.Description, fold), o.NoDescription, func(p *photo) string { return p.Description })
@@ -200,6 +199,12 @@ func (f caseFold) apply(s string) string {
 		return strings.ToLower(s)
 	}
 	return s
+}
+
+// anyEqual is _get_photos_by_attribute: equality, not a substring
+// (photoquery.py:996-1021).
+func (f caseFold) anyEqual(list, values []string) bool {
+	return slices.ContainsFunc(list, func(s string) bool { return slices.Contains(values, f.apply(s)) })
 }
 
 // searchValues normalizes as photo_query does (photoquery.py:447-455).

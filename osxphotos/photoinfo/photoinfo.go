@@ -69,7 +69,8 @@ type PhotoInfo struct {
 
 	Title, Description  string
 	Keywords            []string // ascending
-	HasPersons          bool     // extension: not in osxphotos — osxphotos lists the names of the persons
+	Persons             []string // the person of each face, ascending, repeats kept; "_UNKNOWN_" for a person without a name (photoinfo.py:597-603)
+	HasPersons          bool     // extension: not in osxphotos — some face has a person with a non-empty name
 	Latitude, Longitude *float64
 
 	AlbumUUIDs      []string   // albums of the asset, trashed albums included; ascending

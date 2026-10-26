@@ -182,12 +182,12 @@ func TestNormalize(t *testing.T) {
 		{name: "keywords with a number", key: "keywords", raw: `["a", 1]`, wantErr: "keywords: want a list of strings"},
 		{name: "keywords with HTML characters", key: "keywords", raw: `["<&>", "x\"y"]`, want: `["<&>","x\"y"]`},
 		{name: "burst_photos", key: "burst_photos", raw: `["b", "a"]`, want: `["b","a"]`},
-		{name: "persons unknown", key: "persons", raw: `["_UNKNOWN_"]`, want: `false`},
-		{name: "persons unknown and a name", key: "persons", raw: `["_UNKNOWN_", "A"]`, want: `true`},
-		{name: "persons empty", key: "persons", raw: `[]`, want: `false`},
-		{name: "persons null item", key: "persons", raw: `[null]`, want: `false`},
-		{name: "persons empty name", key: "persons", raw: `[""]`, want: `false`},
-		{name: "persons name", key: "persons", raw: `["A"]`, want: `true`},
+		{name: "persons unknown", key: "persons", raw: `["_UNKNOWN_"]`, want: `["_UNKNOWN_"]`},
+		{name: "persons unknown and a name", key: "persons", raw: `["_UNKNOWN_", "A"]`, want: `["_UNKNOWN_","A"]`},
+		{name: "persons empty", key: "persons", raw: `[]`, want: `[]`},
+		{name: "persons null item", key: "persons", raw: `[null]`, want: `[""]`},
+		{name: "persons empty name", key: "persons", raw: `[""]`, want: `[""]`},
+		{name: "persons name", key: "persons", raw: `["A"]`, want: `["A"]`},
 		{name: "persons null", key: "persons", raw: `null`, wantErr: "persons: want a list of strings"},
 
 		{name: "hdr null", key: "hdr", raw: `null`, wantErr: "hdr: want a boolean"},
@@ -270,7 +270,7 @@ func TestNormalizeGoSide(t *testing.T) {
 			"date_added": `"1970-01-01T00:00:00Z"`, "date_modified": `null`, "date_trashed": `null`,
 			"tzoffset": `null`, "incloud": `null`, "latitude": `null`, "longitude": `null`,
 			"location": `[null,null]`, "keywords": `[]`, "burst_photos": `[]`, "title": `""`, "width": `0`,
-			"persons": `false`, "burst_default_pick": `false`,
+			"persons": `[]`, "burst_default_pick": `false`,
 			"adjustment_type": `null`, "imported_by": `["",""]`, "spatial": `0`, "tzname": `""`, "visible": `false`,
 		}
 		for key, w := range want {

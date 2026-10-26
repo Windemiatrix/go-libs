@@ -150,7 +150,10 @@ func photoMutations() []mutation {
 		{"Keywords shorter", p(func(x *photoinfo.PhotoInfo) { x.Keywords = []string{"alpha"} }), "keywords"},
 		{"Keywords with a repeat", p(func(x *photoinfo.PhotoInfo) { x.Keywords = []string{"alpha", "beta", "beta"} }), "keywords"},
 		{"Keywords nil", p(func(x *photoinfo.PhotoInfo) { x.Keywords = nil }), "keywords"},
-		{"HasPersons", p(func(x *photoinfo.PhotoInfo) { x.HasPersons = false }), "persons"},
+		{"Persons swapped", p(func(x *photoinfo.PhotoInfo) { x.Persons = []string{"_UNKNOWN_", "Person A"} }), "persons"},
+		{"Persons shorter", p(func(x *photoinfo.PhotoInfo) { x.Persons = []string{"Person A"} }), "persons"},
+		{"Persons with a repeat", p(func(x *photoinfo.PhotoInfo) { x.Persons = []string{"Person A", "Person A", "_UNKNOWN_"} }), "persons"},
+		{"Persons nil", p(func(x *photoinfo.PhotoInfo) { x.Persons = nil }), "persons"},
 
 		{"BurstUUID of the other frame", func(l *Library) { l.Photos[1].BurstUUID = "BURST-B" }, "burst_photos"},
 		// The other frame is then a plain photo, which osxphotos would return.
@@ -278,6 +281,29 @@ func TestCompareValues(t *testing.T) {
 	}
 }
 
+func TestWriteDetailsPersons(t *testing.T) {
+	t.Parallel()
+	lib := fixtureLib()
+	lib.Photos[0].Persons = []string{"Person A"}
+	stale := Divergence{Library: "lib", UUID: emptyPhoto, Field: "persons", Want: []byte(`["Person A"]`), Reason: "r", Upstream: "a.py:1"}
+	rep := compare(t, fixtureRef(), lib, stale)
+	var b strings.Builder
+	if err := rep.WriteDetails(&b); err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{
+		"persons " + selectedFrame + " want=<2 names> got=<1 names>\n",
+		"stale persons " + emptyPhoto + " want=<1 names> got=*\n",
+	} {
+		if !strings.Contains(b.String(), line) {
+			t.Errorf("WriteDetails has no line %q", line)
+		}
+	}
+	if strings.Contains(b.String(), "Person A") {
+		t.Error("WriteDetails writes a name of a person")
+	}
+}
+
 func TestCompareEquivalent(t *testing.T) {
 	t.Parallel()
 	cases := []mutation{
@@ -388,7 +414,9 @@ func TestCompareNulls(t *testing.T) {
 		{"DateAdded", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.DateAdded = ptr(time.Unix(1, 0)) }), "date_added"},
 		{"Keywords", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Keywords = []string{"x"} }), "keywords"},
 		{"Keywords empty, not nil", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Keywords = []string{} }), ""},
-		{"HasPersons", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.HasPersons = true }), "persons"},
+		{"Persons", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Persons = []string{"_UNKNOWN_"} }), "persons"},
+		{"Persons empty, not nil", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Persons = []string{} }), ""},
+		{"HasPersons is not compared", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.HasPersons = true }), ""},
 		{"AlbumUUIDs of a trashed album", func(l *Library) { l.Photos[2].AlbumUUIDs = []string{albumTrashed} }, ""},
 		{"AlbumUUIDs", func(l *Library) { l.Photos[2].AlbumUUIDs = []string{albumBNoFolder} }, "album_info albums folders"},
 	}

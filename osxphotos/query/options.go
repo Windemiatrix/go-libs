@@ -19,9 +19,10 @@ type Options struct {
 	FromDate, ToDate       time.Time // from_date (Date at or after), to_date (Date before); the zero time is not set
 	Deleted, DeletedOnly   bool      // deleted: the trash too; deleted_only: only the trash (photoquery.py:426-445)
 
-	IgnoreCase          bool // ignore_case, for Keyword, Title, Description, Name, Album, Folder
+	IgnoreCase          bool // ignore_case, for Keyword, Person, Title, Description, Name, Album, Folder
 	Keyword             []string
 	NoKeyword           bool
+	Person              []string // a name of Persons, "_UNKNOWN_" included (photoquery.py:467-470)
 	Title               []string // substrings of Title
 	NoTitle             bool
 	Description         []string // substrings of Description

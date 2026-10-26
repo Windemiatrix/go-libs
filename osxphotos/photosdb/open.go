@@ -181,7 +181,7 @@ func readTables(ctx context.Context, src *sqlread.DB, s schema.Schema) (t tables
 	if t.keywords, err = src.Keywords(ctx, s); err != nil {
 		return tables{}, err
 	}
-	if t.persons, err = src.NamedPersonAssets(ctx, s); err != nil {
+	if t.faces, err = src.Faces(ctx, s); err != nil {
 		return tables{}, err
 	}
 	if t.members, err = src.Members(ctx, s); err != nil {

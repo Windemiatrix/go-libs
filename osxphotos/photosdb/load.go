@@ -68,13 +68,16 @@ const (
 
 	// ZSYNDICATIONHISTORY of a photo not saved to the library (photoinfo.py:1597).
 	syndicationHistoryNotSaved = 0
+
+	// The name of a person without a name (_constants.py:337).
+	unknownPerson = "_UNKNOWN_"
 )
 
 type tables struct {
 	assets    []sqlread.Asset
 	resources []sqlread.Resource
 	keywords  []sqlread.Keyword
-	persons   []int64 // NamedPersonAssets
+	faces     []sqlread.Face
 	members   []sqlread.Member
 	albums    []sqlread.Album
 }
@@ -102,10 +105,7 @@ func load(t tables, fingerprintColumn string) (*catalog, error) {
 	resources := groupResources(t.resources)
 	keywords := groupKeywords(t.keywords)
 	albums := groupMembers(t.members)
-	persons := make(map[int64]bool, len(t.persons))
-	for _, pk := range t.persons {
-		persons[pk] = true
-	}
+	persons, named := groupFaces(t.faces)
 
 	c := &catalog{byUUID: make(map[string]*photoinfo.PhotoInfo, len(t.assets))}
 	var noUUID, dupUUID int
@@ -125,7 +125,8 @@ func load(t tables, fingerprintColumn string) (*catalog, error) {
 		p := photo(a, resources[a.PK], fingerprintColumn)
 		p.Keywords = keywords[a.PK]
 		p.AlbumUUIDs = albums[a.PK]
-		p.HasPersons = persons[a.PK]
+		p.Persons = persons[a.PK]
+		p.HasPersons = named[a.PK]
 		c.photos = append(c.photos, p)
 		c.byUUID[p.UUID] = p
 	}
@@ -335,6 +336,27 @@ func groupKeywords(rows []sqlread.Keyword) map[int64][]string {
 		slices.Sort(g)
 	}
 	return out
+}
+
+// Upstream names a person without a name "_UNKNOWN_" and lists a name once
+// per face (photosdb.py:1792-1796, 1858-1864; photoinfo.py:597-603).
+// HasPersons follows ZFULLNAME, not the substituted name: a person may be
+// called "_UNKNOWN_".
+func groupFaces(rows []sqlread.Face) (names map[int64][]string, named map[int64]bool) {
+	names, named = map[int64][]string{}, map[int64]bool{}
+	for _, f := range rows {
+		name := nfc(f.FullName.String)
+		if name == "" {
+			name = unknownPerson
+		} else {
+			named[f.AssetPK] = true
+		}
+		names[f.AssetPK] = append(names[f.AssetPK], name)
+	}
+	for _, g := range names {
+		slices.Sort(g)
+	}
+	return names, named
 }
 
 func groupMembers(rows []sqlread.Member) map[int64][]string {
