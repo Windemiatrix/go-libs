@@ -30,8 +30,8 @@ func TestCompareNoDifferences(t *testing.T) {
 	if !rep.OK() || len(rep.Diffs) != 0 || len(rep.Explained) != 0 || len(rep.Stale) != 0 {
 		t.Fatalf("report = %+v, want no differences", rep)
 	}
-	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 72 {
-		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 72", rep.Library, rep.Objects, len(rep.Keys))
+	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 73 {
+		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 73", rep.Library, rep.Objects, len(rep.Keys))
 	}
 	if !slices.IsSorted(rep.Keys) {
 		t.Error("Keys are not sorted")
@@ -180,6 +180,18 @@ func photoMutations() []mutation {
 		{"Album creation date by 1us", album(albumAInFolderX, func(a *albuminfo.AlbumInfo) { a.CreationDate = ptr(a.CreationDate.Add(time.Microsecond)) }), "album_info burst_album_info"},
 		{"Album start date", album(albumAInFolderY, func(a *albuminfo.AlbumInfo) { a.StartDate = ptr(utc(2000, 1, 1, 0, 0, 0, 0)) }), "album_info burst_album_info"},
 		{"Album end date", album(albumAInFolderY, func(a *albuminfo.AlbumInfo) { a.EndDate = nil }), "album_info burst_album_info"},
+
+		{"ImportUUID empty", p(func(x *photoinfo.PhotoInfo) { x.ImportUUID = "" }), "import_info"},
+		{"ImportUUID of another session", p(func(x *photoinfo.PhotoInfo) { x.ImportUUID = importBare }), "import_info"},
+		{"Import title", func(l *Library) { l.Imports[0].Title = "Import 2" }, "import_info"},
+		{"Import title empty", func(l *Library) { l.Imports[0].Title = "" }, "import_info"},
+		{"Import creation date", func(l *Library) { l.Imports[0].CreationDate = nil }, "import_info"},
+		{"Import start date", func(l *Library) { l.Imports[0].StartDate = nil }, "import_info"},
+		{"Import end date by 1us", func(l *Library) { l.Imports[0].EndDate = ptr(l.Imports[0].EndDate.Add(time.Microsecond)) }, "import_info"},
+		{"Import start and end dates swapped", func(l *Library) {
+			l.Imports[0].StartDate, l.Imports[0].EndDate = l.Imports[0].EndDate, l.Imports[0].StartDate
+		}, "import_info"},
+		{"Import UUID", func(l *Library) { l.Imports[0].UUID, l.Imports[1].UUID = importBare, importSession }, "import_info"},
 	}
 }
 
@@ -343,6 +355,21 @@ func TestCompareEquivalent(t *testing.T) {
 		}
 	})
 
+	t.Run("an import session without a title and a creation date", func(t *testing.T) {
+		t.Parallel()
+		bare := `{"creation_date": "2001-01-01T00:00:00+00:00", "end_date": null, "start_date": null, "title": null, "uuid": "` + importBare + `"}`
+		ref := refOf(refObj(refSelectedFrame()), refObj(refEmptyPhoto(), map[string]string{"import_info": bare}))
+		lib := fixtureLib()
+		lib.Photos[2].ImportUUID = importBare
+		if rep := compare(t, ref, lib); !rep.OK() {
+			t.Errorf("differences %+v, want none: null is the empty title, 2001-01-01 the missing creation date", rep.Diffs)
+		}
+		lib.Imports[1].CreationDate = ptr(utc(2001, 1, 1, 0, 0, 0, 0))
+		if rep := compare(t, ref, lib); !rep.OK() {
+			t.Errorf("differences %+v, want none: an explicit 2001-01-01 is the default", rep.Diffs)
+		}
+	})
+
 	t.Run("orientation of an adjusted photo is skipped, and compared when not adjusted", func(t *testing.T) {
 		t.Parallel()
 		adjusted := refObj(refSelectedFrame(), map[string]string{"hasadjustments": "true", "orientation": "0"})
@@ -418,6 +445,7 @@ func TestCompareNulls(t *testing.T) {
 		{"Persons empty, not nil", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Persons = []string{} }), ""},
 		{"AlbumUUIDs of a trashed album", func(l *Library) { l.Photos[2].AlbumUUIDs = []string{albumTrashed} }, ""},
 		{"AlbumUUIDs", func(l *Library) { l.Photos[2].AlbumUUIDs = []string{albumBNoFolder} }, "album_info albums folders"},
+		{"ImportUUID", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ImportUUID = importBare }), "import_info"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -619,6 +647,19 @@ func TestCompareErrors(t *testing.T) {
 		}, fixtureLib, []string{"width"}, "query.json element 3: width: want an integer"},
 		{"NaN from Go", fixtureRef, func() Library { l := fixtureLib(); l.Photos[0].Latitude = ptr(math.NaN()); return l },
 			[]string{"latitude"}, "key latitude: the Go value cannot be written as JSON"},
+		{"an import session of a photo that Library does not have", fixtureRef, func() Library { l := fixtureLib(); l.Imports = l.Imports[1:]; return l },
+			[]string{"import_info"}, "query.json element 1: key import_info: an import session of a photo is missing from Library.Imports"},
+		{"an import session UUID repeated", fixtureRef, func() Library { l := fixtureLib(); l.Imports = append(l.Imports, l.Imports[0]); return l },
+			[]string{"import_info"}, "an import session UUID is repeated"},
+		{"an import_info that is a list", func() *Reference { r := fixtureRef(); r.Query[0]["import_info"] = []byte(`[]`); return r }, fixtureLib,
+			[]string{"import_info"}, "query.json element 1: import_info: want an object"},
+		{"an import_info without a title key", func() *Reference { r := fixtureRef(); r.Query[0]["import_info"] = []byte(`{"uuid": "x"}`); return r }, fixtureLib,
+			[]string{"import_info"}, "import_info.title: want a value"},
+		{"an import date that is not a date", func() *Reference {
+			r := fixtureRef()
+			r.Query[0]["import_info"] = []byte(`{"uuid": "x", "title": null, "creation_date": "` + marker + `", "start_date": null, "end_date": null}`)
+			return r
+		}, fixtureLib, []string{"import_info"}, "import_info.creation_date: want an ISO 8601 string"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

@@ -20,6 +20,9 @@ type DB struct {
 
 	folders    []*albuminfo.FolderInfo // every folder, those in the trash included, ZUUID order
 	topFolders []*albuminfo.FolderInfo // osxphotos folder_info, ZUUID order
+
+	imports    []*albuminfo.ImportInfo // every import session, those in the trash included, ZUUID order
+	importInfo []*albuminfo.ImportInfo // osxphotos import_info, ZUUID order
 }
 
 // Close releases the DB. It releases nothing today: the copy of the

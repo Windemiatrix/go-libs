@@ -207,6 +207,8 @@ func photo(a sqlread.Asset, res []sqlread.Resource) *photoinfo.PhotoInfo {
 
 		Title:       nfc(a.Title.String),
 		Description: nfc(a.Description.String),
+
+		ImportUUID: a.ImportUUID.String,
 	}
 	p.OriginalFilename = nfc(a.OriginalFilename.String)
 	if p.OriginalFilename == "" {

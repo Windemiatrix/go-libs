@@ -207,6 +207,25 @@ func TestNormalize(t *testing.T) {
 		{name: "imported_by of three", key: "imported_by", raw: `["a", "b", "c"]`, wantErr: "imported_by: want a list of two strings or nulls"},
 		{name: "imported_by with a number", key: "imported_by", raw: `["a", 1]`, wantErr: "imported_by: want a list of two strings or nulls"},
 
+		{name: "import_info of a photo without a session", key: "import_info", raw: `{}`, want: `{}`},
+		{name: "import_info", key: "import_info",
+			raw:  `{"creation_date": "2020-06-07T06:32:03+05:30", "end_date": null, "start_date": "2020-06-07T01:00:00.500000+00:00", "title": "I", "uuid": "U"}`,
+			want: `{"creation_date":"2020-06-07T01:02:03Z","end_date":null,"start_date":"2020-06-07T01:00:00.5Z","title":"I","uuid":"U"}`},
+		{name: "import_info with a null title", key: "import_info",
+			raw:  `{"creation_date": "2001-01-01T00:00:00+00:00", "end_date": null, "start_date": null, "title": null, "uuid": "U"}`,
+			want: `{"creation_date":"2001-01-01T00:00:00Z","end_date":null,"start_date":null,"title":"","uuid":"U"}`},
+		{name: "import_info null", key: "import_info", raw: `null`, wantErr: "import_info: want an object"},
+		{name: "import_info list", key: "import_info", raw: `[]`, wantErr: "import_info: want an object"},
+		{name: "import_info without uuid", key: "import_info", raw: `{"title": null}`, wantErr: "import_info.uuid: want a value (the key is missing)"},
+		{name: "import_info without end_date", key: "import_info",
+			raw: `{"creation_date": null, "start_date": null, "title": null, "uuid": "U"}`, wantErr: "import_info.end_date: want a value (the key is missing)"},
+		{name: "import_info uuid null", key: "import_info",
+			raw: `{"creation_date": null, "end_date": null, "start_date": null, "title": null, "uuid": null}`, wantErr: "import_info.uuid: want a string"},
+		{name: "import_info title number", key: "import_info",
+			raw: `{"creation_date": null, "end_date": null, "start_date": null, "title": 5, "uuid": "U"}`, wantErr: "import_info.title: want a string or null"},
+		{name: "import_info date number", key: "import_info",
+			raw: `{"creation_date": 5, "end_date": null, "start_date": null, "title": null, "uuid": "U"}`, wantErr: "import_info.creation_date: want an ISO 8601 string"},
+
 		{name: "no key", key: "title", raw: ``, wantErr: "title: want a value (the key is missing)"},
 	}
 	for _, c := range cases {
@@ -272,6 +291,7 @@ func TestNormalizeGoSide(t *testing.T) {
 			"location": `[null,null]`, "keywords": `[]`, "burst_photos": `[]`, "title": `""`, "width": `0`,
 			"persons": `[]`, "burst_default_pick": `false`,
 			"adjustment_type": `null`, "imported_by": `["",""]`, "spatial": `0`, "tzname": `""`, "visible": `false`,
+			"import_info": `{}`,
 		}
 		for key, w := range want {
 			if got := goCanon(t, key, p); got != w {

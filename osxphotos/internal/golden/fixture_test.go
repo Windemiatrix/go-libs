@@ -29,6 +29,9 @@ const (
 	albumSharedTitledA = "00000000-0000-0000-0000-0000000000c2"
 	folderX            = "00000000-0000-0000-0000-0000000000f1"
 	folderY            = "00000000-0000-0000-0000-0000000000f2"
+
+	importSession = "00000000-0000-0000-0000-0000000000e5"
+	importBare    = "00000000-0000-0000-0000-0000000000e6"
 )
 
 func ptr[T any](v T) *T { return &v }
@@ -64,6 +67,7 @@ func fixtureLib() Library {
 				Title: "Title A", Description: "Desc", Keywords: []string{"alpha", "beta"}, Persons: []string{"Person A", "_UNKNOWN_"},
 				Latitude: ptr(48.8566), Longitude: ptr(2.3522),
 				AlbumUUIDs: []string{albumAInFolderY, albumTrashed, albumAInFolderX},
+				ImportUUID: importSession,
 			},
 			{UUID: unselectedFrame, IsPhoto: true, Burst: true, BurstUUID: "BURST-A", BurstPickType: 2},
 			{
@@ -85,8 +89,18 @@ func fixtureLib() Library {
 			{UUID: albumOfNoPhoto, Title: "Unused"},
 		},
 		BurstAlbums: map[string][]string{selectedFrame: {albumBNoFolder, albumAInFolderX, albumAInFolderY}},
+		Imports: []*albuminfo.ImportInfo{
+			{
+				UUID: importSession, Title: "Import 1", CreationDate: ptr(utc(2020, 6, 7, 1, 2, 3, 0)),
+				StartDate: ptr(utc(2020, 6, 7, 1, 0, 0, 0)), EndDate: ptr(utc(2020, 6, 7, 1, 1, 0, 500000000)),
+			},
+			{UUID: importBare},
+		},
 	}
 }
+
+const elemImport = `{"creation_date": "2020-06-07T01:02:03+00:00", "end_date": "2020-06-07T01:01:00.500000+00:00", ` +
+	`"start_date": "2020-06-07T01:00:00+00:00", "title": "Import 1", "uuid": "` + importSession + `"}`
 
 // Arguments are JSON values: "null", `"Album A"`, `["Folder X"]`.
 func albumJSON(uuid, title, parent, folderNames, creation, start, end, owner string) string {
@@ -176,6 +190,7 @@ func refSelectedFrame() map[string]string {
 		"cloud_owner_hashed_id": `"OWNER-1"`,
 		"external_edit":         "true",
 		"hdr":                   "true",
+		"import_info":           elemImport,
 		"imported_by":           `["Camera", "com.example.camera"]`,
 		"panorama":              "true",
 		"portrait":              "true",
@@ -204,7 +219,7 @@ func refEmptyPhoto() map[string]string {
 		"screen_recording": "false", "slow_mo": "false", "time_lapse": "false", "uti_edited": "null",
 		"uti": `"public.jpeg"`, "uti_original": `"public.jpeg"`, "uti_raw": "null", "uuid": `"` + emptyPhoto + `"`, "width": "null",
 		"adjustment_type": "null", "cloud_owner_hashed_id": "null", "external_edit": "false", "hdr": "false",
-		"imported_by": "[null, null]", "panorama": "false", "portrait": "false", "selfie": "false",
+		"import_info": "{}", "imported_by": "[null, null]", "panorama": "false", "portrait": "false", "selfie": "false",
 		"shared_moment": "false", "spatial": "0", "tzname": "null", "visible": "false",
 	}
 }

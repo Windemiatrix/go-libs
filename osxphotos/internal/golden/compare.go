@@ -27,6 +27,8 @@ type Library struct {
 	// and Compare ignores albums in the trash, as in AlbumUUIDs. A photo without
 	// an entry has none; may be nil without AlbumKeys.
 	BurstAlbums map[string][]string
+
+	Imports []*albuminfo.ImportInfo // every import session, trashed ones included: the sessions of PhotoInfo.ImportUUID; may be nil without AlbumKeys
 }
 
 // Diff is one difference between the reference and Go.
@@ -51,35 +53,43 @@ type Report struct {
 func (r *Report) OK() bool { return len(r.Diffs) == 0 && len(r.Stale) == 0 }
 
 type env struct {
-	albums       map[string]*albuminfo.AlbumInfo
-	goAlbumElems map[string]map[string]any
-	bursts       map[string][]string
-	burstAlbums  map[string][]string
+	albums        map[string]*albuminfo.AlbumInfo
+	goAlbumElems  map[string]map[string]any
+	goImportElems map[string]map[string]any
+	bursts        map[string][]string
+	burstAlbums   map[string][]string
 }
 
-var errAlbumMissing = errors.New("an album of a photo is missing from Library.Albums")
+var (
+	errAlbumMissing  = errors.New("an album of a photo is missing from Library.Albums")
+	errImportMissing = errors.New("an import session of a photo is missing from Library.Imports")
+)
 
 func newEnv(lib Library) (*env, error) {
 	e := &env{
-		albums:       map[string]*albuminfo.AlbumInfo{},
-		goAlbumElems: map[string]map[string]any{},
-		bursts:       map[string][]string{},
-		burstAlbums:  lib.BurstAlbums,
+		albums:        map[string]*albuminfo.AlbumInfo{},
+		goAlbumElems:  map[string]map[string]any{},
+		goImportElems: map[string]map[string]any{},
+		bursts:        map[string][]string{},
+		burstAlbums:   lib.BurstAlbums,
 	}
 	for _, a := range lib.Albums {
 		if _, dup := e.albums[a.UUID]; dup {
 			return nil, errors.New("golden: an album UUID is repeated in Library.Albums")
 		}
 		e.albums[a.UUID] = a
-		e.goAlbumElems[a.UUID] = map[string]any{
-			"uuid":          a.UUID,
-			"title":         a.Title,
-			"parent":        a.ParentUUID,
-			"folder_names":  strs(a.FolderNames),
-			"creation_date": goMoment(a.CreationDate, defaultCreationDate),
-			"start_date":    goMoment(a.StartDate, time.Time{}),
-			"end_date":      goMoment(a.EndDate, time.Time{}),
+		e.goAlbumElems[a.UUID] = withDates(map[string]any{
+			"uuid":         a.UUID,
+			"title":        a.Title,
+			"parent":       a.ParentUUID,
+			"folder_names": strs(a.FolderNames),
+		}, a.CreationDate, a.StartDate, a.EndDate)
+	}
+	for _, s := range lib.Imports {
+		if _, dup := e.goImportElems[s.UUID]; dup {
+			return nil, errors.New("golden: an import session UUID is repeated in Library.Imports")
 		}
+		e.goImportElems[s.UUID] = withDates(map[string]any{"uuid": s.UUID, "title": s.Title}, s.CreationDate, s.StartDate, s.EndDate)
 	}
 	for _, p := range lib.Photos {
 		if p.Burst {
@@ -90,6 +100,15 @@ func newEnv(lib Library) (*env, error) {
 		slices.Sort(ids)
 	}
 	return e, nil
+}
+
+// Albums and import sessions share their dates (AlbumInfoBaseClass,
+// albuminfo.py:56-107).
+func withDates(elem map[string]any, created, start, end *time.Time) map[string]any {
+	elem["creation_date"] = goMoment(created, defaultCreationDate)
+	elem["start_date"] = goMoment(start, time.Time{})
+	elem["end_date"] = goMoment(end, time.Time{})
+	return elem
 }
 
 func (e *env) userAlbums(uuids []string) ([]*albuminfo.AlbumInfo, error) {
@@ -166,9 +185,10 @@ func selectRules(keys []string) (selected []rule, names []string, err error) {
 // lists uuid; the Go set is what upstream photos() returns
 // (photosdb/photosdb.py:3346-3360). An error is a problem of the input, not
 // a difference: an unknown key, a reference value of the wrong shape, an
-// album UUID missing from lib.Albums, a UUID repeated in ref (Query and
-// Deleted together), in lib.Photos or in lib.Albums. Errors carry no UUID
-// and no value.
+// album UUID missing from lib.Albums or an import session missing from
+// lib.Imports, a UUID repeated in ref (Query and Deleted together), in
+// lib.Photos, in lib.Albums or in lib.Imports. Errors carry no UUID and no
+// value.
 func Compare(ref *Reference, lib Library, keys []string, divs []Divergence) (*Report, error) {
 	selected, names, err := selectRules(keys)
 	if err != nil {

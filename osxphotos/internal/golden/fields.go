@@ -25,11 +25,13 @@ var rules = buildRules()
 
 // PhotoKeys returns, sorted, the keys of fields.txt that Compare computes
 // from Library.Photos alone; AlbumKeys returns those that also need
-// Library.Albums. Together they are exactly the keys of fields.txt.
+// Library.Albums or Library.Imports. Together they are exactly the keys of
+// fields.txt.
 func PhotoKeys() []string { return keysOf(false) }
 
 // AlbumKeys returns, sorted, the keys that need Library.Albums: album_info,
-// albums, burst_album_info, burst_albums and folders.
+// albums, burst_album_info, burst_albums and folders, and the key that needs
+// Library.Imports: import_info.
 func AlbumKeys() []string { return keysOf(true) }
 
 func keysOf(needsAlbums bool) []string {
@@ -59,6 +61,7 @@ func buildRules() map[string]rule {
 		albumsRule("albums", "album_info", ownAlbums),
 		albumsRule("burst_albums", "burst_album_info", burstAlbums),
 		foldersRule(),
+		importInfoRule(),
 		burstPhotosRule(),
 		stringList("persons", func(p *photoinfo.PhotoInfo) []string { return p.Persons }),
 		stringList("keywords", func(p *photoinfo.PhotoInfo) []string { return p.Keywords }),
@@ -429,6 +432,63 @@ func albumsRule(key, infoKey string, uuids albumUUIDs) rule {
 				titles = []string{} // written as [], not null
 			}
 			return titles, nil
+		},
+	}
+}
+
+var importElemKeys = []string{"uuid", "title", "creation_date", "start_date", "end_date"}
+
+// A photo without a session is {} (photoinfo.py:2223-2225); a session is the
+// asdict of albuminfo.py:350-358.
+func importInfoRule() rule {
+	const key = "import_info"
+	return rule{
+		key:         key,
+		needsAlbums: true,
+		ref: func(o Object) (any, error) {
+			raw, err := decode[map[string]json.RawMessage](o, key, false, "an object")
+			if err != nil {
+				return nil, err
+			}
+			if len(raw) == 0 {
+				return map[string]any{}, nil
+			}
+			for _, k := range importElemKeys {
+				if _, ok := raw[k]; !ok {
+					return nil, shape(key+"."+k, "a value (the key is missing)")
+				}
+			}
+			uuid, err := decodeRaw[string](raw["uuid"], key+".uuid", false, "a string")
+			if err != nil {
+				return nil, err
+			}
+			title, err := decodeRaw[*string](raw["title"], key+".title", true, "a string or null")
+			if err != nil {
+				return nil, err
+			}
+			elem := map[string]any{"uuid": uuid, "title": deref(title)}
+			for _, d := range importElemKeys[2:] {
+				s, err := decodeRaw[*string](raw[d], key+"."+d, true, "an ISO 8601 string")
+				if err != nil {
+					return nil, err
+				}
+				t, err := parseRef(s, key+"."+d)
+				if err != nil {
+					return nil, err
+				}
+				elem[d] = goMoment(t, time.Time{})
+			}
+			return elem, nil
+		},
+		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
+			if p.ImportUUID == "" {
+				return map[string]any{}, nil
+			}
+			elem, ok := e.goImportElems[p.ImportUUID]
+			if !ok {
+				return nil, errImportMissing
+			}
+			return elem, nil
 		},
 	}
 }
