@@ -2,7 +2,7 @@
 -- Changes: the asset marked mig:tzoffset-null gets ZADDITIONALASSETATTRIBUTES.ZTIMEZONEOFFSET NULL;
 -- mig:original-filename-null gets ZORIGINALFILENAME NULL and mig:original-filename-empty an empty string;
 -- mig:date-created-null gets ZASSET.ZDATECREATED NULL.
--- Expects: tzoffset-null: TZOffset nil and Date at offset 0, as upstream; original-filename-null and
+-- Expects: tzoffset-null: TZOffset nil and Date in the zone of its TZName, as upstream; original-filename-null and
 -- original-filename-empty: OriginalFilename equal to Filename; date-created-null: Date 1970-01-01T00:00:00Z,
 -- the default of upstream.
 

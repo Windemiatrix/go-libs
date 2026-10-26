@@ -47,8 +47,9 @@ func coreDataTime(ts float64) (t time.Time, ok bool) {
 }
 
 // assetDate follows photos_datetime with default=True (photos_datetime.py:47-67,
-// photosdb.py:2159-2167). ZTIMEZONENAME is not used.
-func assetDate(created sql.NullFloat64, tz sql.NullInt64) time.Time {
+// photosdb.py:2159-2167). The zone of a name comes before the range check of
+// the offset, which only the fixed zone makes (photos_datetime.py:56-65).
+func assetDate(created sql.NullFloat64, tz sql.NullInt64, tzName sql.NullString) time.Time {
 	if !created.Valid {
 		return epoch
 	}
@@ -56,14 +57,21 @@ func assetDate(created sql.NullFloat64, tz sql.NullInt64) time.Time {
 	if !ok {
 		return epoch
 	}
-	if !tz.Valid || tz.Int64 == 0 {
+	var offset int64 // tzoffset or 0 (photos_datetime.py:50)
+	if tz.Valid {
+		offset = tz.Int64
+	}
+	if z := nameZone(t, offset, tzName.String); z != nil {
+		return t.In(z)
+	}
+	if offset == 0 {
 		return t
 	}
 	// Compared as int64 before any conversion: the column may hold any integer.
-	if tz.Int64 <= -maxOffset || tz.Int64 >= maxOffset {
+	if offset <= -maxOffset || offset >= maxOffset {
 		return epoch
 	}
-	return t.In(time.FixedZone("", int(tz.Int64))) //nolint:gosec // G115: |tz| < 86400 is checked above
+	return t.In(time.FixedZone("", int(offset))) //nolint:gosec // G115: |offset| < 86400 is checked above
 }
 
 func optionalTime(v sql.NullFloat64) *time.Time {

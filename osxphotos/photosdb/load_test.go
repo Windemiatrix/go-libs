@@ -380,6 +380,11 @@ func TestLoadColumns(t *testing.T) {
 		{"visibility NULL", func(a *sqlread.Asset) { a.VisibilityState = sql.NullInt64{} }, func(p *photoInfo) bool { return !p.Visible }},
 		{"spatial", func(a *sqlread.Asset) { a.SpatialType = nullInt(2) }, func(p *photoInfo) bool { return p.Spatial == 2 }},
 		{"time zone name", func(a *sqlread.Asset) { a.TZName = nullString("Europe/Paris") }, func(p *photoInfo) bool { return p.TZName == "Europe/Paris" }},
+		{"date in the zone of the name", func(a *sqlread.Asset) { a.TZName, a.TZOffset = nullString("Europe/Paris"), nullInt(7200) },
+			func(p *photoInfo) bool {
+				_, off := p.Date.Zone()
+				return p.Date.Location().String() == "Europe/Paris" && off == 3600 && *p.TZOffset == 7200
+			}},
 		{"cloud owner", func(a *sqlread.Asset) { a.CloudOwnerHashedID = nullString("TEST-OWNER") },
 			func(p *photoInfo) bool { return p.CloudOwnerHashedID == "TEST-OWNER" }},
 		{"shared moment", func(a *sqlread.Asset) { a.MomentShare = nullInt(5) }, func(p *photoInfo) bool { return p.SharedMoment }},

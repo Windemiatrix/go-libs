@@ -156,7 +156,7 @@ func TestAssetDate(t *testing.T) {
 		{"NaN", nullFloat(math.NaN()), nullInt(3600), epoch, 0},
 	}
 	for _, tt := range tests {
-		got := assetDate(tt.created, tt.tz)
+		got := assetDate(tt.created, tt.tz, sql.NullString{})
 		_, off := got.Zone()
 		if !got.Equal(tt.want) || off != tt.offset {
 			t.Errorf("%s: assetDate = %v (offset %d), want %v (offset %d)", tt.name, got, off, tt.want, tt.offset)
