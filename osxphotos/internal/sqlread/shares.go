@@ -94,7 +94,7 @@ type Participant struct {
 
 	NameComponents []byte // nil also for an archive over 1 MiB
 
-	AssetUUIDs []string // ZASSET.ZUUID of each ZASSETCONTRIBUTOR row, in its Z_PK order; a repeated link is repeated
+	AssetUUIDs []string // ZASSET.ZUUID of each ZASSETCONTRIBUTOR row; a repeated link is repeated
 }
 
 // Participants returns the ZSHAREPARTICIPANT rows that ZASSETCONTRIBUTOR
@@ -136,7 +136,7 @@ func (d *DB) Participants(ctx context.Context, s schema.Schema) ([]Participant, 
 	}
 	q = "SELECT p.Z_PK, a.ZUUID FROM ZSHAREPARTICIPANT p JOIN ZASSETCONTRIBUTOR c ON c.ZPARTICIPANT = p.Z_PK" +
 		" JOIN ZADDITIONALASSETATTRIBUTES x ON x.Z_PK = c.Z3LIBRARYSCOPEASSETCONTRIBUTORS" +
-		" JOIN ZASSET a ON a.Z_PK = x.ZASSET WHERE a.ZUUID IS NOT NULL ORDER BY c.Z_PK"
+		" JOIN ZASSET a ON a.Z_PK = x.ZASSET WHERE a.ZUUID IS NOT NULL"
 	err = d.readRows(ctx, "share participant assets", q, func(rows *sql.Rows) error {
 		var pk int64
 		var asset string
