@@ -12,6 +12,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "1969-12-31T18:00:00-06:00",
     "date_added": "2025-06-12T03:46:20.036924+00:00",
     "date_modified": null,
@@ -48,6 +49,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -194,6 +196,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2017-06-20T17:18:56+09:30",
     "date_added": "2025-06-12T03:46:20.419962+00:00",
     "date_modified": null,
@@ -237,6 +240,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": -34.91889167000001,
+    "likes": [],
     "live_photo": false,
     "location": [
       -34.91889167000001,
@@ -345,6 +349,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2018-09-28T14:35:49-05:00",
     "date_added": "2025-06-12T03:46:13.963306+00:00",
     "date_modified": null,
@@ -386,6 +391,7 @@
       "Kids"
     ],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -494,6 +500,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2018-09-28T15:07:07-05:00",
     "date_added": "2025-06-12T03:46:16.718147+00:00",
     "date_modified": null,
@@ -535,6 +542,7 @@
       "Kids"
     ],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -617,6 +625,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2018-09-28T15:09:33-05:00",
     "date_added": "2025-06-12T03:46:18.151000+00:00",
     "date_modified": null,
@@ -657,6 +666,7 @@
       "Kids"
     ],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -709,6 +719,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2018-10-13T09:18:12.501000+01:00",
     "date_added": "2025-06-12T03:46:12.207243+00:00",
     "date_modified": null,
@@ -752,6 +763,7 @@
       "United Kingdom"
     ],
     "latitude": 51.503571666666666,
+    "likes": [],
     "live_photo": false,
     "location": [
       51.503571666666666,
@@ -804,6 +816,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2018-10-13T14:18:12+01:00",
     "date_added": "2025-06-12T03:46:12.211734+00:00",
     "date_modified": null,
@@ -847,6 +860,7 @@
       "United Kingdom"
     ],
     "latitude": 51.50357167,
+    "likes": [],
     "live_photo": false,
     "location": [
       51.50357167,
@@ -967,6 +981,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2019-04-15T13:40:24-05:00",
     "date_added": "2025-06-12T03:46:07.608253+00:00",
     "date_modified": "2019-04-15T19:40:24.860000+00:00",
@@ -1011,6 +1026,7 @@
       "wedding"
     ],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -1063,6 +1079,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2019-07-04T15:24:01-05:00",
     "date_added": "2025-06-12T03:46:19.073823+00:00",
     "date_modified": "2019-07-04T21:24:01+00:00",
@@ -1102,6 +1119,7 @@
       "wedding"
     ],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -1192,6 +1210,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-04-12T12:30:23-05:00",
     "date_added": "2025-06-12T03:46:12.944202+00:00",
     "date_modified": "2020-04-12T15:30:23+00:00",
@@ -1232,6 +1251,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -1322,6 +1342,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-04-15T12:25:51-05:00",
     "date_added": "2025-06-12T03:46:09.843891+00:00",
     "date_modified": null,
@@ -1362,6 +1383,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -1452,6 +1474,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-04-16T12:42:58-05:00",
     "date_added": "2025-06-12T03:46:11.261710+00:00",
     "date_modified": null,
@@ -1492,6 +1515,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -1544,6 +1568,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-09-19T14:36:26-07:00",
     "date_added": "2025-06-12T03:46:19.610292+00:00",
     "date_modified": "2020-09-19T21:36:26.719000+00:00",
@@ -1580,6 +1605,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,

@@ -30,8 +30,8 @@ func TestCompareNoDifferences(t *testing.T) {
 	if !rep.OK() || len(rep.Diffs) != 0 || len(rep.Explained) != 0 || len(rep.Stale) != 0 {
 		t.Fatalf("report = %+v, want no differences", rep)
 	}
-	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 74 {
-		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 74", rep.Library, rep.Objects, len(rep.Keys))
+	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 76 {
+		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 76", rep.Library, rep.Objects, len(rep.Keys))
 	}
 	if !slices.IsSorted(rep.Keys) {
 		t.Error("Keys are not sorted")
@@ -228,6 +228,28 @@ func photoMutations() []mutation {
 			l.Photos[0].AlbumUUIDs = append(l.Photos[0].AlbumUUIDs, projectP)
 			l.Photos[0].ProjectUUIDs = []string{projectTrashed}
 		}, "album_info albums folders project_info"},
+
+		{"Comments nil", func(l *Library) { l.Comments = nil }, "comments"},
+		{"Comments swapped", func(l *Library) { c := l.Comments[selectedFrame]; c[0], c[1] = c[1], c[0] }, "comments"},
+		{"Comment date by 1us", func(l *Library) {
+			c := &l.Comments[selectedFrame][1]
+			c.Datetime = ptr(c.Datetime.Add(time.Microsecond))
+		}, "comments"},
+		{"Comment date nil", func(l *Library) { l.Comments[selectedFrame][0].Datetime = nil }, "comments"},
+		{"Comment user", func(l *Library) { l.Comments[selectedFrame][0].User = "" }, "comments"},
+		{"Comment user of null", func(l *Library) { l.Comments[selectedFrame][1].User = "Person B" }, "comments"},
+		{"Comment IsMine", func(l *Library) { l.Comments[selectedFrame][0].IsMine = false }, "comments"},
+		{"Comment text", func(l *Library) { l.Comments[selectedFrame][1].Text = "Comment 3" }, "comments"},
+		{"Comment of another photo", func(l *Library) {
+			l.Comments[emptyPhoto], l.Comments[selectedFrame] = l.Comments[selectedFrame], nil
+		}, "comments"},
+		{"Likes nil", func(l *Library) { l.Likes = nil }, "likes"},
+		{"Like date", func(l *Library) { c := &l.Likes[selectedFrame][0]; c.Datetime = ptr(c.Datetime.Add(time.Second)) }, "likes"},
+		{"Like user", func(l *Library) { l.Likes[selectedFrame][0].User = "" }, "likes"},
+		{"Like IsMine", func(l *Library) { l.Likes[selectedFrame][0].IsMine = true }, "likes"},
+		{"a second like", func(l *Library) {
+			l.Likes[selectedFrame] = append(l.Likes[selectedFrame], photoinfo.LikeInfo{Datetime: ptr(utc(2020, 7, 4, 0, 0, 0, 0))})
+		}, "likes"},
 	}
 }
 
@@ -384,6 +406,40 @@ func TestWriteDetailsOwners(t *testing.T) {
 	}
 }
 
+func TestWriteDetailsComments(t *testing.T) {
+	t.Parallel()
+	lib := fixtureLib()
+	lib.Comments[selectedFrame][0].Text = "SECRET-TEXT"
+	lib.Likes[selectedFrame][0].User = "SECRET-NAME"
+	unparsed := Divergence{Library: "lib", UUID: emptyPhoto, Field: "likes", Want: []byte(`{"user":"SECRET-STALE"}`), Reason: "r", Upstream: "a.py:1"}
+	rep := compare(t, fixtureRef(), lib, unparsed)
+	if got := diffKeys(rep); !slices.Equal(got, []string{"comments", "likes"}) {
+		t.Fatalf("differences in %v, want comments and likes", got)
+	}
+	var b strings.Builder
+	if err := rep.WriteDetails(&b); err != nil {
+		t.Fatal(err)
+	}
+	for _, leak := range []string{"SECRET", "Person A", "Comment 1", "Comment 2"} {
+		if strings.Contains(b.String(), leak) {
+			t.Errorf("WriteDetails writes %q", leak)
+		}
+	}
+	// comments 1 + 1, likes 1 + 1; the comment without a user keeps "".
+	if n := strings.Count(b.String(), `"user":"<name>"`); n != 4 {
+		t.Errorf("%d users written as <name>, want 4:\n%s", n, b.String())
+	}
+	if n := strings.Count(b.String(), `"text":"<text>"`); n != 4 {
+		t.Errorf("%d texts written as <text>, want 4:\n%s", n, b.String())
+	}
+	if !strings.Contains(b.String(), `"user":""`) || !strings.Contains(b.String(), `"datetime":"2020-07-01T00:00:00Z"`) {
+		t.Errorf("WriteDetails lost the empty user or the dates:\n%s", b.String())
+	}
+	if line := "stale likes " + emptyPhoto + " want=<unparsed> got=*\n"; !strings.Contains(b.String(), line) {
+		t.Errorf("WriteDetails has no line %q:\n%s", line, b.String())
+	}
+}
+
 func TestCompareEquivalent(t *testing.T) {
 	t.Parallel()
 	cases := []mutation{
@@ -399,6 +455,11 @@ func TestCompareEquivalent(t *testing.T) {
 		{"projects in another order, a repeat", photo(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = []string{projectTrashed, projectP, projectP} }), ""},
 		// osxphotos writes the parent of a project as null when the parent row holds no folder or user album.
 		{"the parent of a project is not compared", func(l *Library) { l.Projects[0].ParentUUID = "" }, ""},
+		// osxphotos writes these dates in the zone of the computer (photos_datetime.py:70-89).
+		{"a comment date in another zone, the same moment", func(l *Library) {
+			c := &l.Comments[selectedFrame][0]
+			c.Datetime = ptr(c.Datetime.In(time.FixedZone("X", -7*3600)))
+		}, ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -518,6 +579,8 @@ func TestCompareNulls(t *testing.T) {
 		{"ImportUUID", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ImportUUID = importBare }), "import_info"},
 		{"ProjectUUIDs of a trashed project", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = []string{projectTrashed} }), ""},
 		{"ProjectUUIDs", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = []string{projectP} }), "project_info"},
+		{"Comments empty, not nil", func(l *Library) { l.Comments[emptyPhoto] = []photoinfo.CommentInfo{} }, ""},
+		{"Likes", func(l *Library) { l.Likes[emptyPhoto] = []photoinfo.LikeInfo{{}} }, "likes"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -654,7 +717,13 @@ func TestCompareSets(t *testing.T) {
 
 func TestCompareErrors(t *testing.T) {
 	t.Parallel()
-	const marker = "SECRET-VALUE"
+	const (
+		marker       = "SECRET-VALUE"
+		wantComments = "query.json element 1: comments: want a list of comments as osxphotos writes them"
+	)
+	withValue := func(key, value string) func() *Reference {
+		return func() *Reference { r := fixtureRef(); r.Query[0][key] = []byte(value); return r }
+	}
 	cases := []struct {
 		name string
 		ref  func() *Reference
@@ -765,6 +834,15 @@ func TestCompareErrors(t *testing.T) {
 			r.Query[0]["import_info"] = []byte(`{"uuid": "x", "title": null, "creation_date": "` + marker + `", "start_date": null, "end_date": null}`)
 			return r
 		}, fixtureLib, []string{"import_info"}, "import_info.creation_date: want an ISO 8601 string"},
+		{"a comment with a null datetime", withValue("comments", `[{"datetime": null, "user": "`+marker+`", "ismine": false, "text": "x"}]`),
+			fixtureLib, []string{"comments"}, wantComments},
+		{"a comment without a text", withValue("comments", `[{"datetime": "2020-07-01T00:00:00+00:00", "user": "`+marker+`", "ismine": false}]`),
+			fixtureLib, []string{"comments"}, wantComments},
+		{"a comment with a null ismine", withValue("comments", `[{"datetime": "2020-07-01T00:00:00+00:00", "user": "`+marker+`", "ismine": null, "text": "x"}]`),
+			fixtureLib, []string{"comments"}, wantComments},
+		{"comments that is not a list", withValue("comments", `{"text": "`+marker+`"}`), fixtureLib, []string{"comments"}, wantComments},
+		{"a like with a null ismine", withValue("likes", `[{"datetime": "2020-07-03T00:00:00+00:00", "user": "`+marker+`", "ismine": null}]`),
+			fixtureLib, []string{"likes"}, "query.json element 1: likes: want a list of likes as osxphotos writes them"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -836,6 +914,15 @@ func TestCompareAlbumRules(t *testing.T) {
 		t.Parallel()
 		lib := fixtureLib()
 		if rep := run(t, refObj(refSelectedFrame()), lib); !rep.OK() {
+			t.Errorf("differences %+v, want none", rep.Diffs)
+		}
+	})
+	t.Run("a like without a date is the default of upstream", func(t *testing.T) {
+		t.Parallel()
+		lib := fixtureLib()
+		lib.Likes[selectedFrame][0].Datetime = nil
+		ref := refObj(refSelectedFrame(), map[string]string{"likes": `[{"datetime": "1970-01-01T00:00:00+00:00", "ismine": false, "user": "Person A"}]`})
+		if rep := run(t, ref, lib); !rep.OK() {
 			t.Errorf("differences %+v, want none", rep.Diffs)
 		}
 	})

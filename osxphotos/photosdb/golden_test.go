@@ -51,6 +51,7 @@ func TestGolden(t *testing.T) {
 			}
 			rep, err := golden.Compare(ref, golden.Library{
 				Photos: photos, Albums: db.albums, SharedAlbums: db.sharedAlbums, BurstAlbums: burstAlbums, Imports: db.imports, Projects: db.projects,
+				Comments: db.comments, Likes: db.likes,
 			},
 				slices.Concat(golden.PhotoKeys(), golden.AlbumKeys()), divs)
 			if err != nil {

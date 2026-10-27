@@ -64,7 +64,7 @@ func (d *DB) Albums(ctx context.Context) ([]Album, error) {
 			&a.Trashed, &a.Created, &a.Start, &a.End, &a.SortKey, &a.SortAscending, &a.ListOrder, &owner); err != nil {
 			return err
 		}
-		people.setOwner(&a, owner.String)
+		a.Owner, a.OwnerComponents = people.name(owner.String)
 		out = append(out, a)
 		return nil
 	}, KindUserAlbum, KindSharedAlbum, KindImportSession, KindProject, KindRootFolder, KindFolder)
@@ -123,7 +123,7 @@ func (d *DB) CollectionShares(ctx context.Context) ([]Album, []Member, error) {
 		if err := rows.Scan(&a.PK, &a.UUID, &a.Title, &a.Trashed, &a.Created, &a.Start, &a.End, &a.SortKey, &a.SortAscending, &id); err != nil {
 			return err
 		}
-		people.setOwner(&a, id.String)
+		a.Owner, a.OwnerComponents = people.name(id.String)
 		albums = append(albums, a)
 		return nil
 	}, ent.Int64)
@@ -210,10 +210,9 @@ func (d *DB) personIndex(ctx context.Context) (personIndex, error) {
 
 // Upstream adds a participant only under an ID that the UNION does not hold
 // (_photosdb_process_comments.py:172-174).
-func (p personIndex) setOwner(a *Album, id string) {
+func (p personIndex) name(id string) (sql.NullString, [][]byte) {
 	if full, ok := p.names[id]; ok {
-		a.Owner = full
-		return
+		return full, nil
 	}
-	a.OwnerComponents = p.components[id]
+	return sql.NullString{}, p.components[id]
 }

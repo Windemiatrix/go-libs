@@ -108,8 +108,19 @@ func fixtureLib() Library {
 			{UUID: projectP, Title: "Project P", ParentUUID: folderX, CreationDate: ptr(utc(2020, 4, 4, 4, 4, 4, 0))},
 			{UUID: projectTrashed, Title: "Project T", InTrash: true},
 		},
+		Comments: map[string][]photoinfo.CommentInfo{selectedFrame: {
+			{Datetime: ptr(utc(2020, 7, 1, 0, 0, 0, 0)), User: "Person A", IsMine: true, Text: "Comment 1"},
+			{Datetime: ptr(utc(2020, 7, 2, 0, 0, 0, 500000000).In(ist)), Text: "Comment 2"},
+		}},
+		Likes: map[string][]photoinfo.LikeInfo{selectedFrame: {{Datetime: ptr(utc(2020, 7, 3, 0, 0, 0, 0)), User: "Person A"}}},
 	}
 }
+
+const (
+	refComments = `[{"datetime": "2020-07-01T00:00:00+00:00", "ismine": true, "text": "Comment 1", "user": "Person A"}, ` +
+		`{"datetime": "2020-07-02T05:30:00.500000+05:30", "ismine": false, "text": "Comment 2", "user": null}]`
+	refLikes = `[{"datetime": "2020-07-03T00:00:00+00:00", "ismine": false, "user": "Person A"}]`
+)
 
 const elemImport = `{"creation_date": "2020-06-07T01:02:03+00:00", "end_date": "2020-06-07T01:01:00.500000+00:00", ` +
 	`"start_date": "2020-06-07T01:00:00+00:00", "title": "Import 1", "uuid": "` + importSession + `"}`
@@ -149,6 +160,7 @@ func refSelectedFrame() map[string]string {
 		"burst_photos":         `["` + unselectedFrame + `"]`,
 		"burst_selected":       "true",
 		"cloud_guid":           `"CLOUD-GUID-1"`,
+		"comments":             refComments,
 		"date":                 `"2020-06-06T19:45:24.725564+05:30"`,
 		"date_added":           `"2021-01-02T03:04:05+00:00"`,
 		"date_modified":        `"2021-02-03T04:05:06.500000+00:00"`,
@@ -172,6 +184,7 @@ func refSelectedFrame() map[string]string {
 		"isreference":          "true",
 		"keywords":             `["alpha", "beta"]`,
 		"latitude":             "48.8566",
+		"likes":                refLikes,
 		"live_photo":           "true",
 		"location":             "[48.8566, 2.3522]",
 		"longitude":            "2.3522",
@@ -236,6 +249,7 @@ func refEmptyPhoto() map[string]string {
 		"adjustment_type": "null", "cloud_owner_hashed_id": "null", "external_edit": "false", "hdr": "false",
 		"import_info": "{}", "imported_by": "[null, null]", "panorama": "false", "portrait": "false", "project_info": "[]", "selfie": "false",
 		"shared_moment": "false", "spatial": "0", "tzname": "null", "visible": "false",
+		"comments": "[]", "likes": "[]",
 	}
 }
 
