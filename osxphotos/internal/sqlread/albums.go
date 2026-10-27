@@ -174,7 +174,8 @@ type personIndex struct {
 
 // ORDER BY fixes the order of the UNION as SQLite returns it. Z_PK is the order
 // of the table scan of the SELECT DISTINCT of upstream; without DISTINCT a
-// repeated archive is only tried again, to the same result.
+// repeated archive is only tried again, to the same result. The length bound is
+// maxPlistSize of photosdb, which refuses a larger archive anyway.
 func (d *DB) personIndex(ctx context.Context) (personIndex, error) {
 	p := personIndex{names: map[string]sql.NullString{}, components: map[string][][]byte{}}
 	err := d.readRows(ctx, "person names", hashedPersonQuery+"ORDER BY 1, 2, 3, 4", func(rows *sql.Rows) error {
@@ -194,7 +195,7 @@ func (d *DB) personIndex(ctx context.Context) (personIndex, error) {
 		return p, err
 	}
 	err = d.readRows(ctx, "participant names", "SELECT ZHASHEDPERSONID, ZNAMECOMPONENTS FROM ZSHAREPARTICIPANT "+
-		"WHERE ZHASHEDPERSONID IS NOT NULL AND ZHASHEDPERSONID != '' AND ZNAMECOMPONENTS IS NOT NULL ORDER BY Z_PK",
+		"WHERE ZHASHEDPERSONID IS NOT NULL AND ZHASHEDPERSONID != '' AND ZNAMECOMPONENTS IS NOT NULL AND length(ZNAMECOMPONENTS) <= 1048576 ORDER BY Z_PK",
 		func(rows *sql.Rows) error {
 			var id string
 			var archive []byte
