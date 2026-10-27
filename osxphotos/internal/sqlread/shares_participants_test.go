@@ -85,6 +85,8 @@ func TestParticipantsValues(t *testing.T) {
 		t.Fatalf("%d inserted participants, want %d", len(inserted), len(want))
 	}
 	for i := range want {
+		slices.Sort(inserted[i].AssetUUIDs)
+		slices.Sort(want[i].AssetUUIDs)
 		if !reflect.DeepEqual(inserted[i], want[i]) {
 			t.Errorf("Z_PK %d differs from the inserted row", want[i].PK)
 		}
@@ -130,6 +132,8 @@ func TestParticipantsSchema(t *testing.T) {
 		// Upstream catches the error of the query (shareparticipant.py:45-49).
 		{"no ZASSETCONTRIBUTOR", "1", []string{"DROP TABLE ZASSETCONTRIBUTOR"}, 0, ""},
 		{"a text in ZACCEPTANCESTATUS", "'SECRET-X'", nil, 0, "unexpected value type"},
+		{"a text in ZACCEPTANCESTATUS of a participant of no photo", "'SECRET-X'",
+			[]string{"UPDATE ZASSETCONTRIBUTOR SET Z3LIBRARYSCOPEASSETCONTRIBUTORS = 999999999 WHERE Z_PK = 800001"}, 0, "unexpected value type"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()

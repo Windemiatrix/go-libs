@@ -292,6 +292,7 @@ func TestNameComponents(t *testing.T) {
 		{"no NSnameComponentsPrivate", noPrivate, photoinfo.PersonNameComponents{}, false},
 		// bpylist2 indexes $objects and raises IndexError.
 		{"a reference out of range", nameArchive(t, plist.UID(99), plist.UID(4)), photoinfo.PersonNameComponents{}, false},
+		{"a reference at len($objects)", nameArchive(t, plist.UID(7), plist.UID(4)), photoinfo.PersonNameComponents{}, false},
 		{"an archive over the limit", nameArchiveOf(t, plist.UID(3), plist.UID(4), strings.Repeat("a", maxPlistSize)), photoinfo.PersonNameComponents{}, false},
 	} {
 		if got, ok := nameComponents(tt.archive); got != tt.want || ok != tt.ok {
@@ -362,12 +363,17 @@ func TestOpenShareParticipants(t *testing.T) {
 	t.Parallel()
 
 	lib := testlib.OpenPristine(t, "synthetic")
+	src := roDB(t, lib)
 	// A photo whose attributes Z_PK is not its asset Z_PK comes first, so that a
-	// join of ZADDITIONALASSETATTRIBUTES on the wrong key fails where the library has one.
-	photos := testlib.Rows(t, roDB(t, lib), "SELECT a.ZUUID FROM ZASSET a JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK "+
+	// join of ZADDITIONALASSETATTRIBUTES on the wrong key fails.
+	photos := testlib.Rows(t, src, "SELECT a.ZUUID FROM ZASSET a JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK "+
 		"WHERE NOT EXISTS (SELECT 1 FROM ZASSETCONTRIBUTOR c WHERE c.Z3LIBRARYSCOPEASSETCONTRIBUTORS = x.Z_PK) ORDER BY x.Z_PK = a.Z_PK, a.ZUUID LIMIT 3")
 	if len(photos) != 3 {
 		t.Fatalf("%d photos without a contributor in the synthetic library, want 3", len(photos))
+	}
+	if count(t, src, "SELECT COUNT(*) FROM ZADDITIONALASSETATTRIBUTES x JOIN ZASSET a ON a.Z_PK = x.ZASSET "+
+		"WHERE x.Z_PK != a.Z_PK AND a.ZUUID = '"+photos[0]+"'") != 1 {
+		t.Fatal("the first photo has its attributes Z_PK equal to its asset Z_PK: the join key is not checked")
 	}
 	full, noName := sevenPartArchive(t), nameArchive(t, plist.UID(0), plist.UID(0))
 	change(t, lib,
@@ -432,6 +438,8 @@ func TestOpenShareParticipantsSchema(t *testing.T) {
 		// Upstream catches the error of the query (shareparticipant.py:45-49).
 		{"no ZASSETCONTRIBUTOR", "1", []string{"DROP TABLE ZASSETCONTRIBUTOR"}, 0, ""},
 		{"a text in ZACCEPTANCESTATUS", "'SECRET-X'", nil, 0, "unexpected value type"},
+		{"a text in ZACCEPTANCESTATUS of a participant of no photo", "'SECRET-X'",
+			[]string{"UPDATE ZASSETCONTRIBUTOR SET Z3LIBRARYSCOPEASSETCONTRIBUTORS = 999999999 WHERE Z_PK = 800001"}, 0, "unexpected value type"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
@@ -468,57 +476,122 @@ func TestOpenShareParticipantsSchema(t *testing.T) {
 	}
 }
 
+const withoutContributor = "SELECT a.ZUUID FROM ZASSET a JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK " +
+	"WHERE NOT EXISTS (SELECT 1 FROM ZASSETCONTRIBUTOR c WHERE c.Z3LIBRARYSCOPEASSETCONTRIBUTORS = x.Z_PK) ORDER BY a.ZUUID LIMIT "
+
 // A photo lists every row of the query of upstream, or none when one archive
-// does not decode (shareparticipant.py:21-49).
+// does not decode (shareparticipant.py:21-49). The participant inserted into
+// every library through the share column of its schema pins that column on
+// each schema, not only on the one of the synthetic library.
 func TestShareParticipantsLibraries(t *testing.T) {
 	t.Parallel()
 
-	// A participant of a photo is checked whatever the test libraries hold.
-	const linked = "synthetic with a participant of a photo"
-	libs := map[string]string{linked: testlib.OpenPristine(t, "synthetic")}
-	change(t, libs[linked],
-		fmt.Sprintf("INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZNAMECOMPONENTS) VALUES (900001, X'%x')", sevenPartArchive(t)),
-		contributorInsert+"(800001, 900001, (SELECT MIN(Z_PK) FROM ZADDITIONALASSETATTRIBUTES))")
 	for _, name := range testlib.Libraries(t) {
-		libs[name] = testlib.OpenPristine(t, name)
-	}
-	for name, lib := range libs {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
-			if err != nil {
-				t.Fatal(err)
-			}
+			lib := testlib.OpenPristine(t, name)
 			src := roDB(t, lib)
-			model := libraryModels[name]
-			if name == linked {
-				model = libraryModels["synthetic"]
-			}
-			s := schemaByID(t, model.id)
+			s := schemaByID(t, libraryModels[name].id)
 			participant := testlib.Rows(t, src, "SELECT name FROM pragma_table_info('ZSHAREPARTICIPANT')")
 			if len(participant) > 0 && !slices.Contains(participant, s.ParticipantShareColumn) {
 				t.Errorf("ZSHAREPARTICIPANT has no column %s", s.ParticipantShareColumn)
 			}
-			join := len(participant) > 0 &&
-				slices.Contains(testlib.Rows(t, src, "SELECT name FROM pragma_table_info('ZASSETCONTRIBUTOR')"), "Z3LIBRARYSCOPEASSETCONTRIBUTORS")
+			// Upstream's query fails without any of its columns (ZPERMISSION is
+			// ZCPLPERMISSION in Photos 27), and the photo has no participants.
+			join := slices.Contains(testlib.Rows(t, src, "SELECT name FROM pragma_table_info('ZASSETCONTRIBUTOR')"), "Z3LIBRARYSCOPEASSETCONTRIBUTORS")
+			for _, col := range []string{"Z_PK", "ZACCEPTANCESTATUS", "ZISCURRENTUSER", "ZEXITSTATE", "ZPERMISSION", "ZPERSON", s.ParticipantShareColumn,
+				"ZSHARE", "ZEMAILADDRESS", "ZPARTICIPANTID", "ZPHONENUMBER", "ZUSERIDENTIFIER", "ZUUID", "ZNAMECOMPONENTS"} {
+				join = join && slices.Contains(participant, col)
+			}
+			var linked []string
+			if join {
+				linked = testlib.Rows(t, src, withoutContributor+"1")
+				if len(linked) != 1 {
+					t.Fatal("no photo without a contributor")
+				}
+				change(t, lib,
+					fmt.Sprintf("INSERT INTO ZSHAREPARTICIPANT (Z_PK, %s, ZNAMECOMPONENTS) VALUES (900001, 16, X'%x')", s.ParticipantShareColumn, sevenPartArchive(t)),
+					contributorInsert+"(800001, 900001, "+attributesOf(linked[0])+")")
+			}
+			db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
+			if err != nil {
+				t.Fatal(err)
+			}
 			listed := 0
 			for i, p := range db.Photos() {
 				got, want := len(db.ShareParticipantInfo(p)), 0
 				if join {
-					want = count(t, src, "SELECT COUNT(*) FROM ZSHAREPARTICIPANT p JOIN ZASSETCONTRIBUTOR c ON c.ZPARTICIPANT = p.Z_PK "+
-						"JOIN ZADDITIONALASSETATTRIBUTES x ON x.Z_PK = c.Z3LIBRARYSCOPEASSETCONTRIBUTORS JOIN ZASSET a ON a.Z_PK = x.ZASSET "+
-						"WHERE a.ZUUID = '"+p.UUID+"'")
+					// testlib.Rows scans into a string, which NULL is not; an empty archive does not decode either.
+					archives := testlib.Rows(t, src, "SELECT COALESCE(p.ZNAMECOMPONENTS, X'') FROM ZSHAREPARTICIPANT p "+
+						"JOIN ZASSETCONTRIBUTOR c ON c.ZPARTICIPANT = p.Z_PK JOIN ZADDITIONALASSETATTRIBUTES x ON x.Z_PK = c.Z3LIBRARYSCOPEASSETCONTRIBUTORS "+
+						"JOIN ZASSET a ON a.Z_PK = x.ZASSET WHERE a.ZUUID = ?", p.UUID)
+					want = len(archives)
+					for _, a := range archives {
+						if _, ok := nameComponents([]byte(a)); !ok {
+							want = 0
+						}
+					}
 				}
-				// An archive of a test library may not decode; the inserted one does.
-				if got != want && (got != 0 || name == linked) {
-					t.Errorf("photo %d: %d participants, want %d or none", i, got, want)
+				if got != want {
+					t.Errorf("photo %d: %d participants, want %d", i, got, want)
 				}
 				listed += got
 			}
 			t.Logf("%d participants of photos", listed)
-			if name == linked && listed == 0 {
-				t.Error("no participant of a photo: the case is vacuous")
+			if !join {
+				return
+			}
+			p, ok := db.Photo(linked[0])
+			share := 16
+			if want := []photoinfo.ShareParticipant{{PK: 900001, Z54Share: &share, NameComponents: sevenParts}}; !ok || !reflect.DeepEqual(db.ShareParticipantInfo(p), want) {
+				t.Error("the photo of the inserted participant: another list than that participant with the values of its row")
 			}
 		})
 	}
+}
+
+// The bound of the query is the maxPlistSize of nameComponents, so an archive
+// of exactly 1 MiB decodes.
+func TestOpenShareParticipantsSizeBound(t *testing.T) {
+	t.Parallel()
+
+	lib := testlib.OpenPristine(t, "synthetic")
+	photos := testlib.Rows(t, roDB(t, lib), withoutContributor+"2")
+	if len(photos) != 2 {
+		t.Fatalf("%d photos without a contributor in the synthetic library, want 2", len(photos))
+	}
+	change(t, lib,
+		fmt.Sprintf("INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZNAMECOMPONENTS) VALUES (900001, X'%x'), (900002, X'%x')",
+			archiveOfSize(t, maxPlistSize), archiveOfSize(t, maxPlistSize+1)),
+		contributorInsert+"(800001, 900001, "+attributesOf(photos[0])+"), (800002, 900002, "+attributesOf(photos[1])+")")
+	db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range [][]int64{{900001}, nil} {
+		p, ok := db.Photo(photos[i])
+		if !ok {
+			t.Fatalf("photo %s not found", photos[i])
+		}
+		var got []int64
+		for _, s := range db.ShareParticipantInfo(p) {
+			got = append(got, s.PK)
+		}
+		if !slices.Equal(got, want) {
+			t.Errorf("an archive of %d bytes: participants %v, want %v", maxPlistSize+i, got, want)
+		}
+	}
+}
+
+// Between 64 KiB and 16 MiB the length of the pad and the offsets of the
+// binary list keep their width, so the rest of the archive keeps its size.
+func archiveOfSize(t *testing.T, size int) []byte {
+	t.Helper()
+	pad := strings.Repeat("a", size)
+	pad = pad[len(nameArchiveOf(t, plist.UID(3), plist.UID(4), pad))-size:]
+	b := nameArchiveOf(t, plist.UID(3), plist.UID(4), pad)
+	if len(b) != size {
+		t.Fatalf("an archive of %d bytes, want %d", len(b), size)
+	}
+	return b
 }
