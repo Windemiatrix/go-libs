@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 
+	"howett.net/plist"
+
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
 )
@@ -68,7 +70,7 @@ func albumOf(r sqlread.Album, albumPhotos map[string][]string) *albuminfo.AlbumI
 		UUID:         r.UUID,
 		CloudGUID:    r.CloudGUID.String,
 		Title:        nfc(r.Title.String),
-		Owner:        nfc(r.Owner.String),
+		Owner:        ownerName(r),
 		PhotoUUIDs:   sortedSet(slices.Clone(albumPhotos[r.UUID])),
 		CreationDate: optionalTime(r.Created),
 		StartDate:    optionalTime(r.Start),
@@ -143,3 +145,39 @@ func libraryListOrder(r sqlread.Album, byPK map[int64]sqlread.Album, rootPK int6
 // trashed is one rule for albums and folders: Python None != 0 holds, so a
 // NULL state counts as trashed (photosdb.py:1936).
 func trashed(r sqlread.Album) bool { return !r.Trashed.Valid || r.Trashed.Int64 != 0 }
+
+// Upstream: shareparticipant.py:90-117, 153-187; _photosdb_process_comments.py:172-187.
+func ownerName(r sqlread.Album) string {
+	for _, archive := range r.OwnerComponents {
+		if name := personName(archive); name != "" {
+			return name
+		}
+	}
+	return nfc(r.Owner.String)
+}
+
+func personName(archive []byte) string {
+	var keyed struct {
+		Objects []any          `plist:"$objects"`
+		Top     map[string]any `plist:"$top"`
+	}
+	if len(archive) > maxPlistSize || decodePlist(archive, &keyed) != nil {
+		return ""
+	}
+	object := func(ref any) any {
+		uid, ok := ref.(plist.UID)
+		if !ok || uint64(uid) >= uint64(len(keyed.Objects)) || keyed.Objects[uid] == "$null" {
+			return nil
+		}
+		return keyed.Objects[uid]
+	}
+	person, _ := object(keyed.Top["root"]).(map[string]any)
+	data, _ := object(person["NSnameComponentsPrivate"]).(map[string]any)
+	var parts []string
+	for _, key := range []string{"NSgivenName", "NSfamilyName"} {
+		if s, _ := object(data[key]).(string); s != "" {
+			parts = append(parts, s)
+		}
+	}
+	return nfc(strings.Join(parts, " "))
+}

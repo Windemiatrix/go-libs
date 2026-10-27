@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
@@ -109,7 +110,8 @@ func Open(ctx context.Context, path string, o Options) (db *DB, err error) {
 	if err != nil {
 		return nil, err
 	}
-	sharedAlbums, err := loadFolderless(t.albums, albumPhotos, sqlread.KindSharedAlbum, "shared albums")
+	// ZSHARE and ZGENERICALBUM number their rows apart: shares stay out of loadAlbums and loadFolders (photosdb.py:2914-2916).
+	sharedAlbums, err := loadFolderless(slices.Concat(t.albums, t.collectionShares), albumPhotos, sqlread.KindSharedAlbum, "shared albums")
 	if err != nil {
 		return nil, err
 	}
@@ -223,5 +225,10 @@ func readTables(ctx context.Context, src *sqlread.DB, s schema.Schema) (t tables
 	if t.shares, err = src.Shares(ctx); err != nil {
 		return tables{}, err
 	}
+	if t.collectionShares, t.shareMembers, err = src.CollectionShares(ctx); err != nil {
+		return tables{}, err
+	}
+	// groupMembers and membershipOrder sort; nothing relies on the order of members.
+	t.members = append(t.members, t.shareMembers...)
 	return t, nil
 }

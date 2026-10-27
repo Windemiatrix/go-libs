@@ -560,7 +560,7 @@ func TestOpenHostileValues(t *testing.T) {
 				pairs += len(p.AlbumUUIDs)
 			}
 			if want := count(t, src, "SELECT COUNT(*) FROM Z_33ASSETS m JOIN ZGENERICALBUM g ON g.Z_PK = m.Z_33ALBUMS "+
-				"WHERE g.ZKIND IN (2, 1505) AND m.Z_3ASSETS IS NOT NULL"); pairs != want {
+				"WHERE g.ZKIND IN (2, 1505) AND m.Z_3ASSETS IS NOT NULL") + collectionShares(t, src, shareMemberCount); pairs != want {
 				t.Errorf("%d album memberships, want %d", pairs, want)
 			}
 		})
@@ -759,7 +759,11 @@ func TestOpenAggregates(t *testing.T) {
 				for _, p := range photos {
 					goSum += s.goVal(p)
 				}
-				if want := count(t, src, "SELECT COALESCE(SUM("+s.column+"), 0)"+from); goSum != want {
+				want := count(t, src, "SELECT COALESCE(SUM("+s.column+"), 0)"+from)
+				if s.name == "AlbumUUIDs" { // and the CollectionShare of an asset, Photos 11 and later (photosdb.py:2832-2837)
+					want += collectionShares(t, src, shareMemberCount)
+				}
+				if goSum != want {
 					t.Errorf("sum of %s: %d, want %d", s.name, goSum, want)
 				}
 			}

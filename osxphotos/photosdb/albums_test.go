@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"howett.net/plist"
+
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
@@ -699,12 +701,29 @@ func TestLoadSharedAlbums(t *testing.T) {
 	}
 }
 
+// The CollectionShare rows of ZSHARE, Photos 11 and later (photosdb.py:2787-2916);
+// 0 for a library without the entity, whose ZASSET may have no ZCOLLECTIONSHARE.
+func collectionShares(t *testing.T, src *sql.DB, q string) int {
+	t.Helper()
+	if count(t, src, "SELECT COUNT(*) FROM Z_PRIMARYKEY WHERE Z_NAME = 'CollectionShare'") == 0 {
+		return 0
+	}
+	return count(t, src, strings.ReplaceAll(q, "CS_ENT", "(SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CollectionShare')"))
+}
+
+const shareRows = " FROM ZSHARE WHERE Z_ENT = CS_ENT AND ZUUID IS NOT NULL"
+
+const shareMemberCount = "SELECT COUNT(*) FROM ZASSET a JOIN ZSHARE s ON s.Z_PK = a.ZCOLLECTIONSHARE " +
+	"WHERE s.Z_ENT = CS_ENT AND s.ZUUID IS NOT NULL AND a.Z_PK IN (SELECT ZASSET FROM ZADDITIONALASSETATTRIBUTES)"
+
 // The shared albums of Test-Cloud-13.1 are also in its reference, which
-// TestGolden compares; this checks every library against its database.
+// TestGolden compares, and so is the CollectionShare of the synthetic library
+// (reference/006_shared-album.sql); this checks every library against its
+// database.
 func TestSharedAlbums(t *testing.T) {
 	t.Parallel()
 
-	shared, owned := 0, 0
+	shared, owned, ofShare := 0, 0, 0
 	for _, name := range testlib.Libraries(t) {
 		t.Run(name, func(t *testing.T) {
 			lib := testlib.OpenPristine(t, name)
@@ -715,10 +734,14 @@ func TestSharedAlbums(t *testing.T) {
 			src := roDB(t, lib)
 			n := schemaByID(t, libraryModels[name].id)
 			const rows = " FROM ZGENERICALBUM WHERE ZKIND = 1505 AND ZUUID IS NOT NULL"
-			if want := count(t, src, "SELECT COUNT(*)"+rows); len(db.sharedAlbums) != want {
+			shares := collectionShares(t, src, "SELECT COUNT(*)"+shareRows)
+			ofShare += shares
+			if want := count(t, src, "SELECT COUNT(*)"+rows) + shares; len(db.sharedAlbums) != want {
 				t.Errorf("%d shared albums, want %d", len(db.sharedAlbums), want)
 			}
-			if want := count(t, src, "SELECT COUNT(*)"+rows+" AND ZTRASHEDSTATE = 0"); len(db.SharedAlbumInfo()) != want {
+			// Upstream reads the state of a CollectionShare with bool() (photosdb.py:2906).
+			if want := count(t, src, "SELECT COUNT(*)"+rows+" AND ZTRASHEDSTATE = 0") +
+				collectionShares(t, src, "SELECT COUNT(*)"+shareRows+" AND COALESCE(ZTRASHEDSTATE, 0) = 0"); len(db.SharedAlbumInfo()) != want {
 				t.Errorf("%d shared albums outside the trash, want %d", len(db.SharedAlbumInfo()), want)
 			}
 			members := 0
@@ -739,14 +762,226 @@ func TestSharedAlbums(t *testing.T) {
 					t.Errorf("shared album %s: ParentUUID %q, want %q", a.UUID, a.ParentUUID, want)
 				}
 			}
-			if want := count(t, src, projectMembers(n.MemberTable, n.MemberAlbumColumn, n.MemberAssetColumn, "1505")); members != want {
+			if want := count(t, src, projectMembers(n.MemberTable, n.MemberAlbumColumn, n.MemberAssetColumn, "1505")) +
+				collectionShares(t, src, shareMemberCount); members != want {
 				t.Errorf("%d shared album members, want %d", members, want)
 			}
 			shared += len(db.sharedAlbums)
 		})
 	}
-	t.Logf("%d shared albums in all libraries, %d with an owner", shared, owned)
-	if shared == 0 || owned == 0 {
-		t.Error("no shared album with an owner in any library: the test is vacuous")
+	t.Logf("%d shared albums in all libraries, %d with an owner, %d of ZSHARE", shared, owned, ofShare)
+	if shared == 0 || owned == 0 || ofShare == 0 {
+		t.Error("no shared album with an owner, or none of ZSHARE, in any library: the test is vacuous")
+	}
+}
+
+// A shared album of ZSHARE keeps the order of the publish date
+// (photosdb.py:2815-2842) and takes its owner from ZSHAREPARTICIPANT; the
+// video of a shared album is missing when its own resource is
+// (photosdb.py:2918-2942).
+func TestOpenCollectionShare(t *testing.T) {
+	t.Parallel()
+
+	lib := testlib.OpenPristine(t, "synthetic")
+	src := roDB(t, lib)
+	share := testlib.Rows(t, src, "SELECT ZUUID FROM ZSHARE WHERE Z_ENT = "+
+		"(SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CollectionShare') AND ZUUID IS NOT NULL")
+	if len(share) != 1 {
+		t.Fatalf("%d CollectionShare rows in the synthetic library, want the one of reference/006_shared-album.sql", len(share))
+	}
+	video := testlib.Rows(t, src, "SELECT ZUUID FROM ZASSET WHERE ZKIND = 1 AND ZTRASHEDSTATE = 0 AND ZCOLLECTIONSHARE IS NULL "+
+		"AND Z_PK IN (SELECT ZASSET FROM ZADDITIONALASSETATTRIBUTES) ORDER BY ZUUID LIMIT 1")
+	if len(video) != 1 {
+		t.Fatal("no video outside the trash in the synthetic library")
+	}
+	const videoPK = "(SELECT Z_PK FROM ZASSET WHERE ZUUID = '"
+	change(t, lib,
+		"UPDATE ZINTERNALRESOURCE SET ZLOCALAVAILABILITY = 1 WHERE ZASSET = "+videoPK+video[0]+"')",
+		"INSERT INTO ZINTERNALRESOURCE (Z_PK, ZASSET, ZDATASTORESUBTYPE, ZLOCALAVAILABILITY) "+
+			"VALUES ((SELECT MAX(Z_PK) + 1 FROM ZINTERNALRESOURCE), "+videoPK+video[0]+"'), 8, 0)",
+		"UPDATE ZASSET SET ZCOLLECTIONSHARE = (SELECT Z_PK FROM ZSHARE WHERE ZUUID = '"+share[0]+"') WHERE ZUUID = '"+video[0]+"'",
+		fmt.Sprintf("INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZSHARE, ZROLE, ZHASHEDPERSONID, ZNAMECOMPONENTS) VALUES "+
+			"((SELECT COALESCE(MAX(Z_PK), 0) + 1 FROM ZSHAREPARTICIPANT), (SELECT Z_PK FROM ZSHARE WHERE ZUUID = '%s'), 1, 'TEST-P-OWNER', X'%x')",
+			share[0], nameArchive(t, plist.UID(3), plist.UID(4))),
+	)
+	order := testlib.Rows(t, src, "SELECT a.ZUUID FROM ZASSET a WHERE a.ZCOLLECTIONSHARE = (SELECT Z_PK FROM ZSHARE WHERE ZUUID = ?)"+
+		" AND a.Z_PK IN (SELECT ZASSET FROM ZADDITIONALASSETATTRIBUTES) ORDER BY a.ZCLOUDBATCHPUBLISHDATE, a.Z_PK", share[0])
+	if len(order) < 3 || slices.IsSorted(order) {
+		t.Fatalf("%d photos in the shared album, in UUID order or fewer than 3: the order is not checked", len(order))
+	}
+
+	db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, ok := db.Album(share[0])
+	if !ok || a.InTrash || a.Owner != "Jos\U000000e9 Example" || !slices.Contains(lookupUUIDs(db.SharedAlbumInfo()), share[0]) {
+		t.Fatalf("Album(%s) = %v: want a shared album outside the trash, with the owner written in NFC, in SharedAlbumInfo", share[0], ok)
+	}
+	var got []string
+	for _, p := range db.AlbumPhotos(a) {
+		got = append(got, p.UUID)
+		if !slices.Contains(p.AlbumUUIDs, share[0]) {
+			t.Errorf("photo %s: AlbumUUIDs without the shared album", p.UUID)
+		}
+	}
+	if !slices.Equal(got, order) {
+		t.Errorf("AlbumPhotos %q, want %q", got, order)
+	}
+	if p := db.byUUID[video[0]]; p == nil || !p.IsMissing {
+		t.Error("the video of the shared album without its own resource: not found or IsMissing false")
+	}
+}
+
+// Upstream skips an archive that does not decode (_photosdb_process_comments.py:175-179);
+// a role that is not 1 is not the owner (_constants.py:372).
+func TestOpenHostileOwner(t *testing.T) {
+	t.Parallel()
+
+	lib := testlib.OpenPristine(t, "synthetic")
+	share := testlib.Rows(t, roDB(t, lib), "SELECT ZUUID FROM ZSHARE WHERE Z_ENT = "+
+		"(SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CollectionShare') AND ZUUID IS NOT NULL")
+	if len(share) != 1 {
+		t.Fatalf("%d CollectionShare rows in the synthetic library, want the one of reference/006_shared-album.sql", len(share))
+	}
+	pk := "(SELECT Z_PK FROM ZSHARE WHERE ZUUID = '" + share[0] + "')"
+	change(t, lib, "INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZSHARE, ZROLE, ZHASHEDPERSONID, ZNAMECOMPONENTS) VALUES "+
+		"(900001, "+pk+", 1, 'TEST-P-HOSTILE', 7), (900002, "+pk+", 1, 'TEST-P-HOSTILE', 'SECRET-N'), "+
+		"(900003, "+pk+", 1, 'TEST-P-HOSTILE', zeroblob(2097152)), "+
+		fmt.Sprintf("(900004, %s, 'SECRET-R', 'TEST-P-ROLE', X'%x')", pk, nameArchive(t, plist.UID(3), plist.UID(4))))
+	db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open: an error, with a value %v", strings.Contains(err.Error(), "SECRET"))
+	}
+	if a, ok := db.Album(share[0]); !ok || a.Owner != "" {
+		t.Errorf("Album(%s) = %v: want the shared album without an owner", share[0], ok)
+	}
+}
+
+func TestLoadCollectionShares(t *testing.T) {
+	t.Parallel()
+
+	none := sql.NullInt64{}
+	rows := []sqlread.Album{albumRow(1, "ROOT", sqlread.KindRootFolder, none), albumRow(2, "SH-1", sqlread.KindSharedAlbum, none)}
+	// A ZSHARE.Z_PK may equal a ZGENERICALBUM.Z_PK (photosdb.py:2914-2916): a guard against a map by Z_PK.
+	share := albumRow(1, "SH-2", sqlread.KindSharedAlbum, none)
+	share.Trashed = nullInt(0)
+	got, err := loadFolderless(append(slices.Clone(rows), share), map[string][]string{"SH-2": {"P-1"}}, sqlread.KindSharedAlbum, "shared albums")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[1].UUID != "SH-2" || got[1].InTrash || !slices.Equal(got[1].PhotoUUIDs, []string{"P-1"}) ||
+		got[1].ParentUUID != "" || !slices.Equal(got[1].LibraryListOrder, []int{noListOrder}) {
+		t.Errorf("shared albums %q, want SH-1 and SH-2 with its photo, outside the trash, without a parent", lookupUUIDs(got))
+	}
+	for _, tt := range []struct {
+		name  string
+		share sqlread.Album
+	}{
+		{"the ZUUID of ZGENERICALBUM", albumRow(3, "SECRET-1", sqlread.KindSharedAlbum, none)},
+		{"an empty ZUUID", albumRow(3, "", sqlread.KindSharedAlbum, none)},
+	} {
+		withShare := append(slices.Clone(rows), albumRow(4, "SECRET-1", sqlread.KindUserAlbum, nullInt(1)), tt.share)
+		bad, err := loadFolderless(withShare, nil, sqlread.KindSharedAlbum, "shared albums")
+		if err == nil || bad != nil || !strings.Contains(err.Error(), "1 shared albums with an empty ZUUID or the ZUUID of another album") ||
+			strings.Contains(err.Error(), "SECRET") {
+			t.Errorf("%s: %d shared albums, %v; want an error without values", tt.name, len(bad), err)
+		}
+	}
+}
+
+// The archive has the keys that upstream decodes (shareparticipant.py:90-117).
+func nameArchive(t *testing.T, given, family plist.UID) []byte {
+	t.Helper()
+	class := func(name string) map[string]any {
+		return map[string]any{"$classname": name, "$classes": []any{name, "NSObject"}}
+	}
+	b, err := plist.Marshal(map[string]any{
+		"$archiver": "NSKeyedArchiver", "$version": 100000,
+		"$top": map[string]any{"root": plist.UID(1)},
+		"$objects": []any{
+			"$null",
+			map[string]any{"$class": plist.UID(5), "NSnameComponentsPrivate": plist.UID(2)},
+			map[string]any{"$class": plist.UID(6), "NSgivenName": given, "NSfamilyName": family, "NSmiddleName": plist.UID(3)},
+			"Jose\U00000301", "Example",
+			class("NSPersonNameComponents"), class("_NSPersonNameComponentsData"),
+		},
+	}, plist.BinaryFormat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+// Upstream joins the given and the family name and skips an archive without
+// a name or one that does not decode (_photosdb_process_comments.py:172-187).
+func TestOwnerName(t *testing.T) {
+	t.Parallel()
+
+	const given, family, null = plist.UID(3), plist.UID(4), plist.UID(0)
+	full := nameArchive(t, given, family)
+	xml, err := plist.Marshal(map[string]any{"$objects": []any{"$null"}}, plist.XMLFormat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		name  string
+		album sqlread.Album
+		want  string
+	}{
+		{"the name of the UNION", sqlread.Album{Owner: nullString("Jose\U00000301 Example")}, "Jos\U000000e9 Example"},
+		{"no owner", sqlread.Album{}, ""},
+		{"given and family name", sqlread.Album{OwnerComponents: [][]byte{full}}, "Jos\U000000e9 Example"},
+		{"given name", sqlread.Album{OwnerComponents: [][]byte{nameArchive(t, given, null)}}, "Jos\U000000e9"},
+		{"family name", sqlread.Album{OwnerComponents: [][]byte{nameArchive(t, null, family)}}, "Example"},
+		{"no name, then a name", sqlread.Album{OwnerComponents: [][]byte{nameArchive(t, null, null), xml, nameArchive(t, null, family)}}, "Example"},
+		{"not a property list, then a name", sqlread.Album{OwnerComponents: [][]byte{[]byte("not a list"), nil, full}}, "Jos\U000000e9 Example"},
+		{"a reference out of range", sqlread.Album{OwnerComponents: [][]byte{nameArchive(t, plist.UID(99), null)}}, ""},
+	} {
+		if got := ownerName(tt.album); got != tt.want {
+			t.Errorf("%s: another name", tt.name)
+		}
+	}
+}
+
+// The video of a shared album is a resource apart from the poster frame
+// (photosdb.py:2918-2942); of several, the one with the highest Z_PK decides,
+// as in isMissing.
+func TestLoadSharedVideos(t *testing.T) {
+	t.Parallel()
+
+	asset := func(pk int64, uuid string, kind int64) sqlread.Asset {
+		a := baseAsset(pk, uuid)
+		a.Kind = nullInt(kind)
+		return a
+	}
+	res := func(pk, asset, subtype, local int64) sqlread.Resource {
+		return sqlread.Resource{PK: pk, AssetPK: asset, Subtype: nullInt(subtype), Local: nullInt(local)}
+	}
+	in := tables{
+		assets: []sqlread.Asset{
+			asset(1, "V-FOUND", kindMovie), asset(2, "V-MISSING", kindMovie), asset(3, "PHOTO", kindPhoto),
+			asset(4, "V-NOT-SHARED", kindMovie), asset(5, "V-NO-VIDEO", kindMovie),
+		},
+		resources: []sqlread.Resource{
+			res(10, 1, 1, 0), res(11, 1, 8, 0), res(12, 1, 8, 1),
+			res(13, 2, 1, 1), res(14, 2, 8, 1), res(15, 2, 8, 0),
+			res(16, 3, 1, 1), res(17, 3, 8, 0),
+			res(18, 4, 1, 1), res(19, 4, 8, 0),
+			res(20, 5, 1, 0), res(21, 5, 2, 1),
+		},
+		shareMembers: []sqlread.Member{
+			{AssetPK: 1, AlbumUUID: "SH"}, {AssetPK: 2, AlbumUUID: "SH"}, {AssetPK: 3, AlbumUUID: "SH"}, {AssetPK: 5, AlbumUUID: "SH"},
+		},
+	}
+	c, err := load(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{"V-FOUND": false, "V-MISSING": true, "PHOTO": false, "V-NOT-SHARED": false, "V-NO-VIDEO": true}
+	for u, w := range want {
+		if p := c.byUUID[u]; p == nil || p.IsMissing != w {
+			t.Errorf("%s: not loaded, or IsMissing not %v", u, w)
+		}
 	}
 }

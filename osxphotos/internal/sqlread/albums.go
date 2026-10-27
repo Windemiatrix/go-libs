@@ -3,6 +3,7 @@ package sqlread
 import (
 	"context"
 	"database/sql"
+	"slices"
 )
 
 // Values of ZGENERICALBUM.ZKIND (_constants.py:364-369).
@@ -16,7 +17,8 @@ const (
 )
 
 // Album is one user album, shared album, import session, project, folder or
-// root folder of ZGENERICALBUM (photosdb.py:1904-1948).
+// root folder of ZGENERICALBUM (photosdb.py:1904-1948), or a shared album of
+// ZSHARE (CollectionShares).
 type Album struct {
 	PK                  int64           // Z_PK
 	UUID                string          // ZUUID
@@ -30,6 +32,7 @@ type Album struct {
 	SortAscending       sql.NullInt64   // ZCUSTOMSORTASCENDING
 	ListOrder           sql.NullInt64   // Z_FOK_PARENTFOLDER: the place among the rows of one parent folder
 	Owner               sql.NullString  // the full name of the person of ZCLOUDOWNERHASHEDPERSONID (albuminfo.py:113-133); NULL when not found
+	OwnerComponents     [][]byte        // the ZSHAREPARTICIPANT.ZNAMECOMPONENTS of an owner ID without a row for Owner, in Z_PK order (_photosdb_process_comments.py:155-187)
 }
 
 // The order is that of the Scan in Albums.
@@ -46,7 +49,7 @@ func albumSelect() []column {
 // folders and root folders that have a ZUUID, ordered by Z_PK. A row without
 // ZUUID is left out, as Members leaves out its memberships.
 func (d *DB) Albums(ctx context.Context) ([]Album, error) {
-	names, err := d.personNames(ctx)
+	people, err := d.personIndex(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +64,7 @@ func (d *DB) Albums(ctx context.Context) ([]Album, error) {
 			&a.Trashed, &a.Created, &a.Start, &a.End, &a.SortKey, &a.SortAscending, &a.ListOrder, &owner); err != nil {
 			return err
 		}
-		a.Owner = names[owner.String]
+		people.setOwner(&a, owner.String)
 		out = append(out, a)
 		return nil
 	}, KindUserAlbum, KindSharedAlbum, KindImportSession, KindProject, KindRootFolder, KindFolder)
@@ -69,6 +72,65 @@ func (d *DB) Albums(ctx context.Context) ([]Album, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+// CollectionShares returns the CollectionShare rows of ZSHARE that have a ZUUID,
+// in Z_PK order, as albums of KindSharedAlbum whose PK is a ZSHARE.Z_PK, and
+// the memberships of their assets by ZCLOUDBATCHPUBLISHDATE, NULL first, then
+// Z_PK, numbered in Order. Both are nil without the entity (photosdb.py:1950-1956, 2787-2916).
+func (d *DB) CollectionShares(ctx context.Context) ([]Album, []Member, error) {
+	var ent sql.NullInt64
+	err := d.readRows(ctx, "collection share entity", "SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CollectionShare' LIMIT 1",
+		func(rows *sql.Rows) error { return rows.Scan(&ent) })
+	if err != nil || !ent.Valid {
+		return nil, nil, err
+	}
+	// Photos keeps no order of a shared album (photosdb.py:2815-2842).
+	var members []Member
+	q := "SELECT a.Z_PK, s.ZUUID FROM ZASSET a JOIN ZSHARE s ON s.Z_PK = a.ZCOLLECTIONSHARE" +
+		" WHERE s.Z_ENT = ? AND s.ZUUID IS NOT NULL ORDER BY a.ZCLOUDBATCHPUBLISHDATE, a.Z_PK"
+	err = d.readRows(ctx, "collection share members", q, func(rows *sql.Rows) error {
+		m := Member{Order: sql.NullInt64{Int64: int64(len(members)), Valid: true}, Kind: KindSharedAlbum}
+		if err := rows.Scan(&m.AssetPK, &m.AlbumUUID); err != nil {
+			return err
+		}
+		members = append(members, m)
+		return nil
+	}, ent.Int64)
+	if err != nil {
+		return nil, nil, err
+	}
+	people, err := d.personIndex(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Role 1 is the owner (_constants.py:372); of several, the highest Z_PK stands for the last row of upstream (photosdb.py:2844-2861).
+	role, owner := "ZROLE", "NULL"
+	if slices.Contains(people.participantColumns, "ZCPLROLE") {
+		role = "ZCPLROLE"
+	}
+	if slices.Contains(people.participantColumns, role) && slices.Contains(people.participantColumns, "ZHASHEDPERSONID") {
+		owner = "(SELECT p.ZHASHEDPERSONID FROM ZSHAREPARTICIPANT p WHERE p.ZSHARE = s.Z_PK AND p." + role + " = 1 ORDER BY p.Z_PK DESC LIMIT 1)"
+	}
+	// Upstream reads the state with bool(): NULL is outside the trash, unlike
+	// in ZGENERICALBUM (photosdb.py:2906).
+	q = "SELECT s.Z_PK, s.ZUUID, s.ZTITLE, COALESCE(s.ZTRASHEDSTATE, 0), s.ZCREATIONDATE, s.ZSTARTDATE, s.ZENDDATE," +
+		" s.ZCUSTOMSORTKEY, s.ZCUSTOMSORTASCENDING, " + owner + " FROM ZSHARE s WHERE s.Z_ENT = ? AND s.ZUUID IS NOT NULL ORDER BY s.Z_PK"
+	var albums []Album
+	err = d.readRows(ctx, "collection shares", q, func(rows *sql.Rows) error {
+		a := Album{Kind: KindSharedAlbum}
+		var id sql.NullString
+		if err := rows.Scan(&a.PK, &a.UUID, &a.Title, &a.Trashed, &a.Created, &a.Start, &a.End, &a.SortKey, &a.SortAscending, &id); err != nil {
+			return err
+		}
+		people.setOwner(&a, id.String)
+		albums = append(albums, a)
+		return nil
+	}, ent.Int64)
+	if err != nil {
+		return nil, nil, err
+	}
+	return albums, members, nil
 }
 
 func personNameColumns() []column {
@@ -103,19 +165,54 @@ const hashedPersonQuery = `
         AND NOT (FIRSTNAME IS NULL AND LASTNAME IS NULL)
         `
 
-// personNames is the full_name of _db_hashed_person_id; of several rows of
-// one ID the last wins, as upstream (_photosdb_process_comments.py:82-89).
-// ORDER BY fixes the order of the UNION as SQLite returns it.
-func (d *DB) personNames(ctx context.Context) (map[string]sql.NullString, error) {
-	names := map[string]sql.NullString{}
+// personIndex is _db_hashed_person_id (_photosdb_process_comments.py:82-89, 155-187).
+type personIndex struct {
+	names              map[string]sql.NullString
+	components         map[string][][]byte
+	participantColumns []string
+}
+
+// ORDER BY fixes the order of the UNION as SQLite returns it. Z_PK is the order
+// of the table scan of the SELECT DISTINCT of upstream; without DISTINCT a
+// repeated archive is only tried again, to the same result.
+func (d *DB) personIndex(ctx context.Context) (personIndex, error) {
+	p := personIndex{names: map[string]sql.NullString{}, components: map[string][][]byte{}}
 	err := d.readRows(ctx, "person names", hashedPersonQuery+"ORDER BY 1, 2, 3, 4", func(rows *sql.Rows) error {
 		var id string
 		var first, last, full sql.NullString
 		if err := rows.Scan(&id, &first, &last, &full); err != nil {
 			return err
 		}
-		names[id] = full
+		p.names[id] = full
 		return nil
 	})
-	return names, err
+	if err != nil {
+		return p, err
+	}
+	p.participantColumns, err = d.columns(ctx, "ZSHAREPARTICIPANT")
+	if err != nil || !slices.Contains(p.participantColumns, "ZHASHEDPERSONID") || !slices.Contains(p.participantColumns, "ZNAMECOMPONENTS") {
+		return p, err
+	}
+	err = d.readRows(ctx, "participant names", "SELECT ZHASHEDPERSONID, ZNAMECOMPONENTS FROM ZSHAREPARTICIPANT "+
+		"WHERE ZHASHEDPERSONID IS NOT NULL AND ZHASHEDPERSONID != '' AND ZNAMECOMPONENTS IS NOT NULL ORDER BY Z_PK",
+		func(rows *sql.Rows) error {
+			var id string
+			var archive []byte
+			if err := rows.Scan(&id, &archive); err != nil {
+				return err
+			}
+			p.components[id] = append(p.components[id], archive)
+			return nil
+		})
+	return p, err
+}
+
+// Upstream adds a participant only under an ID that the UNION does not hold
+// (_photosdb_process_comments.py:172-174).
+func (p personIndex) setOwner(a *Album, id string) {
+	if full, ok := p.names[id]; ok {
+		a.Owner = full
+		return
+	}
+	a.OwnerComponents = p.components[id]
 }

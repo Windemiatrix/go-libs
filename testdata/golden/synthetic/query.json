@@ -2539,11 +2539,41 @@
   },
   {
     "adjustment_type": 0,
-    "album_info": [],
-    "albums": [],
+    "album_info": [
+      {
+        "creation_date": "2001-01-01T00:00:00+00:00",
+        "end_date": null,
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": null,
+        "title": "Shared album",
+        "uuid": "02837500-308F-4C1E-9305-043B61BE0111"
+      }
+    ],
+    "albums": [
+      "Shared album"
+    ],
     "burst": false,
-    "burst_album_info": [],
-    "burst_albums": [],
+    "burst_album_info": [
+      {
+        "creation_date": "2001-01-01T00:00:00+00:00",
+        "end_date": null,
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": null,
+        "title": "Shared album",
+        "uuid": "02837500-308F-4C1E-9305-043B61BE0111"
+      }
+    ],
+    "burst_albums": [
+      "Shared album"
+    ],
     "burst_default_pick": false,
     "burst_key": false,
     "burst_photos": [],
@@ -2559,7 +2589,9 @@
     "favorite": false,
     "filename": "041A537F-6C31-41EB-BB59-22E5F2160007.heic",
     "fingerprint": "Afo9Zil87TG86PXJOBS0EN+9gBP5",
-    "folders": {},
+    "folders": {
+      "Shared album": []
+    },
     "has_raw": false,
     "hasadjustments": false,
     "hdr": false,
@@ -2601,7 +2633,7 @@
     "screen_recording": false,
     "screenshot": false,
     "selfie": false,
-    "shared": false,
+    "shared": true,
     "shared_library": false,
     "shared_moment": false,
     "slow_mo": false,
@@ -19614,10 +19646,23 @@
         "start_date": "2010-05-10T14:45:18.193000+00:00",
         "title": "2021/07-17 - Поездки 7",
         "uuid": "379D964A-8C21-4074-B6B1-416345C6DE9F"
+      },
+      {
+        "creation_date": "2001-01-01T00:00:00+00:00",
+        "end_date": null,
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": null,
+        "title": "Shared album",
+        "uuid": "02837500-308F-4C1E-9305-043B61BE0111"
       }
     ],
     "albums": [
-      "2021/07-17 - Поездки 7"
+      "2021/07-17 - Поездки 7",
+      "Shared album"
     ],
     "burst": false,
     "burst_album_info": [
@@ -19636,10 +19681,23 @@
         "start_date": "2010-05-10T14:45:18.193000+00:00",
         "title": "2021/07-17 - Поездки 7",
         "uuid": "379D964A-8C21-4074-B6B1-416345C6DE9F"
+      },
+      {
+        "creation_date": "2001-01-01T00:00:00+00:00",
+        "end_date": null,
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": null,
+        "title": "Shared album",
+        "uuid": "02837500-308F-4C1E-9305-043B61BE0111"
       }
     ],
     "burst_albums": [
-      "2021/07-17 - Поездки 7"
+      "2021/07-17 - Поездки 7",
+      "Shared album"
     ],
     "burst_default_pick": false,
     "burst_key": false,
@@ -19659,7 +19717,8 @@
     "folders": {
       "2021/07-17 - Поездки 7": [
         "Отпуск 1"
-      ]
+      ],
+      "Shared album": []
     },
     "has_raw": false,
     "hasadjustments": false,
@@ -19702,7 +19761,7 @@
     "screen_recording": false,
     "screenshot": false,
     "selfie": false,
-    "shared": false,
+    "shared": true,
     "shared_library": false,
     "shared_moment": false,
     "slow_mo": false,
@@ -45232,10 +45291,23 @@
         "start_date": "2011-09-13T15:36:40.218000+00:00",
         "title": "2012/03-28 - Дача 16",
         "uuid": "AFEF50D9-7739-4733-B352-5773006C4AC7"
+      },
+      {
+        "creation_date": "2001-01-01T00:00:00+00:00",
+        "end_date": null,
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": null,
+        "title": "Shared album",
+        "uuid": "02837500-308F-4C1E-9305-043B61BE0111"
       }
     ],
     "albums": [
-      "2012/03-28 - Дача 16"
+      "2012/03-28 - Дача 16",
+      "Shared album"
     ],
     "burst": false,
     "burst_album_info": [
@@ -45254,10 +45326,23 @@
         "start_date": "2011-09-13T15:36:40.218000+00:00",
         "title": "2012/03-28 - Дача 16",
         "uuid": "AFEF50D9-7739-4733-B352-5773006C4AC7"
+      },
+      {
+        "creation_date": "2001-01-01T00:00:00+00:00",
+        "end_date": null,
+        "folder_list": [],
+        "folder_names": [],
+        "owner": null,
+        "parent": null,
+        "sort_order": null,
+        "start_date": null,
+        "title": "Shared album",
+        "uuid": "02837500-308F-4C1E-9305-043B61BE0111"
       }
     ],
     "burst_albums": [
-      "2012/03-28 - Дача 16"
+      "2012/03-28 - Дача 16",
+      "Shared album"
     ],
     "burst_default_pick": false,
     "burst_key": false,
@@ -45277,7 +45362,8 @@
     "folders": {
       "2012/03-28 - Дача 16": [
         "Отпуск 1"
-      ]
+      ],
+      "Shared album": []
     },
     "has_raw": false,
     "hasadjustments": false,
@@ -45320,7 +45406,7 @@
     "screen_recording": false,
     "screenshot": false,
     "selfie": false,
-    "shared": false,
+    "shared": true,
     "shared_library": true,
     "shared_moment": false,
     "slow_mo": false,
