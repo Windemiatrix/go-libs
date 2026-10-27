@@ -12,6 +12,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2019-04-15T14:40:24.860000-07:00",
     "date_added": "2020-07-04T16:23:48.140648+00:00",
     "date_modified": null,
@@ -50,6 +51,7 @@
       "wedding"
     ],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -104,6 +106,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-02-04T19:07:38.704000-05:00",
     "date_added": "2020-06-24T03:59:07.113648+00:00",
     "date_modified": null,
@@ -140,6 +143,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": 38.917404999999995,
+    "likes": [],
     "live_photo": false,
     "location": [
       38.917404999999995,

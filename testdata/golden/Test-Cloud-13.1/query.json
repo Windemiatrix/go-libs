@@ -42,6 +42,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": "01cac7cde8a8767251a2cdd183b8ed490fc6e87825f4a495389e824a41a01ba7",
+    "comments": [],
     "date": "2017-01-31T23:03:12+00:00",
     "date_added": "2022-12-31T23:30:05.290034+00:00",
     "date_modified": null,
@@ -74,6 +75,13 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [
+      {
+        "datetime": "2020-09-20T05:53:13.804000+00:00",
+        "ismine": true,
+        "user": "Wallace Rutherford"
+      }
+    ],
     "live_photo": false,
     "location": [
       null,
@@ -126,6 +134,7 @@
     "burst_selected": false,
     "cloud_guid": "ATvoa4jHrGa5y8CMuvH/PH7FrwUE",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2017-02-01T11:15:00-08:00",
     "date_added": "2020-01-11T15:43:11.206121+00:00",
     "date_modified": null,
@@ -162,6 +171,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -244,6 +254,7 @@
     "burst_selected": false,
     "cloud_guid": "AR+EBsqiK/ZDwaYWNlhjg+1C8N93",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2019-04-15T17:10:46.980000-07:00",
     "date_added": "2019-12-27T03:59:32.869976+00:00",
     "date_modified": null,
@@ -284,6 +295,7 @@
       "portrait"
     ],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -368,6 +380,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": "01cac7cde8a8767251a2cdd183b8ed490fc6e87825f4a495389e824a41a01ba7",
+    "comments": [],
     "date": "2019-07-15T00:46:01+00:00",
     "date_added": "2022-12-31T23:30:05.286750+00:00",
     "date_modified": null,
@@ -400,6 +413,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -482,6 +496,14 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": "01cac7cde8a8767251a2cdd183b8ed490fc6e87825f4a495389e824a41a01ba7",
+    "comments": [
+      {
+        "datetime": "2020-09-20T05:54:13.386000+00:00",
+        "ismine": true,
+        "text": "Nice trophy",
+        "user": "Wallace Rutherford"
+      }
+    ],
     "date": "2019-08-14T15:13:02+00:00",
     "date_added": "2022-12-31T23:30:05.271546+00:00",
     "date_modified": null,
@@ -514,6 +536,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -566,6 +589,7 @@
     "burst_selected": false,
     "cloud_guid": "AajbmkOeE5jrXARFERC3shcaBahx",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2019-08-14T08:13:02.699000-07:00",
     "date_added": "2020-01-24T06:10:57.967110+00:00",
     "date_modified": null,
@@ -604,6 +628,7 @@
       "portrait"
     ],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -686,6 +711,20 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": "01cac7cde8a8767251a2cdd183b8ed490fc6e87825f4a495389e824a41a01ba7",
+    "comments": [
+      {
+        "datetime": "2020-09-18T17:28:41.552000+00:00",
+        "ismine": false,
+        "text": "Nice photo!",
+        "user": "Rhet Turnbull"
+      },
+      {
+        "datetime": "2020-09-20T05:52:20.254000+00:00",
+        "ismine": true,
+        "text": "Wish I was back here!",
+        "user": "Wallace Rutherford"
+      }
+    ],
     "date": "2019-09-14T00:18:32+00:00",
     "date_added": "2022-12-31T23:30:05.308865+00:00",
     "date_modified": null,
@@ -718,6 +757,13 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [
+      {
+        "datetime": "2020-09-18T17:28:43.335000+00:00",
+        "ismine": false,
+        "user": "Rhet Turnbull"
+      }
+    ],
     "live_photo": false,
     "location": [
       null,
@@ -800,6 +846,14 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": "01cac7cde8a8767251a2cdd183b8ed490fc6e87825f4a495389e824a41a01ba7",
+    "comments": [
+      {
+        "datetime": "2019-12-27T04:14:54.285000+00:00",
+        "ismine": false,
+        "text": "For testing osxphotos",
+        "user": "Rhet Turnbull"
+      }
+    ],
     "date": "2019-09-15T15:15:29+00:00",
     "date_added": "2022-12-31T23:30:05.307330+00:00",
     "date_modified": null,
@@ -832,6 +886,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -884,6 +939,7 @@
     "burst_selected": false,
     "cloud_guid": "AassrAHEfFwrix1d31zw6cwttTSg",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2019-12-29T19:01:15.505000-08:00",
     "date_added": "2020-01-06T02:44:41.298867+00:00",
     "date_modified": "2022-12-31T23:31:06.333753+00:00",
@@ -920,6 +976,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": 34.00826388,
+    "likes": [],
     "live_photo": true,
     "location": [
       34.00826388,
@@ -1002,6 +1059,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": "20d4816ae2cf97606e685eaa167b6aa863ddd258bc33ff84ebb40140cab74622",
+    "comments": [],
     "date": "2020-01-05T20:41:41+00:00",
     "date_added": "2022-12-31T23:30:05.294748+00:00",
     "date_modified": null,
@@ -1034,6 +1092,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -1086,6 +1145,7 @@
     "burst_selected": false,
     "cloud_guid": "AbsIsLWeyWDWnpfXV9Txyfdw6rPY",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-05T20:41:41.272587+00:00",
     "date_added": "2020-01-05T20:41:42.286098+00:00",
     "date_modified": null,
@@ -1116,6 +1176,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -1168,6 +1229,7 @@
     "burst_selected": false,
     "cloud_guid": "AV6qPsEIU88bFVPKfEUjoyspg+d+",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-05T20:46:43.791329+00:00",
     "date_added": "2020-01-05T20:46:44.088638+00:00",
     "date_modified": null,
@@ -1198,6 +1260,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -1250,6 +1313,7 @@
     "burst_selected": false,
     "cloud_guid": "AcCQOUNzkaAyzd7Zr1RrjKQvIA15",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-05T21:03:32.995866+00:00",
     "date_added": "2020-01-05T21:03:33.249454+00:00",
     "date_modified": null,
@@ -1280,6 +1344,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -1332,6 +1397,7 @@
     "burst_selected": false,
     "cloud_guid": "AfQRG3qL17w5Xm3m50q9ifanUXgR",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-05T13:03:47.501071-08:00",
     "date_added": "2020-01-05T21:03:47.659682+00:00",
     "date_modified": null,
@@ -1362,6 +1428,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -1414,6 +1481,7 @@
     "burst_selected": false,
     "cloud_guid": "AV8Iol9ebAeQBH+xVVCEO3fvSttp",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-05T21:04:23+00:00",
     "date_added": "2020-01-05T21:04:28.118446+00:00",
     "date_modified": null,
@@ -1444,6 +1512,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -1496,6 +1565,7 @@
     "burst_selected": false,
     "cloud_guid": "AQiWRlFyYQmwbX0mUXwqhf+TqR6M",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-05T13:09:53.057816-08:00",
     "date_added": "2020-01-05T21:09:53.200848+00:00",
     "date_modified": null,
@@ -1526,6 +1596,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -1580,6 +1651,7 @@
     "burst_selected": false,
     "cloud_guid": "AU+VV5YRT3J+qBGTTaQ86GnmrqL/",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-05T21:55:05+00:00",
     "date_added": "2020-01-05T21:55:19.018963+00:00",
     "date_modified": null,
@@ -1610,6 +1682,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -1662,6 +1735,7 @@
     "burst_selected": false,
     "cloud_guid": "AbziKoTbWQXc7ParhDKBuFZhmyKm",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-05T14:13:13-08:00",
     "date_added": "2020-01-11T15:37:53.528797+00:00",
     "date_modified": null,
@@ -1698,6 +1772,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -1750,6 +1825,7 @@
     "burst_selected": false,
     "cloud_guid": "AUYcoI67SWhTl3sp47nYN+sQCb0E",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-05T23:32:52.655546+00:00",
     "date_added": "2020-01-05T23:32:52.789353+00:00",
     "date_modified": "2022-12-31T23:31:06.377167+00:00",
@@ -1780,6 +1856,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": 33.72743666666667,
+    "likes": [],
     "live_photo": false,
     "location": [
       33.72743666666667,
@@ -1832,6 +1909,7 @@
     "burst_selected": false,
     "cloud_guid": "AYcYVRxcGDHwvvcWrEKAL4RrKwZI",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-10T21:19:40-08:00",
     "date_added": "2020-09-20T06:50:11.540680+00:00",
     "date_modified": null,
@@ -1868,6 +1946,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -1950,6 +2029,14 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": "20d4816ae2cf97606e685eaa167b6aa863ddd258bc33ff84ebb40140cab74622",
+    "comments": [
+      {
+        "datetime": "2021-09-26T00:04:52.007000+00:00",
+        "ismine": false,
+        "text": "Yum!",
+        "user": "Rhet Turnbull"
+      }
+    ],
     "date": "2020-01-12T21:55:05+00:00",
     "date_added": "2022-12-31T23:30:05.246741+00:00",
     "date_modified": null,
@@ -1982,6 +2069,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -2034,6 +2122,7 @@
     "burst_selected": false,
     "cloud_guid": "AYvwiUAoY9z6THlCpUl5sSQ5j/Xo",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-12T21:55:05.216181+00:00",
     "date_added": "2020-01-12T21:55:05.438520+00:00",
     "date_modified": null,
@@ -2064,6 +2153,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": 33.78993833333333,
+    "likes": [],
     "live_photo": false,
     "location": [
       33.78993833333333,
@@ -2116,6 +2206,7 @@
     "burst_selected": false,
     "cloud_guid": "AdlDhaxEHKuRoU2rz98o8wc5CQk4",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-12T21:55:08.481098+00:00",
     "date_added": "2020-01-12T21:55:08.819910+00:00",
     "date_modified": null,
@@ -2146,6 +2237,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": 33.79011666666667,
+    "likes": [],
     "live_photo": false,
     "location": [
       33.79011666666667,
@@ -2198,6 +2290,7 @@
     "burst_selected": false,
     "cloud_guid": "AcxYpN5vxlckvxu4x9hGAkLA9Tnv",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-12T21:55:08.736168+00:00",
     "date_added": "2020-01-12T21:55:09.080112+00:00",
     "date_modified": null,
@@ -2228,6 +2321,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": 33.79011666666667,
+    "likes": [],
     "live_photo": false,
     "location": [
       33.79011666666667,
@@ -2280,6 +2374,7 @@
     "burst_selected": false,
     "cloud_guid": "AUnjr69qI5RgmMLnexLpWvjf40mt",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-12T21:55:08.940223+00:00",
     "date_added": "2020-01-12T21:55:09.623803+00:00",
     "date_modified": null,
@@ -2310,6 +2405,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": 33.79011666666667,
+    "likes": [],
     "live_photo": false,
     "location": [
       33.79011666666667,
@@ -2362,6 +2458,7 @@
     "burst_selected": false,
     "cloud_guid": "AeC6qRiwNkAWS6p5z5mYzXFgvr1t",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-12T21:55:09.144279+00:00",
     "date_added": "2020-01-12T21:55:09.707976+00:00",
     "date_modified": null,
@@ -2392,6 +2489,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": 33.79011666666667,
+    "likes": [],
     "live_photo": false,
     "location": [
       33.79011666666667,
@@ -2444,6 +2542,7 @@
     "burst_selected": false,
     "cloud_guid": "Af2XABjTrZGvTcD5Il6u5Oq9IaaV",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-12T21:55:09.297322+00:00",
     "date_added": "2020-01-12T21:55:09.873266+00:00",
     "date_modified": null,
@@ -2474,6 +2573,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": 33.79011666666667,
+    "likes": [],
     "live_photo": false,
     "location": [
       33.79011666666667,
@@ -2526,6 +2626,7 @@
     "burst_selected": false,
     "cloud_guid": "AbaM7GEdJZGS7scRM+q3SU9l5mXp",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-12T14:16:17-08:00",
     "date_added": "2020-01-12T22:16:23.040536+00:00",
     "date_modified": null,
@@ -2556,6 +2657,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": 33.7896,
+    "likes": [],
     "live_photo": false,
     "location": [
       33.7896,
@@ -2608,6 +2710,7 @@
     "burst_selected": false,
     "cloud_guid": "AY2XiJIjqvU3JrngQT5Gyg44fG0U",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-01-12T14:16:56-08:00",
     "date_added": "2020-01-24T06:22:08.035625+00:00",
     "date_modified": null,
@@ -2644,6 +2747,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -2726,6 +2830,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": "01cac7cde8a8767251a2cdd183b8ed490fc6e87825f4a495389e824a41a01ba7",
+    "comments": [],
     "date": "2020-01-12T22:16:56+00:00",
     "date_added": "2022-12-31T23:30:05.274055+00:00",
     "date_modified": null,
@@ -2758,6 +2863,7 @@
     "isreference": false,
     "keywords": [],
     "latitude": null,
+    "likes": [],
     "live_photo": false,
     "location": [
       null,
@@ -2840,6 +2946,7 @@
     "burst_selected": false,
     "cloud_guid": null,
     "cloud_owner_hashed_id": "01cac7cde8a8767251a2cdd183b8ed490fc6e87825f4a495389e824a41a01ba7",
+    "comments": [],
     "date": "2020-03-08T02:18:11+00:00",
     "date_added": "2022-12-31T23:30:05.310421+00:00",
     "date_modified": null,
@@ -2872,6 +2979,13 @@
     "isreference": false,
     "keywords": [],
     "latitude": 33.829883333333335,
+    "likes": [
+      {
+        "datetime": "2020-09-18T17:28:52.570000+00:00",
+        "ismine": false,
+        "user": "Rhet Turnbull"
+      }
+    ],
     "live_photo": false,
     "location": [
       33.829883333333335,
@@ -2924,6 +3038,7 @@
     "burst_selected": false,
     "cloud_guid": "AVz9rBg6dj545oO5JYFJqHkczrcc",
     "cloud_owner_hashed_id": null,
+    "comments": [],
     "date": "2020-03-07T21:18:11.235000-05:00",
     "date_added": "2020-08-18T04:28:54.400728+00:00",
     "date_modified": null,
@@ -2962,6 +3077,7 @@
       "portrait"
     ],
     "latitude": 33.829883329999994,
+    "likes": [],
     "live_photo": false,
     "location": [
       33.829883329999994,
