@@ -1,7 +1,6 @@
 package photosdb
 
 import (
-	"database/sql"
 	"slices"
 	"time"
 
@@ -19,29 +18,37 @@ func (db *DB) Comments(p *photoinfo.PhotoInfo) []photoinfo.CommentInfo { return 
 // likes (photoinfo.py:1679-1685).
 func (db *DB) Likes(p *photoinfo.PhotoInfo) []photoinfo.LikeInfo { return db.likes[p.UUID] }
 
-// Upstream: _photosdb_process_comments.py:120-150. One stable sort of all rows
-// gives each photo the order of the stable sort of its own list.
+// Upstream: _photosdb_process_comments.py:120-150, an unread date sorts as
+// DEFAULT_DATETIME_LOCAL (photos_datetime.py:19-21). One stable sort keeps each
+// photo's order. An author is named once, not decoded again for each row.
 func loadComments(rows []sqlread.Comment) (map[string][]photoinfo.CommentInfo, map[string][]photoinfo.LikeInfo) {
-	rows = slices.Clone(rows)
-	slices.SortStableFunc(rows, func(a, b sqlread.Comment) int { return commentDate(a.Date).Compare(commentDate(b.Date)) })
-	comments, likes := map[string][]photoinfo.CommentInfo{}, map[string][]photoinfo.LikeInfo{}
-	for _, r := range rows {
-		id, date, user := r.PhotoUUID.String, commentDate(r.Date), personName(r.User, r.UserComponents)
-		mine, text := r.IsMine.Valid && r.IsMine.Int64 != 0, nfc(r.Text.String)
+	type dated struct {
+		sqlread.Comment
+		date *time.Time
+		key  time.Time
+	}
+	list := make([]dated, len(rows))
+	for i, r := range rows {
+		date, key := optionalTime(r.Date), time.Date(1970, 1, 1, 0, 0, 0, 0, time.Local)
+		if date != nil {
+			*date = date.In(time.Local)
+			key = *date
+		}
+		list[i] = dated{r, date, key}
+	}
+	slices.SortStableFunc(list, func(a, b dated) int { return a.key.Compare(b.key) })
+	comments, likes, names := map[string][]photoinfo.CommentInfo{}, map[string][]photoinfo.LikeInfo{}, map[string]string{}
+	for _, r := range list {
+		if _, ok := names[r.UserID.String]; !ok {
+			names[r.UserID.String] = personName(r.User, r.UserComponents)
+		}
+		id, user, mine, text := r.PhotoUUID.String, names[r.UserID.String], r.IsMine.Valid && r.IsMine.Int64 != 0, nfc(r.Text.String)
 		switch {
 		case r.IsLike.Valid && r.IsLike.Int64 != 0:
-			likes[id] = append(likes[id], photoinfo.LikeInfo{Datetime: date, User: user, IsMine: mine})
+			likes[id] = append(likes[id], photoinfo.LikeInfo{Datetime: r.date, User: user, IsMine: mine})
 		case text != "":
-			comments[id] = append(comments[id], photoinfo.CommentInfo{Datetime: date, User: user, IsMine: mine, Text: text})
+			comments[id] = append(comments[id], photoinfo.CommentInfo{Datetime: r.date, User: user, IsMine: mine, Text: text})
 		}
 	}
 	return comments, likes
-}
-
-// photos_datetime_local with default=True (photos_datetime.py:19-21, 70-89).
-func commentDate(v sql.NullFloat64) time.Time {
-	if t := optionalTime(v); t != nil {
-		return t.In(time.Local)
-	}
-	return time.Date(1970, 1, 1, 0, 0, 0, 0, time.Local)
 }

@@ -259,11 +259,9 @@ func refPair[T any](o Object, key, want string) ([]T, error) {
 	return pair, err
 }
 
-// The asdict of CommentInfo and LikeInfo (commentinfo.py:10-32), in the order
-// of upstream: json() sorts no list of objects (photoinfo.py:2284). A date is
-// in the zone of the computer (_photosdb_process_comments.py:130), so only
-// its moment counts. encoding/json matches the keys to the fields regardless
-// of case.
+// The asdict of CommentInfo and LikeInfo (commentinfo.py:10-32), unsorted as
+// upstream json() (photoinfo.py:2284); a date is in the computer's zone
+// (_photosdb_process_comments.py:130), so only its moment counts, nil as date_added.
 func commentsRule[T any](key string, hasText bool, byPhoto func(*env) map[string][]T, elem func(T) map[string]any) rule {
 	return rule{
 		key:         key,
@@ -283,7 +281,7 @@ func commentsRule[T any](key string, hasText bool, byPhoto func(*env) map[string
 				if err != nil || t == nil || it.IsMine == nil || (hasText && it.Text == nil) {
 					return nil, shape(key, want)
 				}
-				out[i] = commentElem(*t, deref(it.User), *it.IsMine, it.Text)
+				out[i] = commentElem(t, deref(it.User), *it.IsMine, it.Text)
 			}
 			return out, nil
 		},
@@ -297,8 +295,8 @@ func commentsRule[T any](key string, hasText bool, byPhoto func(*env) map[string
 	}
 }
 
-func commentElem(date time.Time, user string, mine bool, text *string) map[string]any {
-	elem := map[string]any{"datetime": momentString(date), "user": user, "ismine": mine}
+func commentElem(date *time.Time, user string, mine bool, text *string) map[string]any {
+	elem := map[string]any{"datetime": goMoment(date, defaultDateAdded), "user": user, "ismine": mine}
 	if text != nil {
 		elem["text"] = *text
 	}

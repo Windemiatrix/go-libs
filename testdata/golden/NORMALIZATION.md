@@ -35,7 +35,7 @@ One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and
 | `burst_selected` | `BurstSelected` | boolean | `photoinfo.py:989-997` |
 | `cloud_guid` | `CloudMasterGUID` | `null` = `""` | `photoinfo.py:1762-1765` |
 | `cloud_owner_hashed_id` | `CloudOwnerHashedID` | `null` = `""` | `photoinfo.py:1767-1770`; `photosdb/photosdb.py:2320` |
-| `comments` | `Library.Comments` (`photosdb.DB.Comments`) | A list in the order of the reference: `json()` sorts no list of objects. Per element: `datetime` (a moment, rule 2), `user` (`null` = `""`), `ismine` (boolean), `text` (strict string). The details of the report write a user as `<name>` and a text as `<text>` | `photoinfo.py:1671-1677, 2122, 2139, 2284`; `commentinfo.py:10-20`; `photosdb/_photosdb_process_comments.py:95-152` |
+| `comments` | `Library.Comments` (`photosdb.DB.Comments`) | A list in the order of the reference: `json()` sorts no list of objects. Per element: `datetime` (a moment, rule 2; `nil` as for `date_added`), `user` (`null` = `""`), `ismine` (boolean), `text` (strict string). The details of the report write a user as `<name>` and a text as `<text>` | `photoinfo.py:1671-1677, 2122, 2139, 2284`; `commentinfo.py:10-20`; `photosdb/_photosdb_process_comments.py:95-152` |
 | `date` | `Date` | moment and offset (rule 2): the pair `[moment in UTC, offset in seconds]` | `photosdb/photosdb.py:2159-2167`; `photos_datetime.py:27-67` |
 | `date_added` | `DateAdded` | moment; the reference 1970-01-01T00:00:00 (the default of upstream) = `nil` or that moment | `photosdb/photosdb.py:2317`; `photos_datetime.py:19-21, 77-78`; `photoinfo.py:849-855` |
 | `date_modified` | `DateModified` | moment; `null` = `nil` | `photosdb/photosdb.py:2156-2157`; `photoinfo.py:165-177` |
@@ -166,7 +166,7 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 | `burst_selected` | `BurstSelected` | логическое | `photoinfo.py:989-997` |
 | `cloud_guid` | `CloudMasterGUID` | `null` = `""` | `photoinfo.py:1762-1765` |
 | `cloud_owner_hashed_id` | `CloudOwnerHashedID` | `null` = `""` | `photoinfo.py:1767-1770`; `photosdb/photosdb.py:2320` |
-| `comments` | `Library.Comments` (`photosdb.DB.Comments`) | Список в порядке эталона: `json()` не сортирует списки объектов. У элемента: `datetime` (момент, правило 2), `user` (`null` = `""`), `ismine` (логическое), `text` (строгая строка). Подробности отчёта пишут автора как `<name>`, а текст как `<text>` | `photoinfo.py:1671-1677, 2122, 2139, 2284`; `commentinfo.py:10-20`; `photosdb/_photosdb_process_comments.py:95-152` |
+| `comments` | `Library.Comments` (`photosdb.DB.Comments`) | Список в порядке эталона: `json()` не сортирует списки объектов. У элемента: `datetime` (момент, правило 2; `nil` — как у `date_added`), `user` (`null` = `""`), `ismine` (логическое), `text` (строгая строка). Подробности отчёта пишут автора как `<name>`, а текст как `<text>` | `photoinfo.py:1671-1677, 2122, 2139, 2284`; `commentinfo.py:10-20`; `photosdb/_photosdb_process_comments.py:95-152` |
 | `date` | `Date` | момент и смещение (правило 2): пара `[момент в UTC, смещение в секундах]` | `photosdb/photosdb.py:2159-2167`; `photos_datetime.py:27-67` |
 | `date_added` | `DateAdded` | момент; эталон 1970-01-01T00:00:00 (умолчание upstream) = `nil` или этот момент | `photosdb/photosdb.py:2317`; `photos_datetime.py:19-21, 77-78`; `photoinfo.py:849-855` |
 | `date_modified` | `DateModified` | момент; `null` = `nil` | `photosdb/photosdb.py:2156-2157`; `photoinfo.py:165-177` |

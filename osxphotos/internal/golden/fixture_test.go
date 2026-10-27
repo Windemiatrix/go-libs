@@ -109,10 +109,10 @@ func fixtureLib() Library {
 			{UUID: projectTrashed, Title: "Project T", InTrash: true},
 		},
 		Comments: map[string][]photoinfo.CommentInfo{selectedFrame: {
-			{Datetime: utc(2020, 7, 1, 0, 0, 0, 0), User: "Person A", IsMine: true, Text: "Comment 1"},
-			{Datetime: utc(2020, 7, 2, 0, 0, 0, 500000000).In(ist), Text: "Comment 2"},
+			{Datetime: ptr(utc(2020, 7, 1, 0, 0, 0, 0)), User: "Person A", IsMine: true, Text: "Comment 1"},
+			{Datetime: ptr(utc(2020, 7, 2, 0, 0, 0, 500000000).In(ist)), Text: "Comment 2"},
 		}},
-		Likes: map[string][]photoinfo.LikeInfo{selectedFrame: {{Datetime: utc(2020, 7, 3, 0, 0, 0, 0), User: "Person A"}}},
+		Likes: map[string][]photoinfo.LikeInfo{selectedFrame: {{Datetime: ptr(utc(2020, 7, 3, 0, 0, 0, 0)), User: "Person A"}}},
 	}
 }
 

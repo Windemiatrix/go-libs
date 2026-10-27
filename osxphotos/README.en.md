@@ -72,7 +72,7 @@ Other models, including beta builds outside the ranges, give `ErrUnsupportedSche
 - **The read packages** (`photosdb`, `photoinfo`, `albuminfo`, `adjustmentsinfo`, `query`) cannot write to the library. Only the future `photokit` package (macOS, cgo) will change Photos, and only if you import it and grant the macOS permission; macOS confirms a deletion from Photos in its own dialog (one per batch). Its tests that modify a library will run only by hand, under a separate account, never in CI.
 - **No network.** The module makes no network calls and starts no processes; the linter enforces this (the `library` rule in [.golangci.yml](https://github.com/Windemiatrix/go-libs/blob/main/.golangci.yml)). No telemetry.
 - **macOS permissions.** The library in `~/Pictures` is protected by the system: the program that reads it (for example, Terminal) needs Full Disk Access in System Settings → Privacy & Security.
-- **The copy is your data:** places, names of people, captions. If you set `Options.TempDir`, pick a directory only you can read.
+- **The copy is your data:** places, names of people, captions, comments of shared albums. If you set `Options.TempDir`, pick a directory only you can read.
 - **Do not attach `Photos.sqlite` to an issue:** it holds album names, paths and identifiers. The macOS version and the database model number are enough. Report vulnerabilities privately, see [SECURITY.en.md](https://github.com/Windemiatrix/go-libs/blob/main/SECURITY.en.md).
 
 ## What exists and what is next
@@ -99,7 +99,7 @@ Other models, including beta builds outside the ranges, give `ErrUnsupportedSche
 | File names on export | `export` | planned |
 | Import, albums, deletion through PhotoKit | `photokit` | planned |
 
-**Not included:** a command line, exporting files and sidecars, face data other than the names of people (face position and size), place names (coordinates are read), EXIF, search by photo content, comments of shared albums, database repair, Photos 7 and older. osxphotos itself covers these.
+**Not included:** a command line, exporting files and sidecars, face data other than the names of people (face position and size), place names (coordinates are read), EXIF, search by photo content, database repair, Photos 7 and older. osxphotos itself covers these.
 
 ## How it differs from osxphotos
 

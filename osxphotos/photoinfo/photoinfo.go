@@ -152,17 +152,17 @@ type ShareParticipant struct {
 // CommentInfo (commentinfo.py:10-20). The name and the text are personal
 // data: do not log or store them.
 type CommentInfo struct {
-	Datetime time.Time // in the time zone of the computer (time.Local); 1970-01-01T00:00:00 there when the database has no date or one outside the years 1-9999, as osxphotos (photos_datetime.py:19-21, 70-89)
-	User     string    // the full name of the author; "" when unknown (osxphotos None)
-	IsMine   bool      // osxphotos ismine
-	Text     string    // in NFC, never ""
+	Datetime *time.Time // in the time zone of the computer (time.Local); nil when the database has no date or one outside the years 1-9999, sorted as 1970-01-01T00:00:00 there, the value of osxphotos (photos_datetime.py:19-21, 70-89)
+	User     string     // the full name of the author; "" when unknown (osxphotos None)
+	IsMine   bool       // osxphotos ismine
+	Text     string     // in NFC, never ""
 }
 
 // LikeInfo is a like of a photo of a shared album, with the fields of
 // CommentInfo: osxphotos LikeInfo (commentinfo.py:23-32). The name is personal
 // data: do not log or store it.
 type LikeInfo struct {
-	Datetime time.Time
+	Datetime *time.Time
 	User     string
 	IsMine   bool
 }

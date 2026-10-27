@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -13,13 +14,16 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// DEFAULT_DATETIME_LOCAL (photos_datetime.py:19-21).
-var noCommentDate = time.Date(1970, 1, 1, 0, 0, 0, 0, time.Local)
+func commentAt(seconds int64) *time.Time {
+	t := time.Unix(coreDataOffset+seconds, 0)
+	return &t
+}
 
-func commentAt(seconds int64) time.Time { return time.Unix(coreDataOffset+seconds, 0) }
-
-func sameCommentDate(got, want time.Time) bool {
-	return got.Equal(want) && got.Location() == time.Local
+func sameCommentDate(got, want *time.Time) bool {
+	if got == nil || want == nil {
+		return got == want
+	}
+	return got.Equal(*want) && got.Location() == time.Local
 }
 
 func sameComments(got, want []photoinfo.CommentInfo) bool {
@@ -43,14 +47,13 @@ func TestLoadComments(t *testing.T) {
 	t.Parallel()
 
 	later := commentRow("P-1", nullInt(0), nullFloat(694224200), nullString("Second"))
-	later.User = nullString("Person A")
+	later.UserID, later.User = nullString("TEST-HASH-1"), nullString("Person A")
 	earlier := commentRow("P-1", nullInt(0), nullFloat(694224100), nullString("Cafe\U00000301"))
-	earlier.UserComponents, earlier.IsMine = [][]byte{sevenPartArchive(t)}, nullInt(1)
+	earlier.UserID, earlier.UserComponents, earlier.IsMine = nullString("TEST-HASH-2"), [][]byte{sevenPartArchive(t)}, nullInt(1)
 	// bool() of upstream: any number but 0 is true, NULL is false.
 	likeEarly := commentRow("P-1", nullInt(2), nullFloat(694224100), nullString("A text of a like"))
 	likeEarly.IsMine = nullInt(-1)
-	db := &DB{}
-	db.comments, db.likes = loadComments([]sqlread.Comment{
+	rows := []sqlread.Comment{
 		later,
 		commentRow("P-1", nullInt(0), nullFloat(694224000), nullString("")),
 		commentRow("P-1", nullInt(0), nullFloat(694224000), sql.NullString{}),
@@ -58,13 +61,25 @@ func TestLoadComments(t *testing.T) {
 		earlier,
 		likeEarly,
 		commentRow("P-1", sql.NullInt64{}, nullFloat(694224400), nullString("Third")),
+		// Upstream sorts the date it reads: 1e12 is past the year 9999, so DEFAULT_DATETIME_LOCAL.
+		commentRow("P-1", nullInt(1), nullFloat(1e12), sql.NullString{}),
 		commentRow("P-2", nullInt(0), nullFloat(694224000), nullString("A")),
 		commentRow("P-2", nullInt(0), nullFloat(694224000), nullString("B")),
 		commentRow("P-2", nullInt(1), sql.NullFloat64{}, sql.NullString{}),
 		commentRow("P-2", nullInt(1), nullFloat(math.NaN()), sql.NullString{}),
 		commentRow("P-2", nullInt(1), nullFloat(1e12), sql.NullString{}),
+		commentRow("P-2", nullInt(1), nullFloat(-1e9), sql.NullString{}),
 		commentRow("P-3", nullInt(0), nullFloat(694224000), nullString("")),
-	})
+	}
+	// Groups of one date large enough that an unstable sort reorders them.
+	byDate := make([][]photoinfo.CommentInfo, 3)
+	for i := range 100 {
+		seconds := int64(694224000 + 100*(i%3))
+		rows = append(rows, commentRow("P-4", nullInt(0), nullFloat(float64(seconds)), nullString(strconv.Itoa(i))))
+		byDate[i%3] = append(byDate[i%3], photoinfo.CommentInfo{Datetime: commentAt(seconds), Text: strconv.Itoa(i)})
+	}
+	db := &DB{}
+	db.comments, db.likes = loadComments(rows)
 
 	for _, tt := range []struct {
 		uuid     string
@@ -77,12 +92,14 @@ func TestLoadComments(t *testing.T) {
 				{Datetime: commentAt(694224200), User: "Person A", Text: "Second"},
 				{Datetime: commentAt(694224400), Text: "Third"},
 			},
-			[]photoinfo.LikeInfo{{Datetime: commentAt(694224100), IsMine: true}, {Datetime: commentAt(694224300)}}},
-		// list.sort of upstream is stable; a date it cannot read is DEFAULT_DATETIME_LOCAL.
+			[]photoinfo.LikeInfo{{}, {Datetime: commentAt(694224100), IsMine: true}, {Datetime: commentAt(694224300)}}},
+		// list.sort of upstream is stable; a date it cannot read is DEFAULT_DATETIME_LOCAL,
+		// later than 1969.
 		{"P-2",
 			[]photoinfo.CommentInfo{{Datetime: commentAt(694224000), Text: "A"}, {Datetime: commentAt(694224000), Text: "B"}},
-			[]photoinfo.LikeInfo{{Datetime: noCommentDate}, {Datetime: noCommentDate}, {Datetime: noCommentDate}}},
+			[]photoinfo.LikeInfo{{Datetime: commentAt(-1e9)}, {}, {}, {}}},
 		{"P-3", nil, nil},
+		{"P-4", slices.Concat(byDate...), nil},
 		{"P-unknown", nil, nil},
 	} {
 		p := &photoInfo{UUID: tt.uuid}
@@ -129,7 +146,10 @@ func TestOpenComments(t *testing.T) {
 			"(900004, 1, 694224300, NULL, 'TEST-HASH-UNKNOWN', 0, NULL, "+first+"), "+
 			"(900005, 1, NULL, NULL, NULL, 1, NULL, "+second+"), "+
 			"(900006, 0, 694224500, 'Through the liked asset', NULL, 0, NULL, "+second+"), "+
-			"(900007, 1, 694224600, NULL, 'TEST-HASH-1', 0, "+second+", NULL)",
+			"(900007, 1, 694224600, NULL, 'TEST-HASH-1', 0, "+second+", NULL), "+
+			"(900008, 1, 694224700, NULL, NULL, 0, "+first+", "+second+"), "+
+			"(900010, 0, 694224800, 'Same date A', NULL, 0, "+first+", NULL), "+
+			"(900009, 0, 694224800, 'Same date B', NULL, 0, "+first+", NULL)",
 	)
 	db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
 	if err != nil {
@@ -144,12 +164,14 @@ func TestOpenComments(t *testing.T) {
 			[]photoinfo.CommentInfo{
 				{Datetime: commentAt(694224100), User: "Jos\U000000e9 Part2", IsMine: true, Text: "Caf\U000000e9"},
 				{Datetime: commentAt(694224200), User: "Person A", Text: "Second"},
+				{Datetime: commentAt(694224800), Text: "Same date B"},
+				{Datetime: commentAt(694224800), Text: "Same date A"},
 			},
-			[]photoinfo.LikeInfo{{Datetime: commentAt(694224300)}},
+			[]photoinfo.LikeInfo{{Datetime: commentAt(694224300)}, {Datetime: commentAt(694224700)}},
 		},
 		{
 			[]photoinfo.CommentInfo{{Datetime: commentAt(694224500), Text: "Through the liked asset"}},
-			[]photoinfo.LikeInfo{{Datetime: noCommentDate, IsMine: true}, {Datetime: commentAt(694224600), User: "Person A"}},
+			[]photoinfo.LikeInfo{{IsMine: true}, {Datetime: commentAt(694224600), User: "Person A"}, {Datetime: commentAt(694224700)}},
 		},
 	} {
 		p, ok := db.Photo(photos[i])
@@ -166,7 +188,8 @@ func TestOpenComments(t *testing.T) {
 }
 
 // Upstream fails on Photos 4 and earlier (_photosdb_process_comments.py:34-39),
-// which the port does not read, and on a library without the table.
+// which the port does not read, and on a library without the table or a column
+// of its query.
 func TestOpenCommentsWithoutTable(t *testing.T) {
 	t.Parallel()
 
@@ -177,6 +200,9 @@ func TestOpenCommentsWithoutTable(t *testing.T) {
 	}{
 		{"a comment", nil, 1},
 		{"no ZCLOUDSHAREDCOMMENT", []string{"DROP TABLE ZCLOUDSHAREDCOMMENT"}, 0},
+		{"no ZISMYCOMMENT", []string{"ALTER TABLE ZCLOUDSHAREDCOMMENT RENAME COLUMN ZISMYCOMMENT TO ZX"}, 0},
+		{"no ZLIKEDASSET", []string{"ALTER TABLE ZCLOUDSHAREDCOMMENT RENAME COLUMN ZLIKEDASSET TO ZX"}, 0},
+		{"no ZCOMMENTERHASHEDPERSONID", []string{"ALTER TABLE ZCLOUDSHAREDCOMMENT RENAME COLUMN ZCOMMENTERHASHEDPERSONID TO ZX"}, 0},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
@@ -195,33 +221,6 @@ func TestOpenCommentsWithoutTable(t *testing.T) {
 			}
 			if got := len(db.Comments(p)); got != tt.listed {
 				t.Errorf("photo %s: %d comments, want %d", photo, got, tt.listed)
-			}
-		})
-	}
-}
-
-// Every row of the query of upstream that is a like or has a text is listed
-// once on its photo (_photosdb_process_comments.py:95-143).
-func TestCommentsLibraries(t *testing.T) {
-	t.Parallel()
-
-	for _, name := range testlib.Libraries(t) {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			lib := testlib.OpenPristine(t, name)
-			db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
-			if err != nil {
-				t.Fatal(err)
-			}
-			got := 0
-			for _, p := range db.Photos() {
-				got += len(db.Comments(p)) + len(db.Likes(p))
-			}
-			want := count(t, roDB(t, lib), "SELECT COUNT(*) FROM ZCLOUDSHAREDCOMMENT c JOIN ZASSET a ON a.Z_PK IN (c.ZCOMMENTEDASSET, c.ZLIKEDASSET) "+
-				"WHERE EXISTS (SELECT 1 FROM ZADDITIONALASSETATTRIBUTES x WHERE x.ZASSET = a.Z_PK) AND (c.ZISLIKE != 0 OR c.ZCOMMENTTEXT != '')")
-			t.Logf("%d comments and likes", got)
-			if got != want {
-				t.Errorf("%d comments and likes on photos, want %d", got, want)
 			}
 		})
 	}

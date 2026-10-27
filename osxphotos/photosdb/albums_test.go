@@ -946,7 +946,7 @@ func TestOwnerName(t *testing.T) {
 		{"a reference out of range and a family name", sqlread.Album{OwnerComponents: [][]byte{nameArchive(t, plist.UID(99), family)}}, ""},
 		{"an archive over the limit", sqlread.Album{OwnerComponents: [][]byte{oversized}}, ""},
 	} {
-		if got := ownerName(tt.album); got != tt.want {
+		if got := personName(tt.album.Owner, tt.album.OwnerComponents); got != tt.want {
 			t.Errorf("%s: another name", tt.name)
 		}
 	}

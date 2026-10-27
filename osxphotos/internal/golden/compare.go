@@ -29,9 +29,8 @@ type Library struct {
 	// A photo without an entry has none; may be nil without AlbumKeys.
 	BurstAlbums map[string][]string
 
-	Imports  []*albuminfo.ImportInfo // every import session, trashed ones included: the sessions of PhotoInfo.ImportUUID; may be nil without AlbumKeys
-	Projects []*albuminfo.AlbumInfo  // every project, trashed ones included: the projects of PhotoInfo.ProjectUUIDs (photosdb.DB.Project); may be nil without AlbumKeys
-
+	Imports  []*albuminfo.ImportInfo            // every import session, trashed ones included: the sessions of PhotoInfo.ImportUUID; may be nil without AlbumKeys
+	Projects []*albuminfo.AlbumInfo             // every project, trashed ones included: the projects of PhotoInfo.ProjectUUIDs (photosdb.DB.Project); may be nil without AlbumKeys
 	Comments map[string][]photoinfo.CommentInfo // by photo UUID: photosdb.DB.Comments; a photo without an entry has none; may be nil without AlbumKeys
 	Likes    map[string][]photoinfo.LikeInfo    // by photo UUID: photosdb.DB.Likes; as Comments
 }

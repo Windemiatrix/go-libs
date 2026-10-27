@@ -231,7 +231,11 @@ func photoMutations() []mutation {
 
 		{"Comments nil", func(l *Library) { l.Comments = nil }, "comments"},
 		{"Comments swapped", func(l *Library) { c := l.Comments[selectedFrame]; c[0], c[1] = c[1], c[0] }, "comments"},
-		{"Comment date by 1us", func(l *Library) { c := &l.Comments[selectedFrame][1]; c.Datetime = c.Datetime.Add(time.Microsecond) }, "comments"},
+		{"Comment date by 1us", func(l *Library) {
+			c := &l.Comments[selectedFrame][1]
+			c.Datetime = ptr(c.Datetime.Add(time.Microsecond))
+		}, "comments"},
+		{"Comment date nil", func(l *Library) { l.Comments[selectedFrame][0].Datetime = nil }, "comments"},
 		{"Comment user", func(l *Library) { l.Comments[selectedFrame][0].User = "" }, "comments"},
 		{"Comment user of null", func(l *Library) { l.Comments[selectedFrame][1].User = "Person B" }, "comments"},
 		{"Comment IsMine", func(l *Library) { l.Comments[selectedFrame][0].IsMine = false }, "comments"},
@@ -240,11 +244,11 @@ func photoMutations() []mutation {
 			l.Comments[emptyPhoto], l.Comments[selectedFrame] = l.Comments[selectedFrame], nil
 		}, "comments"},
 		{"Likes nil", func(l *Library) { l.Likes = nil }, "likes"},
-		{"Like date", func(l *Library) { c := &l.Likes[selectedFrame][0]; c.Datetime = c.Datetime.Add(time.Second) }, "likes"},
+		{"Like date", func(l *Library) { c := &l.Likes[selectedFrame][0]; c.Datetime = ptr(c.Datetime.Add(time.Second)) }, "likes"},
 		{"Like user", func(l *Library) { l.Likes[selectedFrame][0].User = "" }, "likes"},
 		{"Like IsMine", func(l *Library) { l.Likes[selectedFrame][0].IsMine = true }, "likes"},
 		{"a second like", func(l *Library) {
-			l.Likes[selectedFrame] = append(l.Likes[selectedFrame], photoinfo.LikeInfo{Datetime: utc(2020, 7, 4, 0, 0, 0, 0)})
+			l.Likes[selectedFrame] = append(l.Likes[selectedFrame], photoinfo.LikeInfo{Datetime: ptr(utc(2020, 7, 4, 0, 0, 0, 0))})
 		}, "likes"},
 	}
 }
@@ -454,7 +458,7 @@ func TestCompareEquivalent(t *testing.T) {
 		// osxphotos writes these dates in the zone of the computer (photos_datetime.py:70-89).
 		{"a comment date in another zone, the same moment", func(l *Library) {
 			c := &l.Comments[selectedFrame][0]
-			c.Datetime = c.Datetime.In(time.FixedZone("X", -7*3600))
+			c.Datetime = ptr(c.Datetime.In(time.FixedZone("X", -7*3600)))
 		}, ""},
 	}
 	for _, c := range cases {
@@ -713,7 +717,13 @@ func TestCompareSets(t *testing.T) {
 
 func TestCompareErrors(t *testing.T) {
 	t.Parallel()
-	const marker = "SECRET-VALUE"
+	const (
+		marker       = "SECRET-VALUE"
+		wantComments = "query.json element 1: comments: want a list of comments as osxphotos writes them"
+	)
+	withValue := func(key, value string) func() *Reference {
+		return func() *Reference { r := fixtureRef(); r.Query[0][key] = []byte(value); return r }
+	}
 	cases := []struct {
 		name string
 		ref  func() *Reference
@@ -824,6 +834,15 @@ func TestCompareErrors(t *testing.T) {
 			r.Query[0]["import_info"] = []byte(`{"uuid": "x", "title": null, "creation_date": "` + marker + `", "start_date": null, "end_date": null}`)
 			return r
 		}, fixtureLib, []string{"import_info"}, "import_info.creation_date: want an ISO 8601 string"},
+		{"a comment with a null datetime", withValue("comments", `[{"datetime": null, "user": "`+marker+`", "ismine": false, "text": "x"}]`),
+			fixtureLib, []string{"comments"}, wantComments},
+		{"a comment without a text", withValue("comments", `[{"datetime": "2020-07-01T00:00:00+00:00", "user": "`+marker+`", "ismine": false}]`),
+			fixtureLib, []string{"comments"}, wantComments},
+		{"a comment with a null ismine", withValue("comments", `[{"datetime": "2020-07-01T00:00:00+00:00", "user": "`+marker+`", "ismine": null, "text": "x"}]`),
+			fixtureLib, []string{"comments"}, wantComments},
+		{"comments that is not a list", withValue("comments", `{"text": "`+marker+`"}`), fixtureLib, []string{"comments"}, wantComments},
+		{"a like with a null ismine", withValue("likes", `[{"datetime": "2020-07-03T00:00:00+00:00", "user": "`+marker+`", "ismine": null}]`),
+			fixtureLib, []string{"likes"}, "query.json element 1: likes: want a list of likes as osxphotos writes them"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -895,6 +914,15 @@ func TestCompareAlbumRules(t *testing.T) {
 		t.Parallel()
 		lib := fixtureLib()
 		if rep := run(t, refObj(refSelectedFrame()), lib); !rep.OK() {
+			t.Errorf("differences %+v, want none", rep.Diffs)
+		}
+	})
+	t.Run("a like without a date is the default of upstream", func(t *testing.T) {
+		t.Parallel()
+		lib := fixtureLib()
+		lib.Likes[selectedFrame][0].Datetime = nil
+		ref := refObj(refSelectedFrame(), map[string]string{"likes": `[{"datetime": "1970-01-01T00:00:00+00:00", "ismine": false, "user": "Person A"}]`})
+		if rep := run(t, ref, lib); !rep.OK() {
 			t.Errorf("differences %+v, want none", rep.Diffs)
 		}
 	})

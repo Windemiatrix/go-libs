@@ -64,7 +64,7 @@ func (d *DB) Albums(ctx context.Context) ([]Album, error) {
 			&a.Trashed, &a.Created, &a.Start, &a.End, &a.SortKey, &a.SortAscending, &a.ListOrder, &owner); err != nil {
 			return err
 		}
-		people.setOwner(&a, owner.String)
+		a.Owner, a.OwnerComponents = people.name(owner.String)
 		out = append(out, a)
 		return nil
 	}, KindUserAlbum, KindSharedAlbum, KindImportSession, KindProject, KindRootFolder, KindFolder)
@@ -123,7 +123,7 @@ func (d *DB) CollectionShares(ctx context.Context) ([]Album, []Member, error) {
 		if err := rows.Scan(&a.PK, &a.UUID, &a.Title, &a.Trashed, &a.Created, &a.Start, &a.End, &a.SortKey, &a.SortAscending, &id); err != nil {
 			return err
 		}
-		people.setOwner(&a, id.String)
+		a.Owner, a.OwnerComponents = people.name(id.String)
 		albums = append(albums, a)
 		return nil
 	}, ent.Int64)
@@ -216,5 +216,3 @@ func (p personIndex) name(id string) (sql.NullString, [][]byte) {
 	}
 	return sql.NullString{}, p.components[id]
 }
-
-func (p personIndex) setOwner(a *Album, id string) { a.Owner, a.OwnerComponents = p.name(id) }

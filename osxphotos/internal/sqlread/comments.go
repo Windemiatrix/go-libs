@@ -6,19 +6,19 @@ import (
 	"errors"
 )
 
-// Comment is one row of the query of _db_comments_uuid
-// (_photosdb_process_comments.py:95-118).
+// Comment is one row of the query of _photosdb_process_comments.py:95-110.
 type Comment struct {
 	PhotoUUID      sql.NullString  // ZASSET.ZUUID of ZCOMMENTEDASSET or ZLIKEDASSET
 	IsLike, IsMine sql.NullInt64   // ZISLIKE, ZISMYCOMMENT
 	Date           sql.NullFloat64 // ZCOMMENTDATE
 	Text           sql.NullString  // ZCOMMENTTEXT
-	User           sql.NullString  // as Album.Owner, of ZCOMMENTERHASHEDPERSONID
+	UserID         sql.NullString  // ZCOMMENTERHASHEDPERSONID
+	User           sql.NullString  // as Album.Owner, of UserID
 	UserComponents [][]byte        // as Album.OwnerComponents
 }
 
-// The query of _db_comments_uuid without its SQL comments, with ZASSET, the
-// asset table of Photos 6 and later (_photosdb_process_comments.py:95-110).
+// The query of _photosdb_process_comments.py:95-110 without its SQL comments;
+// ZASSET is the asset table of every supported library.
 const commentQuery = "SELECT ZASSET.ZUUID, ZCLOUDSHAREDCOMMENT.ZISLIKE, ZCLOUDSHAREDCOMMENT.ZCOMMENTDATE, ZCLOUDSHAREDCOMMENT.ZCOMMENTTEXT, " +
 	"ZCLOUDSHAREDCOMMENT.ZCOMMENTERHASHEDPERSONID, ZCLOUDSHAREDCOMMENT.ZISMYCOMMENT FROM ZCLOUDSHAREDCOMMENT JOIN ZASSET ON " +
 	"ZASSET.Z_PK = ZCLOUDSHAREDCOMMENT.ZCOMMENTEDASSET OR ZASSET.Z_PK = ZCLOUDSHAREDCOMMENT.ZLIKEDASSET "
@@ -40,11 +40,10 @@ func (d *DB) Comments(ctx context.Context) ([]Comment, error) {
 	var out []Comment
 	err = d.readRows(ctx, "comments", commentQuery+"ORDER BY ZCLOUDSHAREDCOMMENT.Z_PK", func(rows *sql.Rows) error {
 		var c Comment
-		var user sql.NullString
-		if err := rows.Scan(&c.PhotoUUID, &c.IsLike, &c.Date, &c.Text, &user, &c.IsMine); err != nil {
+		if err := rows.Scan(&c.PhotoUUID, &c.IsLike, &c.Date, &c.Text, &c.UserID, &c.IsMine); err != nil {
 			return err
 		}
-		c.User, c.UserComponents = people.name(user.String)
+		c.User, c.UserComponents = people.name(c.UserID.String)
 		out = append(out, c)
 		return nil
 	})
