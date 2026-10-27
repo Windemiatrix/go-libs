@@ -13,22 +13,24 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
 )
 
-// Open reads the Photos library at libraryPath into memory. libraryPath is
-// the .photoslibrary directory or a database file: a file named photos.db, in
-// any letter case, stands for the Photos.sqlite beside it. Any other file is
-// read as the database; a missing path and a photos.db without Photos.sqlite
-// beside it are errors. The library of a database file is the parent of its
+// Open reads the Photos library at path into memory. path is the
+// .photoslibrary directory or a database file: a file named photos.db, in any
+// letter case, stands for the Photos.sqlite beside it. Any other file is read
+// as the database; a missing path and a photos.db without Photos.sqlite beside
+// it are errors. The library of a database file is the parent of its
 // directory, unless o.LibraryPath is set (photosdb/photosdb.py:349-385,
 // 452-458).
 //
 // Open reads a copy of the database with its -wal file, made in a new
 // directory under o.TempDir, never the original. -shm is not copied: SQLite
-// rebuilds the index of the log from -wal. An unknown model or a missing
+// rebuilds the index of the log from -wal. A database or -wal that is not a
+// regular file, a named pipe for example, is an error and is not opened;
+// sqlite3 in upstream would open it and block. An unknown model or a missing
 // table or column gives an error that wraps ErrUnsupportedSchema. The copy is
 // removed before Open returns, after an error as well; nothing of the copy or
 // of the library stays open in the DB.
 //
-// A TempDir inside the library derived from libraryPath, inside
+// A TempDir inside the library derived from path, inside
 // o.LibraryPath or inside the library of the database file with its symbolic
 // links resolved is refused before any copy is made: the copy would become
 // part of a library. A database outside a .photoslibrary therefore needs a
@@ -38,8 +40,8 @@ import (
 // The copy holds the whole database. The caller cancels ctx on SIGINT and
 // SIGTERM (signal.NotifyContext), so that an interrupted Open still removes
 // it.
-func Open(ctx context.Context, libraryPath string, o Options) (db *DB, err error) {
-	dbPath, located, err := locate(libraryPath)
+func Open(ctx context.Context, path string, o Options) (db *DB, err error) {
+	dbPath, located, err := locate(path)
 	if err != nil {
 		return nil, err
 	}

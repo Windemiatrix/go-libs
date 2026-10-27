@@ -435,9 +435,9 @@ func TestOpenErrors(t *testing.T) {
 		is      error
 	}{
 		{name: "missing source", src: filepath.Join(t.TempDir(), "Photos.sqlite"), is: os.ErrNotExist},
-		{name: "directory source", src: t.TempDir(), want: "is a directory"},
+		{name: "directory source", src: t.TempDir(), want: "is not a regular file"},
 		{name: "not a database", src: text, want: "quick_check failed after 3 attempts"},
-		{name: "wal is a directory", src: walDir, want: "is a directory"},
+		{name: "wal is a directory", src: walDir, want: "is not a regular file"},
 		{name: "wal unreadable", src: walUnreadable, is: os.ErrPermission},
 		{name: "missing temporary directory", src: src, tempDir: filepath.Join(t.TempDir(), "none"), is: os.ErrNotExist},
 		{name: "temporary directory is a file", src: src, tempDir: text, want: "not a directory"},
