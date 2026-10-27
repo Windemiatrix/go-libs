@@ -109,6 +109,14 @@ osxphotos — самый полный открытый разбор базы «�
 
 Каждый PR проходит тесты с `-race` на Linux и macOS, линтер и порог покрытия 80 %. Вывод `Open` сверяется с эталонными результатами osxphotos (v0.77.2) для 8 его тестовых медиатек (7 схем, от macOS 13.0 до 27.0 developer beta) и для синтетической базы; известные расхождения записаны с причинами. Поля сверх osxphotos проверяются SQL-миграциями с синтетическими значениями на временной копии базы ([SOURCES.md](https://github.com/Windemiatrix/go-libs/blob/main/testdata/libraries/SOURCES.md)).
 
+### Как проверить на своей медиатеке
+
+1. Поставьте osxphotos 0.77.2 в отдельное окружение (нужен Python 3.10 или новее): `python3 -m venv "$HOME/venvs/osxphotos" && "$HOME/venvs/osxphotos/bin/pip" install osxphotos==0.77.2`.
+2. Закройте «Фото», откройте пакет медиатеки в Finder («Показать содержимое пакета») и скопируйте папку `database/` в `~/Pictures/Copy.photoslibrary/database/`. Оригиналы снимков не нужны.
+3. Из корня репозитория: `make diff-local LIBRARY="$HOME/Pictures/Copy.photoslibrary" OSXPHOTOS="$HOME/venvs/osxphotos/bin/osxphotos" REPORT="$HOME/diff-local-report.txt"`. Пути — абсолютные; `REPORT` необязателен.
+
+Если проверка прошла без ошибок, в терминал выводятся только числа и имена ключей: сколько объектов и ключей сравнено, сколько расхождений. Сообщения об ошибках Go и osxphotos могут содержать переданные пути. В сводке есть число объектов вашей медиатеки: в issue приводите только строки по ключам. UUID и значения расхождений пишутся только в файл `REPORT` с правами 0600 (существующий файл перезаписывается): в нём данные вашей медиатеки, не публикуйте его. Вывод osxphotos и копия базы лежат во временном каталоге и удаляются после проверки, даже прерванной. После проверки удалите и копию `~/Pictures/Copy.photoslibrary`.
+
 ## Версии
 
 Semver по тегам `osxphotos/vX.Y.Z`, независимо от osxphotos. До `v1.0.0` несовместимые изменения возможны (увеличивается minor). Изменения — на странице [Releases](https://github.com/Windemiatrix/go-libs/releases). `v1.0.0` выйдет, когда API проверит приложение-потребитель. Как вычисляется версия — в [CONTRIBUTING.md](https://github.com/Windemiatrix/go-libs/blob/main/CONTRIBUTING.md#выпуск-для-мейнтейнера).

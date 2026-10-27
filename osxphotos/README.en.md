@@ -109,6 +109,14 @@ Tag `v0.77.2` is ported. The same database reading plus: cloud identifiers of ph
 
 Every PR passes tests with `-race` on Linux and macOS, a linter and a coverage threshold of 80%. The output of `Open` is compared with the osxphotos reference results (v0.77.2) for its 8 test libraries (7 schemas, from macOS 13.0 to 27.0 developer beta) and for a synthetic database; known divergences are recorded with reasons. Fields beyond osxphotos are checked with SQL migrations with synthetic values on a temporary copy of the database ([SOURCES.md](https://github.com/Windemiatrix/go-libs/blob/main/testdata/libraries/SOURCES.md)).
 
+### Checking against your own library
+
+1. Install osxphotos 0.77.2 into its own environment (Python 3.10 or newer is required): `python3 -m venv "$HOME/venvs/osxphotos" && "$HOME/venvs/osxphotos/bin/pip" install osxphotos==0.77.2`.
+2. Quit Photos, open the library package in Finder (Show Package Contents) and copy its `database/` folder to `~/Pictures/Copy.photoslibrary/database/`. The original photos are not needed.
+3. From the repository root: `make diff-local LIBRARY="$HOME/Pictures/Copy.photoslibrary" OSXPHOTOS="$HOME/venvs/osxphotos/bin/osxphotos" REPORT="$HOME/diff-local-report.txt"`. The paths are absolute; `REPORT` is optional.
+
+On a successful run the terminal gets only numbers and key names: how many objects and keys were compared, how many differences. Error messages of Go and osxphotos may name the paths you passed. The summary holds the object count of your library: in an issue, paste only the per-key lines. The UUIDs and values of the differences go only to the `REPORT` file, with mode 0600 (an existing file is overwritten): it holds data of your library, do not publish it. The osxphotos output and the database copy live in a temporary directory and are removed after the check, even an interrupted one. After the check, delete the copy `~/Pictures/Copy.photoslibrary` too.
+
 ## Versioning
 
 Semver by tags `osxphotos/vX.Y.Z`, independent of osxphotos. Before `v1.0.0` incompatible changes are possible (the minor number grows). Changes are on the [Releases](https://github.com/Windemiatrix/go-libs/releases) page. `v1.0.0` ships once a consuming application has proven the API. How the version is computed: [CONTRIBUTING.en.md](https://github.com/Windemiatrix/go-libs/blob/main/CONTRIBUTING.en.md#releases-for-the-maintainer).
