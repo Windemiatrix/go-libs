@@ -140,8 +140,8 @@ jobs:
           retention-days: 7
 
   # The check job ran code nobody has reviewed, and that code can replace the
-  # artifact: only plain characters reach the issue, inside a fence, so no
-  # mention, link or markdown renders. The version comes from the latest job,
+  # artifact: only lines of the forms the check job writes reach the issue,
+  # inside a fence, so no mention, link, markdown or free text gets there. The version comes from the latest job,
   # which ran no code of PyPI.
   report:
     needs: [latest, check]
@@ -166,7 +166,7 @@ jobs:
           # An issue body holds at most 65536 characters.
           {
             echo '~~~text'
-            LC_ALL=C grep -E -m 300 '^[A-Za-z0-9 _./:;,-]{0,200}$' "$RUNNER_TEMP/summary/summary.md" || true
+            LC_ALL=C grep -E -m 300 '^(|osxphotos [0-9.]{1,40}: (the port differs from upstream|the reference data could not be built)|Failed tests:|Reference comparison by library:|- [A-Za-z0-9_./-]{1,150}|    (library [A-Za-z0-9_.-]{1,80}: [0-9]{1,9} objects, [0-9]{1,9} keys compared|differences: [0-9]{1,9} unexplained, [0-9]{1,9} explained; stale divergences: [0-9]{1,9}|[a-z0-9_]{1,80}: [0-9]{1,9} unexplained, [0-9]{1,9} explained))$' "$RUNNER_TEMP/summary/summary.md" || true
             echo '~~~'
             printf '\nRun: %s/%s/actions/runs/%s\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
           } >"$body"
