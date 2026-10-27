@@ -111,11 +111,11 @@ Every PR passes tests with `-race` on Linux and macOS, a linter and a coverage t
 
 ### Checking against your own library
 
-1. Install osxphotos 0.77.2 into its own environment: `python3 -m venv "$HOME/venvs/osxphotos" && "$HOME/venvs/osxphotos/bin/pip" install osxphotos==0.77.2`.
+1. Install osxphotos 0.77.2 into its own environment (Python 3.10 or newer is required): `python3 -m venv "$HOME/venvs/osxphotos" && "$HOME/venvs/osxphotos/bin/pip" install osxphotos==0.77.2`.
 2. Quit Photos, open the library package in Finder (Show Package Contents) and copy its `database/` folder to `~/Pictures/Copy.photoslibrary/database/`. The original photos are not needed.
 3. From the repository root: `make diff-local LIBRARY="$HOME/Pictures/Copy.photoslibrary" OSXPHOTOS="$HOME/venvs/osxphotos/bin/osxphotos" REPORT="$HOME/diff-local-report.txt"`. The paths are absolute; `REPORT` is optional.
 
-The terminal gets only numbers and key names: how many objects and keys were compared, how many differences. The UUIDs and values of the differences go only to the `REPORT` file, with mode 0600: it holds data of your library, do not publish it. The osxphotos output lives in a temporary directory and is removed after the check.
+On a successful run the terminal gets only numbers and key names: how many objects and keys were compared, how many differences. Error messages of Go and osxphotos may name the paths you passed. The summary holds the object count of your library: in an issue, paste only the per-key lines. The UUIDs and values of the differences go only to the `REPORT` file, with mode 0600 (an existing file is overwritten): it holds data of your library, do not publish it. The osxphotos output and the database copy live in a temporary directory and are removed after the check, even an interrupted one. After the check, delete the copy `~/Pictures/Copy.photoslibrary` too.
 
 ## Versioning
 

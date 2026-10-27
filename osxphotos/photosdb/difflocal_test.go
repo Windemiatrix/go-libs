@@ -22,8 +22,14 @@ var (
 // TestDiffLocal is run by "make diff-local". The library is the owner's: the
 // log holds numbers and key names only, the details go to -report.
 func TestDiffLocal(t *testing.T) {
-	if *diffLocalLibrary == "" || *diffLocalQuery == "" || *diffLocalDeleted == "" {
-		t.Fatal("-library, -json and -deleted are required")
+	// The test runs in the package directory: a relative -report would put the
+	// owner's details into the working tree of the repository.
+	ok := *diffLocalReport == "" || filepath.IsAbs(*diffLocalReport)
+	for _, p := range []string{*diffLocalLibrary, *diffLocalQuery, *diffLocalDeleted} {
+		ok = ok && filepath.IsAbs(p)
+	}
+	if !ok {
+		t.Fatal("-library, -json and -deleted are required, and every path is absolute")
 	}
 	divs, err := golden.LoadDivergences(filepath.Join(testlib.RepoDir(t, "golden"), "divergences.json"))
 	if err != nil {
@@ -35,7 +41,7 @@ func TestDiffLocal(t *testing.T) {
 	}
 	db, err := Open(t.Context(), *diffLocalLibrary, Options{TempDir: t.TempDir()})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(withoutPath(err))
 	}
 	rep := compareGolden(t, db, ref, divs)
 	if *diffLocalReport != "" {

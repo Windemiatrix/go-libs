@@ -23,7 +23,7 @@ mod: ## go.mod is tidy and the modules match go.sum
 
 .PHONY: vet
 vet: ## go vet
-	go -C osxphotos vet ./...
+	go -C osxphotos vet -tags difflocal ./...
 
 .PHONY: cover
 cover: ## Tests with the race detector and the coverage threshold
@@ -75,17 +75,19 @@ golden-fetch: ## Download the reference data of the latest successful golden-reg
 	rm -f testdata/golden/*/query.json testdata/golden/*/deleted.json; \
 	gh run download "$$run" --repo Windemiatrix/go-libs --name golden --dir testdata/golden
 
-# The library is the owner's: the osxphotos output lives in a directory of its
-# own with umask 077 and is removed on any exit, and the terminal gets numbers
-# only. go -C runs the test in another directory, so the paths are absolute.
+# The library is the owner's data. TMPDIR puts the database copy of the test
+# under the trap too, so an interrupted run leaves nothing. TZ and LC_ALL are
+# those of golden-regen.yml: osxphotos writes a missing date in the local zone
+# (photos_datetime.py:19-21). The variables are read from the environment, not
+# substituted into the shell text, so a path with a quote stays a path.
 .PHONY: diff-local
 diff-local: ## Compare a library with osxphotos (absolute LIBRARY, OSXPHOTOS, optional REPORT)
-	$(if $(and $(LIBRARY),$(OSXPHOTOS)),,$(error diff-local: set LIBRARY=<absolute path of the .photoslibrary> and OSXPHOTOS=<absolute path of osxphotos 0.77.2>))
-	@umask 077; set -e; tmp=$$(mktemp -d); trap 'rm -rf "$$tmp"' EXIT; \
-	"$(OSXPHOTOS)" query --library "$(LIBRARY)" --json --mute >"$$tmp/query.json"; \
-	"$(OSXPHOTOS)" query --library "$(LIBRARY)" --json --mute --deleted-only >"$$tmp/deleted.json"; \
-	go -C osxphotos test -tags difflocal -count=1 -v -run '^TestDiffLocal$$' ./photosdb \
-		-args -library "$(LIBRARY)" -json "$$tmp/query.json" -deleted "$$tmp/deleted.json" -report "$(REPORT)"
+	$(if $(and $(LIBRARY),$(OSXPHOTOS)),,$(error diff-local: set LIBRARY=<absolute path of the .photoslibrary> and OSXPHOTOS=<path of osxphotos 0.77.2>))
+	@umask 077; set -e; tmp=$$(mktemp -d); trap 'rm -rf "$$tmp"' EXIT; trap 'exit 1' INT TERM HUP; \
+	TZ=UTC LC_ALL=C "$$OSXPHOTOS" query --library "$$LIBRARY" --json --mute >"$$tmp/query.json"; \
+	TZ=UTC LC_ALL=C "$$OSXPHOTOS" query --library "$$LIBRARY" --json --mute --deleted-only >"$$tmp/deleted.json"; \
+	TMPDIR="$$tmp" go -C osxphotos test -tags difflocal -count=1 -v -run '^TestDiffLocal$$' ./photosdb \
+		-args -library "$$LIBRARY" -json "$$tmp/query.json" -deleted "$$tmp/deleted.json" -report "$$REPORT"
 
 ##@ Pull requests
 

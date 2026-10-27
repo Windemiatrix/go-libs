@@ -6,6 +6,8 @@ version: "2"
 run:
   timeout: 10m
   tests: true
+  # make diff-local is run by hand only; lint keeps its test compiling.
+  build-tags: [difflocal]
 
 linters:
   default: standard

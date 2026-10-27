@@ -3,6 +3,8 @@ package photosdb
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -58,7 +60,7 @@ func TestGolden(t *testing.T) {
 	}
 }
 
-// Also the comparison of TestDiffLocal (difflocal_test.go, tag difflocal).
+// Shared by TestGolden and TestDiffLocal (difflocal_test.go, tag difflocal).
 func compareGolden(t *testing.T, db *DB, ref *golden.Reference, divs []golden.Divergence) *golden.Report {
 	t.Helper()
 	photos := db.Photos()
@@ -88,7 +90,7 @@ func compareGolden(t *testing.T, db *DB, ref *golden.Reference, divs []golden.Di
 func writeReport(path string, rep *golden.Report) (err error) {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
-		return err
+		return withoutPath(err)
 	}
 	defer func() { err = errors.Join(err, f.Close()) }()
 	if err := f.Chmod(0o600); err != nil {
@@ -97,11 +99,24 @@ func writeReport(path string, rep *golden.Report) (err error) {
 	return rep.WriteDetails(f)
 }
 
+// The paths are the owner's, and the error goes to the terminal.
+func withoutPath(err error) error {
+	if pe := (*fs.PathError)(nil); errors.As(err, &pe) {
+		return fmt.Errorf("%s: %w", pe.Op, pe.Err)
+	}
+	return err
+}
+
 func TestWriteReport(t *testing.T) {
 	t.Parallel()
 
 	path := filepath.Join(t.TempDir(), "report.txt")
-	if err := os.WriteFile(path, []byte("an older and longer report\n"), 0o644); err != nil { //nolint:gosec // G306: the wider mode is what the test needs
+	// Longer than the new report, and 0644 under any umask, so that a missing
+	// O_TRUNC leaves a tail and a missing Chmod leaves the mode.
+	if err := os.WriteFile(path, []byte(strings.Repeat("an older and longer report\n", 20)), 0o644); err != nil { //nolint:gosec // G306: the wider mode is what the test needs
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o644); err != nil { //nolint:gosec // G302: as above
 		t.Fatal(err)
 	}
 	rep := &golden.Report{Diffs: []golden.Diff{{UUID: "00000000-0000-0000-0000-000000000001", Field: "title", Want: `"a"`, Got: `"b"`}}}
@@ -121,7 +136,7 @@ func TestWriteReport(t *testing.T) {
 	}
 	var want strings.Builder
 	_ = rep.WriteDetails(&want)
-	if string(got) != want.String() {
+	if !strings.Contains(string(got), "00000000-0000-0000-0000-000000000001") || string(got) != want.String() {
 		t.Errorf("report %q, want %q", got, want.String())
 	}
 }
