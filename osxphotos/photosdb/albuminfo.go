@@ -47,7 +47,8 @@ func (db *DB) AlbumInfo() []*albuminfo.AlbumInfo { return outsideTrash(db.albums
 
 // SharedAlbumInfo returns the shared albums (ZKIND 1505, and the CollectionShare
 // rows of ZSHARE of Photos 11 and later) outside the trash, osxphotos
-// album_info_shared (photosdb/photosdb.py:624-637, 3187-3210), in UUID order. The slice is new on every call, but its values are shared by
+// album_info_shared (photosdb/photosdb.py:624-637, 3187-3210), in
+// UUID order. The slice is new on every call, but its values are shared by
 // all calls: do not modify them.
 func (db *DB) SharedAlbumInfo() []*albuminfo.AlbumInfo { return outsideTrash(db.sharedAlbums) }
 

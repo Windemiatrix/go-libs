@@ -140,9 +140,9 @@ func collectionShareDB(t *testing.T, stmts ...string) string {
 		"UPDATE ZASSET SET ZCOLLECTIONSHARE = 900003 WHERE Z_PK = 8",
 		"UPDATE ZASSET SET ZCOLLECTIONSHARE = 900004 WHERE Z_PK = 9",
 		"INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZSHARE, ZROLE, ZHASHEDPERSONID, ZNAMECOMPONENTS) VALUES "+
-			"(900001, 900001, 1, 'TEST-P-NAMED', X'09'), (900002, 900001, 2, 'TEST-P-MEMBER', NULL), "+
-			"(900003, 900002, 1, 'TEST-P-UNNAMED', X'03'), (900004, 900002, 1, 'TEST-P-UNNAMED', X'0102'), "+
-			"(900005, 900002, 2, 'TEST-P-UNNAMED', X'0102')",
+			"(899999, 900001, 1, 'TEST-P-UNNAMED', NULL), (900001, 900001, 1, 'TEST-P-NAMED', X'09'), (900002, 900001, 2, 'TEST-P-MEMBER', NULL), "+
+			"(900003, 900002, 1, 'TEST-P-FIRST', X'03'), (900004, 900002, 1, 'TEST-P-UNNAMED', X'0102'), "+
+			"(900005, 900002, 2, 'TEST-P-UNNAMED', X'0102'), (900006, 900001, 2, 'TEST-P-UNNAMED', X'00')",
 		"INSERT INTO ZCLOUDSHAREDALBUMINVITATIONRECORD (Z_PK, ZINVITEEHASHEDPERSONID, ZINVITEEFIRSTNAME, ZINVITEEFULLNAME) VALUES "+
 			"(900001, 'TEST-P-NAMED', 'TEST-F', 'TEST-NAME-1')",
 	)
@@ -170,6 +170,8 @@ func TestCollectionShares(t *testing.T) {
 	// A NULL publish date sorts first, a tie goes by Z_PK (photosdb.py:2817-2832).
 	wantMembers := []Member{member(10, "TEST-SHARE-B", 0), member(7, "TEST-SHARE-A", 1), member(5, "TEST-SHARE-A", 2), member(6, "TEST-SHARE-A", 3)}
 
+	named := sql.NullString{String: "TEST-NAME-1", Valid: true}
+	unnamed := [][]byte{{1, 2}, {1, 2}, {0}}
 	tests := []struct {
 		name   string
 		stmts  []string
@@ -177,14 +179,19 @@ func TestCollectionShares(t *testing.T) {
 	}{
 		{"ZROLE", nil, func(a, b *Album) {
 			// A named owner takes the name of the UNION, not its ZNAMECOMPONENTS.
-			a.Owner = sql.NullString{String: "TEST-NAME-1", Valid: true}
-			b.OwnerComponents = [][]byte{{1, 2}, {3}}
+			a.Owner = named
+			b.OwnerComponents = unnamed
 		}},
 		// Photos 12 renames the column (photosdb.py:2845-2847); ZROLE is then not read.
 		{"ZCPLROLE", []string{
 			"ALTER TABLE ZSHAREPARTICIPANT ADD COLUMN ZCPLROLE INTEGER",
 			"UPDATE ZSHAREPARTICIPANT SET ZCPLROLE = 1 WHERE Z_PK IN (900002, 900005)",
-		}, func(_, b *Album) { b.OwnerComponents = [][]byte{{1, 2}, {3}} }},
+		}, func(_, b *Album) { b.OwnerComponents = unnamed }},
+		// A missing column gives no owner, as upstream checks the role column and
+		// ZNAMECOMPONENTS (photosdb.py:2846-2849; _photosdb_process_comments.py:158-161).
+		{"no role column", []string{"ALTER TABLE ZSHAREPARTICIPANT RENAME COLUMN ZROLE TO ZX"}, func(_, _ *Album) {}},
+		{"no ZHASHEDPERSONID", []string{"ALTER TABLE ZSHAREPARTICIPANT RENAME COLUMN ZHASHEDPERSONID TO ZX"}, func(_, _ *Album) {}},
+		{"no ZNAMECOMPONENTS", []string{"ALTER TABLE ZSHAREPARTICIPANT RENAME COLUMN ZNAMECOMPONENTS TO ZX"}, func(a, _ *Album) { a.Owner = named }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -223,36 +230,46 @@ func TestCollectionShares(t *testing.T) {
 	})
 }
 
-// A named participant of an ID of the UNION is skipped, as upstream does
-// (_photosdb_process_comments.py:172-174); the album owner of ZGENERICALBUM
-// also takes the names of ZSHAREPARTICIPANT.
+// A participant of an ID of the UNION is skipped, as upstream does, even when
+// the UNION has no full name for it (_photosdb_process_comments.py:172-174);
+// the album owner of ZGENERICALBUM also takes the names of ZSHAREPARTICIPANT.
 func TestAlbumsOwnerComponents(t *testing.T) {
 	t.Parallel()
 
+	const album = "(SELECT Z_PK FROM ZGENERICALBUM WHERE ZKIND = 2 ORDER BY Z_PK LIMIT 1 OFFSET "
+	set := func(offset, person string) string {
+		return "UPDATE ZGENERICALBUM SET ZCLOUDOWNERHASHEDPERSONID = '" + person + "' WHERE Z_PK = " + album + offset + ")"
+	}
 	path := collectionShareDB(t,
-		"UPDATE ZGENERICALBUM SET ZCLOUDOWNERHASHEDPERSONID = 'TEST-P-UNNAMED' WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)",
-		"UPDATE ZGENERICALBUM SET ZCLOUDOWNERHASHEDPERSONID = 'TEST-P-NAMED' WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZGENERICALBUM WHERE ZKIND = 2)",
+		set("0", "TEST-P-UNNAMED"), set("1", "TEST-P-NAMED"), set("2", "TEST-P-FIRSTONLY"),
+		"INSERT INTO ZCLOUDSHAREDALBUMINVITATIONRECORD (Z_PK, ZINVITEEHASHEDPERSONID, ZINVITEEFIRSTNAME) VALUES (900002, 'TEST-P-FIRSTONLY', 'TEST-F')",
+		"INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZSHARE, ZROLE, ZHASHEDPERSONID, ZNAMECOMPONENTS) VALUES (900007, 900001, 2, 'TEST-P-FIRSTONLY', X'0102')",
 	)
+	ro := openRO(t, path)
+	want := map[int64]Album{
+		count(t, ro, "SELECT "+album+"0)"): {OwnerComponents: [][]byte{{1, 2}, {1, 2}, {0}}},
+		count(t, ro, "SELECT "+album+"1)"): {Owner: sql.NullString{String: "TEST-NAME-1", Valid: true}},
+		count(t, ro, "SELECT "+album+"2)"): {},
+	}
+	if len(want) != 3 {
+		t.Fatalf("%d user albums, want 3", len(want))
+	}
 	albums, err := openDB(t, path).Albums(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
 	found := 0
 	for _, a := range albums {
-		switch {
-		case a.Owner.String == "TEST-NAME-1":
-			found++
-			if a.OwnerComponents != nil {
-				t.Errorf("album %d: a named owner with %d name archives", a.PK, len(a.OwnerComponents))
-			}
-		case a.OwnerComponents != nil:
-			found++
-			if a.Owner.Valid || !reflect.DeepEqual(a.OwnerComponents, [][]byte{{1, 2}, {3}}) {
-				t.Errorf("album %d: Owner %v, name archives %v; want none and the two of the participant", a.PK, a.Owner.Valid, a.OwnerComponents)
-			}
+		w, ok := want[a.PK]
+		if !ok {
+			continue
+		}
+		found++
+		if a.Owner != w.Owner || !reflect.DeepEqual(a.OwnerComponents, w.OwnerComponents) {
+			t.Errorf("album %d: Owner %v, %d name archives; not the owner written", a.PK, a.Owner.Valid, len(a.OwnerComponents))
 		}
 	}
-	if found != 2 {
-		t.Errorf("%d albums with the owners written, want 2", found)
+	if found != len(want) {
+		t.Errorf("%d of the %d albums written read", found, len(want))
 	}
 }

@@ -800,6 +800,9 @@ func TestOpenCollectionShare(t *testing.T) {
 		"INSERT INTO ZINTERNALRESOURCE (Z_PK, ZASSET, ZDATASTORESUBTYPE, ZLOCALAVAILABILITY) "+
 			"VALUES ((SELECT MAX(Z_PK) + 1 FROM ZINTERNALRESOURCE), "+videoPK+video[0]+"'), 8, 0)",
 		"UPDATE ZASSET SET ZCOLLECTIONSHARE = (SELECT Z_PK FROM ZSHARE WHERE ZUUID = '"+share[0]+"') WHERE ZUUID = '"+video[0]+"'",
+		fmt.Sprintf("INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZSHARE, ZROLE, ZHASHEDPERSONID, ZNAMECOMPONENTS) VALUES "+
+			"((SELECT COALESCE(MAX(Z_PK), 0) + 1 FROM ZSHAREPARTICIPANT), (SELECT Z_PK FROM ZSHARE WHERE ZUUID = '%s'), 1, 'TEST-P-OWNER', X'%x')",
+			share[0], nameArchive(t, plist.UID(3), plist.UID(4))),
 	)
 	order := testlib.Rows(t, src, "SELECT a.ZUUID FROM ZASSET a WHERE a.ZCOLLECTIONSHARE = (SELECT Z_PK FROM ZSHARE WHERE ZUUID = ?)"+
 		" AND a.Z_PK IN (SELECT ZASSET FROM ZADDITIONALASSETATTRIBUTES) ORDER BY a.ZCLOUDBATCHPUBLISHDATE, a.Z_PK", share[0])
@@ -812,8 +815,8 @@ func TestOpenCollectionShare(t *testing.T) {
 		t.Fatal(err)
 	}
 	a, ok := db.Album(share[0])
-	if !ok || a.InTrash || a.Owner == "" || !slices.Contains(lookupUUIDs(db.SharedAlbumInfo()), share[0]) {
-		t.Fatalf("Album(%s) = %v: want a shared album outside the trash, with an owner, in SharedAlbumInfo", share[0], ok)
+	if !ok || a.InTrash || a.Owner != "Jos\U000000e9 Example" || !slices.Contains(lookupUUIDs(db.SharedAlbumInfo()), share[0]) {
+		t.Fatalf("Album(%s) = %v: want a shared album outside the trash, with the owner written in NFC, in SharedAlbumInfo", share[0], ok)
 	}
 	var got []string
 	for _, p := range db.AlbumPhotos(a) {
@@ -830,15 +833,40 @@ func TestOpenCollectionShare(t *testing.T) {
 	}
 }
 
+// Upstream skips an archive that does not decode (_photosdb_process_comments.py:175-179);
+// a role that is not 1 is not the owner (_constants.py:372).
+func TestOpenHostileOwner(t *testing.T) {
+	t.Parallel()
+
+	lib := testlib.OpenPristine(t, "synthetic")
+	share := testlib.Rows(t, roDB(t, lib), "SELECT ZUUID FROM ZSHARE WHERE Z_ENT = "+
+		"(SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CollectionShare') AND ZUUID IS NOT NULL")
+	if len(share) != 1 {
+		t.Fatalf("%d CollectionShare rows in the synthetic library, want the one of reference/006_shared-album.sql", len(share))
+	}
+	pk := "(SELECT Z_PK FROM ZSHARE WHERE ZUUID = '" + share[0] + "')"
+	change(t, lib, "INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZSHARE, ZROLE, ZHASHEDPERSONID, ZNAMECOMPONENTS) VALUES "+
+		"(900001, "+pk+", 1, 'TEST-P-HOSTILE', 7), (900002, "+pk+", 1, 'TEST-P-HOSTILE', 'SECRET-N'), "+
+		"(900003, "+pk+", 1, 'TEST-P-HOSTILE', zeroblob(2097152)), "+
+		fmt.Sprintf("(900004, %s, 'SECRET-R', 'TEST-P-ROLE', X'%x')", pk, nameArchive(t, plist.UID(3), plist.UID(4))))
+	db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open: an error, with a value %v", strings.Contains(err.Error(), "SECRET"))
+	}
+	if a, ok := db.Album(share[0]); !ok || a.Owner != "" {
+		t.Errorf("Album(%s) = %v: want the shared album without an owner", share[0], ok)
+	}
+}
+
 func TestLoadCollectionShares(t *testing.T) {
 	t.Parallel()
 
 	none := sql.NullInt64{}
 	rows := []sqlread.Album{albumRow(1, "ROOT", sqlread.KindRootFolder, none), albumRow(2, "SH-1", sqlread.KindSharedAlbum, none)}
-	// A ZSHARE.Z_PK may equal a ZGENERICALBUM.Z_PK.
+	// A ZSHARE.Z_PK may equal a ZGENERICALBUM.Z_PK (photosdb.py:2914-2916): a guard against a map by Z_PK.
 	share := albumRow(1, "SH-2", sqlread.KindSharedAlbum, none)
 	share.Trashed = nullInt(0)
-	got, err := loadSharedAlbums(rows, []sqlread.Album{share}, map[string][]string{"SH-2": {"P-1"}})
+	got, err := loadFolderless(append(slices.Clone(rows), share), map[string][]string{"SH-2": {"P-1"}}, sqlread.KindSharedAlbum, "shared albums")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -853,9 +881,10 @@ func TestLoadCollectionShares(t *testing.T) {
 		{"the ZUUID of ZGENERICALBUM", albumRow(3, "SECRET-1", sqlread.KindSharedAlbum, none)},
 		{"an empty ZUUID", albumRow(3, "", sqlread.KindSharedAlbum, none)},
 	} {
-		withAlbum := append(slices.Clone(rows), albumRow(4, "SECRET-1", sqlread.KindUserAlbum, nullInt(1)))
-		bad, err := loadSharedAlbums(withAlbum, []sqlread.Album{tt.share}, nil)
-		if err == nil || bad != nil || !strings.Contains(err.Error(), "1 CollectionShare rows of ZSHARE") || strings.Contains(err.Error(), "SECRET") {
+		withShare := append(slices.Clone(rows), albumRow(4, "SECRET-1", sqlread.KindUserAlbum, nullInt(1)), tt.share)
+		bad, err := loadFolderless(withShare, nil, sqlread.KindSharedAlbum, "shared albums")
+		if err == nil || bad != nil || !strings.Contains(err.Error(), "1 shared albums with an empty ZUUID or the ZUUID of another album") ||
+			strings.Contains(err.Error(), "SECRET") {
 			t.Errorf("%s: %d shared albums, %v; want an error without values", tt.name, len(bad), err)
 		}
 	}
@@ -915,35 +944,44 @@ func TestOwnerName(t *testing.T) {
 	}
 }
 
-func TestMarkSharedVideosMissing(t *testing.T) {
+// The video of a shared album is a resource apart from the poster frame
+// (photosdb.py:2918-2942); of several, the one with the highest Z_PK decides,
+// as in isMissing.
+func TestLoadSharedVideos(t *testing.T) {
 	t.Parallel()
 
 	asset := func(pk int64, uuid string, kind int64) sqlread.Asset {
-		return sqlread.Asset{PK: pk, UUID: nullString(uuid), HasAttributes: true, Kind: nullInt(kind)}
+		a := baseAsset(pk, uuid)
+		a.Kind = nullInt(kind)
+		return a
 	}
-	resource := func(pk, asset, subtype, local int64) sqlread.Resource {
+	res := func(pk, asset, subtype, local int64) sqlread.Resource {
 		return sqlread.Resource{PK: pk, AssetPK: asset, Subtype: nullInt(subtype), Local: nullInt(local)}
 	}
-	byUUID := map[string]*photoinfo.PhotoInfo{
-		"V-FOUND": {IsMissing: true}, "V-MISSING": {}, "PHOTO": {}, "V-ALBUM": {}, "V-NO-VIDEO": {IsMissing: true},
+	in := tables{
+		assets: []sqlread.Asset{
+			asset(1, "V-FOUND", kindMovie), asset(2, "V-MISSING", kindMovie), asset(3, "PHOTO", kindPhoto),
+			asset(4, "V-NOT-SHARED", kindMovie), asset(5, "V-NO-VIDEO", kindMovie),
+		},
+		resources: []sqlread.Resource{
+			res(10, 1, 1, 0), res(11, 1, 8, 0), res(12, 1, 8, 1),
+			res(13, 2, 1, 1), res(14, 2, 8, 1), res(15, 2, 8, 0),
+			res(16, 3, 1, 1), res(17, 3, 8, 0),
+			res(18, 4, 1, 1), res(19, 4, 8, 0),
+			res(20, 5, 1, 0), res(21, 5, 2, 1),
+		},
+		shareMembers: []sqlread.Member{
+			{AssetPK: 1, AlbumUUID: "SH"}, {AssetPK: 2, AlbumUUID: "SH"}, {AssetPK: 3, AlbumUUID: "SH"}, {AssetPK: 5, AlbumUUID: "SH"},
+		},
 	}
-	assets := []sqlread.Asset{
-		asset(1, "V-FOUND", 1), asset(2, "V-MISSING", 1), asset(3, "PHOTO", 0), asset(4, "V-ALBUM", 1), asset(5, "V-NO-VIDEO", 1),
+	c, err := load(in)
+	if err != nil {
+		t.Fatal(err)
 	}
-	// V-ALBUM is in no shared album.
-	shareMembers := []sqlread.Member{
-		{AssetPK: 1, AlbumUUID: "SH"}, {AssetPK: 2, AlbumUUID: "SH"}, {AssetPK: 3, AlbumUUID: "SH"}, {AssetPK: 5, AlbumUUID: "SH"},
-	}
-	// Of several resources the one with the highest Z_PK decides, as in isMissing.
-	resources := []sqlread.Resource{
-		resource(10, 1, 8, 0), resource(11, 1, 8, 1), resource(12, 2, 8, 1), resource(13, 2, 8, 0),
-		resource(14, 3, 8, 0), resource(15, 4, 8, 0), resource(16, 5, 1, 1),
-	}
-	markSharedVideosMissing(shareMembers, assets, resources, byUUID)
-	want := map[string]bool{"V-FOUND": false, "V-MISSING": true, "PHOTO": false, "V-ALBUM": false, "V-NO-VIDEO": true}
-	for u, p := range byUUID {
-		if p.IsMissing != want[u] {
-			t.Errorf("%s: IsMissing %v, want %v", u, p.IsMissing, want[u])
+	want := map[string]bool{"V-FOUND": false, "V-MISSING": true, "PHOTO": false, "V-NOT-SHARED": false, "V-NO-VIDEO": true}
+	for u, w := range want {
+		if p := c.byUUID[u]; p == nil || p.IsMissing != w {
+			t.Errorf("%s: not loaded, or IsMissing not %v", u, w)
 		}
 	}
 }

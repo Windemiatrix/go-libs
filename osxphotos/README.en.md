@@ -98,7 +98,7 @@ Other models, including beta builds outside the ranges, give `ErrUnsupportedSche
 | File names on export | `export` | planned |
 | Import, albums, deletion through PhotoKit | `photokit` | planned |
 
-**Not included:** a command line, exporting files and sidecars, face data other than the names of people (face position and size), place names (coordinates are read), EXIF, search by photo content, comments of shared albums, and shared albums of Photos 11 and later, database repair, Photos 7 and older. osxphotos itself covers these.
+**Not included:** a command line, exporting files and sidecars, face data other than the names of people (face position and size), place names (coordinates are read), EXIF, search by photo content, comments of shared albums, database repair, Photos 7 and older. osxphotos itself covers these.
 
 ## How it differs from osxphotos
 

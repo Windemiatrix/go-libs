@@ -32,10 +32,7 @@ type Album struct {
 	SortAscending       sql.NullInt64   // ZCUSTOMSORTASCENDING
 	ListOrder           sql.NullInt64   // Z_FOK_PARENTFOLDER: the place among the rows of one parent folder
 	Owner               sql.NullString  // the full name of the person of ZCLOUDOWNERHASHEDPERSONID (albuminfo.py:113-133); NULL when not found
-	// When Owner is not found: the ZSHAREPARTICIPANT.ZNAMECOMPONENTS archives
-	// of that person, in the order in which photosdb tries to decode a name
-	// from them (_photosdb_process_comments.py:155-187).
-	OwnerComponents [][]byte
+	OwnerComponents     [][]byte        // the ZSHAREPARTICIPANT.ZNAMECOMPONENTS of an owner ID without a row for Owner, in Z_PK order (_photosdb_process_comments.py:155-187)
 }
 
 // The order is that of the Scan in Albums.
@@ -77,13 +74,10 @@ func (d *DB) Albums(ctx context.Context) ([]Album, error) {
 	return out, nil
 }
 
-// CollectionShares returns the shared albums of Photos 11 and later, the
-// CollectionShare rows of ZSHARE that have a ZUUID, in Z_PK order, and the
-// memberships of their assets (ZASSET.ZCOLLECTIONSHARE); both are nil without
-// the CollectionShare entity in Z_PRIMARYKEY (photosdb.py:1950-1956,
-// 2787-2916). An album has Kind KindSharedAlbum, no parent, and a PK of ZSHARE.
-// The memberships are in the order of ZCLOUDBATCHPUBLISHDATE, NULL first, then
-// of the asset Z_PK; Order is the place in that list.
+// CollectionShares returns the CollectionShare rows of ZSHARE that have a ZUUID,
+// in Z_PK order, as albums of KindSharedAlbum whose PK is a ZSHARE.Z_PK, and
+// the memberships of their assets by ZCLOUDBATCHPUBLISHDATE, NULL first, then
+// Z_PK, numbered in Order. Both are nil without the entity (photosdb.py:1950-1956, 2787-2916).
 func (d *DB) CollectionShares(ctx context.Context) ([]Album, []Member, error) {
 	var ent sql.NullInt64
 	err := d.readRows(ctx, "collection share entity", "SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CollectionShare' LIMIT 1",
@@ -91,8 +85,7 @@ func (d *DB) CollectionShares(ctx context.Context) ([]Album, []Member, error) {
 	if err != nil || !ent.Valid {
 		return nil, nil, err
 	}
-	// Photos keeps no order of a shared album; upstream numbers the rows of all
-	// of them in this order (photosdb.py:2815-2842).
+	// Photos keeps no order of a shared album (photosdb.py:2815-2842).
 	var members []Member
 	q := "SELECT a.Z_PK, s.ZUUID FROM ZASSET a JOIN ZSHARE s ON s.Z_PK = a.ZCOLLECTIONSHARE" +
 		" WHERE s.Z_ENT = ? AND s.ZUUID IS NOT NULL ORDER BY a.ZCLOUDBATCHPUBLISHDATE, a.Z_PK"
@@ -107,23 +100,17 @@ func (d *DB) CollectionShares(ctx context.Context) ([]Album, []Member, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	// The role column is ZROLE in Photos 11 and ZCPLROLE in Photos 12; role 1 is
-	// the owner (_constants.py:372), and of several the last row wins
-	// (photosdb.py:2844-2861), here the highest Z_PK.
-	cols, err := d.columns(ctx, "ZSHAREPARTICIPANT")
-	if err != nil {
-		return nil, nil, err
-	}
-	role, owner := "ZROLE", "NULL"
-	if slices.Contains(cols, "ZCPLROLE") {
-		role = "ZCPLROLE"
-	}
-	if slices.Contains(cols, role) {
-		owner = "(SELECT p.ZHASHEDPERSONID FROM ZSHAREPARTICIPANT p WHERE p.ZSHARE = s.Z_PK AND p." + role + " = 1 ORDER BY p.Z_PK DESC LIMIT 1)"
-	}
 	people, err := d.personIndex(ctx)
 	if err != nil {
 		return nil, nil, err
+	}
+	// Role 1 is the owner (_constants.py:372); of several, the highest Z_PK stands for the last row of upstream (photosdb.py:2844-2861).
+	role, owner := "ZROLE", "NULL"
+	if slices.Contains(people.participantColumns, "ZCPLROLE") {
+		role = "ZCPLROLE"
+	}
+	if slices.Contains(people.participantColumns, role) && slices.Contains(people.participantColumns, "ZHASHEDPERSONID") {
+		owner = "(SELECT p.ZHASHEDPERSONID FROM ZSHAREPARTICIPANT p WHERE p.ZSHARE = s.Z_PK AND p." + role + " = 1 ORDER BY p.Z_PK DESC LIMIT 1)"
 	}
 	// Upstream reads the state with bool(): NULL is outside the trash, unlike
 	// in ZGENERICALBUM (photosdb.py:2906).
@@ -178,17 +165,16 @@ const hashedPersonQuery = `
         AND NOT (FIRSTNAME IS NULL AND LASTNAME IS NULL)
         `
 
-// personIndex is _db_hashed_person_id: the full_name of the UNION, of several
-// rows of one ID the last (_photosdb_process_comments.py:82-89), and the
-// ZNAMECOMPONENTS of ZSHAREPARTICIPANT, read only where the table has both
-// columns (_photosdb_process_comments.py:155-171). ORDER BY fixes the order
-// of the UNION as SQLite returns it, and the order in which photosdb tries
-// the archives of one ID, which upstream leaves to SQLite.
+// personIndex is _db_hashed_person_id (_photosdb_process_comments.py:82-89, 155-187).
 type personIndex struct {
-	names      map[string]sql.NullString
-	components map[string][][]byte
+	names              map[string]sql.NullString
+	components         map[string][][]byte
+	participantColumns []string
 }
 
+// ORDER BY fixes the order of the UNION as SQLite returns it. Z_PK is the order
+// of the table scan of the SELECT DISTINCT of upstream; without DISTINCT a
+// repeated archive is only tried again, to the same result.
 func (d *DB) personIndex(ctx context.Context) (personIndex, error) {
 	p := personIndex{names: map[string]sql.NullString{}, components: map[string][][]byte{}}
 	err := d.readRows(ctx, "person names", hashedPersonQuery+"ORDER BY 1, 2, 3, 4", func(rows *sql.Rows) error {
@@ -203,12 +189,12 @@ func (d *DB) personIndex(ctx context.Context) (personIndex, error) {
 	if err != nil {
 		return p, err
 	}
-	cols, err := d.columns(ctx, "ZSHAREPARTICIPANT")
-	if err != nil || !slices.Contains(cols, "ZHASHEDPERSONID") || !slices.Contains(cols, "ZNAMECOMPONENTS") {
+	p.participantColumns, err = d.columns(ctx, "ZSHAREPARTICIPANT")
+	if err != nil || !slices.Contains(p.participantColumns, "ZHASHEDPERSONID") || !slices.Contains(p.participantColumns, "ZNAMECOMPONENTS") {
 		return p, err
 	}
-	err = d.readRows(ctx, "participant names", "SELECT DISTINCT ZHASHEDPERSONID, ZNAMECOMPONENTS FROM ZSHAREPARTICIPANT "+
-		"WHERE ZHASHEDPERSONID IS NOT NULL AND ZHASHEDPERSONID != '' AND ZNAMECOMPONENTS IS NOT NULL ORDER BY 1, 2",
+	err = d.readRows(ctx, "participant names", "SELECT ZHASHEDPERSONID, ZNAMECOMPONENTS FROM ZSHAREPARTICIPANT "+
+		"WHERE ZHASHEDPERSONID IS NOT NULL AND ZHASHEDPERSONID != '' AND ZNAMECOMPONENTS IS NOT NULL ORDER BY Z_PK",
 		func(rows *sql.Rows) error {
 			var id string
 			var archive []byte

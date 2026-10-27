@@ -46,14 +46,23 @@ func (db *DB) ProjectInfoOf(p *photoinfo.PhotoInfo) []*albuminfo.AlbumInfo {
 // (albuminfo.py:229-234, 237-278, 374-392; photosdb.py:1992-1994). The parent
 // is any row of ZGENERICALBUM, as upstream reads all of them; a parent that is
 // not a row is an error, as there (photosdb.py:1977-1980), and so is one
-// without ZUUID, as for albums. rows have passed loadAlbums: one root folder,
-// no empty or repeated ZUUID.
+// without ZUUID, as for albums. rows have passed loadAlbums (one root folder),
+// but the CollectionShare rows of ZSHARE among them have not, so an empty or
+// repeated ZUUID, which would merge the photos of two albums, is checked here.
 func loadFolderless(rows []sqlread.Album, albumPhotos map[string][]string, kind int64, plural string) ([]*albuminfo.AlbumInfo, error) {
 	var rootPK int64
+	seen, badUUID := map[string]bool{"": true}, 0
 	for _, r := range rows {
 		if r.Kind == sqlread.KindRootFolder {
 			rootPK = r.PK
 		}
+		if seen[r.UUID] {
+			badUUID++
+		}
+		seen[r.UUID] = true
+	}
+	if badUUID > 0 {
+		return nil, fmt.Errorf("photosdb: %d %s with an empty ZUUID or the ZUUID of another album", badUUID, plural)
 	}
 	var out []*albuminfo.AlbumInfo
 	badParents := 0

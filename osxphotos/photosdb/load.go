@@ -60,6 +60,9 @@ const (
 	// ZLOCALAVAILABILITY of a resource on disk (photosdb.py:2492, 2513).
 	localAvailable = 1
 
+	// ZDATASTORESUBTYPE of the video of a shared album, UUID.medium.MP4 (_constants.py:373).
+	resSharedVideo = 8
+
 	// ZORIGINALRESOURCECHOICE when the RAW is the original (photosdb.py:2288).
 	rawOriginalChoice = 1
 
@@ -79,8 +82,8 @@ type tables struct {
 	albums    []sqlread.Album
 	shares    []sqlread.Share
 
-	collectionShares []sqlread.Album  // CollectionShare rows of ZSHARE: their PK is a ZSHARE.Z_PK
-	shareMembers     []sqlread.Member // also appended to members
+	collectionShares []sqlread.Album // CollectionShare rows of ZSHARE: their PK is a ZSHARE.Z_PK
+	shareMembers     []sqlread.Member
 }
 
 type catalog struct {
@@ -107,6 +110,10 @@ func load(t tables) (*catalog, error) {
 	keywords := groupKeywords(t.keywords)
 	albums, projects := groupMembers(t.members)
 	persons := groupFaces(t.faces)
+	inShare := make(map[int64]bool, len(t.shareMembers))
+	for _, m := range t.shareMembers {
+		inShare[m.AssetPK] = true
+	}
 
 	c := &catalog{byUUID: make(map[string]*photoinfo.PhotoInfo, len(t.assets))}
 	var noUUID, dupUUID int
@@ -124,6 +131,13 @@ func load(t tables) (*catalog, error) {
 			continue
 		}
 		p := photo(a, resources[a.PK])
+		if inShare[a.PK] && p.IsMovie { // photosdb.py:2518-2519, 2918-2942; the highest Z_PK decides, as in isMissing
+			for _, r := range resources[a.PK] {
+				if is(r.Subtype, resSharedVideo) {
+					p.IsMissing = !is(r.Local, localAvailable)
+				}
+			}
+		}
 		p.Keywords = keywords[a.PK]
 		p.AlbumUUIDs = albums[a.PK]
 		p.ProjectUUIDs = projects[a.PK]
