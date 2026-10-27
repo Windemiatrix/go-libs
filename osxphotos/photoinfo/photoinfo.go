@@ -141,7 +141,7 @@ type ShareParticipant struct {
 	// osxphotos _acceptance_status, is_current_user, _exit_state, _permission,
 	// _person, _z54_share (the ZSHAREPARTICIPANT_ZXX_SHARE column of the
 	// schema) and _share.
-	AcceptanceStatus, IsCurrentUser, ExitState, Permission, Person, ScopeShare, Share *int
+	AcceptanceStatus, IsCurrentUser, ExitState, Permission, Person, Z54Share, Share *int
 
 	EmailAddress, ParticipantID, PhoneNumber, UserIdentifier, UUID string
 

@@ -83,22 +83,24 @@ func (d *DB) Shares(ctx context.Context) ([]Share, error) {
 	return out, nil
 }
 
-// Participant is one row of get_share_participants (shareparticipant.py:21-49)
-// with the ZUUID of its asset.
+// Participant is one ZSHAREPARTICIPANT row of get_share_participants
+// (shareparticipant.py:21-49) with the assets that its query links it to.
 type Participant struct {
-	AssetUUID sql.NullString // ZASSET.ZUUID
-	PK        int64          // ZSHAREPARTICIPANT.Z_PK
+	PK int64 // Z_PK
 
-	AcceptanceStatus, IsCurrentUser, ExitState, Permission, Person, ScopeShare, Share sql.NullInt64
+	AcceptanceStatus, IsCurrentUser, ExitState, Permission, Person, Z54Share, Share sql.NullInt64
 
 	EmailAddress, ParticipantID, PhoneNumber, UserIdentifier, UUID sql.NullString
 
 	NameComponents []byte // nil also for an archive over 1 MiB
+
+	AssetUUIDs []string // ZASSET.ZUUID of each ZASSETCONTRIBUTOR row, in its Z_PK order; a repeated link is repeated
 }
 
-// Participants returns the rows of the query of get_share_participants for
-// every asset, ordered by ZSHAREPARTICIPANT.Z_PK; nil when a table or column
-// of the query is missing, where upstream catches the error of the query
+// Participants returns the ZSHAREPARTICIPANT rows that ZASSETCONTRIBUTOR
+// names, ordered by Z_PK, with the assets of the joins of
+// get_share_participants; nil when a table or column of that query is
+// missing, where upstream catches the error of the query
 // (shareparticipant.py:45-49).
 func (d *DB) Participants(ctx context.Context, s schema.Schema) ([]Participant, error) {
 	cols := []string{"Z_PK", "ZACCEPTANCESTATUS", "ZISCURRENTUSER", "ZEXITSTATE", "ZPERMISSION", "ZPERSON", s.ParticipantShareColumn,
@@ -110,20 +112,40 @@ func (d *DB) Participants(ctx context.Context, s schema.Schema) ([]Participant, 
 	if err != nil {
 		return nil, err
 	}
-	// The bound is maxPlistSize of photosdb, which refuses a larger archive anyway.
-	q := "SELECT a.ZUUID, p." + strings.Join(cols[:len(cols)-1], ", p.") +
-		", CASE WHEN length(p.ZNAMECOMPONENTS) <= 1048576 THEN p.ZNAMECOMPONENTS END" +
-		" FROM ZSHAREPARTICIPANT p JOIN ZASSETCONTRIBUTOR c ON c.ZPARTICIPANT = p.Z_PK" +
-		" JOIN ZADDITIONALASSETATTRIBUTES x ON x.Z_PK = c.Z3LIBRARYSCOPEASSETCONTRIBUTORS" +
-		" JOIN ZASSET a ON a.Z_PK = x.ZASSET ORDER BY p.Z_PK"
+	// A participant is read once, not once per linked photo as in the join of
+	// upstream: an archive of a crafted library linked to many photos would
+	// multiply. The bound in bytes is maxPlistSize of photosdb, which refuses a
+	// larger archive anyway; length() of a text counts characters.
+	q := "SELECT " + strings.Join(cols[:len(cols)-1], ", ") +
+		", CASE WHEN length(CAST(ZNAMECOMPONENTS AS BLOB)) <= 1048576 THEN ZNAMECOMPONENTS END" +
+		" FROM ZSHAREPARTICIPANT WHERE Z_PK IN (SELECT ZPARTICIPANT FROM ZASSETCONTRIBUTOR) ORDER BY Z_PK"
 	var out []Participant
+	index := map[int64]int{}
 	err = d.readRows(ctx, "share participants", q, func(rows *sql.Rows) error {
 		var p Participant
-		if err := rows.Scan(&p.AssetUUID, &p.PK, &p.AcceptanceStatus, &p.IsCurrentUser, &p.ExitState, &p.Permission, &p.Person, &p.ScopeShare, &p.Share,
+		if err := rows.Scan(&p.PK, &p.AcceptanceStatus, &p.IsCurrentUser, &p.ExitState, &p.Permission, &p.Person, &p.Z54Share, &p.Share,
 			&p.EmailAddress, &p.ParticipantID, &p.PhoneNumber, &p.UserIdentifier, &p.UUID, &p.NameComponents); err != nil {
 			return err
 		}
+		index[p.PK] = len(out)
 		out = append(out, p)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	q = "SELECT p.Z_PK, a.ZUUID FROM ZSHAREPARTICIPANT p JOIN ZASSETCONTRIBUTOR c ON c.ZPARTICIPANT = p.Z_PK" +
+		" JOIN ZADDITIONALASSETATTRIBUTES x ON x.Z_PK = c.Z3LIBRARYSCOPEASSETCONTRIBUTORS" +
+		" JOIN ZASSET a ON a.Z_PK = x.ZASSET WHERE a.ZUUID IS NOT NULL ORDER BY c.Z_PK"
+	err = d.readRows(ctx, "share participant assets", q, func(rows *sql.Rows) error {
+		var pk int64
+		var asset string
+		if err := rows.Scan(&pk, &asset); err != nil {
+			return err
+		}
+		if i, ok := index[pk]; ok {
+			out[i].AssetUUIDs = append(out[i].AssetUUIDs, asset)
+		}
 		return nil
 	})
 	if err != nil {

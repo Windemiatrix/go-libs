@@ -18,7 +18,7 @@ func participantInsert(s schema.Schema) string {
 		", ZSHARE, ZEMAILADDRESS, ZPARTICIPANTID, ZPHONENUMBER, ZUSERIDENTIFIER, ZUUID, ZNAMECOMPONENTS) VALUES "
 }
 
-func attributesAt(t *testing.T, ro *sql.DB, offset int) (pk int64, assetUUID sql.NullString) {
+func attributesAt(t *testing.T, ro *sql.DB, offset int) (pk int64, assetUUID string) {
 	t.Helper()
 	err := ro.QueryRowContext(t.Context(), "SELECT x.Z_PK, a.ZUUID FROM ZADDITIONALASSETATTRIBUTES x JOIN ZASSET a ON a.Z_PK = x.ZASSET "+
 		"ORDER BY x.Z_PK LIMIT 1 OFFSET ?", offset).Scan(&pk, &assetUUID)
@@ -40,10 +40,12 @@ func TestParticipantsValues(t *testing.T) {
 	exec(t, w,
 		participantInsert(s)+"(900001, 11, 12, 13, 14, 15, 16, 17, 'user@example.com', 'TEST-PID', '+10000000000', 'TEST-UID', 'TEST-PU-1', X'010203')",
 		"INSERT INTO ZSHAREPARTICIPANT (Z_PK) VALUES (900002)",
-		"INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZNAMECOMPONENTS) VALUES (900003, zeroblob(1048577)), (900004, zeroblob(1048576)), (900005, NULL), (900006, NULL)",
-		// In reverse Z_PK order of the participants; 900005 has no contributor, the contributor of 900006 has no attributes row.
-		contributorInsert+fmt.Sprintf("(900001, 900003, %d), (900002, 900002, %d), (900003, 900001, %d), (900004, 900004, %d), (900005, 900006, 999999999)",
-			pkA, pkA, pkB, pkB),
+		"INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZNAMECOMPONENTS) VALUES (900003, zeroblob(1048577)), (900004, zeroblob(1048576)), (900005, NULL), (900006, NULL), "+
+			"(900007, replace(hex(zeroblob(262145)), '00', '\U0001F600'))",
+		// Z_PKs that no participant has, so that a join on the wrong key finds nothing.
+		// 900005 has no contributor, the contributor of 900006 has no attributes row.
+		contributorInsert+fmt.Sprintf("(800001, 900003, %d), (800002, 900002, %d), (800003, 900001, %d), (800004, 900004, %d), (800005, 900006, 999999999), "+
+			"(800006, 900001, %d), (800007, 900001, %d), (800008, 900007, %d)", pkA, pkA, pkB, pkB, pkA, pkB, pkA),
 	)
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
@@ -66,14 +68,18 @@ func TestParticipantsValues(t *testing.T) {
 	ns := func(v string) sql.NullString { return sql.NullString{String: v, Valid: true} }
 	want := []Participant{
 		{
-			AssetUUID: uuidB, PK: 900001,
-			AcceptanceStatus: ni(11), IsCurrentUser: ni(12), ExitState: ni(13), Permission: ni(14), Person: ni(15), ScopeShare: ni(16), Share: ni(17),
+			PK:               900001,
+			AcceptanceStatus: ni(11), IsCurrentUser: ni(12), ExitState: ni(13), Permission: ni(14), Person: ni(15), Z54Share: ni(16), Share: ni(17),
 			EmailAddress: ns("user@example.com"), ParticipantID: ns("TEST-PID"), PhoneNumber: ns("+10000000000"),
 			UserIdentifier: ns("TEST-UID"), UUID: ns("TEST-PU-1"), NameComponents: []byte{1, 2, 3},
+			AssetUUIDs: []string{uuidB, uuidA, uuidB},
 		},
-		{AssetUUID: uuidA, PK: 900002},
-		{AssetUUID: uuidA, PK: 900003},
-		{AssetUUID: uuidB, PK: 900004, NameComponents: make([]byte, 1<<20)},
+		{PK: 900002, AssetUUIDs: []string{uuidA}},
+		{PK: 900003, AssetUUIDs: []string{uuidA}},
+		{PK: 900004, NameComponents: make([]byte, 1<<20), AssetUUIDs: []string{uuidB}},
+		{PK: 900006},
+		// length() counts the 262145 characters; only the bound in bytes drops the text.
+		{PK: 900007, AssetUUIDs: []string{uuidA}},
 	}
 	if len(inserted) != len(want) {
 		t.Fatalf("%d inserted participants, want %d", len(inserted), len(want))
@@ -82,6 +88,32 @@ func TestParticipantsValues(t *testing.T) {
 		if !reflect.DeepEqual(inserted[i], want[i]) {
 			t.Errorf("Z_PK %d differs from the inserted row", want[i].PK)
 		}
+	}
+}
+
+func TestParticipantsShareColumn(t *testing.T) {
+	t.Parallel()
+
+	path := syntheticDB(t)
+	pk, _ := attributesAt(t, openRO(t, path), 0)
+	w := openWriter(t, path)
+	exec(t, w,
+		"INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZPERSON) VALUES (900001, 15)",
+		fmt.Sprintf("%s(800001, 900001, %d)", contributorInsert, pk),
+	)
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	d := openDB(t, path)
+	s := schemaByID(t, "photos11_1")
+	s.ParticipantShareColumn = "ZPERSON"
+	got, err := d.Participants(t.Context(), s)
+	if err != nil || len(got) != 1 || got[0].Z54Share != (sql.NullInt64{Int64: 15, Valid: true}) {
+		t.Errorf("%d rows, %v; want one whose Z54Share is the value of ZPERSON", len(got), err)
+	}
+	s.ParticipantShareColumn = "ZNOSUCHCOLUMN"
+	if got, err := d.Participants(t.Context(), s); got != nil || err != nil {
+		t.Errorf("a share column the table does not have: %d rows, %v; want nil, nil", len(got), err)
 	}
 }
 
@@ -106,7 +138,7 @@ func TestParticipantsSchema(t *testing.T) {
 			w := openWriter(t, path)
 			exec(t, w, slices.Concat([]string{
 				"INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZACCEPTANCESTATUS) VALUES (900001, " + tt.acceptance + ")",
-				fmt.Sprintf("%s(900001, 900001, %d)", contributorInsert, pk),
+				fmt.Sprintf("%s(800001, 900001, %d)", contributorInsert, pk),
 			}, tt.after)...)
 			if err := w.Close(); err != nil {
 				t.Fatal(err)

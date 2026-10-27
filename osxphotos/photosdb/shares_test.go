@@ -262,7 +262,7 @@ func everyValue(pk int64, uuid string) photoinfo.ShareParticipant {
 	n := func(v int) *int { return &v }
 	return photoinfo.ShareParticipant{
 		PK: pk, AcceptanceStatus: n(11), IsCurrentUser: n(12), ExitState: n(13), Permission: n(14),
-		Person: n(15), ScopeShare: n(16), Share: n(17),
+		Person: n(15), Z54Share: n(16), Share: n(17),
 		EmailAddress: "user@example.com", ParticipantID: "TEST-PID", PhoneNumber: "+10000000000",
 		UserIdentifier: "TEST-UID", UUID: uuid, NameComponents: sevenParts,
 	}
@@ -290,6 +290,8 @@ func TestNameComponents(t *testing.T) {
 		{"not a property list", []byte("not a list"), photoinfo.PersonNameComponents{}, false},
 		{"no root", noRoot, photoinfo.PersonNameComponents{}, false},
 		{"no NSnameComponentsPrivate", noPrivate, photoinfo.PersonNameComponents{}, false},
+		// bpylist2 indexes $objects and raises IndexError.
+		{"a reference out of range", nameArchive(t, plist.UID(99), plist.UID(4)), photoinfo.PersonNameComponents{}, false},
 		{"an archive over the limit", nameArchiveOf(t, plist.UID(3), plist.UID(4), strings.Repeat("a", maxPlistSize)), photoinfo.PersonNameComponents{}, false},
 	} {
 		if got, ok := nameComponents(tt.archive); got != tt.want || ok != tt.ok {
@@ -302,22 +304,27 @@ func TestLoadParticipants(t *testing.T) {
 	t.Parallel()
 
 	full, noName := sevenPartArchive(t), nameArchive(t, plist.UID(0), plist.UID(0))
-	row := func(asset string, pk int64, archive []byte) sqlread.Participant {
-		return sqlread.Participant{AssetUUID: nullString(asset), PK: pk, NameComponents: archive}
+	row := func(pk int64, archive []byte, assets ...string) sqlread.Participant {
+		return sqlread.Participant{PK: pk, NameComponents: archive, AssetUUIDs: assets}
 	}
-	every := row("P-1", 1, full)
+	// The join of upstream repeats a participant for each link (shareparticipant.py:39-43).
+	every := row(1, full, "P-1", "P-4", "P-4")
 	every.AcceptanceStatus, every.IsCurrentUser, every.ExitState, every.Permission = nullInt(11), nullInt(12), nullInt(13), nullInt(14)
-	every.Person, every.ScopeShare, every.Share = nullInt(15), nullInt(16), nullInt(17)
-	every.EmailAddress, every.ParticipantID, every.PhoneNumber = nullString("user@example.com"), nullString("TEST-PID"), nullString("+10000000000")
+	every.Person, every.Z54Share, every.Share = nullInt(15), nullInt(16), nullInt(17)
 	// Upstream passes the strings of the row as they are (shareparticipant.py:47).
+	every.EmailAddress, every.ParticipantID, every.PhoneNumber = nullString("user@example.com"), nullString("TEST-PID-e\U00000301"), nullString("+10000000000")
 	every.UserIdentifier, every.UUID = nullString("TEST-UID"), nullString("Cafe\U00000301")
 	db := &DB{participants: loadParticipants([]sqlread.Participant{
-		every, row("P-1", 2, noName),
-		row("P-2", 3, full), row("P-2", 4, nil),
-		row("P-3", 5, []byte("not a list")),
+		every, row(2, noName, "P-1"),
+		row(3, full, "P-2"), row(4, nil, "P-2"),
+		row(5, []byte("not a list"), "P-3"),
+		row(6, nil, "P-5"), row(7, full, "P-5"),
+		row(8, nil),
 	})}
 
-	want := []photoinfo.ShareParticipant{everyValue(1, "Cafe\U00000301"), {PK: 2, NameComponents: middleOnly}}
+	first := everyValue(1, "Cafe\U00000301")
+	first.ParticipantID = "TEST-PID-e\U00000301"
+	want := []photoinfo.ShareParticipant{first, {PK: 2, NameComponents: middleOnly}}
 	p1 := &photoInfo{UUID: "P-1"}
 	if got := db.ShareParticipantInfo(p1); !reflect.DeepEqual(got, want) {
 		t.Errorf("P-1: %d participants, not the values of the rows", len(got))
@@ -326,12 +333,18 @@ func TestLoadParticipants(t *testing.T) {
 	if got := db.ShareParticipants(p1); !slices.Equal(got, []string{"Jos\U000000e9 Part2", " "}) {
 		t.Errorf("P-1: %d names, not the given and family names", len(got))
 	}
+	if got := db.ShareParticipantInfo(&photoInfo{UUID: "P-4"}); !reflect.DeepEqual(got, []photoinfo.ShareParticipant{first, first}) {
+		t.Errorf("P-4: %d participants, want the participant of P-1 twice", len(got))
+	}
 	// One archive that does not decode empties the list (shareparticipant.py:45-49).
-	for _, u := range []string{"P-2", "P-3", "P-unknown"} {
+	for _, u := range []string{"P-2", "P-3", "P-5", "P-unknown"} {
 		p := &photoInfo{UUID: u}
 		if got, names := db.ShareParticipantInfo(p), db.ShareParticipants(p); got != nil || names != nil {
 			t.Errorf("%s: %d participants, %d names; want nil", u, len(got), len(names))
 		}
+	}
+	if len(db.participants) != 2 {
+		t.Errorf("%d photos with participants, want P-1 and P-4", len(db.participants))
 	}
 }
 
@@ -349,8 +362,10 @@ func TestOpenShareParticipants(t *testing.T) {
 	t.Parallel()
 
 	lib := testlib.OpenPristine(t, "synthetic")
+	// A photo whose attributes Z_PK is not its asset Z_PK comes first, so that a
+	// join of ZADDITIONALASSETATTRIBUTES on the wrong key fails where the library has one.
 	photos := testlib.Rows(t, roDB(t, lib), "SELECT a.ZUUID FROM ZASSET a JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK "+
-		"WHERE NOT EXISTS (SELECT 1 FROM ZASSETCONTRIBUTOR c WHERE c.Z3LIBRARYSCOPEASSETCONTRIBUTORS = x.Z_PK) ORDER BY a.ZUUID LIMIT 3")
+		"WHERE NOT EXISTS (SELECT 1 FROM ZASSETCONTRIBUTOR c WHERE c.Z3LIBRARYSCOPEASSETCONTRIBUTORS = x.Z_PK) ORDER BY x.Z_PK = a.Z_PK, a.ZUUID LIMIT 3")
 	if len(photos) != 3 {
 		t.Fatalf("%d photos without a contributor in the synthetic library, want 3", len(photos))
 	}
@@ -358,23 +373,26 @@ func TestOpenShareParticipants(t *testing.T) {
 	change(t, lib,
 		fmt.Sprintf(participantInsert+"(900001, 11, 12, 13, 14, 15, 16, 17, 'user@example.com', 'TEST-PID', '+10000000000', 'TEST-UID', 'TEST-PU-1', X'%x')", full),
 		fmt.Sprintf("INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZNAMECOMPONENTS) VALUES (900002, X'%x'), (900003, NULL), (900004, X'%x')", noName, full),
-		// In reverse Z_PK order of the participants; the last one has no attributes row.
-		contributorInsert+"(900001, 900002, "+attributesOf(photos[0])+"), (900002, 900001, "+attributesOf(photos[0])+"), "+
-			"(900003, 900004, "+attributesOf(photos[1])+"), (900004, 900003, "+attributesOf(photos[1])+"), (900005, 900001, 999999999)",
+		// Z_PKs that no participant has, against the Z_PK order of the participants, so
+		// that neither a join on the wrong key nor the order comes out right by chance;
+		// the last one has no attributes row.
+		contributorInsert+"(800001, 900002, "+attributesOf(photos[0])+"), (800002, 900001, "+attributesOf(photos[0])+"), "+
+			"(800003, 900004, "+attributesOf(photos[1])+"), (800004, 900003, "+attributesOf(photos[1])+"), "+
+			"(800005, 900001, "+attributesOf(photos[2])+"), (800006, 900001, 999999999)",
 	)
 	db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	want := []photoinfo.ShareParticipant{everyValue(900001, "TEST-PU-1"), {PK: 900002, NameComponents: middleOnly}}
+	every := everyValue(900001, "TEST-PU-1")
 	for i, tt := range []struct {
 		want  []photoinfo.ShareParticipant
 		names []string
 	}{
-		{want, []string{"Jos\U000000e9 Part2", " "}},
+		{[]photoinfo.ShareParticipant{every, {PK: 900002, NameComponents: middleOnly}}, []string{"Jos\U000000e9 Part2", " "}},
 		{nil, nil}, // a participant without an archive (shareparticipant.py:45-49)
-		{nil, nil},
+		{[]photoinfo.ShareParticipant{every}, []string{"Jos\U000000e9 Part2"}},
 	} {
 		p, ok := db.Photo(photos[i])
 		if !ok {
@@ -387,12 +405,16 @@ func TestOpenShareParticipants(t *testing.T) {
 			t.Errorf("photo %s: %d names, want %d", p.UUID, len(got), len(tt.names))
 		}
 	}
+	listed := 0
 	for _, p := range db.Photos() {
 		for _, s := range db.ShareParticipantInfo(p) {
-			if s.PK >= 900001 && p.UUID != photos[0] {
-				t.Errorf("photo %s: participant %d", p.UUID, s.PK)
+			if s.PK >= 900001 {
+				listed++
 			}
 		}
+	}
+	if listed != 3 {
+		t.Errorf("%d inserted participants listed on photos, want 3", listed)
 	}
 }
 
@@ -416,7 +438,7 @@ func TestOpenShareParticipantsSchema(t *testing.T) {
 			lib := testlib.OpenPristine(t, "synthetic")
 			change(t, lib, slices.Concat([]string{
 				fmt.Sprintf("INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZACCEPTANCESTATUS, ZNAMECOMPONENTS) VALUES (900001, %s, X'%x')", tt.acceptance, archive),
-				contributorInsert + "(900001, 900001, (SELECT MIN(x.Z_PK) FROM ZADDITIONALASSETATTRIBUTES x " +
+				contributorInsert + "(800001, 900001, (SELECT MIN(x.Z_PK) FROM ZADDITIONALASSETATTRIBUTES x " +
 					"WHERE NOT EXISTS (SELECT 1 FROM ZASSETCONTRIBUTOR c WHERE c.Z3LIBRARYSCOPEASSETCONTRIBUTORS = x.Z_PK)))",
 			}, tt.after)...)
 			db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
@@ -451,16 +473,28 @@ func TestOpenShareParticipantsSchema(t *testing.T) {
 func TestShareParticipantsLibraries(t *testing.T) {
 	t.Parallel()
 
+	// A participant of a photo is checked whatever the test libraries hold.
+	const linked = "synthetic with a participant of a photo"
+	libs := map[string]string{linked: testlib.OpenPristine(t, "synthetic")}
+	change(t, libs[linked],
+		fmt.Sprintf("INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZNAMECOMPONENTS) VALUES (900001, X'%x')", sevenPartArchive(t)),
+		contributorInsert+"(800001, 900001, (SELECT MIN(Z_PK) FROM ZADDITIONALASSETATTRIBUTES))")
 	for _, name := range testlib.Libraries(t) {
+		libs[name] = testlib.OpenPristine(t, name)
+	}
+	for name, lib := range libs {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			lib := testlib.OpenPristine(t, name)
 			db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
 			if err != nil {
 				t.Fatal(err)
 			}
 			src := roDB(t, lib)
-			s := schemaByID(t, libraryModels[name].id)
+			model := libraryModels[name]
+			if name == linked {
+				model = libraryModels["synthetic"]
+			}
+			s := schemaByID(t, model.id)
 			participant := testlib.Rows(t, src, "SELECT name FROM pragma_table_info('ZSHAREPARTICIPANT')")
 			if len(participant) > 0 && !slices.Contains(participant, s.ParticipantShareColumn) {
 				t.Errorf("ZSHAREPARTICIPANT has no column %s", s.ParticipantShareColumn)
@@ -475,12 +509,16 @@ func TestShareParticipantsLibraries(t *testing.T) {
 						"JOIN ZADDITIONALASSETATTRIBUTES x ON x.Z_PK = c.Z3LIBRARYSCOPEASSETCONTRIBUTORS JOIN ZASSET a ON a.Z_PK = x.ZASSET "+
 						"WHERE a.ZUUID = '"+p.UUID+"'")
 				}
-				if got != 0 && got != want {
+				// An archive of a test library may not decode; the inserted one does.
+				if got != want && (got != 0 || name == linked) {
 					t.Errorf("photo %d: %d participants, want %d or none", i, got, want)
 				}
 				listed += got
 			}
 			t.Logf("%d participants of photos", listed)
+			if name == linked && listed == 0 {
+				t.Error("no participant of a photo: the case is vacuous")
+			}
 		})
 	}
 }

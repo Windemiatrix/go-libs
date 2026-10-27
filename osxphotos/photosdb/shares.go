@@ -28,9 +28,10 @@ func (db *DB) ShareInfo(p *photoinfo.PhotoInfo) *photoinfo.ShareInfo {
 // ShareParticipantInfo returns the participants of the shared library that
 // ZASSETCONTRIBUTOR links to p: osxphotos share_participant_info
 // (photoinfo.py:1634-1639, shareparticipant.py:21-49), in
-// ZSHAREPARTICIPANT.Z_PK order. It is nil without a participant and also when
-// the name archive of one of them does not decode, as upstream returns [] on
-// that error. The slice is shared: do not modify it.
+// ZSHAREPARTICIPANT.Z_PK order, a participant once per ZASSETCONTRIBUTOR row
+// that links it to p. It is nil without a participant and also when the name
+// archive of one of them does not decode, as upstream returns [] on that
+// error. The slice is shared: do not modify it.
 func (db *DB) ShareParticipantInfo(p *photoinfo.PhotoInfo) []photoinfo.ShareParticipant {
 	return db.participants[p.UUID]
 }
@@ -53,36 +54,44 @@ func loadParticipants(rows []sqlread.Participant) map[string][]photoinfo.SharePa
 	out := map[string][]photoinfo.ShareParticipant{}
 	failed := map[string]bool{}
 	for _, r := range rows {
-		u := r.AssetUUID.String
 		name, ok := nameComponents(r.NameComponents)
-		failed[u] = failed[u] || !ok
-		out[u] = append(out[u], photoinfo.ShareParticipant{
+		p := photoinfo.ShareParticipant{
 			PK:               r.PK,
 			AcceptanceStatus: optionalInt(r.AcceptanceStatus), IsCurrentUser: optionalInt(r.IsCurrentUser), ExitState: optionalInt(r.ExitState),
-			Permission: optionalInt(r.Permission), Person: optionalInt(r.Person), ScopeShare: optionalInt(r.ScopeShare), Share: optionalInt(r.Share),
+			Permission: optionalInt(r.Permission), Person: optionalInt(r.Person), Z54Share: optionalInt(r.Z54Share), Share: optionalInt(r.Share),
 			EmailAddress: r.EmailAddress.String, ParticipantID: r.ParticipantID.String, PhoneNumber: r.PhoneNumber.String,
 			UserIdentifier: r.UserIdentifier.String, UUID: r.UUID.String,
 			NameComponents: name,
-		})
-	}
-	for u, bad := range failed {
-		if bad {
-			delete(out, u)
 		}
+		for _, u := range r.AssetUUIDs {
+			out[u] = append(out[u], p)
+			if !ok {
+				failed[u] = true
+			}
+		}
+	}
+	for u := range failed {
+		delete(out, u)
 	}
 	return out
 }
 
 // Upstream: shareparticipant.py:90-127, 153-187. The bool is false where the
 // unarchiving or the attribute access of upstream raises: not a property
-// list, no root object, or a root without NSnameComponentsPrivate.
+// list, no root object, a root without NSnameComponentsPrivate, or a
+// reference outside $objects, which bpylist2 indexes.
 func nameComponents(archive []byte) (photoinfo.PersonNameComponents, bool) {
 	keyed, _ := plistAny(archive).(map[string]any)
 	objects, _ := keyed["$objects"].([]any)
 	top, _ := keyed["$top"].(map[string]any)
+	outside := false
 	object := func(ref any) any {
 		uid, isUID := ref.(plist.UID)
-		if !isUID || uint64(uid) >= uint64(len(objects)) || objects[uid] == "$null" {
+		if isUID && uint64(uid) >= uint64(len(objects)) {
+			outside = true
+			return nil
+		}
+		if !isUID || objects[uid] == "$null" {
 			return nil
 		}
 		return objects[uid]
@@ -93,11 +102,15 @@ func nameComponents(archive []byte) (photoinfo.PersonNameComponents, bool) {
 		s, _ := object(data[key]).(string)
 		return nfc(s)
 	}
-	return photoinfo.PersonNameComponents{
+	n := photoinfo.PersonNameComponents{
 		GivenName: part("NSgivenName"), MiddleName: part("NSmiddleName"), FamilyName: part("NSfamilyName"),
 		NamePrefix: part("NSnamePrefix"), NameSuffix: part("NSnameSuffix"), Nickname: part("NSnickname"),
 		PhoneticRepresentation: part("NSphoneticRepresentation"),
-	}, ok
+	}
+	if !ok || outside {
+		return photoinfo.PersonNameComponents{}, false
+	}
+	return n, true
 }
 
 // Upstream joins ZSHARE to the asset of the ZUUID (shareinfo.py:140-146); only

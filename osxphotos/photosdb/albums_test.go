@@ -943,6 +943,7 @@ func TestOwnerName(t *testing.T) {
 		{"no name, then a name", sqlread.Album{OwnerComponents: [][]byte{nameArchive(t, null, null), xml, nameArchive(t, null, family)}}, "Example"},
 		{"not a property list, then a name", sqlread.Album{OwnerComponents: [][]byte{[]byte("not a list"), nil, full}}, "Jos\U000000e9 Example"},
 		{"a reference out of range", sqlread.Album{OwnerComponents: [][]byte{nameArchive(t, plist.UID(99), null)}}, ""},
+		{"a reference out of range and a family name", sqlread.Album{OwnerComponents: [][]byte{nameArchive(t, plist.UID(99), family)}}, ""},
 		{"an archive over the limit", sqlread.Album{OwnerComponents: [][]byte{oversized}}, ""},
 	} {
 		if got := ownerName(tt.album); got != tt.want {

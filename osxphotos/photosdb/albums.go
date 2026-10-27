@@ -147,7 +147,10 @@ func trashed(r sqlread.Album) bool { return !r.Trashed.Valid || r.Trashed.Int64 
 // Upstream: _photosdb_process_comments.py:172-187.
 func ownerName(r sqlread.Album) string {
 	for _, archive := range r.OwnerComponents {
-		n, _ := nameComponents(archive)
+		n, ok := nameComponents(archive)
+		if !ok {
+			continue
+		}
 		if parts := slices.DeleteFunc([]string{n.GivenName, n.FamilyName}, func(s string) bool { return s == "" }); len(parts) > 0 {
 			return strings.Join(parts, " ")
 		}
