@@ -2,6 +2,8 @@ package photosdb
 
 import (
 	"encoding/json"
+	"errors"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -44,25 +46,7 @@ func TestGolden(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			photos := db.Photos()
-			burstAlbums := map[string][]string{}
-			for _, p := range photos {
-				burstAlbums[p.UUID] = lookupUUIDs(db.BurstAlbumInfoOf(p))
-			}
-			rep, err := golden.Compare(ref, golden.Library{
-				Photos: photos, Albums: db.albums, SharedAlbums: db.sharedAlbums, BurstAlbums: burstAlbums, Imports: db.imports, Projects: db.projects,
-				Comments: db.comments, Likes: db.likes,
-			},
-				slices.Concat(golden.PhotoKeys(), golden.AlbumKeys()), divs)
-			if err != nil {
-				t.Fatal(err)
-			}
-			// Not vacuous: the objects compared are those that upstream
-			// photos() returns, in the trash or not.
-			selected := len(db.Query(query.Options{Deleted: true}))
-			if rep.Objects == 0 || selected != rep.Objects {
-				t.Errorf("%d reference objects, %d selected Go photos", rep.Objects, selected)
-			}
+			rep := compareGolden(t, db, ref, divs)
 			if !rep.OK() {
 				var b strings.Builder
 				_ = rep.WriteDetails(&b)
@@ -71,6 +55,74 @@ func TestGolden(t *testing.T) {
 				t.Log(rep.Summary())
 			}
 		})
+	}
+}
+
+// Also the comparison of TestDiffLocal (difflocal_test.go, tag difflocal).
+func compareGolden(t *testing.T, db *DB, ref *golden.Reference, divs []golden.Divergence) *golden.Report {
+	t.Helper()
+	photos := db.Photos()
+	burstAlbums := map[string][]string{}
+	for _, p := range photos {
+		burstAlbums[p.UUID] = lookupUUIDs(db.BurstAlbumInfoOf(p))
+	}
+	rep, err := golden.Compare(ref, golden.Library{
+		Photos: photos, Albums: db.albums, SharedAlbums: db.sharedAlbums, BurstAlbums: burstAlbums, Imports: db.imports, Projects: db.projects,
+		Comments: db.comments, Likes: db.likes,
+	},
+		slices.Concat(golden.PhotoKeys(), golden.AlbumKeys()), divs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Not vacuous: the objects compared are those that upstream
+	// photos() returns, in the trash or not.
+	selected := len(db.Query(query.Options{Deleted: true}))
+	if rep.Objects == 0 || selected != rep.Objects {
+		t.Errorf("%d reference objects, %d selected Go photos", rep.Objects, selected)
+	}
+	return rep
+}
+
+// The details hold the UUIDs and values of a library of the owner: the file
+// is for the owner alone, also when it existed before with wider permissions.
+func writeReport(path string, rep *golden.Report) (err error) {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, f.Close()) }()
+	if err := f.Chmod(0o600); err != nil {
+		return err
+	}
+	return rep.WriteDetails(f)
+}
+
+func TestWriteReport(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "report.txt")
+	if err := os.WriteFile(path, []byte("an older and longer report\n"), 0o644); err != nil { //nolint:gosec // G306: the wider mode is what the test needs
+		t.Fatal(err)
+	}
+	rep := &golden.Report{Diffs: []golden.Diff{{UUID: "00000000-0000-0000-0000-000000000001", Field: "title", Want: `"a"`, Got: `"b"`}}}
+	if err := writeReport(path, rep); err != nil {
+		t.Fatal(err)
+	}
+	fi, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fi.Mode().Perm() != 0o600 {
+		t.Errorf("mode %v, want 0600", fi.Mode().Perm())
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want strings.Builder
+	_ = rep.WriteDetails(&want)
+	if string(got) != want.String() {
+		t.Errorf("report %q, want %q", got, want.String())
 	}
 }
 

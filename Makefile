@@ -75,6 +75,18 @@ golden-fetch: ## Download the reference data of the latest successful golden-reg
 	rm -f testdata/golden/*/query.json testdata/golden/*/deleted.json; \
 	gh run download "$$run" --repo Windemiatrix/go-libs --name golden --dir testdata/golden
 
+# The library is the owner's: the osxphotos output lives in a directory of its
+# own with umask 077 and is removed on any exit, and the terminal gets numbers
+# only. go -C runs the test in another directory, so the paths are absolute.
+.PHONY: diff-local
+diff-local: ## Compare a library with osxphotos (absolute LIBRARY, OSXPHOTOS, optional REPORT)
+	$(if $(and $(LIBRARY),$(OSXPHOTOS)),,$(error diff-local: set LIBRARY=<absolute path of the .photoslibrary> and OSXPHOTOS=<absolute path of osxphotos 0.77.2>))
+	@umask 077; set -e; tmp=$$(mktemp -d); trap 'rm -rf "$$tmp"' EXIT; \
+	"$(OSXPHOTOS)" query --library "$(LIBRARY)" --json --mute >"$$tmp/query.json"; \
+	"$(OSXPHOTOS)" query --library "$(LIBRARY)" --json --mute --deleted-only >"$$tmp/deleted.json"; \
+	go -C osxphotos test -tags difflocal -count=1 -v -run '^TestDiffLocal$$' ./photosdb \
+		-args -library "$(LIBRARY)" -json "$$tmp/query.json" -deleted "$$tmp/deleted.json" -report "$(REPORT)"
+
 ##@ Pull requests
 
 .PHONY: pr-title
