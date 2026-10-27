@@ -77,7 +77,7 @@ golden-fetch: ## Download the reference data of the latest successful golden-reg
 
 # The library is the owner's data. TMPDIR puts the temporary files of osxphotos
 # (photosdb.py:170) and the database copy of the test under the trap. TZ and LC_ALL are
-# those of golden-regen.yml: osxphotos writes a missing date in the local zone
+# those of scripts/golden-build.sh: osxphotos writes a missing date in the local zone
 # (photos_datetime.py:19-21). The variables are read from the environment, not
 # substituted into the shell text, so a path with a quote stays a path.
 .PHONY: diff-local

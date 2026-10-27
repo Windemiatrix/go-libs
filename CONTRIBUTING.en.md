@@ -70,6 +70,7 @@ A Photos schema for a new macOS version is not added blindly: without a test lib
 
 - `make cover` runs the tests with `-race` and the coverage threshold of 80%.
 - Reference comparison: the output of `Open` is compared with osxphotos results (by UUID) on its test libraries and on the synthetic database. Known divergences are recorded with reasons in `testdata/golden/divergences.json`.
+- The latest osxphotos: the manual `upstream-check` workflow builds the reference data with the latest version on PyPI, runs the module tests on it and, when they differ, opens the issue `osxphotos <version>: the port differs from upstream` (or comments on the open one). It changes neither the port nor the reference data in the repository: the update goes the usual way, through a PR.
 - Schemas: range boundaries and the gaps between them; every column that is read exists in the DDL of its schema.
 - Fields beyond osxphotos, intentional differences and states that its libraries lack are checked with SQL migrations with synthetic values on a temporary copy of the database. The rules and the list of cases are in [testdata/libraries/SOURCES.md](testdata/libraries/SOURCES.md).
 

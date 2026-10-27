@@ -18,6 +18,7 @@ Run every command on its own.
 3. **New releases.**
    - `git -C UP fetch --tags origin`
    - `git -C UP log --tags --simplify-by-decoration --format=%D -10`
+   - Or ask the maintainer to run `gh workflow run upstream-check.yml`: it compares the latest osxphotos on PyPI with the pinned one and, when it is newer, runs the tests of the module on reference data built by it; the run summary and, on a difference, the issue `osxphotos <version>: the port differs from upstream` give the failed tests and the counts by key.
    - Nothing newer than `OLD`: report "nothing to update" and stop. Otherwise `NEW` is the latest tag; the releases in between are ported together with it.
 
 4. **What changed in the ported code.** The files are the "Correspondence" table of `osxphotos/UPSTREAM.md` (paths inside the `osxphotos/` package of upstream), plus `osxphotos/_constants.py`, `tests/` and the dependency files of upstream.
