@@ -150,6 +150,7 @@ func Open(ctx context.Context, path string, o Options) (db *DB, err error) {
 
 		momentShares:  momentShares,
 		libraryShares: libraryShares,
+		participants:  loadParticipants(t.participants),
 	}, nil
 }
 
@@ -226,6 +227,9 @@ func readTables(ctx context.Context, src *sqlread.DB, s schema.Schema) (t tables
 		return tables{}, err
 	}
 	if t.collectionShares, t.shareMembers, err = src.CollectionShares(ctx); err != nil {
+		return tables{}, err
+	}
+	if t.participants, err = src.Participants(ctx, s); err != nil {
 		return tables{}, err
 	}
 	// groupMembers and membershipOrder sort; nothing relies on the order of members.

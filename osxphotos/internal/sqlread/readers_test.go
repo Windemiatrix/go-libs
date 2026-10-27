@@ -79,6 +79,10 @@ var readers = []struct {
 		albums, members, err := d.CollectionShares(ctx)
 		return len(albums) + len(members), err
 	}},
+	{"Participants", func(ctx context.Context, d *DB, s schema.Schema) (int, error) {
+		r, err := d.Participants(ctx, s)
+		return len(r), err
+	}},
 }
 
 func contains(list []string, s string) bool {

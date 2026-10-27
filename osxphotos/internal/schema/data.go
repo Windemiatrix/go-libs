@@ -18,6 +18,8 @@ var schemas = []Schema{
 		FingerprintColumn: "ZMASTERFINGERPRINT",
 		AdjustmentsColumn: "ZHASADJUSTMENTS",
 		FacePersonColumn:  "ZPERSON", FaceAssetColumn: "ZASSET",
+
+		ParticipantShareColumn: "Z54_SHARE",
 	},
 	{
 		// macOS 14.0-14.5: _constants.py:60, 146-162.
@@ -28,6 +30,8 @@ var schemas = []Schema{
 		FingerprintColumn: "ZMASTERFINGERPRINT",
 		AdjustmentsColumn: "ZHASADJUSTMENTS",
 		FacePersonColumn:  "ZPERSONFORFACE", FaceAssetColumn: "ZASSETFORFACE",
+
+		ParticipantShareColumn: "Z54_SHARE",
 	},
 	{
 		// macOS 14.6: _constants.py:61, 163-179.
@@ -38,6 +42,8 @@ var schemas = []Schema{
 		FingerprintColumn: "ZMASTERFINGERPRINT",
 		AdjustmentsColumn: "ZHASADJUSTMENTS",
 		FacePersonColumn:  "ZPERSONFORFACE", FaceAssetColumn: "ZASSETFORFACE",
+
+		ParticipantShareColumn: "Z55_SHARE",
 	},
 	{
 		// macOS 15: _constants.py:63, 197-213.
@@ -48,6 +54,8 @@ var schemas = []Schema{
 		FingerprintColumn: "ZORIGINALSTABLEHASH",
 		AdjustmentsColumn: "ZADJUSTMENTSSTATE",
 		FacePersonColumn:  "ZPERSONFORFACE", FaceAssetColumn: "ZASSETFORFACE",
+
+		ParticipantShareColumn: "Z61_SHARE",
 	},
 	{
 		// macOS 26.0: _constants.py:64, 214-230.
@@ -58,6 +66,8 @@ var schemas = []Schema{
 		FingerprintColumn: "ZORIGINALSTABLEHASH",
 		AdjustmentsColumn: "ZADJUSTMENTSSTATE",
 		FacePersonColumn:  "ZPERSONFORFACE", FaceAssetColumn: "ZASSETFORFACE",
+
+		ParticipantShareColumn: "Z65_SHARE",
 	},
 	{
 		// macOS 26.1 and later 26.x: _constants.py:65, 231-247.
@@ -68,6 +78,8 @@ var schemas = []Schema{
 		FingerprintColumn: "ZORIGINALSTABLEHASH",
 		AdjustmentsColumn: "ZADJUSTMENTSSTATE",
 		FacePersonColumn:  "ZPERSONFORFACE", FaceAssetColumn: "ZASSETFORFACE",
+
+		ParticipantShareColumn: "Z66_SHARE",
 	},
 	{
 		// macOS 27: _constants.py:66-68, 248-264.
@@ -78,5 +90,7 @@ var schemas = []Schema{
 		FingerprintColumn: "ZORIGINALSTABLEHASH",
 		AdjustmentsColumn: "ZADJUSTMENTSSTATE",
 		FacePersonColumn:  "ZPERSONFORFACE", FaceAssetColumn: "ZASSETFORFACE",
+
+		ParticipantShareColumn: "Z71_SHARE",
 	},
 }

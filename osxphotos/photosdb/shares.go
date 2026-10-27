@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"time"
 
+	"howett.net/plist"
+
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
@@ -21,6 +23,81 @@ func (db *DB) SharedMomentInfo(p *photoinfo.PhotoInfo) *photoinfo.ShareInfo {
 // value is shared: do not modify it.
 func (db *DB) ShareInfo(p *photoinfo.PhotoInfo) *photoinfo.ShareInfo {
 	return db.libraryShares[p.UUID]
+}
+
+// ShareParticipantInfo returns the participants of the shared library that
+// ZASSETCONTRIBUTOR links to p: osxphotos share_participant_info
+// (photoinfo.py:1634-1639, shareparticipant.py:21-49), in
+// ZSHAREPARTICIPANT.Z_PK order. It is nil without a participant and also when
+// the name archive of one of them does not decode, as upstream returns [] on
+// that error. The slice is shared: do not modify it.
+func (db *DB) ShareParticipantInfo(p *photoinfo.PhotoInfo) []photoinfo.ShareParticipant {
+	return db.participants[p.UUID]
+}
+
+// ShareParticipants returns the given and the family name of each
+// participant of ShareParticipantInfo, joined by a space even when one of
+// them is "": osxphotos share_participants (photoinfo.py:1641-1649).
+func (db *DB) ShareParticipants(p *photoinfo.PhotoInfo) []string {
+	var names []string
+	for _, s := range db.participants[p.UUID] {
+		names = append(names, s.NameComponents.GivenName+" "+s.NameComponents.FamilyName)
+	}
+	return names
+}
+
+// Upstream builds the list of a photo in one expression inside the try of
+// shareparticipant.py:45-49, so one archive that does not decode empties it.
+// The strings other than the name are passed as they are, without NFC.
+func loadParticipants(rows []sqlread.Participant) map[string][]photoinfo.ShareParticipant {
+	out := map[string][]photoinfo.ShareParticipant{}
+	failed := map[string]bool{}
+	for _, r := range rows {
+		u := r.AssetUUID.String
+		name, ok := nameComponents(r.NameComponents)
+		failed[u] = failed[u] || !ok
+		out[u] = append(out[u], photoinfo.ShareParticipant{
+			PK:               r.PK,
+			AcceptanceStatus: optionalInt(r.AcceptanceStatus), IsCurrentUser: optionalInt(r.IsCurrentUser), ExitState: optionalInt(r.ExitState),
+			Permission: optionalInt(r.Permission), Person: optionalInt(r.Person), ScopeShare: optionalInt(r.ScopeShare), Share: optionalInt(r.Share),
+			EmailAddress: r.EmailAddress.String, ParticipantID: r.ParticipantID.String, PhoneNumber: r.PhoneNumber.String,
+			UserIdentifier: r.UserIdentifier.String, UUID: r.UUID.String,
+			NameComponents: name,
+		})
+	}
+	for u, bad := range failed {
+		if bad {
+			delete(out, u)
+		}
+	}
+	return out
+}
+
+// Upstream: shareparticipant.py:90-127, 153-187. The bool is false where the
+// unarchiving or the attribute access of upstream raises: not a property
+// list, no root object, or a root without NSnameComponentsPrivate.
+func nameComponents(archive []byte) (photoinfo.PersonNameComponents, bool) {
+	keyed, _ := plistAny(archive).(map[string]any)
+	objects, _ := keyed["$objects"].([]any)
+	top, _ := keyed["$top"].(map[string]any)
+	object := func(ref any) any {
+		uid, isUID := ref.(plist.UID)
+		if !isUID || uint64(uid) >= uint64(len(objects)) || objects[uid] == "$null" {
+			return nil
+		}
+		return objects[uid]
+	}
+	person, _ := object(top["root"]).(map[string]any)
+	data, ok := object(person["NSnameComponentsPrivate"]).(map[string]any)
+	part := func(key string) string {
+		s, _ := object(data[key]).(string)
+		return nfc(s)
+	}
+	return photoinfo.PersonNameComponents{
+		GivenName: part("NSgivenName"), MiddleName: part("NSmiddleName"), FamilyName: part("NSfamilyName"),
+		NamePrefix: part("NSnamePrefix"), NameSuffix: part("NSnameSuffix"), Nickname: part("NSnickname"),
+		PhoneticRepresentation: part("NSphoneticRepresentation"),
+	}, ok
 }
 
 // Upstream joins ZSHARE to the asset of the ZUUID (shareinfo.py:140-146); only

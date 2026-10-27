@@ -130,3 +130,27 @@ type ShareInfo struct {
 
 	RulesData, PreviewData, ThumbnailImageData []byte
 }
+
+// ShareParticipant is one person a photo of a shared library is shared with:
+// osxphotos ShareParticipant (shareparticipant.py:52-80). A NULL integer is
+// nil and a NULL string "". The address, the phone number and the name are
+// personal data: do not log or store them.
+type ShareParticipant struct {
+	PK int64 // osxphotos _pk: ZSHAREPARTICIPANT.Z_PK
+
+	// osxphotos _acceptance_status, is_current_user, _exit_state, _permission,
+	// _person, _z54_share (the ZSHAREPARTICIPANT_ZXX_SHARE column of the
+	// schema) and _share.
+	AcceptanceStatus, IsCurrentUser, ExitState, Permission, Person, ScopeShare, Share *int
+
+	EmailAddress, ParticipantID, PhoneNumber, UserIdentifier, UUID string
+
+	NameComponents PersonNameComponents
+}
+
+// PersonNameComponents is the name of a ShareParticipant: osxphotos
+// PersonNameComponents (shareparticipant.py:130-234), each part in NFC; a part
+// that the archive does not have, or that is not a string, is "".
+type PersonNameComponents struct {
+	GivenName, MiddleName, FamilyName, NamePrefix, NameSuffix, Nickname, PhoneticRepresentation string
+}

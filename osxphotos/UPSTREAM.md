@@ -33,7 +33,7 @@ Only what is ported so far. Templates, export and PhotoKit appear together with 
 | `photosdb/_photosdb_process_comments.py` | `internal/sqlread`, `photosdb` |
 | `photoinfo.py` | `photoinfo`, `photosdb` |
 | `shareinfo.py` | `photoinfo`, `photosdb`, `internal/sqlread` |
-| `shareparticipant.py` | `photosdb` |
+| `shareparticipant.py` | `photoinfo`, `photosdb`, `internal/sqlread` |
 | `albuminfo.py` | `albuminfo`, `photosdb` |
 | `adjustmentsinfo.py` | `adjustmentsinfo`, `photosdb` |
 | `photoquery.py` | `query` |
@@ -94,6 +94,7 @@ If you only read three things: (1) models outside the supported table return `Er
 - `PhotoUUIDs` of an album is a set; `AlbumPhotos` gives the photos in the order of the album. A `NULL` position of a photo in an album comes before the numbers; upstream fails when an album has both (`albuminfo.py:37-53`, `albuminfo.py:165-187`). `PhotoIndex` of a photo not in the album returns -1, false; upstream raises `ValueError` (`albuminfo.py:280-287`).
 - `SystemLibraryPath` has no PhotoKit fallback (`utils.py:206-228`). When neither photolibraryd preferences file holds an absolute path without NUL, it returns `ErrLibraryNotFound`. Upstream returns any value of the key as is (`utils.py:180-206`).
 - `DB.SharedMomentInfo` and `DB.ShareInfo` (osxphotos `shared_moment_info` and `share_info`) come from the rows of `ZSHARE` read once in `Open`; upstream runs its query on every access (`shareinfo.py:129-148`, `photoinfo.py:1606-1626`), so a value of an unexpected type in `ZSHARE` fails `Open` here and only that property upstream. A date of 0 in `ShareInfo` is nil; upstream leaves the number 0 there (`shareinfo.py:74-75`). `DB.ShareInfo` follows `ZASSET.ZLIBRARYSCOPE`, a key that upstream itself calls a guess, ported as is (`shareinfo.py:156-165`). A library without a `ZSHARE` table gives no share, where upstream raises `OperationalError`.
+- `DB.ShareParticipantInfo` and `DB.ShareParticipants` (osxphotos `share_participant_info` and `share_participants`) come from the rows of the query of upstream for all photos, read once in `Open` and ordered by `ZSHAREPARTICIPANT.Z_PK`; upstream runs the query for one photo on every access and keeps the order in which SQLite returns the rows (`shareparticipant.py:21-49`, `photoinfo.py:1634-1649`). A missing table or column gives no participants, as upstream catches the error of the query; a value of an unexpected type fails `Open`, where upstream passes it on as it is. As upstream, a photo with a participant whose `ZNAMECOMPONENTS` does not decode has no participants (`shareparticipant.py:45-49`); an archive over 1 MiB, or a binary property list refused as `Z_PLIST` is (above), counts as one that does not decode, and the classes of the archive are not checked, as for `Owner` (above). A name part that the archive does not have, or that is not a string, is `""`; upstream keeps `None` or the value, and `share_participants` prints `None` as `None`. The raw archive (`_name_components`) is not kept.
 
 ## Extensions
 
@@ -137,7 +138,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 | `photosdb/_photosdb_process_comments.py` | `internal/sqlread`, `photosdb` |
 | `photoinfo.py` | `photoinfo`, `photosdb` |
 | `shareinfo.py` | `photoinfo`, `photosdb`, `internal/sqlread` |
-| `shareparticipant.py` | `photosdb` |
+| `shareparticipant.py` | `photoinfo`, `photosdb`, `internal/sqlread` |
 | `albuminfo.py` | `albuminfo`, `photosdb` |
 | `adjustmentsinfo.py` | `adjustmentsinfo`, `photosdb` |
 | `photoquery.py` | `query` |
@@ -198,6 +199,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `PhotoUUIDs` альбома — множество; фото в порядке альбома даёт `AlbumPhotos`. Позиция фото в альбоме `NULL` идёт раньше чисел; upstream падает, если в альбоме есть и то и другое (`albuminfo.py:37-53`, `albuminfo.py:165-187`). `PhotoIndex` фото не из альбома возвращает -1, false; upstream бросает `ValueError` (`albuminfo.py:280-287`).
 - У `SystemLibraryPath` нет запасного пути через PhotoKit (`utils.py:206-228`). Если ни один из двух файлов настроек photolibraryd не содержит абсолютный путь без NUL, возвращается `ErrLibraryNotFound`. Upstream возвращает любое значение ключа как есть (`utils.py:180-206`).
 - `DB.SharedMomentInfo` и `DB.ShareInfo` (`shared_moment_info` и `share_info` из osxphotos) берутся из строк `ZSHARE`, которые читаются один раз в `Open`; upstream выполняет запрос при каждом обращении (`shareinfo.py:129-148`, `photoinfo.py:1606-1626`), поэтому значение неожиданного типа в `ZSHARE` здесь ломает `Open`, а у upstream — только это свойство. Дата 0 в `ShareInfo` — nil; upstream оставляет там число 0 (`shareinfo.py:74-75`). `DB.ShareInfo` идёт по `ZASSET.ZLIBRARYSCOPE` — ключу, который upstream сам называет догадкой; перенесено как есть (`shareinfo.py:156-165`). Медиатека без таблицы `ZSHARE` не даёт долей, а upstream бросает `OperationalError`.
+- `DB.ShareParticipantInfo` и `DB.ShareParticipants` (`share_participant_info` и `share_participants` из osxphotos) берутся из строк запроса upstream для всех фото, которые читаются один раз в `Open` и упорядочены по `ZSHAREPARTICIPANT.Z_PK`; upstream выполняет запрос для одного фото при каждом обращении и сохраняет порядок, в котором SQLite отдаёт строки (`shareparticipant.py:21-49`, `photoinfo.py:1634-1649`). Если нет таблицы или колонки, участников нет: upstream перехватывает ошибку запроса; значение неожиданного типа ломает `Open`, а upstream передаёт его как есть. Как в upstream, у фото, где `ZNAMECOMPONENTS` одного из участников не разбирается, участников нет (`shareparticipant.py:45-49`); архив больше 1 МиБ или двоичный список свойств, который отклоняется, как `Z_PLIST` (выше), считается неразобранным, а классы архива не проверяются, как для `Owner` (выше). Часть имени, которой нет в архиве или которая не строка, — `""`; upstream оставляет `None` или само значение, и `share_participants` печатает `None` как `None`. Исходный архив (`_name_components`) не хранится.
 
 ### Расширения
 

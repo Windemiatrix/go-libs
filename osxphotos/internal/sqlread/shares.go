@@ -3,8 +3,11 @@ package sqlread
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"slices"
 	"strings"
+
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
 )
 
 // Share is one ZSHARE row (shareinfo.py:16-61), its fields in the order of
@@ -72,6 +75,55 @@ func (d *DB) Shares(ctx context.Context) ([]Share, error) {
 			return err
 		}
 		out = append(out, s)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Participant is one row of get_share_participants (shareparticipant.py:21-49)
+// with the ZUUID of its asset.
+type Participant struct {
+	AssetUUID sql.NullString // ZASSET.ZUUID
+	PK        int64          // ZSHAREPARTICIPANT.Z_PK
+
+	AcceptanceStatus, IsCurrentUser, ExitState, Permission, Person, ScopeShare, Share sql.NullInt64
+
+	EmailAddress, ParticipantID, PhoneNumber, UserIdentifier, UUID sql.NullString
+
+	NameComponents []byte // nil also for an archive over 1 MiB
+}
+
+// Participants returns the rows of the query of get_share_participants for
+// every asset, ordered by ZSHAREPARTICIPANT.Z_PK; nil when a table or column
+// of the query is missing, where upstream catches the error of the query
+// (shareparticipant.py:45-49).
+func (d *DB) Participants(ctx context.Context, s schema.Schema) ([]Participant, error) {
+	cols := []string{"Z_PK", "ZACCEPTANCESTATUS", "ZISCURRENTUSER", "ZEXITSTATE", "ZPERMISSION", "ZPERSON", s.ParticipantShareColumn,
+		"ZSHARE", "ZEMAILADDRESS", "ZPARTICIPANTID", "ZPHONENUMBER", "ZUSERIDENTIFIER", "ZUUID", "ZNAMECOMPONENTS"}
+	err := d.CheckColumns(ctx, map[string][]string{"ZSHAREPARTICIPANT": cols, "ZASSETCONTRIBUTOR": {"ZPARTICIPANT", "Z3LIBRARYSCOPEASSETCONTRIBUTORS"}})
+	if errors.Is(err, ErrMissingColumn) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	// The bound is maxPlistSize of photosdb, which refuses a larger archive anyway.
+	q := "SELECT a.ZUUID, p." + strings.Join(cols[:len(cols)-1], ", p.") +
+		", CASE WHEN length(p.ZNAMECOMPONENTS) <= 1048576 THEN p.ZNAMECOMPONENTS END" +
+		" FROM ZSHAREPARTICIPANT p JOIN ZASSETCONTRIBUTOR c ON c.ZPARTICIPANT = p.Z_PK" +
+		" JOIN ZADDITIONALASSETATTRIBUTES x ON x.Z_PK = c.Z3LIBRARYSCOPEASSETCONTRIBUTORS" +
+		" JOIN ZASSET a ON a.Z_PK = x.ZASSET ORDER BY p.Z_PK"
+	var out []Participant
+	err = d.readRows(ctx, "share participants", q, func(rows *sql.Rows) error {
+		var p Participant
+		if err := rows.Scan(&p.AssetUUID, &p.PK, &p.AcceptanceStatus, &p.IsCurrentUser, &p.ExitState, &p.Permission, &p.Person, &p.ScopeShare, &p.Share,
+			&p.EmailAddress, &p.ParticipantID, &p.PhoneNumber, &p.UserIdentifier, &p.UUID, &p.NameComponents); err != nil {
+			return err
+		}
+		out = append(out, p)
 		return nil
 	})
 	if err != nil {

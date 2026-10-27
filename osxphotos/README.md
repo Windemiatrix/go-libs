@@ -90,7 +90,7 @@ osxphotos — самый полный открытый разбор базы «�
 | Альбомы: название, путь папок, состав, даты, корзина, порядок сортировки и место в боковой панели (`AlbumInfo`, `Album`; фото в порядке альбома и место фото в нём — `AlbumPhotos`, `PhotoIndex`); общие альбомы — `SharedAlbumInfo`, `SharedAlbumTitles`, владелец — `Owner` | `photosdb`, `albuminfo` | есть |
 | Сессии импорта: название, даты, фото, сессия каждого фото (`ImportInfo`, `Import`, `ImportUUID`) | `photosdb`, `albuminfo` | есть |
 | Проекты («Мои проекты»): название, даты, фото, проекты каждого фото (`ProjectInfo`, `Project`, `ProjectInfoOf`, `ProjectUUIDs`) | `photosdb`, `albuminfo` | есть |
-| Общий момент и общая медиатека фото (`SharedMomentInfo`, `ShareInfo`) | `photosdb`, `photoinfo` | есть |
+| Общий момент и общая медиатека фото (`SharedMomentInfo`, `ShareInfo`), её участники (`ShareParticipantInfo`, `ShareParticipants`) | `photosdb`, `photoinfo` | есть |
 | Папки и их дерево, место в боковой панели (`FolderInfo`, `Folder`, `FolderList`) | `photosdb`, `albuminfo` | есть |
 | Выборка `Query` с фильтрами `query.Options` (альбом, папка, даты, корзина, тип, признаки, человек и другие), сортировка; выборка с аргументами `photos()` — `PhotosWith` | `photosdb`, `query` | есть |
 | Дубликаты (`DB.Duplicates`, `query.Duplicates`, опция `Duplicate`) | `photosdb`, `query` | есть |

@@ -208,5 +208,31 @@ func names(s Schema) map[string]string {
 		"AdjustmentsColumn": s.AdjustmentsColumn,
 		"FacePersonColumn":  s.FacePersonColumn,
 		"FaceAssetColumn":   s.FaceAssetColumn,
+
+		"ParticipantShareColumn": s.ParticipantShareColumn,
+	}
+}
+
+// Written out independently of data.go: ZSHAREPARTICIPANT_ZXX_SHARE of
+// _constants.py:144, 161, 178, 212, 229, 246, 263.
+func TestParticipantShareColumn(t *testing.T) {
+	t.Parallel()
+
+	want := map[string]string{
+		"photos8":      "Z54_SHARE",
+		"photos9":      "Z54_SHARE",
+		"photos9_14_6": "Z55_SHARE",
+		"photos10":     "Z61_SHARE",
+		"photos11":     "Z65_SHARE",
+		"photos11_1":   "Z66_SHARE",
+		"photos12":     "Z71_SHARE",
+	}
+	if len(All()) != len(want) {
+		t.Errorf("All() has %d schemas, the literal table %d", len(All()), len(want))
+	}
+	for _, s := range All() {
+		if s.ParticipantShareColumn != want[s.ID] {
+			t.Errorf("%s.ParticipantShareColumn = %q, want %q", s.ID, s.ParticipantShareColumn, want[s.ID])
+		}
 	}
 }
