@@ -193,17 +193,19 @@ func TestOpenComments(t *testing.T) {
 func TestOpenCommentsWithoutTable(t *testing.T) {
 	t.Parallel()
 
-	for _, tt := range []struct {
+	type testCase struct {
 		name   string
 		after  []string
 		listed int
-	}{
+	}
+	cases := []testCase{
 		{"a comment", nil, 1},
 		{"no ZCLOUDSHAREDCOMMENT", []string{"DROP TABLE ZCLOUDSHAREDCOMMENT"}, 0},
-		{"no ZISMYCOMMENT", []string{"ALTER TABLE ZCLOUDSHAREDCOMMENT RENAME COLUMN ZISMYCOMMENT TO ZX"}, 0},
-		{"no ZLIKEDASSET", []string{"ALTER TABLE ZCLOUDSHAREDCOMMENT RENAME COLUMN ZLIKEDASSET TO ZX"}, 0},
-		{"no ZCOMMENTERHASHEDPERSONID", []string{"ALTER TABLE ZCLOUDSHAREDCOMMENT RENAME COLUMN ZCOMMENTERHASHEDPERSONID TO ZX"}, 0},
-	} {
+	}
+	for _, col := range []string{"ZISLIKE", "ZCOMMENTDATE", "ZCOMMENTTEXT", "ZCOMMENTERHASHEDPERSONID", "ZISMYCOMMENT", "ZCOMMENTEDASSET", "ZLIKEDASSET"} {
+		cases = append(cases, testCase{"no " + col, []string{"ALTER TABLE ZCLOUDSHAREDCOMMENT RENAME COLUMN " + col + " TO ZX"}, 0})
+	}
+	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			lib := testlib.OpenPristine(t, "synthetic")

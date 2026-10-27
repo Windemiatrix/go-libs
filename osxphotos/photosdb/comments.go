@@ -18,9 +18,8 @@ func (db *DB) Comments(p *photoinfo.PhotoInfo) []photoinfo.CommentInfo { return 
 // likes (photoinfo.py:1679-1685).
 func (db *DB) Likes(p *photoinfo.PhotoInfo) []photoinfo.LikeInfo { return db.likes[p.UUID] }
 
-// Upstream: _photosdb_process_comments.py:120-150, an unread date sorts as
-// DEFAULT_DATETIME_LOCAL (photos_datetime.py:19-21). One stable sort keeps each
-// photo's order. An author is named once, not decoded again for each row.
+// Upstream: _photosdb_process_comments.py:120-150; an unread date sorts as DEFAULT_DATETIME_LOCAL (photos_datetime.py:19-21).
+// Authors are memoized by ID: personName would decode their ZSHAREPARTICIPANT archives again for every row.
 func loadComments(rows []sqlread.Comment) (map[string][]photoinfo.CommentInfo, map[string][]photoinfo.LikeInfo) {
 	type dated struct {
 		sqlread.Comment
