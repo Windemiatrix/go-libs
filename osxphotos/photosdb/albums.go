@@ -5,8 +5,6 @@ import (
 	"slices"
 	"strings"
 
-	"howett.net/plist"
-
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
 )
@@ -146,34 +144,16 @@ func libraryListOrder(r sqlread.Album, byPK map[int64]sqlread.Album, rootPK int6
 // NULL state counts as trashed (photosdb.py:1936).
 func trashed(r sqlread.Album) bool { return !r.Trashed.Valid || r.Trashed.Int64 != 0 }
 
-// Upstream: shareparticipant.py:90-117, 153-187; _photosdb_process_comments.py:172-187.
+// Upstream: _photosdb_process_comments.py:172-187.
 func ownerName(r sqlread.Album) string {
 	for _, archive := range r.OwnerComponents {
-		if name := personName(archive); name != "" {
-			return name
+		n, ok := nameComponents(archive)
+		if !ok {
+			continue
+		}
+		if parts := slices.DeleteFunc([]string{n.GivenName, n.FamilyName}, func(s string) bool { return s == "" }); len(parts) > 0 {
+			return strings.Join(parts, " ")
 		}
 	}
 	return nfc(r.Owner.String)
-}
-
-func personName(archive []byte) string {
-	keyed, _ := plistAny(archive).(map[string]any)
-	objects, _ := keyed["$objects"].([]any)
-	top, _ := keyed["$top"].(map[string]any)
-	object := func(ref any) any {
-		uid, ok := ref.(plist.UID)
-		if !ok || uint64(uid) >= uint64(len(objects)) || objects[uid] == "$null" {
-			return nil
-		}
-		return objects[uid]
-	}
-	person, _ := object(top["root"]).(map[string]any)
-	data, _ := object(person["NSnameComponentsPrivate"]).(map[string]any)
-	var parts []string
-	for _, key := range []string{"NSgivenName", "NSfamilyName"} {
-		if s, _ := object(data[key]).(string); s != "" {
-			parts = append(parts, s)
-		}
-	}
-	return nfc(strings.Join(parts, " "))
 }

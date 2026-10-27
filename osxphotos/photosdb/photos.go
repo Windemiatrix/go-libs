@@ -29,6 +29,8 @@ type DB struct {
 
 	momentShares  map[string]*photoinfo.ShareInfo // by photo UUID
 	libraryShares map[string]*photoinfo.ShareInfo // by photo UUID
+
+	participants map[string][]photoinfo.ShareParticipant // by photo UUID, in ZSHAREPARTICIPANT.Z_PK order
 }
 
 // Close releases the DB. It releases nothing today: the copy of the

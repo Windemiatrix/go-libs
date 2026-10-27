@@ -22,6 +22,8 @@ type Schema struct {
 	AdjustmentsColumn string // ZASSET column (HAS_ADJUSTMENTS)
 	FacePersonColumn  string // ZDETECTEDFACE column of the person (DETECTED_FACE_PERSON_FK)
 	FaceAssetColumn   string // ZDETECTEDFACE column of the asset (DETECTED_FACE_ASSET_FK)
+
+	ParticipantShareColumn string // ZSHAREPARTICIPANT column of the share (ZSHAREPARTICIPANT_ZXX_SHARE), e.g. Z66_SHARE
 }
 
 // All returns every schema in ascending model order (a copy).
