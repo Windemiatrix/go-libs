@@ -86,7 +86,7 @@ func Open(t testing.TB, name string) string {
 // (the directory that photosdb.Open takes), without migrations, for tests that
 // compare the original state with the migrated one.
 // It does apply reference/*.sql of the library: those statements are part of
-// the library, and golden-regen.yml applies them too before it runs osxphotos.
+// the library, and scripts/golden-build.sh applies them too before it runs osxphotos.
 // Any failure is t.Fatal.
 func OpenPristine(t testing.TB, name string) string {
 	t.Helper()

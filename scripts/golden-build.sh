@@ -6,10 +6,12 @@
 #         the version. Runs from the repository root.
 # Output: <dir>/<library>/query.json and deleted.json with only the keys of
 #         testdata/golden/fields.txt.
-# Exit:   0 built; 1 a command failed or a file holds a path of the machine.
+# Exit:   0 built; non-zero a command failed or a file holds a path of the
+#         machine.
 set -euo pipefail
 
-# osxphotos writes a missing date in the local zone (photos_datetime.py:19-21).
+# osxphotos writes a missing date in the local zone (photos_datetime.py:19-21);
+# C keeps the glob of reference/*.sql in the byte order of testlib.applyDir.
 export TZ=UTC LC_ALL=C
 
 out="$1"

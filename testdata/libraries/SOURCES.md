@@ -22,7 +22,7 @@ The databases live outside the `osxphotos` module directory, so they are not par
 
 `synthetic` is not an upstream library. Its database was generated once by the former generator of this repository, `osxphotos/internal/gen`, with its default configuration: 1000 assets, seed 1. All its values are generated. It holds states that the upstream libraries lack: RAW+JPEG pairs, a shared library, resources only in iCloud, bursts with every pick type, a video larger than 2^32 bytes, NFD names, assets created in the same second. The generator is gone: the database file itself is never changed again.
 
-A state of a field that osxphotos outputs but no library holds goes to `<name>/reference/NNN_<case>.sql`: these files are part of the library. The test helper applies them to every copy, `testlib.OpenPristine` included, and `golden-regen.yml` applies them to a copy before it runs osxphotos, so the reference covers the state. They follow the rules of a migration below, except that a row is chosen by a rule alone, with no title marker: a title would show in the reference.
+A state of a field that osxphotos outputs but no library holds goes to `<name>/reference/NNN_<case>.sql`: these files are part of the library. The test helper applies them to every copy, `testlib.OpenPristine` included, and `scripts/golden-build.sh` applies them to a copy before it runs osxphotos, so the reference covers the state. They follow the rules of a migration below, except that a row is chosen by a rule alone, with no title marker: a title would show in the reference.
 
 | Case | What it covers | Library |
 |---|---|---|
@@ -97,7 +97,7 @@ To add a case: a new file `NNN_<case>.sql` (lowercase letters, digits and hyphen
 
 `synthetic` — не медиатека upstream. Её база сгенерирована один раз прежним генератором этого репозитория, `osxphotos/internal/gen`, с настройками по умолчанию: 1000 объектов, seed 1. Все её значения сгенерированы. В ней есть состояния, которых нет в медиатеках upstream: пары RAW+JPEG, общая медиатека, ресурсы только в iCloud, серии со всеми видами отметок, видео больше 2^32 байт, имена в NFD, объекты, созданные в одну секунду. Генератора больше нет: сам файл базы больше не меняется.
 
-Состояние поля, которое выводит osxphotos, но которого нет ни в одной медиатеке, — в `<имя>/reference/NNN_<случай>.sql`: эти файлы — часть медиатеки. Тестовый помощник применяет их к каждой копии, включая `testlib.OpenPristine`, а `golden-regen.yml` — к копии перед запуском osxphotos, поэтому эталон покрывает это состояние. Правила — как у миграции ниже, но строка выбирается только правилом, без маркера-названия: название попало бы в эталон.
+Состояние поля, которое выводит osxphotos, но которого нет ни в одной медиатеке, — в `<имя>/reference/NNN_<случай>.sql`: эти файлы — часть медиатеки. Тестовый помощник применяет их к каждой копии, включая `testlib.OpenPristine`, а `scripts/golden-build.sh` — к копии перед запуском osxphotos, поэтому эталон покрывает это состояние. Правила — как у миграции ниже, но строка выбирается только правилом, без маркера-названия: название попало бы в эталон.
 
 | Случай | Что покрывает | Медиатека |
 |---|---|---|
