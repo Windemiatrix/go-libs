@@ -847,7 +847,7 @@ func TestOpenHostileOwner(t *testing.T) {
 	pk := "(SELECT Z_PK FROM ZSHARE WHERE ZUUID = '" + share[0] + "')"
 	change(t, lib, "INSERT INTO ZSHAREPARTICIPANT (Z_PK, ZSHARE, ZROLE, ZHASHEDPERSONID, ZNAMECOMPONENTS) VALUES "+
 		"(900001, "+pk+", 1, 'TEST-P-HOSTILE', 7), (900002, "+pk+", 1, 'TEST-P-HOSTILE', 'SECRET-N'), "+
-		"(900003, "+pk+", 1, 'TEST-P-HOSTILE', zeroblob(2097152)), "+
+		fmt.Sprintf("(900003, %s, 1, 'TEST-P-HOSTILE', X'%x'), ", pk, nameArchiveOf(t, plist.UID(3), plist.UID(4), strings.Repeat("a", maxPlistSize)))+
 		fmt.Sprintf("(900004, %s, 'SECRET-R', 'TEST-P-ROLE', X'%x')", pk, nameArchive(t, plist.UID(3), plist.UID(4))))
 	db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
 	if err != nil {
@@ -893,6 +893,11 @@ func TestLoadCollectionShares(t *testing.T) {
 // The archive has the keys that upstream decodes (shareparticipant.py:90-117).
 func nameArchive(t *testing.T, given, family plist.UID) []byte {
 	t.Helper()
+	return nameArchiveOf(t, given, family, "Jose\U00000301")
+}
+
+func nameArchiveOf(t *testing.T, given, family plist.UID, firstName string) []byte {
+	t.Helper()
 	class := func(name string) map[string]any {
 		return map[string]any{"$classname": name, "$classes": []any{name, "NSObject"}}
 	}
@@ -903,7 +908,7 @@ func nameArchive(t *testing.T, given, family plist.UID) []byte {
 			"$null",
 			map[string]any{"$class": plist.UID(5), "NSnameComponentsPrivate": plist.UID(2)},
 			map[string]any{"$class": plist.UID(6), "NSgivenName": given, "NSfamilyName": family, "NSmiddleName": plist.UID(3)},
-			"Jose\U00000301", "Example",
+			firstName, "Example",
 			class("NSPersonNameComponents"), class("_NSPersonNameComponentsData"),
 		},
 	}, plist.BinaryFormat)
@@ -920,6 +925,7 @@ func TestOwnerName(t *testing.T) {
 
 	const given, family, null = plist.UID(3), plist.UID(4), plist.UID(0)
 	full := nameArchive(t, given, family)
+	oversized := nameArchiveOf(t, given, family, strings.Repeat("a", maxPlistSize))
 	xml, err := plist.Marshal(map[string]any{"$objects": []any{"$null"}}, plist.XMLFormat)
 	if err != nil {
 		t.Fatal(err)
@@ -937,6 +943,7 @@ func TestOwnerName(t *testing.T) {
 		{"no name, then a name", sqlread.Album{OwnerComponents: [][]byte{nameArchive(t, null, null), xml, nameArchive(t, null, family)}}, "Example"},
 		{"not a property list, then a name", sqlread.Album{OwnerComponents: [][]byte{[]byte("not a list"), nil, full}}, "Jos\U000000e9 Example"},
 		{"a reference out of range", sqlread.Album{OwnerComponents: [][]byte{nameArchive(t, plist.UID(99), null)}}, ""},
+		{"an archive over the limit", sqlread.Album{OwnerComponents: [][]byte{oversized}}, ""},
 	} {
 		if got := ownerName(tt.album); got != tt.want {
 			t.Errorf("%s: another name", tt.name)
@@ -970,6 +977,7 @@ func TestLoadSharedVideos(t *testing.T) {
 			res(18, 4, 1, 1), res(19, 4, 8, 0),
 			res(20, 5, 1, 0), res(21, 5, 2, 1),
 		},
+		members: []sqlread.Member{{AssetPK: 4, AlbumUUID: "ALBUM", Kind: sqlread.KindUserAlbum}},
 		shareMembers: []sqlread.Member{
 			{AssetPK: 1, AlbumUUID: "SH"}, {AssetPK: 2, AlbumUUID: "SH"}, {AssetPK: 3, AlbumUUID: "SH"}, {AssetPK: 5, AlbumUUID: "SH"},
 		},

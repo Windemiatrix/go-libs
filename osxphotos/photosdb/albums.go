@@ -157,21 +157,17 @@ func ownerName(r sqlread.Album) string {
 }
 
 func personName(archive []byte) string {
-	var keyed struct {
-		Objects []any          `plist:"$objects"`
-		Top     map[string]any `plist:"$top"`
-	}
-	if len(archive) > maxPlistSize || decodePlist(archive, &keyed) != nil {
-		return ""
-	}
+	keyed, _ := plistAny(archive).(map[string]any)
+	objects, _ := keyed["$objects"].([]any)
+	top, _ := keyed["$top"].(map[string]any)
 	object := func(ref any) any {
 		uid, ok := ref.(plist.UID)
-		if !ok || uint64(uid) >= uint64(len(keyed.Objects)) || keyed.Objects[uid] == "$null" {
+		if !ok || uint64(uid) >= uint64(len(objects)) || objects[uid] == "$null" {
 			return nil
 		}
-		return keyed.Objects[uid]
+		return objects[uid]
 	}
-	person, _ := object(keyed.Top["root"]).(map[string]any)
+	person, _ := object(top["root"]).(map[string]any)
 	data, _ := object(person["NSnameComponentsPrivate"]).(map[string]any)
 	var parts []string
 	for _, key := range []string{"NSgivenName", "NSfamilyName"} {
