@@ -29,7 +29,7 @@ func TestDiffLocal(t *testing.T) {
 		ok = ok && filepath.IsAbs(p)
 	}
 	if !ok {
-		t.Fatal("-library, -json and -deleted are required, and every path is absolute")
+		t.Fatal("-library, -json and -deleted are required; every path, -report included, is absolute")
 	}
 	divs, err := golden.LoadDivergences(filepath.Join(testlib.RepoDir(t, "golden"), "divergences.json"))
 	if err != nil {
@@ -41,7 +41,7 @@ func TestDiffLocal(t *testing.T) {
 	}
 	db, err := Open(t.Context(), *diffLocalLibrary, Options{TempDir: t.TempDir()})
 	if err != nil {
-		t.Fatal(withoutPath(err))
+		t.Fatal(err)
 	}
 	rep := compareGolden(t, db, ref, divs)
 	if *diffLocalReport != "" {

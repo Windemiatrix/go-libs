@@ -3,8 +3,6 @@ package photosdb
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -90,7 +88,7 @@ func compareGolden(t *testing.T, db *DB, ref *golden.Reference, divs []golden.Di
 func writeReport(path string, rep *golden.Report) (err error) {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
-		return withoutPath(err)
+		return err
 	}
 	defer func() { err = errors.Join(err, f.Close()) }()
 	if err := f.Chmod(0o600); err != nil {
@@ -98,15 +96,6 @@ func writeReport(path string, rep *golden.Report) (err error) {
 	}
 	return rep.WriteDetails(f)
 }
-
-// The paths are the owner's, and the error goes to the terminal.
-func withoutPath(err error) error {
-	if pe := (*fs.PathError)(nil); errors.As(err, &pe) {
-		return fmt.Errorf("%s: %w", pe.Op, pe.Err)
-	}
-	return err
-}
-
 func TestWriteReport(t *testing.T) {
 	t.Parallel()
 
