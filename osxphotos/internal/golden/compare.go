@@ -31,6 +31,9 @@ type Library struct {
 
 	Imports  []*albuminfo.ImportInfo // every import session, trashed ones included: the sessions of PhotoInfo.ImportUUID; may be nil without AlbumKeys
 	Projects []*albuminfo.AlbumInfo  // every project, trashed ones included: the projects of PhotoInfo.ProjectUUIDs (photosdb.DB.Project); may be nil without AlbumKeys
+
+	Comments map[string][]photoinfo.CommentInfo // by photo UUID: photosdb.DB.Comments; a photo without an entry has none; may be nil without AlbumKeys
+	Likes    map[string][]photoinfo.LikeInfo    // by photo UUID: photosdb.DB.Likes; as Comments
 }
 
 // Diff is one difference between the reference and Go.
@@ -61,6 +64,8 @@ type env struct {
 	goImportElems map[string]map[string]any
 	bursts        map[string][]string
 	burstAlbums   map[string][]string
+	comments      map[string][]photoinfo.CommentInfo
+	likes         map[string][]photoinfo.LikeInfo
 }
 
 var (
@@ -77,6 +82,8 @@ func newEnv(lib Library) (*env, error) {
 		goImportElems: map[string]map[string]any{},
 		bursts:        map[string][]string{},
 		burstAlbums:   lib.BurstAlbums,
+		comments:      lib.Comments,
+		likes:         lib.Likes,
 	}
 	for _, set := range []struct {
 		albums []*albuminfo.AlbumInfo
@@ -375,8 +382,10 @@ func (r *Report) Summary() string {
 
 // WriteDetails writes one line per difference and per stale record, with
 // UUIDs and values; a value of persons is written as its number of names, the
-// owner of an album as "<name>", and a value of album_info, burst_album_info
-// or project_info that is not a list of objects as "<unparsed>".
+// owner of an album and the user of a comment or a like as "<name>", the text
+// of a comment as "<text>", and a value of album_info, burst_album_info,
+// project_info, comments or likes that is not a list of objects as
+// "<unparsed>".
 func (r *Report) WriteDetails(w io.Writer) error {
 	for _, d := range r.Diffs {
 		if _, err := fmt.Fprintf(w, "%s %s want=%s got=%s\n", d.Field, d.UUID, redact(d.Field, d.Want), redact(d.Field, d.Got)); err != nil {
@@ -392,26 +401,34 @@ func (r *Report) WriteDetails(w io.Writer) error {
 	return nil
 }
 
-// The names of persons and of owners are personal data, and the details go to
-// the test log.
+// The names of persons, owners and authors and the text of comments are
+// personal data, and the details go to the test log.
+var redacted = map[string]map[string]string{
+	"album_info": {"owner": "<name>"}, "burst_album_info": {"owner": "<name>"}, "project_info": {"owner": "<name>"},
+	"comments": {"user": "<name>", "text": "<text>"}, "likes": {"user": "<name>"},
+}
+
 func redact(field, value string) string {
 	var names []string
 	if field == "persons" && json.Unmarshal([]byte(value), &names) == nil {
 		return fmt.Sprintf("<%d names>", len(names))
 	}
-	if !slices.Contains([]string{"album_info", "burst_album_info", "project_info"}, field) {
+	placeholders, ok := redacted[field]
+	if !ok {
 		return value
 	}
-	var albums []map[string]any
-	if json.Unmarshal([]byte(value), &albums) != nil {
+	var items []map[string]any
+	if json.Unmarshal([]byte(value), &items) != nil {
 		return "<unparsed>"
 	}
-	for _, a := range albums {
-		if owner, _ := a["owner"].(string); owner != "" {
-			a["owner"] = "<name>"
+	for _, it := range items {
+		for k, placeholder := range placeholders {
+			if s, _ := it[k].(string); s != "" {
+				it[k] = placeholder
+			}
 		}
 	}
-	s, _ := canonical(albums) // decoded JSON holds no NaN
+	s, _ := canonical(items) // decoded JSON holds no NaN
 	return s
 }
 

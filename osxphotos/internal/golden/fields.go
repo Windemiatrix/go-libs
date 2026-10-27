@@ -25,15 +25,12 @@ type rule struct {
 var rules = buildRules()
 
 // PhotoKeys returns, sorted, the keys of fields.txt that Compare computes
-// from Library.Photos alone; AlbumKeys returns those that also need
-// Library.Albums, Library.Imports or Library.Projects. Together they are
-// exactly the keys of fields.txt.
+// from Library.Photos alone; AlbumKeys returns those that also need the other
+// fields of Library. Together they are exactly the keys of fields.txt.
 func PhotoKeys() []string { return keysOf(false) }
 
-// AlbumKeys returns, sorted, the keys that need Library.Albums and
-// Library.SharedAlbums: album_info, albums, burst_album_info, burst_albums and
-// folders, the key that needs Library.Imports: import_info, and the key that
-// needs Library.Projects: project_info.
+// AlbumKeys returns, sorted, the keys of fields.txt that need more of Library
+// than Library.Photos.
 func AlbumKeys() []string { return keysOf(true) }
 
 func keysOf(needsAlbums bool) []string {
@@ -65,6 +62,12 @@ func buildRules() map[string]rule {
 		foldersRule(),
 		importInfoRule(),
 		projectInfoRule(),
+		commentsRule("comments", true, func(e *env) map[string][]photoinfo.CommentInfo { return e.comments },
+			func(c photoinfo.CommentInfo) map[string]any {
+				return commentElem(c.Datetime, c.User, c.IsMine, &c.Text)
+			}),
+		commentsRule("likes", false, func(e *env) map[string][]photoinfo.LikeInfo { return e.likes },
+			func(l photoinfo.LikeInfo) map[string]any { return commentElem(l.Datetime, l.User, l.IsMine, nil) }),
 		burstPhotosRule(),
 		stringList("persons", func(p *photoinfo.PhotoInfo) []string { return p.Persons }),
 		stringList("keywords", func(p *photoinfo.PhotoInfo) []string { return p.Keywords }),
@@ -254,6 +257,52 @@ func refPair[T any](o Object, key, want string) ([]T, error) {
 		err = shape(key, want)
 	}
 	return pair, err
+}
+
+// The asdict of CommentInfo and LikeInfo (commentinfo.py:10-32), in the order
+// of upstream: json() sorts no list of objects (photoinfo.py:2284). A date is
+// in the zone of the computer (_photosdb_process_comments.py:130), so only
+// its moment counts. encoding/json matches the keys to the fields regardless
+// of case.
+func commentsRule[T any](key string, hasText bool, byPhoto func(*env) map[string][]T, elem func(T) map[string]any) rule {
+	return rule{
+		key:         key,
+		needsAlbums: true,
+		ref: func(o Object) (any, error) {
+			want := "a list of " + key + " as osxphotos writes them"
+			items, err := decode[[]struct {
+				Datetime, User, Text *string
+				IsMine               *bool
+			}](o, key, false, want)
+			if err != nil {
+				return nil, err
+			}
+			out := make([]any, len(items))
+			for i, it := range items {
+				t, err := parseRef(it.Datetime, key)
+				if err != nil || t == nil || it.IsMine == nil || (hasText && it.Text == nil) {
+					return nil, shape(key, want)
+				}
+				out[i] = commentElem(*t, deref(it.User), *it.IsMine, it.Text)
+			}
+			return out, nil
+		},
+		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
+			out := []any{}
+			for _, v := range byPhoto(e)[p.UUID] {
+				out = append(out, elem(v))
+			}
+			return out, nil
+		},
+	}
+}
+
+func commentElem(date time.Time, user string, mine bool, text *string) map[string]any {
+	elem := map[string]any{"datetime": momentString(date), "user": user, "ismine": mine}
+	if text != nil {
+		elem["text"] = *text
+	}
+	return elem
 }
 
 // The frames are found among all photos of the library, selected or not,

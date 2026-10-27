@@ -227,6 +227,20 @@ func TestNormalize(t *testing.T) {
 		{name: "import_info date number", key: "import_info",
 			raw: `{"creation_date": 5, "end_date": null, "start_date": null, "title": null, "uuid": "U"}`, wantErr: "import_info.creation_date: want an ISO 8601 string"},
 
+		{name: "comments", key: "comments",
+			raw:  `[{"datetime": "2020-06-06T19:45:24.725564+05:30", "ismine": true, "text": "t", "user": null}, {"datetime": "1970-01-01T00:00:00+00:00", "ismine": false, "text": "a", "user": "u"}]`,
+			want: `[{"datetime":"2020-06-06T14:15:24.725564Z","ismine":true,"text":"t","user":""},{"datetime":"1970-01-01T00:00:00Z","ismine":false,"text":"a","user":"u"}]`},
+		{name: "comments empty", key: "comments", raw: `[]`, want: `[]`},
+		{name: "comments null", key: "comments", raw: `null`, wantErr: "comments: want a list of comments"},
+		{name: "a comment without ismine", key: "comments", raw: `[{"datetime": "2020-06-06T00:00:00+00:00", "text": "t", "user": null}]`, wantErr: "comments: want a list of comments"},
+		{name: "a comment without text", key: "comments", raw: `[{"datetime": "2020-06-06T00:00:00+00:00", "ismine": true, "user": null}]`, wantErr: "comments: want a list of comments"},
+		{name: "a comment with a null date", key: "comments", raw: `[{"datetime": null, "ismine": true, "text": "t", "user": null}]`, wantErr: "comments: want a list of comments"},
+		{name: "a comment with a text that is a number", key: "comments", raw: `[{"datetime": "2020-06-06T00:00:00+00:00", "ismine": true, "text": 5, "user": null}]`, wantErr: "comments: want a list of comments"},
+		{name: "a null comment", key: "comments", raw: `[null]`, wantErr: "comments: want a list of comments"},
+		{name: "likes", key: "likes", raw: `[{"datetime": "2020-06-06T00:00:00+00:00", "ismine": false, "user": "u"}]`, want: `[{"datetime":"2020-06-06T00:00:00Z","ismine":false,"user":"u"}]`},
+		{name: "a like with a date that is not a date", key: "likes", raw: `[{"datetime": "SECRET-DATE", "ismine": false, "user": null}]`, wantErr: "likes: want a list of likes"},
+		{name: "a like with a string ismine", key: "likes", raw: `[{"datetime": "2020-06-06T00:00:00+00:00", "ismine": "SECRET-M", "user": null}]`, wantErr: "likes: want a list of likes"},
+
 		{name: "no key", key: "title", raw: ``, wantErr: "title: want a value (the key is missing)"},
 	}
 	for _, c := range cases {
@@ -305,7 +319,7 @@ func TestNormalizeGoSide(t *testing.T) {
 			"location": `[null,null]`, "keywords": `[]`, "burst_photos": `[]`, "title": `""`, "width": `0`,
 			"persons": `[]`, "burst_default_pick": `false`,
 			"adjustment_type": `null`, "imported_by": `["",""]`, "spatial": `0`, "tzname": `""`, "visible": `false`,
-			"import_info": `{}`, "project_info": `[]`,
+			"import_info": `{}`, "project_info": `[]`, "comments": `[]`, "likes": `[]`,
 		}
 		for key, w := range want {
 			if got := goCanon(t, key, p); got != w {

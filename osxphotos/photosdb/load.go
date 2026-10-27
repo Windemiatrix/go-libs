@@ -83,6 +83,7 @@ type tables struct {
 	shares    []sqlread.Share
 
 	participants []sqlread.Participant
+	comments     []sqlread.Comment
 
 	collectionShares []sqlread.Album // CollectionShare rows of ZSHARE: their PK is a ZSHARE.Z_PK
 	shareMembers     []sqlread.Member

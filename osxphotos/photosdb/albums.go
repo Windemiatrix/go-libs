@@ -1,6 +1,7 @@
 package photosdb
 
 import (
+	"database/sql"
 	"fmt"
 	"slices"
 	"strings"
@@ -144,9 +145,11 @@ func libraryListOrder(r sqlread.Album, byPK map[int64]sqlread.Album, rootPK int6
 // NULL state counts as trashed (photosdb.py:1936).
 func trashed(r sqlread.Album) bool { return !r.Trashed.Valid || r.Trashed.Int64 != 0 }
 
+func ownerName(r sqlread.Album) string { return personName(r.Owner, r.OwnerComponents) }
+
 // Upstream: _photosdb_process_comments.py:172-187.
-func ownerName(r sqlread.Album) string {
-	for _, archive := range r.OwnerComponents {
+func personName(full sql.NullString, components [][]byte) string {
+	for _, archive := range components {
 		n, ok := nameComponents(archive)
 		if !ok {
 			continue
@@ -155,5 +158,5 @@ func ownerName(r sqlread.Album) string {
 			return strings.Join(parts, " ")
 		}
 	}
-	return nfc(r.Owner.String)
+	return nfc(full.String)
 }

@@ -210,10 +210,11 @@ func (d *DB) personIndex(ctx context.Context) (personIndex, error) {
 
 // Upstream adds a participant only under an ID that the UNION does not hold
 // (_photosdb_process_comments.py:172-174).
-func (p personIndex) setOwner(a *Album, id string) {
+func (p personIndex) name(id string) (sql.NullString, [][]byte) {
 	if full, ok := p.names[id]; ok {
-		a.Owner = full
-		return
+		return full, nil
 	}
-	a.OwnerComponents = p.components[id]
+	return sql.NullString{}, p.components[id]
 }
+
+func (p personIndex) setOwner(a *Album, id string) { a.Owner, a.OwnerComponents = p.name(id) }

@@ -91,6 +91,7 @@ Other models, including beta builds outside the ranges, give `ErrUnsupportedSche
 | Import sessions: title, dates, photos, the session of each photo (`ImportInfo`, `Import`, `ImportUUID`) | `photosdb`, `albuminfo` | done |
 | Projects ("My Projects"): title, dates, photos, the projects of each photo (`ProjectInfo`, `Project`, `ProjectInfoOf`, `ProjectUUIDs`) | `photosdb`, `albuminfo` | done |
 | The shared moment and shared library of a photo (`SharedMomentInfo`, `ShareInfo`), the participants of that library (`ShareParticipantInfo`, `ShareParticipants`) | `photosdb`, `photoinfo` | done |
+| The comments and likes of a photo in a shared album (`Comments`, `Likes`) | `photosdb`, `photoinfo` | done |
 | Folders and their tree, place in the sidebar (`FolderInfo`, `Folder`, `FolderList`) | `photosdb`, `albuminfo` | done |
 | Selection `Query` with `query.Options` filters (album, folder, dates, trash, type, flags, person and others), sorting; the selection with the arguments of `photos()`: `PhotosWith` | `photosdb`, `query` | done |
 | Duplicates (`DB.Duplicates`, `query.Duplicates`, the `Duplicate` option) | `photosdb`, `query` | done |
