@@ -13,9 +13,6 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-    env:
-      TZ: UTC
-      LC_ALL: C
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -28,53 +25,7 @@ jobs:
           python -m pip install --disable-pip-version-check --no-input -r tools/golden/requirements.txt
           python -m pip freeze --all
       - name: Reference data
-        run: |
-          set -euo pipefail
-
-          # $f and $k are jq variables.
-          # shellcheck disable=SC2016
-          listed_fields='($f | split("\n") | map(select(test("^[a-z]")))) as $k
-            | map(with_entries(select(.key | IN($k[]))))'
-
-          for lib in testdata/libraries/*/; do
-            [ -f "${lib}database/Photos.sqlite" ] || continue
-            name=$(basename "$lib")
-            # reference/*.sql is part of the library: apply it to a copy, as
-            # testlib.OpenPristine does. The triggers of Photos.sqlite call
-            # Core Data functions; the stand-ins are those of testlib.
-            if compgen -G "${lib}reference/*.sql" >/dev/null; then
-              copy="$RUNNER_TEMP/libraries/$name"
-              mkdir -p "$copy"
-              cp -R "${lib}database" "$copy/"
-              python - "$copy/database/Photos.sqlite" "${lib}"reference/*.sql <<'EOF'
-          import sqlite3, sys
-          con = sqlite3.connect(sys.argv[1])
-          for name in ("NSCoreDataTriggerUpdateAffectedObjectValue",
-                       "NSCoreDataDATriggerUpdatedAffectedObjectValue",
-                       "NSCoreDataDATriggerInsertUpdatedAffectedObjectValue"):
-              con.create_function(name, -1, lambda *args: None)
-          for path in sys.argv[2:]:
-              with open(path) as f:
-                  con.executescript(f.read())
-          con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-          con.close()
-          EOF
-              lib="$copy/"
-            fi
-            out="$RUNNER_TEMP/golden/$name"
-            mkdir -p "$out"
-            osxphotos query --library "$lib" --json --mute |
-              jq --rawfile f testdata/golden/fields.txt "$listed_fields" >"$out/query.json"
-            osxphotos query --library "$lib" --json --mute --deleted-only |
-              jq --rawfile f testdata/golden/fields.txt "$listed_fields" >"$out/deleted.json"
-          done
-
-          # A listed field may hold a path of the runner; -l prints the names
-          # of the files, never the data.
-          if grep -rlF -e "$RUNNER_TEMP" -e "$HOME" -e "$GITHUB_WORKSPACE" "$RUNNER_TEMP/golden"; then
-            echo "error: the files above contain a path of the runner" >&2
-            exit 1
-          fi
+        run: bash scripts/golden-build.sh "$RUNNER_TEMP/golden"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: golden

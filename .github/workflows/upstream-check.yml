@@ -1,0 +1,184 @@
+# A signal to run the osxphotos-update skill: the run never changes the port or
+# the reference data of the repository. The check job runs an osxphotos that
+# nobody has reviewed: its token only reads, but code on the runner can write
+# the Actions cache of the ref, so no workflow of this repository restores a
+# cache. Only the report job may write, and it runs no code of the repository
+# or of PyPI.
+name: upstream-check
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+# Two runs at once would open the same issue twice.
+concurrency: ${{ github.workflow }}
+
+jobs:
+  latest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.pypi.outputs.version }}
+      newer: ${{ steps.pypi.outputs.newer }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Latest osxphotos on PyPI
+        id: pypi
+        run: |
+          set -euo pipefail
+          latest="$(curl -fsSL https://pypi.org/pypi/osxphotos/json | jq -r .info.version)"
+          # The version becomes a pip requirement and an issue title.
+          if ! [[ "$latest" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+            echo "error: PyPI gave a version of an unexpected form" >&2
+            exit 1
+          fi
+          pinned="$(sed -n 's/^osxphotos==\([0-9][0-9.]*\)[[:space:]]*$/\1/p' tools/golden/requirements.txt)"
+          # An empty pin would sort below any version and run a package nobody chose.
+          if [[ -z "$pinned" ]]; then
+            echo "error: no osxphotos==<version> line in tools/golden/requirements.txt" >&2
+            exit 1
+          fi
+          echo "version=$latest" >>"$GITHUB_OUTPUT"
+          if [[ "$(printf '%s\n' "$pinned" "$latest" | sort -V | tail -n 1)" == "$pinned" ]]; then
+            echo "osxphotos $pinned is the pinned version" >>"$GITHUB_STEP_SUMMARY"
+            echo "newer=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "newer=true" >>"$GITHUB_OUTPUT"
+          fi
+
+  check:
+    needs: latest
+    if: needs.latest.outputs.newer == 'true'
+    runs-on: macos-15
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    outputs:
+      differs: ${{ steps.tests.outputs.differs }}
+    env:
+      VERSION: ${{ needs.latest.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: osxphotos/go.mod
+          cache: false
+      - name: Install osxphotos
+        run: |
+          python -m pip install --disable-pip-version-check --no-input "osxphotos==$VERSION"
+          python -m pip freeze --all
+      # A new osxphotos that cannot build the reference is a difference too.
+      - name: Reference data
+        id: build
+        continue-on-error: true
+        run: bash scripts/golden-build.sh "$RUNNER_TEMP/golden"
+      # A failed comparison prints UUIDs and values, so the test output stays in
+      # a file on the runner; the summary takes only test names and the lines of
+      # golden.Report.Summary, which hold numbers and key names.
+      - name: Tests on the new reference data
+        id: tests
+        env:
+          BUILD: ${{ steps.build.outcome }}
+          # As in ci.yml: a red test is then about upstream, not the zone.
+          TZ: Asia/Kolkata
+        run: |
+          set -euo pipefail
+          if [[ "$BUILD" != success ]]; then
+            echo "osxphotos $VERSION: the reference data could not be built" | tee "$RUNNER_TEMP/summary.md" >>"$GITHUB_STEP_SUMMARY"
+            echo "differs=true" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          cp -R "$RUNNER_TEMP/golden/." testdata/golden/
+          status=0
+          go -C osxphotos test -count=1 -json ./... >"$RUNNER_TEMP/test.json" || status=$?
+
+          summaries='select(.Action == "output" and ((.Test // "") | startswith("TestGolden/")))
+            | .Output | sub("^ *([a-z0-9_]+[.]go:[0-9]+: )?"; "") | rtrimstr("\n")
+            | select(test("^(library [^ ]+: [0-9]+ objects, [0-9]+ keys compared|differences: [0-9]+ unexplained, [0-9]+ explained; stale divergences: [0-9]+|[a-z0-9_]+: [0-9]+ unexplained, [0-9]+ explained)$"))
+            | "    " + .'
+          lines="$(jq -r "$summaries" "$RUNNER_TEMP/test.json")"
+          failed="$(jq -r 'select(.Action == "fail") | "- " + (.Test // .Package)' "$RUNNER_TEMP/test.json")"
+          # A green run without a comparison would claim a match for nothing; a
+          # red run without a failed test is about the toolchain, not upstream.
+          if ((status == 0)); then
+            [[ "$lines" == *"library "* ]] || { echo "error: the tests passed, but their output has no line of golden.Report.Summary" >&2; exit 1; }
+            result="the port matches osxphotos $VERSION"
+            differs=false
+          else
+            [[ "$failed" == *"- Test"* ]] || { echo "error: go test failed, but no test failed" >&2; exit 1; }
+            result="osxphotos $VERSION: the port differs from upstream"
+            differs=true
+          fi
+          {
+            echo "$result"
+            echo
+            echo "Failed tests:"
+            echo
+            echo "$failed"
+            echo
+            echo "Reference comparison by library:"
+            echo
+            echo "$lines"
+          } >"$RUNNER_TEMP/summary.md"
+          cat "$RUNNER_TEMP/summary.md" >>"$GITHUB_STEP_SUMMARY"
+          echo "differs=$differs" >>"$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: upstream-check
+          path: ${{ runner.temp }}/summary.md
+          if-no-files-found: error
+          retention-days: 7
+
+  # The check job ran code nobody has reviewed, and that code can replace the
+  # artifact: only lines of the forms the check job writes reach the issue,
+  # inside a fence, so no mention, link, markdown or free text gets there. The version comes from the latest job,
+  # which ran no code of PyPI.
+  report:
+    needs: [latest, check]
+    if: needs.check.outputs.differs == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: upstream-check
+          path: ${{ runner.temp }}/summary
+      - name: Issue
+        env:
+          VERSION: ${{ needs.latest.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/body.md"
+          # An issue body holds at most 65536 characters.
+          {
+            echo '~~~text'
+            LC_ALL=C grep -E -m 300 '^(|osxphotos [0-9.]{1,40}: (the port differs from upstream|the reference data could not be built)|Failed tests:|Reference comparison by library:|- [A-Za-z0-9_./-]{1,150}|    (library [A-Za-z0-9_.-]{1,80}: [0-9]{1,9} objects, [0-9]{1,9} keys compared|differences: [0-9]{1,9} unexplained, [0-9]{1,9} explained; stale divergences: [0-9]{1,9}|[a-z0-9_]{1,80}: [0-9]{1,9} unexplained, [0-9]{1,9} explained))$' "$RUNNER_TEMP/summary/summary.md" || true
+            echo '~~~'
+            printf '\nRun: %s/%s/actions/runs/%s\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+          } >"$body"
+          title="osxphotos $VERSION: the port differs from upstream"
+          # Not --search: the colon of the title reads as a search qualifier.
+          # The author too: anyone can open an issue with this title first.
+          # $t is a jq variable.
+          # shellcheck disable=SC2016
+          number="$(gh issue list --state open --limit 1000 --json number,title,author |
+            jq -r --arg t "$title" 'first(.[] | select(.title == $t and .author.login == "app/github-actions") | .number) // empty')"
+          if [[ -n "$number" ]]; then
+            gh issue comment "$number" --body-file "$body"
+          else
+            gh issue create --title "$title" --body-file "$body"
+          fi
