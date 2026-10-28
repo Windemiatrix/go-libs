@@ -83,6 +83,10 @@ var readers = []struct {
 		r, err := d.Participants(ctx, s)
 		return len(r), err
 	}},
+	{"FingerprintAvailability", func(ctx context.Context, d *DB, s schema.Schema) (int, error) {
+		r, err := d.FingerprintAvailability(ctx, s)
+		return len(r), err
+	}},
 	{"Comments", func(ctx context.Context, d *DB, _ schema.Schema) (int, error) {
 		r, err := d.Comments(ctx)
 		return len(r), err
@@ -582,7 +586,7 @@ func TestReadersNull(t *testing.T) {
 		t.Fatalf("%d folders without ZUUID after the change, want 1", n)
 	}
 	wantMembers := count(t, ro, "SELECT COUNT(*) FROM Z_33ASSETS") - 2
-	wantRes := count(t, ro, "SELECT COUNT(*) FROM ZINTERNALRESOURCE")
+	wantRes := count(t, ro, "SELECT COUNT(*) FROM ZINTERNALRESOURCE") - 1
 	wantAlbums := count(t, ro, "SELECT COUNT(*) FROM ZGENERICALBUM WHERE ZKIND IN (2, 1505, 1506, 1508, 3999, 4000)") - 1
 	d := openDB(t, path)
 	n := schemaByID(t, "photos11_1")
@@ -601,9 +605,8 @@ func TestReadersNull(t *testing.T) {
 			break
 		}
 	}
-	// A resource without ZASSET is read too: upstream joins it on ZFINGERPRINT.
-	if r, _ := d.Resources(t.Context()); int64(len(r)) != wantRes || len(r) > 0 && r[0].AssetPK != 0 {
-		t.Errorf("Resources: %d, want %d, the one without ZASSET first with AssetPK 0", len(r), wantRes)
+	if r, _ := d.Resources(t.Context()); int64(len(r)) != wantRes {
+		t.Errorf("Resources: %d, want %d", len(r), wantRes)
 	}
 	if a, _ := d.Albums(t.Context()); int64(len(a)) != wantAlbums {
 		t.Errorf("Albums: %d, want %d", len(a), wantAlbums)
