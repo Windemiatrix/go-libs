@@ -81,14 +81,15 @@ golden-fetch: ## Download the reference data of the latest successful golden-reg
 # (photos_datetime.py:19-21). The variables are read from the environment, not
 # substituted into the shell text, so a path with a quote stays a path. The
 # warnings of osxphotos name the files and UUIDs of the library, so its stderr
-# stays in the trapped directory too.
+# stays in the trapped directory too, and osxphotos runs there: it writes
+# osxphotos_crash.log into the current directory.
 .PHONY: diff-local
 diff-local: ## Compare a library with osxphotos (absolute LIBRARY, OSXPHOTOS, optional REPORT)
 	$(if $(and $(LIBRARY),$(OSXPHOTOS)),,$(error diff-local: set LIBRARY=<absolute path of the .photoslibrary> and OSXPHOTOS=<path of osxphotos 0.77.2>))
 	@umask 077; set -e; tmp=$$(mktemp -d); export TMPDIR="$$tmp"; trap 'rm -rf "$$tmp"' EXIT; trap 'exit 1' INT TERM HUP; \
 	failed() { echo "diff-local: osxphotos failed; run it by hand to see why (its messages hold data of the library)" >&2; exit 1; }; \
-	TZ=UTC LC_ALL=C "$$OSXPHOTOS" query --library "$$LIBRARY" --json --mute >"$$tmp/query.json" 2>>"$$tmp/osxphotos.log" || failed; \
-	TZ=UTC LC_ALL=C "$$OSXPHOTOS" query --library "$$LIBRARY" --json --mute --deleted-only >"$$tmp/deleted.json" 2>>"$$tmp/osxphotos.log" || failed; \
+	(cd "$$tmp" && TZ=UTC LC_ALL=C "$$OSXPHOTOS" query --library "$$LIBRARY" --json --mute >query.json 2>>osxphotos.log) || failed; \
+	(cd "$$tmp" && TZ=UTC LC_ALL=C "$$OSXPHOTOS" query --library "$$LIBRARY" --json --mute --deleted-only >deleted.json 2>>osxphotos.log) || failed; \
 	go -C osxphotos test -tags difflocal -count=1 -v -run '^TestDiffLocal$$' ./photosdb \
 		-args -library "$$LIBRARY" -json "$$tmp/query.json" -deleted "$$tmp/deleted.json" -report "$$REPORT"
 

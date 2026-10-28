@@ -238,7 +238,8 @@ func location() rule {
 		func(p *photoinfo.PhotoInfo) any { return []*float64{p.Latitude, p.Longitude} })
 }
 
-// photoinfo.py:682-694.
+// photoinfo.py:682-694. json() sorts the pair, None as "" (photoinfo.py:2279-2285),
+// so the order of name and bundle ID is not in the reference.
 func importedBy() rule {
 	return simple("imported_by",
 		func(o Object) (any, error) {
@@ -248,7 +249,9 @@ func importedBy() rule {
 			}
 			return derefAll(pair), nil
 		},
-		func(p *photoinfo.PhotoInfo) any { return []string{p.ImportedByName, p.ImportedByBundleID} })
+		func(p *photoinfo.PhotoInfo) any {
+			return slices.Sorted(slices.Values([]string{p.ImportedByName, p.ImportedByBundleID}))
+		})
 }
 
 func refPair[T any](o Object, key, want string) ([]T, error) {
