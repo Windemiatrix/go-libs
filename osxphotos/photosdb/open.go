@@ -214,6 +214,9 @@ func readTables(ctx context.Context, src *sqlread.DB, s schema.Schema) (t tables
 	if t.resources, err = src.Resources(ctx); err != nil {
 		return tables{}, err
 	}
+	if t.available, err = src.FingerprintAvailability(ctx, s); err != nil {
+		return tables{}, err
+	}
 	if t.keywords, err = src.Keywords(ctx, s); err != nil {
 		return tables{}, err
 	}

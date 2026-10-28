@@ -83,6 +83,10 @@ var readers = []struct {
 		r, err := d.Participants(ctx, s)
 		return len(r), err
 	}},
+	{"FingerprintAvailability", func(ctx context.Context, d *DB, s schema.Schema) (int, error) {
+		r, err := d.FingerprintAvailability(ctx, s)
+		return len(r), err
+	}},
 	{"Comments", func(ctx context.Context, d *DB, _ schema.Schema) (int, error) {
 		r, err := d.Comments(ctx)
 		return len(r), err

@@ -76,6 +76,7 @@ const (
 type tables struct {
 	assets    []sqlread.Asset
 	resources []sqlread.Resource
+	available []sqlread.Availability
 	keywords  []sqlread.Keyword
 	faces     []sqlread.Face
 	members   []sqlread.Member
@@ -110,6 +111,7 @@ func nfc(s string) string { return norm.NFC.String(s) }
 // load never indexes by a value of the database, so no content makes it panic.
 func load(t tables) (*catalog, error) {
 	resources := groupResources(t.resources)
+	available := lastAvailability(t.available)
 	keywords := groupKeywords(t.keywords)
 	albums, projects := groupMembers(t.members)
 	persons := groupFaces(t.faces)
@@ -134,6 +136,9 @@ func load(t tables) (*catalog, error) {
 			continue
 		}
 		p := photo(a, resources[a.PK])
+		if local, ok := available[p.UUID]; ok {
+			p.IsMissing = !is(local, localAvailable)
+		}
 		if inShare[a.PK] && p.IsMovie { // photosdb.py:2518-2519, 2918-2942; the highest Z_PK decides, as in isMissing
 			for _, r := range resources[a.PK] {
 				if is(r.Subtype, resSharedVideo) {
@@ -261,7 +266,7 @@ func photo(a sqlread.Asset, res []sqlread.Resource) *photoinfo.PhotoInfo {
 	p.IsRAW = strings.Contains(p.UTIOriginal, rawUTIMarker)
 
 	p.HasRAW = hasRAW(res)
-	p.IsMissing = isMissing(res, p.Fingerprint)
+	p.IsMissing = isMissing(res)
 	for _, r := range res {
 		p.Resources = append(p.Resources, photoinfo.Resource{
 			Type:               intOf(r.Type),
@@ -286,28 +291,26 @@ func hasRAW(res []sqlread.Resource) bool {
 	return false
 }
 
-// isMissing follows photosdb.py:2441-2516; the resources are ordered by Z_PK.
-// Upstream reads the resources of subtypes 1 and 3, then the resources whose
-// ZFINGERPRINT is the fingerprint of the asset, of any asset, and the last row
-// read wins. Here the second pass reads only the resources of the asset, and
-// the last row is the one with the highest Z_PK.
-func isMissing(res []sqlread.Resource, fingerprint string) bool {
+// The first pass of photosdb.py:2441-2495: the resources of subtypes 1 and 3 of
+// the asset, ordered by Z_PK; the last row read wins, here the highest Z_PK.
+// load applies the second pass.
+func isMissing(res []sqlread.Resource) bool {
 	var last *sqlread.Resource
-	if fingerprint != "" {
-		for i := range res {
-			if res[i].Fingerprint.Valid && res[i].Fingerprint.String == fingerprint {
-				last = &res[i]
-			}
-		}
-	}
-	if last == nil {
-		for i := range res {
-			if is(res[i].Subtype, resOriginal) || is(res[i].Subtype, resSecond) {
-				last = &res[i]
-			}
+	for i := range res {
+		if is(res[i].Subtype, resOriginal) || is(res[i].Subtype, resSecond) {
+			last = &res[i]
 		}
 	}
 	return last != nil && !is(last.Local, localAvailable)
+}
+
+// The second pass of photosdb.py:2507-2516: the last row of a photo wins.
+func lastAvailability(rows []sqlread.Availability) map[string]sql.NullInt64 {
+	out := map[string]sql.NullInt64{}
+	for _, r := range rows {
+		out[r.PhotoUUID.String] = r.Local
+	}
+	return out
 }
 
 func groupResources(rows []sqlread.Resource) map[int64][]sqlread.Resource {

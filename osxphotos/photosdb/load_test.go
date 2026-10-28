@@ -193,11 +193,6 @@ func TestLoadFields(t *testing.T) {
 			func(p *photoInfo) bool { return p.IsMissing }},
 		{"missing: other subtypes only", nil, []sqlread.Resource{resource(18, 3, nullInt(0)), resource(17, 4, nullInt(0))},
 			func(p *photoInfo) bool { return !p.IsMissing }},
-		{"missing: the fingerprint wins", func(a *sqlread.Asset) { a.Fingerprint = nullString("FP") }, []sqlread.Resource{
-			{PK: 1, Subtype: nullInt(1), Local: nullInt(0), Fingerprint: nullString("FP")},
-			{PK: 2, Subtype: nullInt(1), Local: nullInt(1), Fingerprint: nullString("FP")},
-			{PK: 3, Subtype: nullInt(3), Local: nullInt(0), Fingerprint: nullString("OTHER")},
-		}, func(p *photoInfo) bool { return !p.IsMissing }},
 		{"missing: fingerprint without a match", func(a *sqlread.Asset) { a.Fingerprint = nullString("FP") }, []sqlread.Resource{
 			{PK: 1, Subtype: nullInt(1), Local: nullInt(0), Fingerprint: nullString("OTHER")},
 		}, func(p *photoInfo) bool { return p.IsMissing }},
@@ -497,27 +492,30 @@ func TestLoadPersons(t *testing.T) {
 	}
 }
 
-// Unlike upstream (photosdb.py:2498-2516), a resource of another asset with
-// the fingerprint of the asset does not decide IsMissing.
-func TestLoadOtherAssetFingerprint(t *testing.T) {
+// As upstream (photosdb.py:2498-2516), the rows of the fingerprint query
+// override the first pass, and the last row of a photo wins.
+func TestLoadFingerprintAvailability(t *testing.T) {
 	t.Parallel()
 
-	a, b := baseAsset(1, "A-1"), baseAsset(2, "A-2")
-	a.Fingerprint = nullString("FP")
 	in := tables{
-		assets: []sqlread.Asset{a, b},
+		assets: []sqlread.Asset{baseAsset(1, "A-1"), baseAsset(2, "A-2"), baseAsset(3, "A-3")},
 		resources: []sqlread.Resource{
-			{PK: 1, AssetPK: 1, Subtype: nullInt(1), Local: nullInt(0)},
-			{PK: 2, AssetPK: 1, Subtype: nullInt(1), Local: nullInt(1)},
-			{PK: 3, AssetPK: 2, Subtype: nullInt(1), Local: nullInt(0), Fingerprint: nullString("FP")},
+			{PK: 1, AssetPK: 1, Subtype: nullInt(1), Local: nullInt(1)},
+			{PK: 2, AssetPK: 2, Subtype: nullInt(1), Local: nullInt(0)},
+			{PK: 3, AssetPK: 3, Subtype: nullInt(1), Local: nullInt(0)},
+		},
+		available: []sqlread.Availability{
+			{PhotoUUID: nullString("A-1"), Local: nullInt(0)},
+			{PhotoUUID: nullString("A-2"), Local: nullInt(0)},
+			{PhotoUUID: nullString("A-2"), Local: nullInt(1)},
 		},
 	}
 	c, err := load(in)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.byUUID["A-1"].IsMissing || !c.byUUID["A-2"].IsMissing {
-		t.Errorf("IsMissing = %v, %v; want false, true", c.byUUID["A-1"].IsMissing, c.byUUID["A-2"].IsMissing)
+	if got := []bool{c.byUUID["A-1"].IsMissing, c.byUUID["A-2"].IsMissing, c.byUUID["A-3"].IsMissing}; !slices.Equal(got, []bool{true, false, true}) {
+		t.Errorf("IsMissing = %v, want [true false true]", got)
 	}
 }
 
