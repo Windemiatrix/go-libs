@@ -497,8 +497,8 @@ func TestLoadPersons(t *testing.T) {
 	}
 }
 
-// Unlike upstream (photosdb.py:2498-2516), a resource of another asset with
-// the fingerprint of the asset does not decide IsMissing.
+// As upstream (photosdb.py:2498-2516), a resource of another asset with the
+// fingerprint of the asset decides IsMissing, over its own resources.
 func TestLoadOtherAssetFingerprint(t *testing.T) {
 	t.Parallel()
 
@@ -516,8 +516,18 @@ func TestLoadOtherAssetFingerprint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.byUUID["A-1"].IsMissing || !c.byUUID["A-2"].IsMissing {
-		t.Errorf("IsMissing = %v, %v; want false, true", c.byUUID["A-1"].IsMissing, c.byUUID["A-2"].IsMissing)
+	if !c.byUUID["A-1"].IsMissing || !c.byUUID["A-2"].IsMissing {
+		t.Errorf("IsMissing = %v, %v; want true, true", c.byUUID["A-1"].IsMissing, c.byUUID["A-2"].IsMissing)
+	}
+
+	// A local duplicate makes the photo not missing; of two resources with the
+	// fingerprint the highest Z_PK decides.
+	in.resources = append(in.resources, sqlread.Resource{PK: 4, AssetPK: 2, Subtype: nullInt(2), Local: nullInt(1), Fingerprint: nullString("FP")})
+	if c, err = load(in); err != nil {
+		t.Fatal(err)
+	}
+	if c.byUUID["A-1"].IsMissing {
+		t.Error("IsMissing = true with a local resource of the fingerprint")
 	}
 }
 
