@@ -52,7 +52,7 @@ One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and
 | `height` | `Height` | integer, `null` = 0 | `photoinfo.py:1380-1383` |
 | `hidden` | `Hidden` | boolean | `photoinfo.py:827-830` |
 | `import_info` | `ImportUUID` → `Library.Imports` (`photosdb.DB.Import`), sessions in the trash included | `{}` for a photo without a session (`ImportUUID` `""`). Otherwise an object: `uuid`; `title` (`null` = `""`); `creation_date`, `start_date`, `end_date` as in `album_info` | `photoinfo.py:673-680, 2223-2225`; `albuminfo.py:300-358`; `photosdb/photosdb.py:2377-2402` |
-| `imported_by` | `[ImportedByName, ImportedByBundleID]` | pair, the order matters, each `null` = `""` | `photoinfo.py:682-694`; `photosdb/photosdb.py:2070-2075, 2324-2325` |
+| `imported_by` | `[ImportedByName, ImportedByBundleID]` | pair sorted as `json()` sorts it (`null` = `""`), so the order of name and bundle ID is not compared | `photoinfo.py:682-694, 2279-2285`; `photosdb/photosdb.py:2070-2075, 2324-2325` |
 | `incloud` | `InCloud` | `null` = `nil`; `false` is not `null` | `photoinfo.py:958-964` |
 | `intrash` | `InTrash` | boolean | `photoinfo.py:837-840` |
 | `iscloudasset` | `IsCloudAsset` | boolean | `photoinfo.py:966-977` |
@@ -183,7 +183,7 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 | `height` | `Height` | целое, `null` = 0 | `photoinfo.py:1380-1383` |
 | `hidden` | `Hidden` | логическое | `photoinfo.py:827-830` |
 | `import_info` | `ImportUUID` → `Library.Imports` (`photosdb.DB.Import`), сессии в корзине тоже | `{}` у фото без сессии (`ImportUUID` `""`). Иначе объект: `uuid`; `title` (`null` = `""`); `creation_date`, `start_date`, `end_date` — как в `album_info` | `photoinfo.py:673-680, 2223-2225`; `albuminfo.py:300-358`; `photosdb/photosdb.py:2377-2402` |
-| `imported_by` | `[ImportedByName, ImportedByBundleID]` | пара, порядок значим, каждый `null` = `""` | `photoinfo.py:682-694`; `photosdb/photosdb.py:2070-2075, 2324-2325` |
+| `imported_by` | `[ImportedByName, ImportedByBundleID]` | пара, отсортированная, как её сортирует `json()` (`null` = `""`), поэтому порядок названия и bundle ID не сравнивается | `photoinfo.py:682-694, 2279-2285`; `photosdb/photosdb.py:2070-2075, 2324-2325` |
 | `incloud` | `InCloud` | `null` = `nil`; `false` — не `null` | `photoinfo.py:958-964` |
 | `intrash` | `InTrash` | логическое | `photoinfo.py:837-840` |
 | `iscloudasset` | `IsCloudAsset` | логическое | `photoinfo.py:966-977` |

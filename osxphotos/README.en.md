@@ -107,7 +107,7 @@ Tag `v0.77.2` is ported. The same database reading plus: cloud identifiers of ph
 
 ## How it is verified
 
-Every PR passes tests with `-race` on Linux and macOS, a linter and a coverage threshold of 80%. The output of `Open` is compared with the osxphotos reference results (v0.77.2) for its 8 test libraries (7 schemas, from macOS 13.0 to 27.0 developer beta) and for a synthetic database; known divergences are recorded with reasons. Fields beyond osxphotos are checked with SQL migrations with synthetic values on a temporary copy of the database ([SOURCES.md](https://github.com/Windemiatrix/go-libs/blob/main/testdata/libraries/SOURCES.md)).
+Every PR passes tests with `-race` on Linux and macOS, a linter and a coverage threshold of 80%. The output of `Open` is compared with the osxphotos reference results (v0.77.2) for its 8 test libraries (7 schemas, from macOS 13.0 to 27.0 developer beta) and for a synthetic database; known divergences are recorded with reasons. Fields beyond osxphotos are checked with SQL migrations with synthetic values on a temporary copy of the database ([SOURCES.md](https://github.com/Windemiatrix/go-libs/blob/main/testdata/libraries/SOURCES.md)). With `make diff-local` (below) the port was also compared with osxphotos on the maintainer's own library, schema 11.1 (macOS 26.6): no differences.
 
 ### Checking against your own library
 

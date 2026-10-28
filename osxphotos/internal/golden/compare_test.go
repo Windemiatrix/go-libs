@@ -103,9 +103,6 @@ func photoMutations() []mutation {
 		{"AdjustmentType nil", p(func(x *photoinfo.PhotoInfo) { x.AdjustmentType = nil }), "adjustment_type"},
 		{"ImportedByName", p(func(x *photoinfo.PhotoInfo) { x.ImportedByName = "" }), "imported_by"},
 		{"ImportedByBundleID", p(func(x *photoinfo.PhotoInfo) { x.ImportedByBundleID = "" }), "imported_by"},
-		{"ImportedBy swapped", p(func(x *photoinfo.PhotoInfo) {
-			x.ImportedByName, x.ImportedByBundleID = x.ImportedByBundleID, x.ImportedByName
-		}), "imported_by"},
 
 		{"CloudMasterGUID", p(func(x *photoinfo.PhotoInfo) { x.CloudMasterGUID = "" }), "cloud_guid"},
 		{"Description", p(func(x *photoinfo.PhotoInfo) { x.Description = "" }), "description"},
@@ -452,6 +449,10 @@ func TestCompareEquivalent(t *testing.T) {
 		{"an explicit 2001 for the creation date that osxphotos defaults", album(albumAInFolderY, func(a *albuminfo.AlbumInfo) { a.CreationDate = ptr(utc(2001, 1, 1, 0, 0, 0, 0)) }), ""},
 		{"the unselected frame with another pick", func(l *Library) { l.Photos[1].BurstPickType = 4 }, ""},
 		{"an album of a trashed state not listed", album(albumOfNoPhoto, func(a *albuminfo.AlbumInfo) { a.InTrash = true }), ""},
+		// json() sorts the pair (photoinfo.py:2279-2285): a Cyrillic name follows its bundle ID.
+		{"an imported_by name after its bundle ID in byte order", photo(func(x *photoinfo.PhotoInfo) {
+			x.ImportedByName, x.ImportedByBundleID = x.ImportedByBundleID, x.ImportedByName
+		}), ""},
 		{"projects in another order, a repeat", photo(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = []string{projectTrashed, projectP, projectP} }), ""},
 		// osxphotos writes the parent of a project as null when the parent row holds no folder or user album.
 		{"the parent of a project is not compared", func(l *Library) { l.Projects[0].ParentUUID = "" }, ""},
