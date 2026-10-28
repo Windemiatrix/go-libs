@@ -26,13 +26,15 @@ listed_fields='($f | split("\n") | map(select(test("^[a-z]")))) as $k
 for lib in testdata/libraries/*/; do
   [ -f "${lib}database/Photos.sqlite" ] || continue
   name=$(basename "$lib")
-  # reference/*.sql is part of the library: apply it to a copy, as
+  # osxphotos reads a copy: SQLite leaves -wal and -shm next to a database it
+  # opens, and the tests check which libraries of testdata have a -wal.
+  copy="$work/$name"
+  mkdir -p "$copy"
+  cp -R "${lib}database" "$copy/"
+  # reference/*.sql is part of the library: apply it to the copy, as
   # testlib.OpenPristine does. The triggers of Photos.sqlite call Core Data
   # functions; the stand-ins are those of testlib.
   if compgen -G "${lib}reference/*.sql" >/dev/null; then
-    copy="$work/$name"
-    mkdir -p "$copy"
-    cp -R "${lib}database" "$copy/"
     python3 - "$copy/database/Photos.sqlite" "${lib}"reference/*.sql <<'EOF'
 import sqlite3, sys
 con = sqlite3.connect(sys.argv[1])
@@ -46,12 +48,11 @@ for path in sys.argv[2:]:
 con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 con.close()
 EOF
-    lib="$copy/"
   fi
   mkdir -p "$out/$name"
-  osxphotos query --library "$lib" --json --mute |
+  osxphotos query --library "$copy/" --json --mute |
     jq --rawfile f testdata/golden/fields.txt "$listed_fields" >"$out/$name/query.json"
-  osxphotos query --library "$lib" --json --mute --deleted-only |
+  osxphotos query --library "$copy/" --json --mute --deleted-only |
     jq --rawfile f testdata/golden/fields.txt "$listed_fields" >"$out/$name/deleted.json"
 done
 
