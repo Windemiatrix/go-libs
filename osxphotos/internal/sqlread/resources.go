@@ -25,17 +25,21 @@ func resourceSelect() []column {
 	}
 }
 
-// Resources returns the rows with a ZASSET, ordered by ZASSET, then Z_PK.
+// Resources returns every row, ordered by ZASSET, then Z_PK; AssetPK is 0 for
+// a row without ZASSET, which upstream still joins on ZFINGERPRINT
+// (photosdb.py:2497-2516).
 func (d *DB) Resources(ctx context.Context) ([]Resource, error) {
 	q := "SELECT " + selectList(resourceSelect()) +
-		" FROM ZINTERNALRESOURCE r WHERE r.ZASSET IS NOT NULL ORDER BY r.ZASSET, r.Z_PK"
+		" FROM ZINTERNALRESOURCE r ORDER BY r.ZASSET, r.Z_PK"
 	var out []Resource
 	err := d.readRows(ctx, "resources", q, func(rows *sql.Rows) error {
 		var r Resource
-		if err := rows.Scan(&r.PK, &r.AssetPK, &r.Type, &r.Subtype, &r.DataLength,
+		var asset sql.NullInt64
+		if err := rows.Scan(&r.PK, &asset, &r.Type, &r.Subtype, &r.DataLength,
 			&r.Local, &r.Remote, &r.Fingerprint); err != nil {
 			return err
 		}
+		r.AssetPK = asset.Int64
 		out = append(out, r)
 		return nil
 	})

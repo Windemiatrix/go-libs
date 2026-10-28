@@ -529,6 +529,15 @@ func TestLoadOtherAssetFingerprint(t *testing.T) {
 	if c.byUUID["A-1"].IsMissing {
 		t.Error("IsMissing = true with a local resource of the fingerprint")
 	}
+
+	// A resource without ZASSET counts too.
+	in.resources = append(in.resources, sqlread.Resource{PK: 5, Subtype: nullInt(1), Local: nullInt(0), Fingerprint: nullString("FP")})
+	if c, err = load(in); err != nil {
+		t.Fatal(err)
+	}
+	if !c.byUUID["A-1"].IsMissing {
+		t.Error("IsMissing = false with the last resource of the fingerprint not local, one without ZASSET")
+	}
 }
 
 func TestLoadSkippedAndUUID(t *testing.T) {
