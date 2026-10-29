@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 	"time"
 
@@ -80,7 +81,9 @@ func buildRules() map[string]rule {
 		value("adjustment_type", true, "an integer or null", func(p *photoinfo.PhotoInfo) *int { return p.AdjustmentType }),
 		importedBy(),
 
-		zonedDate(),
+		zonedDate("date", func(p *photoinfo.PhotoInfo) time.Time { return p.Date }),
+		zonedDate("date_original", func(p *photoinfo.PhotoInfo) time.Time { return p.DateOriginal }),
+		exifInfoRule(),
 		moment("date_added", defaultDateTimeLocal, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateAdded }),
 		moment("date_modified", time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateModified }),
 		moment("date_trashed", time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateTrashed }),
@@ -130,6 +133,7 @@ func buildRules() map[string]rule {
 		text("title", true, func(p *photoinfo.PhotoInfo) string { return p.Title }),
 		text("tzname", true, func(p *photoinfo.PhotoInfo) string { return p.TZName }),
 		text("cloud_owner_hashed_id", true, func(p *photoinfo.PhotoInfo) string { return p.CloudOwnerHashedID }),
+		text("owner", true, func(p *photoinfo.PhotoInfo) string { return p.Owner }),
 
 		number("width", func(p *photoinfo.PhotoInfo) int64 { return int64(p.Width) }),
 		number("height", func(p *photoinfo.PhotoInfo) int64 { return int64(p.Height) }),
@@ -198,23 +202,91 @@ func moment(key string, missingDefault time.Time, get func(*photoinfo.PhotoInfo)
 		func(p *photoinfo.PhotoInfo) any { return goMoment(get(p), missingDefault) })
 }
 
-// Upstream gives date in the zone of the photo (photos_datetime.py:47-67), so
-// its offset counts too.
-func zonedDate() rule {
-	return simple("date",
+// Upstream gives date and date_original in the zone of the photo
+// (photos_datetime.py:47-67), so the offset counts too.
+func zonedDate(key string, get func(*photoinfo.PhotoInfo) time.Time) rule {
+	return simple(key,
 		func(o Object) (any, error) {
-			t, err := refTime(o, "date", false)
+			t, err := refTime(o, key, false)
 			if err != nil {
 				return nil, err
 			}
 			return zonedMoment(*t), nil
 		},
-		func(p *photoinfo.PhotoInfo) any { return zonedMoment(p.Date) })
+		func(p *photoinfo.PhotoInfo) any { return zonedMoment(get(p)) })
 }
 
 func zonedMoment(t time.Time) []any {
 	_, offset := t.Zone()
 	return []any{momentString(t), offset}
+}
+
+func zonedOrNil(t *time.Time) any {
+	if t == nil {
+		return nil
+	}
+	return zonedMoment(*t)
+}
+
+// The keys of exif_info in the order of the fields of exifinfo.ExifInfo, which
+// the rule reads by position (exifinfo.py:18-39).
+var exifKeys = []string{
+	"flash_fired", "iso", "metering_mode", "sample_rate", "track_format", "white_balance",
+	"aperture", "bit_rate", "duration", "exposure_bias", "focal_length", "fps",
+	"latitude", "longitude", "shutter_speed", "camera_make", "camera_model", "codec", "lens_model",
+	"date", "tzoffset", "tzname",
+}
+
+// json() writes the object of a photo without a row too, with every value
+// null (photoinfo.py:1702-1704, 2123); null is nil for a number and a flag and
+// "" for a string. date is the pair of zonedDate, nil for null.
+func exifInfoRule() rule {
+	const key = "exif_info"
+	fields := reflect.TypeOf(photoinfo.PhotoInfo{}.ExifInfo)
+	return rule{
+		key: key,
+		ref: func(o Object) (any, error) {
+			raw, err := decode[map[string]json.RawMessage](o, key, false, "an object")
+			if err != nil {
+				return nil, err
+			}
+			out := make(map[string]any, len(exifKeys))
+			for i, k := range exifKeys {
+				path := key + "." + k
+				m, ok := raw[k]
+				if !ok {
+					return nil, shape(path, "a value (the key is missing)")
+				}
+				if k == "date" {
+					s, err := decodeRaw[*string](m, path, true, "an ISO 8601 string or null")
+					if err != nil {
+						return nil, err
+					}
+					t, err := parseRef(s, path)
+					if err != nil {
+						return nil, err
+					}
+					out[k] = zonedOrNil(t)
+					continue
+				}
+				v := reflect.New(fields.Field(i).Type)
+				if json.Unmarshal(m, v.Interface()) != nil {
+					return nil, shape(path, "a value of the type osxphotos writes")
+				}
+				out[k] = v.Elem().Interface()
+			}
+			return out, nil
+		},
+		got: func(_ *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
+			v := reflect.ValueOf(p.ExifInfo)
+			out := make(map[string]any, len(exifKeys))
+			for i, k := range exifKeys {
+				out[k] = v.Field(i).Interface()
+			}
+			out["date"] = zonedOrNil(p.ExifInfo.Date)
+			return out, nil
+		},
+	}
 }
 
 // Not compared for an adjusted photo: upstream reads the adjustments plist,

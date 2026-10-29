@@ -39,7 +39,7 @@ func TestSummaryKeepsValuesOut(t *testing.T) {
 			t.Errorf("Summary has %q:\n%s", leak, sum)
 		}
 	}
-	want := "library lib: 2 objects, 76 keys compared\n" +
+	want := "library lib: 2 objects, 79 keys compared\n" +
 		"differences: 3 unexplained, 1 explained; stale divergences: 1\n" +
 		"  description: 0 unexplained, 1 explained\n" +
 		"  title: 1 unexplained, 0 explained\n" +
@@ -140,7 +140,7 @@ func TestReportOK(t *testing.T) {
 		t.Error("a report with a difference or a stale record is OK")
 	}
 	empty := compare(t, fixtureRef(), fixtureLib())
-	want := "library lib: 2 objects, 76 keys compared\ndifferences: 0 unexplained, 0 explained; stale divergences: 0\n"
+	want := "library lib: 2 objects, 79 keys compared\ndifferences: 0 unexplained, 0 explained; stale divergences: 0\n"
 	if got := empty.Summary(); got != want {
 		t.Errorf("Summary = %q, want %q", got, want)
 	}
@@ -189,7 +189,8 @@ func BenchmarkCompare20k(b *testing.B) {
 		id := fmt.Sprintf("00000000-0000-0000-0000-%012x", i+1)
 		burst := fmt.Sprintf("BURST-%d", i/perBurst)
 		p := &photoinfo.PhotoInfo{
-			UUID: id, Filename: "IMG_0003.JPG", OriginalFilename: "IMG_0003.JPG", Date: time.Unix(0, 0).UTC(), UTI: "public.jpeg", UTIOriginal: "public.jpeg",
+			UUID: id, Filename: "IMG_0003.JPG", OriginalFilename: "IMG_0003.JPG", Date: time.Unix(0, 0).UTC(), DateOriginal: time.Unix(0, 0).UTC(),
+			UTI: "public.jpeg", UTIOriginal: "public.jpeg",
 			IsPhoto: true, Burst: true, BurstUUID: burst,
 			AlbumUUIDs: []string{lib.Albums[i%30].UUID, lib.Albums[(i+1)%30].UUID, lib.Albums[(i+2)%30].UUID},
 		}
