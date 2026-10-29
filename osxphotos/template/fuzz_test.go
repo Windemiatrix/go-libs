@@ -2,6 +2,7 @@ package template
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -41,6 +42,12 @@ func FuzzParse(f *testing.F) {
 			t.Fatalf("Parse(%q) = nil, nil", s)
 		case err == nil && depthOf(got) > 32:
 			t.Fatalf("Parse(%q) is %d statements deep, more than 32", s, depthOf(got))
+		}
+		if err != nil {
+			return
+		}
+		if back, err := Parse(got.String()); err != nil || !reflect.DeepEqual(back, got) {
+			t.Fatalf("Parse(%q) = %s, %v; want %s, the tree of %q", got.String(), dump(back), err, dump(got), s)
 		}
 	})
 }
