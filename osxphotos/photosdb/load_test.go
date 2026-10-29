@@ -547,10 +547,12 @@ func exifPtr[T any](v T) *T { return &v }
 
 // The expected values are literals: ExifInfo of a photo from one row of
 // ZEXTENDEDATTRIBUTES (exifinfo.py:42-77, photoinfo.py:147-163, 1687-1704).
+// CameraMake stays decomposed: upstream does not normalize the strings of the
+// row (exifinfo.py:63-66).
 func TestLoadExifRows(t *testing.T) {
 	t.Parallel()
 
-	const nfd, nfcForm = "Cafe\U00000301", "Caf\U000000e9"
+	const nfd = "Cafe\U00000301"
 	// A-1 has the date 2023-01-01T00:00:00Z.
 	loadA1 := func(t *testing.T, rows ...sqlread.Exif) *photoinfo.PhotoInfo {
 		t.Helper()
@@ -597,7 +599,7 @@ func TestLoadExifRows(t *testing.T) {
 			FlashFired: exifPtr(true), ISO: exifPtr(100), MeteringMode: exifPtr(5), SampleRate: exifPtr(48000), TrackFormat: exifPtr(1), WhiteBalance: exifPtr(0),
 			Aperture: exifPtr(1.8), BitRate: exifPtr(1000.5), Duration: exifPtr(12.345678901234), ExposureBias: exifPtr(-0.5),
 			FocalLength: exifPtr(4.25), FPS: exifPtr(29.97), Latitude: exifPtr(48.8566), Longitude: exifPtr(2.3522), ShutterSpeed: exifPtr(0.008),
-			CameraMake: nfcForm, CameraModel: "Acme One", Codec: "hvc1", LensModel: "",
+			CameraMake: nfd, CameraModel: "Acme One", Codec: "hvc1", LensModel: "",
 			TZOffset: exifPtr(19800), TZName: "Asia/Kolkata",
 		}
 		got := p.ExifInfo
@@ -668,8 +670,8 @@ func TestLoadExifRows(t *testing.T) {
 	})
 }
 
-// The oracle is the database. The messages hold UUIDs and counts, not the EXIF
-// values of a library.
+// The oracle is the database. The messages hold field names, photo indexes and
+// counts, not the values of a library.
 func TestLoadExif(t *testing.T) {
 	t.Parallel()
 
@@ -690,14 +692,14 @@ func TestLoadExif(t *testing.T) {
 				}
 				const oracle = "SELECT ZCAMERAMAKE, ZISO, ZFOCALLENGTH, ZDATECREATED, ZTIMEZONEOFFSET FROM ZEXTENDEDATTRIBUTES WHERE ZASSET = ? ORDER BY Z_PK DESC LIMIT 1"
 				var rows, withMake, withDate, apart, checked int
-				for _, p := range db.Photos() {
+				for i, p := range db.Photos() {
 					e := p.ExifInfo
 					want := p.Date
 					if e.Date != nil {
 						want = *e.Date
 					}
 					if !p.DateOriginal.Equal(want) {
-						t.Errorf("photo %s: DateOriginal is not the date of ExifInfo, or Date without one", p.UUID)
+						t.Errorf("photo %d: DateOriginal is not the date of ExifInfo, or Date without one", i)
 					}
 					if !p.DateOriginal.Equal(p.Date) {
 						apart++
@@ -709,11 +711,11 @@ func TestLoadExif(t *testing.T) {
 						withDate++
 					}
 					if has := hasRow[strconv.FormatInt(p.PK, 10)]; has != (e.FlashFired != nil) {
-						t.Errorf("photo %s: a row in the database %v, a row in ExifInfo %v", p.UUID, has, e.FlashFired != nil)
+						t.Errorf("photo %d: a row in the database %v, a row in ExifInfo %v", i, has, e.FlashFired != nil)
 					}
 					if e.FlashFired == nil {
 						if !reflect.DeepEqual(e, exifinfo.ExifInfo{}) {
-							t.Errorf("photo %s: no row, but ExifInfo is not the zero value", p.UUID)
+							t.Errorf("photo %d: no row, but ExifInfo is not the zero value", i)
 						}
 						continue
 					}
@@ -728,24 +730,24 @@ func TestLoadExif(t *testing.T) {
 						focal, created sql.NullFloat64
 					)
 					if err := ro.QueryRowContext(t.Context(), oracle, p.PK).Scan(&maker, &iso, &focal, &created, &offset); err != nil {
-						t.Fatalf("photo %s: %v", p.UUID, err)
+						t.Fatalf("photo %d: the query of ZEXTENDEDATTRIBUTES failed", i)
 					}
-					if e.CameraMake != nfc(maker.String) {
-						t.Errorf("photo %s: CameraMake differs from the database", p.UUID)
+					if e.CameraMake != maker.String {
+						t.Errorf("photo %d: CameraMake differs from the database", i)
 					}
 					if (e.ISO != nil) != iso.Valid || (iso.Valid && int64(*e.ISO) != iso.Int64) {
-						t.Errorf("photo %s: ISO differs from the database", p.UUID)
+						t.Errorf("photo %d: ISO differs from the database", i)
 					}
 					if (e.FocalLength != nil) != focal.Valid || (focal.Valid && *e.FocalLength != focal.Float64) {
-						t.Errorf("photo %s: FocalLength differs from the database", p.UUID)
+						t.Errorf("photo %d: FocalLength differs from the database", i)
 					}
 					if (e.TZOffset != nil) != offset.Valid || (offset.Valid && int64(*e.TZOffset) != offset.Int64) {
-						t.Errorf("photo %s: TZOffset differs from the database", p.UUID)
+						t.Errorf("photo %d: TZOffset differs from the database", i)
 					}
 					if (e.Date != nil) != created.Valid {
-						t.Errorf("photo %s: Date is set %v, ZDATECREATED is set %v", p.UUID, e.Date != nil, created.Valid)
+						t.Errorf("photo %d: Date is set %v, ZDATECREATED is set %v", i, e.Date != nil, created.Valid)
 					} else if created.Valid && math.Abs(float64(e.Date.Unix())-math.Floor(created.Float64+978307200)) > 1 {
-						t.Errorf("photo %s: Date differs from ZDATECREATED", p.UUID)
+						t.Errorf("photo %d: Date differs from ZDATECREATED", i)
 					}
 				}
 				t.Logf("%d photos: %d with a row, %d with a camera make, %d with a date, %d with DateOriginal apart from Date", len(db.Photos()), rows, withMake, withDate, apart)
@@ -804,16 +806,29 @@ WHERE a.ZUUID IS NOT NULL GROUP BY a.Z_PK HAVING COUNT(*) = 1 ORDER BY a.ZUUID L
 	if none == nil || nulls == nil || second == nil {
 		t.Fatal("a photo of the case is missing")
 	}
-	if !reflect.DeepEqual(none.ExifInfo, exifinfo.ExifInfo{}) || !none.DateOriginal.Equal(none.Date) {
-		t.Errorf("the photo without a row: ExifInfo %+v and DateOriginal %v, want the zero value and Date %v", none.ExifInfo, none.DateOriginal, none.Date)
+	if !reflect.DeepEqual(none.ExifInfo, exifinfo.ExifInfo{}) {
+		t.Error("the photo without a row: ExifInfo is not the zero value")
+	}
+	if !none.DateOriginal.Equal(none.Date) {
+		t.Error("the photo without a row: DateOriginal is not Date")
 	}
 	e := nulls.ExifInfo
-	if e.FlashFired == nil || *e.FlashFired || e.ISO != nil || e.CameraMake != "" || e.Date != nil || !nulls.DateOriginal.Equal(nulls.Date) {
-		t.Errorf("the row of NULLs: FlashFired %v, ISO %v, CameraMake %q, Date %v, DateOriginal %v; want false, nil, \"\", nil and Date %v",
-			e.FlashFired, e.ISO, e.CameraMake, e.Date, nulls.DateOriginal, nulls.Date)
+	for _, c := range []struct {
+		field string
+		ok    bool
+	}{
+		{"FlashFired false", e.FlashFired != nil && !*e.FlashFired},
+		{"ISO nil", e.ISO == nil},
+		{"CameraMake empty", e.CameraMake == ""},
+		{"Date nil", e.Date == nil},
+		{"DateOriginal is Date", nulls.DateOriginal.Equal(nulls.Date)},
+	} {
+		if !c.ok {
+			t.Errorf("the row of NULLs: want %s", c.field)
+		}
 	}
-	if got := second.ExifInfo.CameraMake; got != "Second Make" {
-		t.Errorf("the photo with two rows: CameraMake %q, want the one of the second row", got)
+	if second.ExifInfo.CameraMake != "Second Make" {
+		t.Error("the photo with two rows: CameraMake is not the one of the second row")
 	}
 }
 

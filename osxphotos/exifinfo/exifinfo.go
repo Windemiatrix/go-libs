@@ -20,7 +20,7 @@ type ExifInfo struct {
 
 	Latitude, Longitude, ShutterSpeed *float64 // ZLATITUDE, ZLONGITUDE, ZSHUTTERSPEED (exifinfo.py:60-62)
 
-	CameraMake, CameraModel, Codec, LensModel string // ZCAMERAMAKE, ZCAMERAMODEL, ZCODEC, ZLENSMODEL, in NFC (exifinfo.py:63-66)
+	CameraMake, CameraModel, Codec, LensModel string // ZCAMERAMAKE, ZCAMERAMODEL, ZCODEC, ZLENSMODEL, not normalized to NFC, as upstream (exifinfo.py:63-66)
 
 	Date     *time.Time // ZDATECREATED in the zone of TZName or TZOffset, as photoinfo.PhotoInfo.Date; nil when NULL or outside the years 1-9999, not 1970-01-01 (exifinfo.py:70-75)
 	TZOffset *int       // ZTIMEZONEOFFSET, seconds east of UTC

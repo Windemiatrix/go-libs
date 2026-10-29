@@ -320,23 +320,35 @@ func TestCompareEachKey(t *testing.T) {
 	}
 }
 
-// The reference is in NFC; a Go string in NFD is a difference to be fixed in
-// the port, so the comparison must not normalize strings.
+// The comparison must not normalize strings: upstream gives the title in NFC
+// (unicode.py:76-92) and the strings of exif_info as SQLite returns them
+// (exifinfo.py:63-66), so a Go string in another form than the reference is a
+// difference to be fixed in the port.
 func TestCompareNFD(t *testing.T) {
 	t.Parallel()
 	nfc := "Caf" + string(rune(0xe9))
 	nfd := "Cafe" + string(rune(0x301))
-	ref := refOf(refObj(refEmptyPhoto(), map[string]string{"title": jsonString(nfc)}))
+	exif := func(cameraMake string) string {
+		return strings.Replace(refExifNull, `"camera_make": null`, `"camera_make": `+jsonString(cameraMake), 1)
+	}
+	titleRef := map[string]string{"title": jsonString(nfc)}
+	exifRef := map[string]string{"exif_info": exif(nfd)}
 	for name, tc := range map[string]struct {
-		title string
-		want  []string
-	}{"NFC": {nfc, nil}, "NFD": {nfd, []string{"title"}}} {
+		ref  map[string]string
+		set  func(p *photoinfo.PhotoInfo)
+		want []string
+	}{
+		"title NFC":              {titleRef, func(p *photoinfo.PhotoInfo) { p.Title = nfc }, nil},
+		"title NFD":              {titleRef, func(p *photoinfo.PhotoInfo) { p.Title = nfd }, []string{"title"}},
+		"camera_make NFD kept":   {exifRef, func(p *photoinfo.PhotoInfo) { p.ExifInfo.CameraMake = nfd }, nil},
+		"camera_make NFD to NFC": {exifRef, func(p *photoinfo.PhotoInfo) { p.ExifInfo.CameraMake = nfc }, []string{"exif_info"}},
+	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			lib := fixtureLib()
 			lib.Photos = lib.Photos[2:]
-			lib.Photos[0].Title = tc.title
-			rep := compare(t, ref, lib)
+			tc.set(lib.Photos[0])
+			rep := compare(t, refOf(refObj(refEmptyPhoto(), tc.ref)), lib)
 			if got := diffKeys(rep); !slices.Equal(got, tc.want) {
 				t.Errorf("differences in %v, want %v", got, tc.want)
 			}

@@ -799,13 +799,13 @@ func TestExifNull(t *testing.T) {
 		t.Errorf("Exif: %d rows, want %d: the row without ZASSET is no row of an asset", len(rows), total-1)
 	}
 	found := false
-	for _, r := range rows {
+	for i, r := range rows {
 		if r.PK != last {
 			continue
 		}
 		found = true
 		if r.FlashFired.Valid || r.ISO.Valid || r.Aperture.Valid || r.CameraMake.Valid || r.DateCreated.Valid || r.TZOffset.Valid || r.TZName.Valid {
-			t.Errorf("Exif: row %d keeps a value in a column set to NULL", r.PK)
+			t.Errorf("Exif: row %d keeps a value in a column set to NULL", i+1)
 		}
 	}
 	if !found {

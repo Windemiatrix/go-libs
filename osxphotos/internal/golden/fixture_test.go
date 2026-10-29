@@ -147,7 +147,7 @@ const (
 		`"date": null, "tzoffset": null, "tzname": null}`
 )
 
-const elemImport =`{"creation_date": "2020-06-07T01:02:03+00:00", "end_date": "2020-06-07T01:01:00.500000+00:00", ` +
+const elemImport = `{"creation_date": "2020-06-07T01:02:03+00:00", "end_date": "2020-06-07T01:01:00.500000+00:00", ` +
 	`"start_date": "2020-06-07T01:00:00+00:00", "title": "Import 1", "uuid": "` + importSession + `"}`
 
 // Arguments are JSON values: "null", `"Album A"`, `["Folder X"]`.

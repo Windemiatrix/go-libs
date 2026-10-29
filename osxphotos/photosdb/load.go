@@ -190,7 +190,9 @@ func load(t tables) (*catalog, error) {
 }
 
 // exifinfo_factory (exifinfo.py:42-77). Upstream compares ZFLASHFIRED with 1,
-// so a NULL is false, not None.
+// so a NULL is false, not None. Unlike the text of ZASSET, the strings are not
+// normalized: upstream keeps them as SQLite returns them (exifinfo.py:63-66;
+// sqlite_utils.py:55-75 sets no text_factory).
 func exifInfo(e sqlread.Exif) exifinfo.ExifInfo {
 	flash := is(e.FlashFired, flashFired)
 	return exifinfo.ExifInfo{
@@ -209,20 +211,20 @@ func exifInfo(e sqlread.Exif) exifinfo.ExifInfo {
 		Latitude:     optionalFloat(e.Latitude),
 		Longitude:    optionalFloat(e.Longitude),
 		ShutterSpeed: optionalFloat(e.ShutterSpeed),
-		CameraMake:   nfc(e.CameraMake.String),
-		CameraModel:  nfc(e.CameraModel.String),
-		Codec:        nfc(e.Codec.String),
-		LensModel:    nfc(e.LensModel.String),
-		Date:         exifDate(e.DateCreated, e.TZOffset, e.TZName),
+		CameraMake:   e.CameraMake.String,
+		CameraModel:  e.CameraModel.String,
+		Codec:        e.Codec.String,
+		LensModel:    e.LensModel.String,
+		Date:         photosDatetime(e.DateCreated, e.TZOffset, e.TZName),
 		TZOffset:     optionalInt(e.TZOffset),
 		TZName:       e.TZName.String,
 	}
 }
 
-// ExifInfo.Date is photos_datetime with default=False (exifinfo.py:70-75): nil
-// where assetDate, which has default=True, falls back to the epoch. A date that
-// really is the epoch stays.
-func exifDate(created sql.NullFloat64, tz sql.NullInt64, tzName sql.NullString) *time.Time {
+// photos_datetime with default=False (photos_datetime.py:27-67), as
+// exifinfo.py:70-75 calls it: nil where assetDate, which has default=True,
+// falls back to the epoch. A date that really is the epoch stays.
+func photosDatetime(created sql.NullFloat64, tz sql.NullInt64, tzName sql.NullString) *time.Time {
 	if !created.Valid {
 		return nil
 	}
