@@ -2,8 +2,14 @@ package livetest
 
 import (
 	"errors"
+	"fmt"
+	"io/fs"
+	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/photosdb"
 )
 
 func TestLiveReason(t *testing.T) {
@@ -38,5 +44,78 @@ func TestLiveReason(t *testing.T) {
 				t.Errorf("liveReason = %q names the user", got)
 			}
 		})
+	}
+}
+
+func TestLibraryReason(t *testing.T) {
+	const album = "__photosync_test__"
+	tests := []struct {
+		name      string
+		photos    int
+		hasMarker bool
+		want      string
+	}{
+		{"empty test library", 0, true, ""},
+		{"at the limit", 5000, true, ""},
+		{"over the limit", 5001, true, "more than 5000"},
+		{"no marker album", 10, false, album},
+		{"the size before the album", 5001, false, "more than 5000"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := libraryReason(tt.photos, tt.hasMarker)
+			if (got == "") != (tt.want == "") || !strings.Contains(got, tt.want) {
+				t.Errorf("libraryReason(%d, %t) = %q, want a reason with %q", tt.photos, tt.hasMarker, got, tt.want)
+			}
+			if tt.photos > 5000 && strings.Contains(got, album) {
+				t.Errorf("libraryReason(%d, %t) = %q names the album to a library too large", tt.photos, tt.hasMarker, got)
+			}
+			// A library over the limit is most likely the owner's, and its exact
+			// size is personal data.
+			if tt.photos > 5000 && strings.Contains(got, strconv.Itoa(tt.photos)) {
+				t.Errorf("libraryReason(%d, %t) = %q prints the size of the library", tt.photos, tt.hasMarker, got)
+			}
+		})
+	}
+}
+
+func TestMarkerOf(t *testing.T) {
+	marker := &albuminfo.AlbumInfo{UUID: "2", Title: "__photosync_test__"}
+	other := &albuminfo.AlbumInfo{UUID: "3", Title: "Holidays"}
+	tests := []struct {
+		name   string
+		albums []*albuminfo.AlbumInfo
+		want   *albuminfo.AlbumInfo
+	}{
+		{"marker album", []*albuminfo.AlbumInfo{other, marker}, marker},
+		{"another title", []*albuminfo.AlbumInfo{other}, nil},
+		{"no albums", nil, nil},
+	}
+	for _, tt := range tests {
+		if got := markerOf(tt.albums); got != tt.want {
+			t.Errorf("%s: markerOf = %+v, want %+v", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestOpenFailure(t *testing.T) {
+	const path = "/x/y.photoslibrary"
+	for _, tt := range []struct {
+		err  error
+		want string
+	}{
+		{fs.ErrPermission, "no access to the system Photos library"},
+		{fs.ErrNotExist, "no library at the system library path"},
+		{photosdb.ErrUnsupportedSchema, "schema of the system Photos library is not supported"},
+		{errors.New("disk failed"), "cannot read the system Photos library"},
+	} {
+		err := fmt.Errorf("open %s: %w", path, tt.err)
+		got := openFailure(err)
+		if !strings.HasPrefix(got, "livetest: ") || !strings.Contains(got, tt.want) {
+			t.Errorf("openFailure(%v) = %q, want a reason with %q", err, got, tt.want)
+		}
+		if strings.Contains(got, path) {
+			t.Errorf("openFailure(%v) = %q names the path", err, got)
+		}
 	}
 }
