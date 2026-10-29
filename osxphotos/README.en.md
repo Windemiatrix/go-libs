@@ -126,6 +126,7 @@ Semver by tags `osxphotos/vX.Y.Z`, independent of osxphotos. Before `v1.0.0` inc
 - **Can I read while Photos is open?** Yes: a copy of the database is read together with its `-wal` file, and Photos is not blocked.
 - **Does it read the photos themselves?** No: only the catalog (metadata), the paths of files in the library (originals, edited versions, adjustment files and previews) and the adjustment files themselves (property lists). Photo files are never opened.
 - **Photos only in iCloud ("Optimize Storage")?** The catalog is read in full; for a photo whose original is not on disk, `Path` is empty, and `IsMissing`/`InCloud` show where it is.
+- **`SystemLibraryPath` returned `ErrLibraryNotFound`?** The `photolibraryd` preferences may have no `SystemLibraryPath` key (as seen on macOS 26), and the module does not look for the path through PhotoKit. Check the error with `errors.Is(err, photosdb.ErrLibraryNotFound)`; the caller then chooses the library path.
 
 ## License
 

@@ -20,9 +20,10 @@ var libraryPreferences = []string{
 // SystemLibraryPath returns the path of the system Photos library recorded
 // by photolibraryd (utils.py:162-206): the SystemLibraryPath key of the
 // group container preferences (macOS 27 and later), then of the container
-// preferences (macOS 10.15 to 26 according to utils.py:176-178). When
-// neither file holds a usable value, it returns ErrLibraryNotFound: the
-// private PhotoKit fallback of osxphotos (utils.py:206) is not ported.
+// preferences (macOS 10.15 and later according to utils.py:176-178; the key
+// may be absent, as seen on macOS 26). When neither file holds a usable
+// value, it returns ErrLibraryNotFound: the private PhotoKit fallback of
+// osxphotos (utils.py:206) is not ported.
 //
 // Only an absolute path without NUL is accepted. Whether the path exists is
 // not checked: the caller opens it as any path given by the user.
