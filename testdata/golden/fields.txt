@@ -18,8 +18,10 @@ comments
 date
 date_added
 date_modified
+date_original
 date_trashed
 description
+exif_info
 external_edit
 favorite
 filename
@@ -52,6 +54,7 @@ original_filesize
 original_height
 original_orientation
 original_width
+owner
 panorama
 persons
 portrait

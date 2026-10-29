@@ -381,10 +381,11 @@ func (r *Report) Summary() string {
 
 // WriteDetails writes one line per difference and per stale record, with
 // UUIDs and values; a value of persons is written as its number of names, the
-// owner of an album and the user of a comment or a like as "<name>", the text
-// of a comment as "<text>", and a value of album_info, burst_album_info,
-// project_info, comments or likes that is not a list of objects as
-// "<unparsed>".
+// owner of a photo or of an album and the user of a comment or a like as
+// "<name>", the text of a comment as "<text>", a value of exif_info that is
+// not null or "" as "<value>", and a value of album_info, burst_album_info,
+// project_info, comments or likes that is not a list of objects, or of
+// exif_info that is not an object, as "<unparsed>".
 func (r *Report) WriteDetails(w io.Writer) error {
 	for _, d := range r.Diffs {
 		if _, err := fmt.Fprintf(w, "%s %s want=%s got=%s\n", d.Field, d.UUID, redact(d.Field, d.Want), redact(d.Field, d.Got)); err != nil {
@@ -412,6 +413,12 @@ func redact(field, value string) string {
 	if field == "persons" && json.Unmarshal([]byte(value), &names) == nil {
 		return fmt.Sprintf("<%d names>", len(names))
 	}
+	if field == "owner" && value != `""` {
+		return "<name>"
+	}
+	if field == "exif_info" {
+		return redactExif(value)
+	}
 	placeholders, ok := redacted[field]
 	if !ok {
 		return value
@@ -428,6 +435,22 @@ func redact(field, value string) string {
 		}
 	}
 	s, _ := canonical(items) // decoded JSON holds no NaN
+	return s
+}
+
+// The coordinates and the camera of a photo are personal data too: the keys
+// stay, so that a null can be told from a value.
+func redactExif(value string) string {
+	var obj map[string]any
+	if json.Unmarshal([]byte(value), &obj) != nil {
+		return "<unparsed>"
+	}
+	for k, v := range obj {
+		if v != nil && v != "" {
+			obj[k] = "<value>"
+		}
+	}
+	s, _ := canonical(obj) // decoded JSON holds no NaN
 	return s
 }
 
