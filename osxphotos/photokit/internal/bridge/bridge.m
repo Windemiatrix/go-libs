@@ -26,6 +26,18 @@ _Static_assert(PHAssetMediaSubtypePhotoDepthEffect == (1 << 4), "PHAssetMediaSub
 _Static_assert(PHAssetMediaSubtypeVideoStreamed == (1 << 16), "PHAssetMediaSubtypeVideoStreamed");
 _Static_assert(PHAssetMediaSubtypeVideoHighFrameRate == (1 << 17), "PHAssetMediaSubtypeVideoHighFrameRate");
 _Static_assert(PHAssetMediaSubtypeVideoTimelapse == (1 << 18), "PHAssetMediaSubtypeVideoTimelapse");
+_Static_assert(PHAssetResourceTypePhoto == 1, "PHAssetResourceTypePhoto");
+_Static_assert(PHAssetResourceTypeVideo == 2, "PHAssetResourceTypeVideo");
+_Static_assert(PHAssetResourceTypeAudio == 3, "PHAssetResourceTypeAudio");
+_Static_assert(PHAssetResourceTypeAlternatePhoto == 4, "PHAssetResourceTypeAlternatePhoto");
+_Static_assert(PHAssetResourceTypeFullSizePhoto == 5, "PHAssetResourceTypeFullSizePhoto");
+_Static_assert(PHAssetResourceTypeFullSizeVideo == 6, "PHAssetResourceTypeFullSizeVideo");
+_Static_assert(PHAssetResourceTypeAdjustmentData == 7, "PHAssetResourceTypeAdjustmentData");
+_Static_assert(PHAssetResourceTypeAdjustmentBasePhoto == 8, "PHAssetResourceTypeAdjustmentBasePhoto");
+_Static_assert(PHAssetResourceTypePairedVideo == 9, "PHAssetResourceTypePairedVideo");
+_Static_assert(PHAssetResourceTypeFullSizePairedVideo == 10, "PHAssetResourceTypeFullSizePairedVideo");
+_Static_assert(PHAssetResourceTypeAdjustmentBasePairedVideo == 11, "PHAssetResourceTypeAdjustmentBasePairedVideo");
+_Static_assert(PHAssetResourceTypeAdjustmentBaseVideo == 12, "PHAssetResourceTypeAdjustmentBaseVideo");
 #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000 // the name came with the macOS 26 SDK; the build targets macOS 13
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunguarded-availability-new"
@@ -126,16 +138,20 @@ static void pk_fill_asset(PHAsset *asset, pk_asset *out) {
 	out->hidden = asset.hidden;
 }
 
+// Hidden assets too, unlike upstream (photokit.py:1234, 1281): photosdb lists them.
+static PHFetchOptions *pk_fetch_options(void) {
+	PHFetchOptions *options = [[PHFetchOptions alloc] init];
+	options.includeHiddenAssets = YES;
+	return options;
+}
+
 static pk_result pk_fetch(PHFetchResult<PHAsset *> *(^fetch)(PHFetchOptions *), pk_asset **out, int *count) {
 	pk_result r = {PK_OK, NULL};
 	*out = NULL;
 	*count = 0;
 	@autoreleasepool {
 		@try {
-			// Hidden assets too, unlike upstream (photokit.py:1234, 1281): photosdb lists them.
-			PHFetchOptions *options = [[PHFetchOptions alloc] init];
-			options.includeHiddenAssets = YES;
-			PHFetchResult<PHAsset *> *assets = fetch(options);
+			PHFetchResult<PHAsset *> *assets = fetch(pk_fetch_options());
 			if (assets.count > 0) {
 				*out = calloc(assets.count, sizeof(pk_asset));
 				if (*out == NULL) {
@@ -185,4 +201,46 @@ void pk_free_assets(pk_asset *assets, int count) {
 		free(assets[i].burst_identifier);
 	}
 	free(assets);
+}
+
+pk_result pk_asset_resources(const char *local_id, pk_resource **out, int *count) {
+	pk_result r = {PK_OK, NULL};
+	*out = NULL;
+	*count = 0;
+	@autoreleasepool {
+		@try {
+			// A string that is not UTF-8 names no asset, and @[nil] would raise.
+			NSString *identifier = [NSString stringWithUTF8String:local_id];
+			NSArray<NSString *> *identifiers = identifier != nil ? @[ identifier ] : @[];
+			PHAsset *asset = [PHAsset fetchAssetsWithLocalIdentifiers:identifiers options:pk_fetch_options()].firstObject;
+			NSArray<PHAssetResource *> *resources = asset != nil ? [PHAssetResource assetResourcesForAsset:asset] : nil;
+			if (resources.count > 0) {
+				*out = calloc(resources.count, sizeof(pk_resource));
+				if (*out == NULL) {
+					[NSException raise:NSGenericException format:@"no memory for %lu resources", (unsigned long)resources.count];
+				}
+				*count = (int)resources.count;
+				for (int i = 0; i < *count; i++) {
+					(*out)[i].original_filename = pk_strdup(resources[i].originalFilename);
+					(*out)[i].uti = pk_strdup(resources[i].uniformTypeIdentifier);
+					(*out)[i].resource_type = (int)resources[i].type;
+				}
+			}
+		} @catch (NSException *e) {
+			// calloc zeroed the resources not yet filled, so all of them are freed.
+			pk_free_resources(*out, *count);
+			*out = NULL;
+			*count = 0;
+			r = pk_exception(e);
+		}
+	}
+	return r;
+}
+
+void pk_free_resources(pk_resource *resources, int count) {
+	for (int i = 0; i < count; i++) {
+		free(resources[i].original_filename);
+		free(resources[i].uti);
+	}
+	free(resources);
 }

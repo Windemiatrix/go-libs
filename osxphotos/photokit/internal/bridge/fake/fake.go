@@ -19,7 +19,8 @@ import (
 // open dialog does. FetchAssets finds the Assets whose LocalIdentifier is one
 // of the ids or one of them followed by "/", as PhotoKit finds "UUID/L0/001" by
 // its UUID; FetchBurst finds those of the burst whatever all is. Both keep the
-// order of Assets and return FetchErr when it is set.
+// order of Assets and return FetchErr when it is set. AssetResources returns
+// Resources of the id exactly as given, and ResourcesErr.
 type Bridge struct {
 	Status, RequestStatus int
 	StatusErr, RequestErr error
@@ -27,6 +28,8 @@ type Bridge struct {
 	Hold                  chan struct{}
 	Assets                []bridge.AssetRecord
 	FetchErr              error
+	Resources             map[string][]bridge.ResourceRecord
+	ResourcesErr          error
 
 	mu    sync.Mutex
 	calls []string
@@ -85,6 +88,12 @@ func (b *Bridge) FetchAssets(ids []string) ([]bridge.AssetRecord, error) {
 func (b *Bridge) FetchBurst(burstID string, all bool) ([]bridge.AssetRecord, error) {
 	b.log(fmt.Sprintf("FetchBurst %s %t", burstID, all))
 	return b.except(func(r bridge.AssetRecord) bool { return r.BurstIdentifier != burstID })
+}
+
+// AssetResources implements bridge.Bridge.
+func (b *Bridge) AssetResources(id string) ([]bridge.ResourceRecord, error) {
+	b.log("AssetResources " + id)
+	return b.Resources[id], b.ResourcesErr
 }
 
 func (b *Bridge) except(drop func(bridge.AssetRecord) bool) ([]bridge.AssetRecord, error) {

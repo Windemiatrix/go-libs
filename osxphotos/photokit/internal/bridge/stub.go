@@ -18,3 +18,5 @@ func (*stub) RequestAuthorization(time.Duration) (int, error) { return 0, ErrNot
 func (*stub) FetchAssets([]string) ([]AssetRecord, error) { return nil, ErrNotSupported }
 
 func (*stub) FetchBurst(string, bool) ([]AssetRecord, error) { return nil, ErrNotSupported }
+
+func (*stub) AssetResources(string) ([]ResourceRecord, error) { return nil, ErrNotSupported }

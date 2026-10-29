@@ -24,6 +24,15 @@ type Bridge interface {
 	// every frame with all, otherwise the selected ones and the key photo.
 	FetchAssets(ids []string) ([]AssetRecord, error)
 	FetchBurst(burstID string, all bool) ([]AssetRecord, error)
+	// AssetResources finds a hidden asset too; an unknown id gives none, not an error.
+	AssetResources(id string) ([]ResourceRecord, error)
+}
+
+// ResourceRecord is a PHAssetResource as the bridge reads it; a string is ""
+// when PhotoKit gives none.
+type ResourceRecord struct {
+	Type                  int
+	OriginalFilename, UTI string
 }
 
 // AssetRecord is a PHAsset as the bridge reads it; photokit makes an Asset of
