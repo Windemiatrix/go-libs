@@ -12,6 +12,15 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 )
 
+// The templates of templates.txt whose value does not depend on the photo:
+// osxphotos gave every photo the same value, which Render must give for a
+// photo without fields.
+var literalIDs = []string{
+	"t314", "t315", "t316", "t317", "t318", "t319", "t320", "t321", "t322", "t323",
+	"t324", "t325", "t326", "t327", "t328", "t329", "t330", "t332", "t333", "t334",
+	"t335", "t341", "t343",
+}
+
 func goldenTemplates(t *testing.T, dir string) []string {
 	t.Helper()
 	var out []string
@@ -51,6 +60,38 @@ func oracleValues(t *testing.T, raw json.RawMessage) []string {
 		t.Fatalf("%s is neither a string nor a list of strings", raw)
 	}
 	return many
+}
+
+func TestRenderGoldenLiterals(t *testing.T) {
+	dir := testlib.RepoDir(t, "golden")
+	templates := goldenTemplates(t, dir)
+	objects := goldenObjects(t, filepath.Join(dir, "synthetic", "templates.json"))
+
+	for _, id := range literalIDs {
+		k, err := strconv.Atoi(id[1:])
+		if err != nil || k < 1 || k > len(templates) {
+			t.Fatalf("%s is not an id of the %d templates of templates.txt", id, len(templates))
+		}
+		tmpl, err := Parse(templates[k-1])
+		if err != nil {
+			t.Fatalf("%s: %v", id, err)
+		}
+		got, unmatched, err := NewRenderer().Render(tmpl, fakePhoto{}, RenderOptions{})
+		if err != nil || unmatched != nil {
+			t.Errorf("%s: Render(%q) = %q, %q, %v; want no error and no unmatched", id, templates[k-1], got, unmatched, err)
+			continue
+		}
+		for i, obj := range objects {
+			raw, ok := obj[id]
+			if !ok {
+				t.Fatalf("%s: element %d of templates.json has no value", id, i+1)
+			}
+			if want := oracleValues(t, raw); !slices.Equal(got, want) {
+				t.Errorf("%s: Render(%q) = %q, osxphotos gave %q for element %d", id, templates[k-1], got, want, i+1)
+				break
+			}
+		}
+	}
 }
 
 // The ground for rendering "{folder_album()}" as "{folder_album}": osxphotos
