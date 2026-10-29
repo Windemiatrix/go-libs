@@ -45,4 +45,14 @@ var (
 	// asset is neither an image, a video nor a Live Photo
 	// (PhotoKitMediaTypeError, photokit.py:1309-1319).
 	ErrMediaType = errors.New("photokit: unknown media type")
+	// ErrInvalidName is returned by Export when the name is not one element of
+	// a path: empty, ".", "..", or with "/" or NUL in it.
+	ErrInvalidName = errors.New("photokit: the name is not one path element")
+	// ErrNoResource is wrapped by the error of Export when the asset has no
+	// resource of the type (PhotoKitExportError, photokit.py:583-586).
+	ErrNoResource = bridge.ErrNoResource
+	// ErrExport is wrapped, with the domain and code of the NSError, when
+	// PhotoKit fails an export (PhotoKitExportError, photokit.py:719-723). The
+	// description of the NSError is left out: it may name a file.
+	ErrExport = errors.New("photokit: export failed")
 )

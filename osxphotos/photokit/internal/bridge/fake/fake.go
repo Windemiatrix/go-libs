@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,14 @@ import (
 // its UUID; FetchBurst finds those of the burst whatever all is. Both keep the
 // order of Assets and return FetchErr when it is set. AssetResources returns
 // Resources of the id exactly as given, and ResourcesErr.
+//
+// RequestResource returns bridge.ErrNoResource when Data has no entry for
+// id+"/"+type, whatever Resources says. From a goroutine it writes the entry in
+// chunks of Chunk bytes (0: one chunk), each followed by Progress with the
+// share written; after a failed Write it writes no more and waits for Cancel,
+// as PhotoKit does not stop by itself. Then it waits for HoldRequest to be
+// closed when it is not nil, whatever Cancel, as a completion that never comes.
+// Done delivers DoneErr, or bridge.ErrCanceled after Cancel.
 type Bridge struct {
 	Status, RequestStatus int
 	StatusErr, RequestErr error
@@ -30,9 +39,14 @@ type Bridge struct {
 	FetchErr              error
 	Resources             map[string][]bridge.ResourceRecord
 	ResourcesErr          error
+	Data                  map[string][]byte
+	Chunk                 int
+	DoneErr               error
+	HoldRequest           chan struct{}
 
 	mu    sync.Mutex
 	calls []string
+	sink  bridge.ResourceSink
 }
 
 var _ bridge.Bridge = (*Bridge)(nil)
@@ -94,6 +108,80 @@ func (b *Bridge) FetchBurst(burstID string, all bool) ([]bridge.AssetRecord, err
 func (b *Bridge) AssetResources(id string) ([]bridge.ResourceRecord, error) {
 	b.log("AssetResources " + id)
 	return b.Resources[id], b.ResourcesErr
+}
+
+// RequestResource implements bridge.Bridge.
+func (b *Bridge) RequestResource(id string, typ int, sink bridge.ResourceSink) (bridge.Request, error) {
+	b.log(fmt.Sprintf("RequestResource %s %d", id, typ))
+	data, ok := b.Data[id+"/"+strconv.Itoa(typ)]
+	if !ok {
+		return nil, bridge.ErrNoResource
+	}
+	b.mu.Lock()
+	b.sink = sink
+	b.mu.Unlock()
+	r := &request{b: b, id: id, canceled: make(chan struct{}), done: make(chan error, 1)}
+	go func() { r.done <- r.run(data, sink) }()
+	return r, nil
+}
+
+// LastSink returns the sink of the latest RequestResource, nil before one.
+func (b *Bridge) LastSink() bridge.ResourceSink {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.sink
+}
+
+type request struct {
+	b        *Bridge
+	id       string
+	once     sync.Once
+	canceled chan struct{}
+	done     chan error
+}
+
+func (r *request) Cancel() {
+	r.once.Do(func() {
+		r.b.log("Cancel " + r.id)
+		close(r.canceled)
+	})
+}
+
+func (r *request) Done() <-chan error { return r.done }
+
+func (r *request) run(data []byte, sink bridge.ResourceSink) error {
+	chunk := r.b.Chunk
+	if chunk <= 0 {
+		chunk = max(len(data), 1)
+	}
+	written := 0
+	for c := range slices.Chunk(data, chunk) {
+		if r.isCanceled() {
+			return bridge.ErrCanceled
+		}
+		if sink.Write(c) != nil {
+			<-r.canceled
+			return bridge.ErrCanceled
+		}
+		written += len(c)
+		sink.Progress(float64(written) / float64(len(data)))
+	}
+	if r.b.HoldRequest != nil {
+		<-r.b.HoldRequest
+	}
+	if r.isCanceled() {
+		return bridge.ErrCanceled
+	}
+	return r.b.DoneErr
+}
+
+func (r *request) isCanceled() bool {
+	select {
+	case <-r.canceled:
+		return true
+	default:
+		return false
+	}
 }
 
 func (b *Bridge) except(drop func(bridge.AssetRecord) bool) ([]bridge.AssetRecord, error) {

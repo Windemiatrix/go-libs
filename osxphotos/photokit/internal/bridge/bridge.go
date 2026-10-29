@@ -4,13 +4,22 @@ package bridge
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"time"
 )
 
-// ErrNotSupported is returned by every method of the bridge of a build
-// without PhotoKit; photokit exports it.
-var ErrNotSupported = errors.New("photokit: not supported on this platform")
+var (
+	// ErrNotSupported is returned by every method of the bridge of a build
+	// without PhotoKit; photokit exports it.
+	ErrNotSupported = errors.New("photokit: not supported on this platform")
+	// ErrNoResource is returned by RequestResource when the asset has no
+	// resource of the type; photokit exports it.
+	ErrNoResource = errors.New("photokit: the asset has no resource of that type")
+	// ErrCanceled is delivered by Done after Cancel, whatever PhotoKit reports
+	// then.
+	ErrCanceled = errors.New("photokit: the request was canceled")
+)
 
 // Bridge is what photokit needs from PhotoKit. A status is a
 // PHAuthorizationStatus value for read-write access.
@@ -26,7 +35,39 @@ type Bridge interface {
 	FetchBurst(burstID string, all bool) ([]AssetRecord, error)
 	// AssetResources finds a hidden asset too; an unknown id gives none, not an error.
 	AssetResources(id string) ([]ResourceRecord, error)
+	// RequestResource starts requestDataForAssetResource with
+	// networkAccessAllowed for the first resource of type typ of the asset id,
+	// a hidden one too; no such asset or resource is ErrNoResource.
+	RequestResource(id string, typ int, sink ResourceSink) (Request, error)
 }
+
+// ResourceSink receives a resource on a queue of PhotoKit. Write gets the
+// chunks in order and does not keep p; after an error of Write the bridge
+// calls it no more and the caller cancels the request. Progress gets the share
+// received, from 0 to 1.
+type ResourceSink interface {
+	Write(p []byte) error
+	Progress(fraction float64)
+}
+
+// Request is a running RequestResource. Done delivers at most once, without
+// waiting for a receiver: nil, a *PhotoKitError, or ErrCanceled after Cancel,
+// since PhotoKit calls the completion handler after cancelDataRequest: too,
+// unless a stalled iCloud download holds it back. A second Cancel does nothing.
+type Request interface {
+	Cancel()
+	Done() <-chan error
+}
+
+// PhotoKitError is the NSError of a completion handler by its domain and code
+// only: its description may name a file.
+type PhotoKitError struct {
+	Domain string
+	Code   int64
+}
+
+// Error implements error.
+func (e *PhotoKitError) Error() string { return fmt.Sprintf("%s code %d", e.Domain, e.Code) }
 
 // ResourceRecord is a PHAssetResource as the bridge reads it; a string is ""
 // when PhotoKit gives none.
