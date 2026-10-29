@@ -2,7 +2,11 @@
 // share it belongs to as plain values. It does no I/O.
 package photoinfo
 
-import "time"
+import (
+	"time"
+
+	"github.com/Windemiatrix/go-libs/osxphotos/exifinfo"
+)
 
 // PhotoInfo is one asset of the library. Fields marked "extension" have no
 // counterpart in osxphotos.
@@ -30,6 +34,9 @@ type PhotoInfo struct {
 	DateModified    *time.Time // ZASSET.ZADJUSTMENTTIMESTAMP, as osxphotos; nil when the database has no value
 	DateTrashed     *time.Time // nil when the database has no value
 	DateModifiedRaw *time.Time // extension: not in osxphotos — ZASSET.ZMODIFICATIONDATE
+
+	ExifInfo     exifinfo.ExifInfo // the EXIF data Photos stored on import; zero without a ZEXTENDEDATTRIBUTES row (photoinfo.py:1687-1704)
+	DateOriginal time.Time         // ExifInfo.Date when it is set, otherwise Date (photoinfo.py:147-163)
 
 	Width, Height, Orientation                         int
 	OriginalWidth, OriginalHeight, OriginalOrientation int

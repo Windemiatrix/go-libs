@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"golang.org/x/text/unicode/norm"
 
+	"github.com/Windemiatrix/go-libs/osxphotos/exifinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/uti"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
@@ -68,6 +70,9 @@ const (
 
 	// ZSYNDICATIONHISTORY of a photo not saved to the library (photoinfo.py:1597).
 	syndicationHistoryNotSaved = 0
+
+	// ZEXTENDEDATTRIBUTES.ZFLASHFIRED of a flash that fired (exifinfo.py:49).
+	flashFired = 1
 )
 
 type tables struct {
@@ -82,6 +87,7 @@ type tables struct {
 
 	participants []sqlread.Participant
 	comments     []sqlread.Comment
+	exif         []sqlread.Exif
 
 	collectionShares []sqlread.Album // CollectionShare rows of ZSHARE: their PK is a ZSHARE.Z_PK
 	shareMembers     []sqlread.Member
@@ -105,6 +111,10 @@ func nfc(s string) string { return norm.NFC.String(s) }
 // resources of an asset by Z_PK. catalog.photos and PhotoInfo.Resources keep
 // that order.
 //
+// Of two ZEXTENDEDATTRIBUTES rows of an asset the one with the highest Z_PK
+// decides; upstream keeps the last row read, with a warning
+// (_photosdb_process_exif.py:56-61).
+//
 // load never indexes by a value of the database, so no content makes it panic.
 func load(t tables) (*catalog, error) {
 	resources := groupResources(t.resources)
@@ -118,6 +128,12 @@ func load(t tables) (*catalog, error) {
 	}
 	// Owners are memoized by ID: personName would decode their ZSHAREPARTICIPANT archives again for every photo.
 	owners := map[string]string{}
+	exif := make(map[int64]sqlread.Exif, len(t.exif))
+	for _, e := range t.exif {
+		if prev, ok := exif[e.AssetPK]; !ok || e.PK > prev.PK {
+			exif[e.AssetPK] = e
+		}
+	}
 
 	c := &catalog{byUUID: make(map[string]*photoinfo.PhotoInfo, len(t.assets))}
 	var noUUID, dupUUID int
@@ -140,6 +156,13 @@ func load(t tables) (*catalog, error) {
 			owners[id] = personName(a.Owner, a.OwnerComponents)
 		}
 		p.Owner = owners[id]
+		if e, ok := exif[a.PK]; ok {
+			p.ExifInfo = exifInfo(e)
+		}
+		p.DateOriginal = p.Date
+		if d := p.ExifInfo.Date; d != nil {
+			p.DateOriginal = *d
+		}
 		if local, ok := available[p.UUID]; ok {
 			p.IsMissing = !is(local, localAvailable)
 		}
@@ -164,6 +187,50 @@ func load(t tables) (*catalog, error) {
 		return nil, fmt.Errorf("photosdb: %d assets with the ZASSET.ZUUID of another asset", dupUUID)
 	}
 	return c, nil
+}
+
+// exifinfo_factory (exifinfo.py:42-77). Upstream compares ZFLASHFIRED with 1,
+// so a NULL is false, not None.
+func exifInfo(e sqlread.Exif) exifinfo.ExifInfo {
+	flash := is(e.FlashFired, flashFired)
+	return exifinfo.ExifInfo{
+		FlashFired:   &flash,
+		ISO:          optionalInt(e.ISO),
+		MeteringMode: optionalInt(e.MeteringMode),
+		SampleRate:   optionalInt(e.SampleRate),
+		TrackFormat:  optionalInt(e.TrackFormat),
+		WhiteBalance: optionalInt(e.WhiteBalance),
+		Aperture:     optionalFloat(e.Aperture),
+		BitRate:      optionalFloat(e.BitRate),
+		Duration:     optionalFloat(e.Duration),
+		ExposureBias: optionalFloat(e.ExposureBias),
+		FocalLength:  optionalFloat(e.FocalLength),
+		FPS:          optionalFloat(e.FPS),
+		Latitude:     optionalFloat(e.Latitude),
+		Longitude:    optionalFloat(e.Longitude),
+		ShutterSpeed: optionalFloat(e.ShutterSpeed),
+		CameraMake:   nfc(e.CameraMake.String),
+		CameraModel:  nfc(e.CameraModel.String),
+		Codec:        nfc(e.Codec.String),
+		LensModel:    nfc(e.LensModel.String),
+		Date:         exifDate(e.DateCreated, e.TZOffset, e.TZName),
+		TZOffset:     optionalInt(e.TZOffset),
+		TZName:       e.TZName.String,
+	}
+}
+
+// ExifInfo.Date is photos_datetime with default=False (exifinfo.py:70-75): nil
+// where assetDate, which has default=True, falls back to the epoch. A date that
+// really is the epoch stays.
+func exifDate(created sql.NullFloat64, tz sql.NullInt64, tzName sql.NullString) *time.Time {
+	if !created.Valid {
+		return nil
+	}
+	d := assetDate(created, tz, tzName)
+	if t, ok := coreDataTime(created.Float64); !ok || (d.Equal(epoch) && !t.Equal(epoch)) {
+		return nil
+	}
+	return &d
 }
 
 func photo(a sqlread.Asset, res []sqlread.Resource) *photoinfo.PhotoInfo {

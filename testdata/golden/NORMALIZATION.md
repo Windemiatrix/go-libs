@@ -39,8 +39,10 @@ One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and
 | `date` | `Date` | moment and offset (rule 2): the pair `[moment in UTC, offset in seconds]` | `photosdb/photosdb.py:2159-2167`; `photos_datetime.py:27-67` |
 | `date_added` | `DateAdded` | moment; the reference 1970-01-01T00:00:00 (the default of upstream) = `nil` or that moment | `photosdb/photosdb.py:2317`; `photos_datetime.py:19-21, 77-78`; `photoinfo.py:849-855` |
 | `date_modified` | `DateModified` | moment; `null` = `nil` | `photosdb/photosdb.py:2156-2157`; `photoinfo.py:165-177` |
+| `date_original` | `DateOriginal` | moment and offset, as `date` (rule 2): the pair `[moment in UTC, offset in seconds]` | `photoinfo.py:147-163, 2244`; `photos_datetime.py:27-67` |
 | `date_trashed` | `DateTrashed` | moment; `null` = `nil` | `photosdb/photosdb.py:2292-2293`; `photoinfo.py:842-847` |
 | `description` | `Description` | `null` = `""` | `photoinfo.py:592-595` |
+| `exif_info` | `ExifInfo` | An object with the 22 keys of `ExifInfo`: `flash_fired`, `iso`, `metering_mode`, `sample_rate`, `track_format`, `white_balance`, `aperture`, `bit_rate`, `duration`, `exposure_bias`, `focal_length`, `fps`, `latitude`, `longitude`, `shutter_speed`, `camera_make`, `camera_model`, `codec`, `lens_model`, `date`, `tzoffset`, `tzname`. A missing key is an error of the form of the reference, and so is `{}` or `null`: upstream writes the object for a photo without a row too, with every value `null`. `flash_fired`: boolean, `null` = `nil`. The integers (`iso`, `metering_mode`, `sample_rate`, `track_format`, `white_balance`, `tzoffset`) and the floats (rule 4) are exact, `null` = `nil`. The strings (`camera_make`, `camera_model`, `codec`, `lens_model`, `tzname`): `null` = `""`. `date`: moment and offset as the key `date`, `null` = `nil`. The details of the report write a value that is not `null` or `""` as `<value>` | `exifinfo.py:14-77`; `photoinfo.py:1687-1704, 2123, 2145`; `photosdb/_photosdb_process_exif.py:35-63` |
 | `external_edit` | `ExternalEdit` | boolean | `photoinfo.py:807-810`; `photosdb/photosdb.py:2423-2439` |
 | `favorite` | `Favorite` | boolean | `photoinfo.py:812-815` |
 | `filename` | `Filename` | strict string | `photoinfo.py:114-140` |
@@ -73,6 +75,7 @@ One row per key of `fields.txt`. "Go" is the field of `photoinfo.PhotoInfo` (and
 | `original_height` | `OriginalHeight` | integer, `null` = 0 | `photoinfo.py:1406-1409` |
 | `original_orientation` | `OriginalOrientation` | integer, `null` = 0 | `photoinfo.py:1416-1419` |
 | `original_width` | `OriginalWidth` | integer, `null` = 0 | `photoinfo.py:1411-1414` |
+| `owner` | `Owner` | `null` = `""`. The details of the report write a name as `<name>` | `photoinfo.py:1441-1459, 2179` |
 | `panorama` | `Panorama` | boolean | `photoinfo.py:1276-1279`; `photosdb/photosdb.py:2257-2258` |
 | `persons` | `Persons` | list in the order of the reference, a name per face, repeats kept; a person without a name is `_UNKNOWN_` on both sides; the Go list is not sorted by the comparison | `photoinfo.py:597-603`; `photosdb/photosdb.py:1790-1796, 1844-1869`; `_constants.py:337` |
 | `portrait` | `Portrait` | boolean | `photoinfo.py:1306-1309`; `photosdb/photosdb.py:2250-2251` |
@@ -170,8 +173,10 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 | `date` | `Date` | момент и смещение (правило 2): пара `[момент в UTC, смещение в секундах]` | `photosdb/photosdb.py:2159-2167`; `photos_datetime.py:27-67` |
 | `date_added` | `DateAdded` | момент; эталон 1970-01-01T00:00:00 (умолчание upstream) = `nil` или этот момент | `photosdb/photosdb.py:2317`; `photos_datetime.py:19-21, 77-78`; `photoinfo.py:849-855` |
 | `date_modified` | `DateModified` | момент; `null` = `nil` | `photosdb/photosdb.py:2156-2157`; `photoinfo.py:165-177` |
+| `date_original` | `DateOriginal` | момент и смещение, как `date` (правило 2): пара `[момент в UTC, смещение в секундах]` | `photoinfo.py:147-163, 2244`; `photos_datetime.py:27-67` |
 | `date_trashed` | `DateTrashed` | момент; `null` = `nil` | `photosdb/photosdb.py:2292-2293`; `photoinfo.py:842-847` |
 | `description` | `Description` | `null` = `""` | `photoinfo.py:592-595` |
+| `exif_info` | `ExifInfo` | Объект с 22 ключами `ExifInfo`: `flash_fired`, `iso`, `metering_mode`, `sample_rate`, `track_format`, `white_balance`, `aperture`, `bit_rate`, `duration`, `exposure_bias`, `focal_length`, `fps`, `latitude`, `longitude`, `shutter_speed`, `camera_make`, `camera_model`, `codec`, `lens_model`, `date`, `tzoffset`, `tzname`. Отсутствующий ключ — ошибка формы эталона, как и `{}` или `null`: upstream пишет объект и для фото без строки, со всеми значениями `null`. `flash_fired`: логическое, `null` = `nil`. Целые (`iso`, `metering_mode`, `sample_rate`, `track_format`, `white_balance`, `tzoffset`) и дробные (правило 4) — точно, `null` = `nil`. Строки (`camera_make`, `camera_model`, `codec`, `lens_model`, `tzname`): `null` = `""`. `date`: момент и смещение, как у ключа `date`, `null` = `nil`. Подробности отчёта пишут значение, которое не `null` и не `""`, как `<value>` | `exifinfo.py:14-77`; `photoinfo.py:1687-1704, 2123, 2145`; `photosdb/_photosdb_process_exif.py:35-63` |
 | `external_edit` | `ExternalEdit` | логическое | `photoinfo.py:807-810`; `photosdb/photosdb.py:2423-2439` |
 | `favorite` | `Favorite` | логическое | `photoinfo.py:812-815` |
 | `filename` | `Filename` | строгая строка | `photoinfo.py:114-140` |
@@ -204,6 +209,7 @@ Objects of `query.json` and of `deleted.json` are in the order of osxphotos: by 
 | `original_height` | `OriginalHeight` | целое, `null` = 0 | `photoinfo.py:1406-1409` |
 | `original_orientation` | `OriginalOrientation` | целое, `null` = 0 | `photoinfo.py:1416-1419` |
 | `original_width` | `OriginalWidth` | целое, `null` = 0 | `photoinfo.py:1411-1414` |
+| `owner` | `Owner` | `null` = `""`. Подробности отчёта пишут имя как `<name>` | `photoinfo.py:1441-1459, 2179` |
 | `panorama` | `Panorama` | логическое | `photoinfo.py:1276-1279`; `photosdb/photosdb.py:2257-2258` |
 | `persons` | `Persons` | список в порядке эталона, имя на каждое лицо, повторы сохраняются; человек без имени — `_UNKNOWN_` с обеих сторон; список Go сравнение не сортирует | `photoinfo.py:597-603`; `photosdb/photosdb.py:1790-1796, 1844-1869`; `_constants.py:337` |
 | `portrait` | `Portrait` | логическое | `photoinfo.py:1306-1309`; `photosdb/photosdb.py:2250-2251` |

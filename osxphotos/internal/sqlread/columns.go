@@ -26,7 +26,7 @@ func selectList(cols []column) string {
 func Columns(s schema.Schema) map[string][]string {
 	out := map[string][]string{}
 	for _, cols := range [][]column{
-		assetColumns(s), resourceSelect(), keywordColumns(s), personColumns(s), memberColumns(s), albumSelect(), personNameColumns(),
+		assetColumns(s), resourceSelect(), keywordColumns(s), personColumns(s), memberColumns(s), albumSelect(), personNameColumns(), exifSelect(),
 	} {
 		for _, c := range cols {
 			if !slices.Contains(out[c.table], c.name) {

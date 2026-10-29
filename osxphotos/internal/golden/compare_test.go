@@ -30,8 +30,8 @@ func TestCompareNoDifferences(t *testing.T) {
 	if !rep.OK() || len(rep.Diffs) != 0 || len(rep.Explained) != 0 || len(rep.Stale) != 0 {
 		t.Fatalf("report = %+v, want no differences", rep)
 	}
-	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 76 {
-		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 76", rep.Library, rep.Objects, len(rep.Keys))
+	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 79 {
+		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 79", rep.Library, rep.Objects, len(rep.Keys))
 	}
 	if !slices.IsSorted(rep.Keys) {
 		t.Error("Keys are not sorted")
@@ -136,6 +136,38 @@ func photoMutations() []mutation {
 		{"DateModified nil", p(func(x *photoinfo.PhotoInfo) { x.DateModified = nil }), "date_modified"},
 		{"DateModified", p(func(x *photoinfo.PhotoInfo) { x.DateModified = ptr(x.DateModified.Add(time.Microsecond)) }), "date_modified"},
 		{"DateTrashed nil", p(func(x *photoinfo.PhotoInfo) { x.DateTrashed = nil }), "date_trashed"},
+
+		{"DateOriginal plus 1us", p(func(x *photoinfo.PhotoInfo) { x.DateOriginal = x.DateOriginal.Add(time.Microsecond) }), "date_original"},
+		{"DateOriginal is Date", p(func(x *photoinfo.PhotoInfo) { x.DateOriginal = x.Date }), "date_original"},
+		{"DateOriginal in another zone, the same moment", p(func(x *photoinfo.PhotoInfo) {
+			x.DateOriginal = x.DateOriginal.In(time.FixedZone("X", -7*3600))
+		}), "date_original"},
+		{"Owner", p(func(x *photoinfo.PhotoInfo) { x.Owner = "Someone Else" }), "owner"},
+		{"Owner empty", p(func(x *photoinfo.PhotoInfo) { x.Owner = "" }), "owner"},
+
+		{"ExifInfo FlashFired false", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.FlashFired = ptr(false) }), "exif_info"},
+		{"ExifInfo FlashFired nil", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.FlashFired = nil }), "exif_info"},
+		{"ExifInfo ISO", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.ISO = ptr(101) }), "exif_info"},
+		{"ExifInfo ISO nil", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.ISO = nil }), "exif_info"},
+		{"ExifInfo WhiteBalance 0 is not null", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.WhiteBalance = nil }), "exif_info"},
+		{"ExifInfo TrackFormat and SampleRate swapped", p(func(x *photoinfo.PhotoInfo) {
+			x.ExifInfo.TrackFormat, x.ExifInfo.SampleRate = x.ExifInfo.SampleRate, x.ExifInfo.TrackFormat
+		}), "exif_info"},
+		{"ExifInfo Aperture by one ulp", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.Aperture = ptr(math.Nextafter(*x.ExifInfo.Aperture, 2)) }), "exif_info"},
+		{"ExifInfo Duration rounded", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.Duration = ptr(12.0) }), "exif_info"},
+		{"ExifInfo FPS and BitRate swapped", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.FPS, x.ExifInfo.BitRate = x.ExifInfo.BitRate, x.ExifInfo.FPS }), "exif_info"},
+		{"ExifInfo Latitude", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.Latitude = ptr(1.0) }), "exif_info"},
+		{"ExifInfo CameraMake", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.CameraMake = "Other" }), "exif_info"},
+		{"ExifInfo CameraMake empty", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.CameraMake = "" }), "exif_info"},
+		{"ExifInfo CameraMake in NFD", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.CameraMake = "Acme" + string(rune(0x301)) }), "exif_info"},
+		{"ExifInfo LensModel", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.LensModel = "" }), "exif_info"},
+		{"ExifInfo Date nil", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.Date = nil }), "exif_info"},
+		{"ExifInfo Date plus 1us", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.Date = ptr(x.ExifInfo.Date.Add(time.Microsecond)) }), "exif_info"},
+		{"ExifInfo Date in another zone, the same moment", p(func(x *photoinfo.PhotoInfo) {
+			x.ExifInfo.Date = ptr(x.ExifInfo.Date.In(time.FixedZone("X", -7*3600)))
+		}), "exif_info"},
+		{"ExifInfo TZOffset nil", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.TZOffset = nil }), "exif_info"},
+		{"ExifInfo TZName", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.TZName = "" }), "exif_info"},
 
 		{"InCloud false", p(func(x *photoinfo.PhotoInfo) { x.InCloud = ptr(false) }), "incloud"},
 		{"InCloud nil", p(func(x *photoinfo.PhotoInfo) { x.InCloud = nil }), "incloud"},
@@ -403,6 +435,46 @@ func TestWriteDetailsOwners(t *testing.T) {
 	}
 }
 
+func TestWriteDetailsExifAndOwner(t *testing.T) {
+	t.Parallel()
+	lib := fixtureLib()
+	lib.Photos[0].Owner = "SECRET-NAME"
+	lib.Photos[0].ExifInfo.CameraMake = "SECRET-MAKE"
+	lib.Photos[0].ExifInfo.Latitude = ptr(12.5)
+	lib.Photos[0].ExifInfo.Codec = ""
+	stale := Divergence{Library: "lib", UUID: emptyPhoto, Field: "exif_info", Want: []byte(`{"camera_make":"SECRET-STALE","codec":""}`), Reason: "r", Upstream: "a.py:1"}
+	unparsed := Divergence{Library: "lib", UUID: selectedFrame, Field: "exif_info", Want: []byte(`[1]`), Reason: "r", Upstream: "a.py:1"}
+	rep := compare(t, fixtureRef(), lib, stale, unparsed)
+	if got := diffKeys(rep); !slices.Equal(got, []string{"exif_info", "owner"}) {
+		t.Fatalf("differences in %v, want exif_info and owner", got)
+	}
+	var b strings.Builder
+	if err := rep.WriteDetails(&b); err != nil {
+		t.Fatal(err)
+	}
+	for _, leak := range []string{"SECRET", "Acme", "12.5", "Photo Owner", "Asia/Kolkata", "48.8566"} {
+		if strings.Contains(b.String(), leak) {
+			t.Errorf("WriteDetails writes %q", leak)
+		}
+	}
+	for _, line := range []string{
+		"owner " + selectedFrame + " want=<name> got=<name>\n",
+		`"camera_make":"<value>"`,
+		`"codec":"","date":"<value>"`,
+		`"flash_fired":"<value>"`,
+		`"white_balance":"<value>"`,
+		`stale exif_info ` + emptyPhoto + ` want={"camera_make":"<value>","codec":""} got=*` + "\n",
+		"stale exif_info " + selectedFrame + " want=<unparsed> got=*\n",
+	} {
+		if !strings.Contains(b.String(), line) {
+			t.Errorf("WriteDetails lacks %q:\n%s", line, b.String())
+		}
+	}
+	if got := redact("owner", `""`); got != `""` {
+		t.Errorf("redact of an empty owner = %s, want it kept", got)
+	}
+}
+
 func TestWriteDetailsComments(t *testing.T) {
 	t.Parallel()
 	lib := fixtureLib()
@@ -582,6 +654,14 @@ func TestCompareNulls(t *testing.T) {
 		{"ProjectUUIDs", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = []string{projectP} }), "project_info"},
 		{"Comments empty, not nil", func(l *Library) { l.Comments[emptyPhoto] = []photoinfo.CommentInfo{} }, ""},
 		{"Likes", func(l *Library) { l.Likes[emptyPhoto] = []photoinfo.LikeInfo{{}} }, "likes"},
+		{"Owner", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Owner = "x" }), "owner"},
+		{"DateOriginal", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.DateOriginal = time.Unix(1, 0).UTC() }), "date_original"},
+		{"ExifInfo FlashFired false is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ExifInfo.FlashFired = ptr(false) }), "exif_info"},
+		{"ExifInfo ISO 0 is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ExifInfo.ISO = ptr(0) }), "exif_info"},
+		{"ExifInfo Latitude 0 is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ExifInfo.Latitude = ptr(0.0) }), "exif_info"},
+		{"ExifInfo CameraMake", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ExifInfo.CameraMake = "x" }), "exif_info"},
+		{"ExifInfo Date at the epoch is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ExifInfo.Date = ptr(time.Unix(0, 0).UTC()) }), "exif_info"},
+		{"ExifInfo TZOffset 0 is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ExifInfo.TZOffset = ptr(0) }), "exif_info"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -603,7 +683,7 @@ func TestCompareSets(t *testing.T) {
 	const only = "00000000-0000-0000-0000-0000000000e1"
 	emptyGo := func(uuid string) *photoinfo.PhotoInfo {
 		return &photoinfo.PhotoInfo{
-			UUID: uuid, Filename: "IMG_0003.JPG", OriginalFilename: "IMG_0003.JPG", Date: time.Unix(0, 0).UTC(),
+			UUID: uuid, Filename: "IMG_0003.JPG", OriginalFilename: "IMG_0003.JPG", Date: time.Unix(0, 0).UTC(), DateOriginal: time.Unix(0, 0).UTC(),
 			UTI: "public.jpeg", UTIOriginal: "public.jpeg", IsPhoto: true,
 		}
 	}

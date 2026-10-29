@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/exifinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
@@ -72,11 +73,20 @@ func fixtureLib() Library {
 				AlbumUUIDs:   []string{albumAInFolderY, albumTrashed, albumAInFolderX, albumSharedS, albumSharedTitledA},
 				ProjectUUIDs: []string{projectP, projectTrashed},
 				ImportUUID:   importSession,
+				Owner:        "Photo Owner",
+				DateOriginal: utc(2020, 6, 6, 10, 0, 0, 0).In(ist),
+				ExifInfo: exifinfo.ExifInfo{
+					FlashFired: ptr(true), ISO: ptr(100), MeteringMode: ptr(5), SampleRate: ptr(48000), TrackFormat: ptr(1), WhiteBalance: ptr(0),
+					Aperture: ptr(1.8), BitRate: ptr(1000.5), Duration: ptr(12.25), ExposureBias: ptr(-0.5), FocalLength: ptr(4.25), FPS: ptr(29.97),
+					Latitude: ptr(48.8566), Longitude: ptr(2.3522), ShutterSpeed: ptr(0.008),
+					CameraMake: "Acme", CameraModel: "Acme One", Codec: "hvc1", LensModel: "Acme One 4mm",
+					Date: ptr(utc(2020, 6, 6, 10, 0, 0, 0).In(ist)), TZOffset: ptr(19800), TZName: "Asia/Kolkata",
+				},
 			},
 			{UUID: unselectedFrame, IsPhoto: true, Burst: true, BurstUUID: "BURST-A", BurstPickType: 2},
 			{
 				UUID: emptyPhoto, Filename: "IMG_0003.JPG", OriginalFilename: "IMG_0003.JPG",
-				Date: time.Unix(0, 0).UTC(), UTI: "public.jpeg", UTIOriginal: "public.jpeg", IsPhoto: true,
+				Date: time.Unix(0, 0).UTC(), DateOriginal: time.Unix(0, 0).UTC(), UTI: "public.jpeg", UTIOriginal: "public.jpeg", IsPhoto: true,
 			},
 		},
 		Albums: []*albuminfo.AlbumInfo{
@@ -122,7 +132,22 @@ const (
 	refLikes = `[{"datetime": "2020-07-03T00:00:00+00:00", "ismine": false, "user": "Person A"}]`
 )
 
-const elemImport = `{"creation_date": "2020-06-07T01:02:03+00:00", "end_date": "2020-06-07T01:01:00.500000+00:00", ` +
+const (
+	refExif = `{"flash_fired": true, "iso": 100, "metering_mode": 5, "sample_rate": 48000, "track_format": 1, "white_balance": 0, ` +
+		`"aperture": 1.8, "bit_rate": 1000.5, "duration": 12.25, "exposure_bias": -0.5, "focal_length": 4.25, "fps": 29.97, ` +
+		`"latitude": 48.8566, "longitude": 2.3522, "shutter_speed": 0.008, ` +
+		`"camera_make": "Acme", "camera_model": "Acme One", "codec": "hvc1", "lens_model": "Acme One 4mm", ` +
+		`"date": "2020-06-06T15:30:00+05:30", "tzoffset": 19800, "tzname": "Asia/Kolkata"}`
+
+	// A photo without a row (photoinfo.py:1702-1704).
+	refExifNull = `{"flash_fired": null, "iso": null, "metering_mode": null, "sample_rate": null, "track_format": null, "white_balance": null, ` +
+		`"aperture": null, "bit_rate": null, "duration": null, "exposure_bias": null, "focal_length": null, "fps": null, ` +
+		`"latitude": null, "longitude": null, "shutter_speed": null, ` +
+		`"camera_make": null, "camera_model": null, "codec": null, "lens_model": null, ` +
+		`"date": null, "tzoffset": null, "tzname": null}`
+)
+
+const elemImport =`{"creation_date": "2020-06-07T01:02:03+00:00", "end_date": "2020-06-07T01:01:00.500000+00:00", ` +
 	`"start_date": "2020-06-07T01:00:00+00:00", "title": "Import 1", "uuid": "` + importSession + `"}`
 
 // Arguments are JSON values: "null", `"Album A"`, `["Folder X"]`.
@@ -164,8 +189,10 @@ func refSelectedFrame() map[string]string {
 		"date":                 `"2020-06-06T19:45:24.725564+05:30"`,
 		"date_added":           `"2021-01-02T03:04:05+00:00"`,
 		"date_modified":        `"2021-02-03T04:05:06.500000+00:00"`,
+		"date_original":        `"2020-06-06T15:30:00+05:30"`,
 		"date_trashed":         `"2022-03-04T05:06:07+00:00"`,
 		"description":          `"Desc"`,
+		"exif_info":            refExif,
 		"favorite":             "true",
 		"filename":             `"IMG_0001.HEIC"`,
 		"fingerprint":          `"FP-1"`,
@@ -194,6 +221,7 @@ func refSelectedFrame() map[string]string {
 		"original_height":      "3024",
 		"original_orientation": "1",
 		"original_width":       "4032",
+		"owner":                `"Photo Owner"`,
 		"persons":              `["Person A", "_UNKNOWN_"]`,
 		"raw_original":         "false",
 		"saved_to_library":     "true",
@@ -250,6 +278,7 @@ func refEmptyPhoto() map[string]string {
 		"import_info": "{}", "imported_by": "[null, null]", "panorama": "false", "portrait": "false", "project_info": "[]", "selfie": "false",
 		"shared_moment": "false", "spatial": "0", "tzname": "null", "visible": "false",
 		"comments": "[]", "likes": "[]",
+		"date_original": `"1970-01-01T00:00:00+00:00"`, "exif_info": refExifNull, "owner": "null",
 	}
 }
 
