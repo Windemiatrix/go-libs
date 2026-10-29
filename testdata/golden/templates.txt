@@ -1,0 +1,1061 @@
+# Templates for the reference rendering: one template per line.
+# A line starting with "#" is a comment; blank lines are skipped. Ids t001, t002, ... follow the order of
+# the template lines; the comment before each line names its source: md:N is line N of
+# osxphotos/phototemplate.md, py:N is line N of osxphotos/phototemplate.py, field is a template field,
+# literal is a template that does not depend on the photo, quirk is a behaviour of osxphotos worth pinning down.
+# Lines that use album_project come last: that field changes the album list of the photo it renders,
+# so a line that reads the albums after it would see projects in them.
+
+# == text and flag fields ==
+# t001 field name
+{name}
+# t002 field original_name
+{original_name}
+# t003 field title
+{title}
+# t004 field descr
+{descr}
+# t005 field caption
+{caption}
+# t006 field uuid
+{uuid}
+# t007 field shortuuid
+{shortuuid}
+# t008 field id
+{id}
+# t009 field id
+{id:05d}
+# t010 field hdr
+{hdr}
+# t011 md:126
+{hdr?ISHDR,NOTHDR}
+# t012 field edited
+{edited}
+# t013 field edited
+{edited?EDITED,ORIGINAL}
+# t014 field edited_version
+{edited_version}
+# t015 field edited_version
+{edited_version?EV,NO}
+# t016 field favorite
+{favorite}
+# t017 md:116
+{favorite?Favorite-{original_name},{original_name}}
+# t018 field burst
+{burst}
+# t019 field burst
+{burst?B-{burst},NB}
+# t020 field media_type
+{media_type}
+# t021 md:145
+{media_type,video=vidéo;time_lapse=vidéo_accélérée}
+# t022 field media_type
+{media_type,selfie=autoportrait;burst=rafale;live_photo=live;photo=foto}
+# t023 field media_type
+{media_type, video = film ;nonsense;a=b=c}
+# t024 field photo_or_video
+{photo_or_video}
+# t025 py:82
+{photo_or_video,photo=fotos;video=videos}
+# t026 field imported_by.name
+{imported_by.name}
+# t027 field imported_by.id
+{imported_by.id}
+# t028 md:13
+The title of the photo is {title}
+
+# == dates ==
+# t029 field created
+{created}
+# t030 field created.date
+{created.date}
+# t031 field created.year
+{created.year}
+# t032 field created.yy
+{created.yy}
+# t033 field created.mm
+{created.mm}
+# t034 field created.month
+{created.month}
+# t035 field created.mon
+{created.mon}
+# t036 field created.dd
+{created.dd}
+# t037 field created.dow
+{created.dow}
+# t038 field created.doy
+{created.doy}
+# t039 field created.hour
+{created.hour}
+# t040 field created.min
+{created.min}
+# t041 field created.sec
+{created.sec}
+# t042 field created.strftime without a format
+{created.strftime}
+# t043 field modified
+{modified}
+# t044 field modified.date
+{modified.date}
+# t045 field modified.year
+{modified.year}
+# t046 field modified.yy
+{modified.yy}
+# t047 field modified.mm
+{modified.mm}
+# t048 field modified.month
+{modified.month}
+# t049 field modified.mon
+{modified.mon}
+# t050 field modified.dd
+{modified.dd}
+# t051 field modified.dow
+{modified.dow}
+# t052 field modified.doy
+{modified.doy}
+# t053 field modified.hour
+{modified.hour}
+# t054 field modified.min
+{modified.min}
+# t055 field modified.sec
+{modified.sec}
+# t056 field modified.strftime without a format
+{modified.strftime}
+# t057 md:143
+{created.strftime,%Y-%m-%d-%H%M%S}
+# t058 py:103
+{created.strftime,%Y-%U}
+# t059 field created.strftime
+{created.strftime,%y %B %b}
+# t060 field created.strftime
+{created.strftime,%A %a %j}
+# t061 field created.strftime
+{created.strftime,%I:%M:%S %p}
+# t062 field created.strftime
+{created.strftime,%H:%M:%S.%f}
+# t063 field created.strftime
+{created.strftime,%W %w %U}
+# t064 field created.strftime
+{created.strftime,%z %Z}
+# t065 field created.strftime
+{created.strftime,100%%}
+# t066 field created.strftime with a field in the format
+{created.strftime,{created.year}x%m}
+# t067 field created.strftime with a plain format
+{created.strftime,plain}
+# t068 fields created.year, created.mm, created.dd
+{created.year}-{created.mm}-{created.dd}
+# t069 field modified.strftime
+{modified.strftime,%Y-%m-%d-%H%M%S}
+# t070 field modified.strftime
+{modified.strftime,%Y-%U}
+# t071 field modified.strftime
+{modified.strftime,%z %Z}
+
+# == multi-valued fields, delimiters and field arguments ==
+# t072 field album
+{album}
+# t073 field folder_album
+{folder_album}
+# t074 field project
+{project}
+# t075 field folder_album_project
+{folder_album_project}
+# t076 field keyword
+{keyword}
+# t077 field person
+{person}
+# t078 field comment
+{comment}
+# t079 md:81
+{folder_album(>)}
+# t080 md:82
+{folder_album()}
+# t081 field folder_album_project
+{folder_album_project(>)}
+# t082 md:22
+{,+keyword}
+# t083 md:23
+{; +keyword}
+# t084 md:24
+{+keyword}
+# t085 field album
+{,+album}
+# t086 field folder_album
+{; +folder_album}
+# t087 field folder_album
+{; +folder_album(>)}
+# t088 field person
+{, +person}
+# t089 field comment
+{,+comment}
+# t090 field project
+{,+project}
+# t091 field title
+{,+title}
+# t092 field keyword with a default
+{,+keyword,none}
+# t093 product of two multi-valued fields
+{keyword}_{album}
+# t094 product of three multi-valued fields
+{keyword}/{album}/{person}
+# t095 product of a single-valued and a multi-valued field
+{title}-{keyword}
+
+# == conditions on photo fields ==
+# t096 md:103
+{keyword matches Beach}
+# t097 md:104
+{keyword contains Beach}
+# t098 md:105
+{photo.score.overall > 0.7}
+# t099 md:106
+{keyword|lower contains beach}
+# t100 md:107
+{keyword|lower not contains beach}
+# t101 md:111
+{keyword|lower matches travel|vacation?Travel-Photos,Not-Travel-Photos}
+# t102 operator contains
+{uuid contains A?Y,N}
+# t103 operator contains
+{uuid not contains A?Y,N}
+# t104 operator startswith
+{uuid startswith 1?Y,N}
+# t105 operator startswith
+{uuid not startswith 1?Y,N}
+# t106 operator endswith
+{uuid endswith 1?Y,N}
+# t107 operator endswith
+{uuid not endswith 1?Y,N}
+# t108 operator matches
+{keyword matches Beach?Y,N}
+# t109 operator matches
+{keyword not matches Beach?Y,N}
+# t110 operator <=
+{created.year <= 2020?Y,N}
+# t111 operator <=
+{created.year not <= 2020?Y,N}
+# t112 operator >=
+{created.year >= 2015?Y,N}
+# t113 operator >=
+{created.year not >= 2015?Y,N}
+# t114 operator <
+{created.year < 2018?Y,N}
+# t115 operator <
+{created.year not < 2018?Y,N}
+# t116 operator >
+{created.year > 2018?Y,N}
+# t117 operator >
+{created.year not > 2018?Y,N}
+# t118 operator ==
+{created.year == 2020?Y,N}
+# t119 operator ==
+{created.year not == 2020?Y,N}
+# t120 operator !=
+{created.year != 2020?Y,N}
+# t121 operator !=
+{created.year not != 2020?Y,N}
+# t122 operator > on id
+{id > 100?Y,N}
+# t123 operator >= on a photo property
+{photo.width >= 1000?Y,N}
+# t124 condition value is a template
+{keyword contains {title}?Y,N}
+# t125 condition value is a multi-valued template
+{album contains {keyword}?Y,N}
+
+# == conditions on literals ==
+# t126 literal operator contains
+{var:s,Beach Day}{%s contains Beach?Y,N}
+# t127 literal operator contains
+{var:s,Beach Day}{%s not contains Beach?Y,N}
+# t128 literal operator contains with alternatives
+{var:s,Beach Day}{%s contains Sea|Day?Y,N}
+# t129 literal operator contains with alternatives
+{var:s,Beach Day}{%s contains Sea|Moon?Y,N}
+# t130 literal operator matches
+{var:s,Beach Day}{%s matches Beach Day?Y,N}
+# t131 literal operator matches
+{var:s,Beach Day}{%s not matches Beach Day?Y,N}
+# t132 literal operator matches with alternatives
+{var:s,Beach Day}{%s matches Beach|Beach Day?Y,N}
+# t133 literal operator matches
+{var:s,Beach Day}{%s matches Beach?Y,N}
+# t134 literal operator startswith
+{var:s,Beach Day}{%s startswith Be?Y,N}
+# t135 literal operator startswith
+{var:s,Beach Day}{%s not startswith Be?Y,N}
+# t136 literal operator endswith
+{var:s,Beach Day}{%s endswith Day?Y,N}
+# t137 literal operator endswith
+{var:s,Beach Day}{%s not endswith Day?Y,N}
+# t138 literal operator ==
+{var:s,Beach Day}{%s == Beach Day?Y,N}
+# t139 literal operator == does not split the value on the pipe
+{var:s,Beach Day}{%s == Beach|Day?Y,N}
+# t140 literal operator !=
+{var:s,Beach Day}{%s != Beach Day?Y,N}
+# t141 literal operator !=
+{var:s,Beach Day}{%s not != Beach Day?Y,N}
+# t142 literal condition with several spaces around the operator
+{var:s,Beach Day}{%s  contains  Beach?Y,N}
+# t143 literal condition without a bool value
+{var:s,Beach Day}{%s contains Beach}
+# t144 literal condition without a bool value
+{var:s,Beach Day}{%s contains Nope}
+# t145 literal condition value is a template
+{var:s,Beach Day}{%s contains {%s}?Y,N}
+# t146 literal operator <=
+{var:n,5}{%n <= 5?Y,N}
+# t147 literal operator <=
+{var:n,5}{%n not <= 5?Y,N}
+# t148 literal operator >=
+{var:n,5}{%n >= 6?Y,N}
+# t149 literal operator >=
+{var:n,5}{%n not >= 6?Y,N}
+# t150 literal operator <
+{var:n,5}{%n < 5?Y,N}
+# t151 literal operator <
+{var:n,5}{%n not < 5?Y,N}
+# t152 literal operator >
+{var:n,5}{%n > 4?Y,N}
+# t153 literal operator >
+{var:n,5}{%n not > 4?Y,N}
+# t154 literal operator ==
+{var:n,5}{%n == 5?Y,N}
+# t155 literal operator ==
+{var:n,5}{%n not == 5?Y,N}
+# t156 literal operator !=
+{var:n,5}{%n != 5?Y,N}
+# t157 literal operator !=
+{var:n,5}{%n not != 5?Y,N}
+# t158 quirk: == compares strings, not numbers
+{var:n,5.0}{%n == 5?Y,N}
+# t159 literal operator > with a decimal value
+{var:n,5}{%n > 4.5?Y,N}
+
+# == combine, bool value and default ==
+# t160 md:120
+{created.year&{folder_album,}}
+# t161 md:120 with real fields in place of template1, template2, template3
+{created.year&{created.mm&{created.dd,},},}
+# t162 combine
+{title&{keyword,}}
+# t163 combine
+{keyword&{album,}}
+# t164 bool value without text
+{title?}
+# t165 default without text
+{title,}
+# t166 combine without text
+{title&}
+# t167 bool value and default without text
+{title?,}
+# t168 bool value with text, empty default
+{title?Y,}
+# t169 empty bool value, default with text
+{title?,N}
+# t170 md:137
+{title,I have no title}
+# t171 default is a template
+{title,{original_name}}
+# t172 default is a nested template
+{title,{descr,{original_name}}}
+# t173 bool value on a multi-valued field
+{keyword?has keywords,no keywords}
+# t174 combine with bool value and default
+{keyword&{album}?T,F}
+# t175 all parts of a field except the condition
+{; +keyword|lower[a,b]&{album}?Y,N}
+# t176 bool value without default
+{hdr?ISHDR}
+# t177 default on a field that has a value
+{hdr,H}
+# t178 bool value and default are templates
+{edited?{created.year},{original_name}}
+# t179 nested bool values and defaults
+{title?{title},{descr?{descr},{original_name}}}
+
+# == filters on photo fields ==
+# t180 md:69
+{keyword|lower}
+# t181 md:70
+{keyword|upper}
+# t182 md:71
+{keyword|capitalize}
+# t183 md:72
+{keyword|lower|parens}
+# t184 md:76
+{descr|titlecase}
+# t185 md:32
+{keyword|capitalize|parens}
+# t186 filter strip
+{title|strip}
+# t187 filter braces
+{keyword|braces}
+# t188 filter brackets
+{keyword|brackets}
+# t189 filter shell_quote
+{original_name|shell_quote}
+# t190 filter sort
+{keyword|sort}
+# t191 filter rsort
+{keyword|rsort}
+# t192 filter reverse
+{keyword|reverse}
+# t193 filter uniq
+{keyword|uniq}
+# t194 filter join
+{keyword|join(,)}
+# t195 filter join with empty argument
+{keyword|join()}
+# t196 filter join without argument
+{keyword|join}
+# t197 filter autosplit
+{keyword|autosplit}
+# t198 filter split
+{keyword|split(;)}
+# t199 filter chop
+{keyword|chop(1)}
+# t200 filter chomp
+{keyword|chomp(1)}
+# t201 filter append
+{keyword|append(x)}
+# t202 filter prepend
+{keyword|prepend(x)}
+# t203 filter appends
+{keyword|appends(x)}
+# t204 filter prepends
+{keyword|prepends(x)}
+# t205 filter remove
+{keyword|remove(x)}
+# t206 filter slice
+{keyword|slice(1:)}
+# t207 filter sslice
+{keyword|sslice(0:2)}
+# t208 filter filter
+{keyword|filter(contains a)}
+# t209 py:312
+{folder_album|filter(contains Events)}
+# t210 py:313
+{photo.original_filename|path.stem}
+# t211 filter path.suffix
+{photo.original_filename|path.suffix}
+# t212 filter path.name
+{photo.original_filename|path.name}
+# t213 filter int
+{photo.height|int}
+# t214 filter float
+{photo.height|float}
+# t215 filter float
+{photo.latitude|float}
+# t216 filter int
+{photo.latitude|int}
+# t217 several filters
+{keyword|lower|sort|join(;)}
+
+# == filters on literals ==
+# t218 literal split
+{var:l,d;b;a;c;b;a}{%l|split(;)}
+# t219 literal uniq
+{var:l,d;b;a;c;b;a}{%l|split(;)|uniq}
+# t220 literal sort
+{var:l,d;b;a;c;b;a}{%l|split(;)|sort}
+# t221 literal rsort
+{var:l,d;b;a;c;b;a}{%l|split(;)|rsort}
+# t222 literal reverse
+{var:l,d;b;a;c;b;a}{%l|split(;)|reverse}
+# t223 literal uniq, sort and join
+{var:l,d;b;a;c;b;a}{%l|split(;)|uniq|sort|join(,)}
+# t224 literal join
+{var:l,d;b;a;c;b;a}{%l|split(;)|join(,)}
+# t225 literal join with empty argument
+{var:l,d;b;a;c;b;a}{%l|split(;)|join()}
+# t226 literal join without argument
+{var:l,d;b;a;c;b;a}{%l|split(;)|join}
+# t227 literal join with a variable as the argument
+{var:d,-}{var:l,d;b;a;c;b;a}{%l|split(;)|join(%d)}
+# t228 literal append
+{var:l,d;b;a;c;b;a}{%l|split(;)|append(z)}
+# t229 literal prepend
+{var:l,d;b;a;c;b;a}{%l|split(;)|prepend(z)}
+# t230 literal appends
+{var:l,d;b;a;c;b;a}{%l|split(;)|appends(z)}
+# t231 literal prepends
+{var:l,d;b;a;c;b;a}{%l|split(;)|prepends(z)}
+# t232 literal remove
+{var:l,d;b;a;c;b;a}{%l|split(;)|remove(b)}
+# t233 literal slice
+{var:l,d;b;a;c;b;a}{%l|split(;)|slice(1:3)}
+# t234 literal slice with a step
+{var:l,d;b;a;c;b;a}{%l|split(;)|slice(1:5:2)}
+# t235 literal slice
+{var:l,d;b;a;c;b;a}{%l|split(;)|slice(1:)}
+# t236 literal slice
+{var:l,d;b;a;c;b;a}{%l|split(;)|slice(:-1)}
+# t237 literal slice with a negative step
+{var:l,d;b;a;c;b;a}{%l|split(;)|slice(::-1)}
+# t238 literal slice with a single number
+{var:l,d;b;a;c;b;a}{%l|split(;)|slice(2)}
+# t239 literal slice with a negative start
+{var:l,d;b;a;c;b;a}{%l|split(;)|slice(-2:)}
+# t240 literal slice past the end
+{var:l,d;b;a;c;b;a}{%l|split(;)|slice(10:)}
+# t241 literal append with a variable as the argument
+{var:x,Z}{var:l,d;b;a;c;b;a}{%l|split(;)|append(%x)}
+# t242 literal prepends with a variable as the argument
+{var:x,Z}{var:l,d;b;a;c;b;a}{%l|split(;)|prepends(%x)}
+# t243 literal remove with a variable as the argument
+{var:x,b}{var:l,d;b;a;c;b;a}{%l|split(;)|remove(%x)}
+# t244 literal filter contains
+{var:l,d;b;a;c;b;a}{%l|split(;)|filter(contains a)}
+# t245 literal filter not contains
+{var:l,d;b;a;c;b;a}{%l|split(;)|filter(not contains a)}
+# t246 literal filter startswith
+{var:l,d;b;a;c;b;a}{%l|split(;)|filter(startswith b)}
+# t247 literal filter endswith
+{var:l,d;b;a;c;b;a}{%l|split(;)|filter(endswith c)}
+# t248 literal filter matches with alternatives
+{var:l,d;b;a;c;b;a}{%l|split(;)|filter(matches a|b)}
+# t249 literal filter ==
+{var:l,d;b;a;c;b;a}{%l|split(;)|filter(== a)}
+# t250 literal filter !=
+{var:l,d;b;a;c;b;a}{%l|split(;)|filter(!= a)}
+# t251 literal filter not matches
+{var:l,d;b;a;c;b;a}{%l|split(;)|filter(not matches a)}
+# t252 literal chop
+{var:w,hello;world}{%w|split(;)|chop(1)}
+# t253 literal chomp
+{var:w,hello;world}{%w|split(;)|chomp(1)}
+# t254 literal chop(0)
+{var:w,hello;world}{%w|split(;)|chop(0)}
+# t255 literal chop past the length
+{var:w,hello;world}{%w|split(;)|chop(10)}
+# t256 literal chomp past the length
+{var:w,hello;world}{%w|split(;)|chomp(10)}
+# t257 literal int
+{var:i,1.9;-1.9;x;3;1e3}{%i|split(;)|int}
+# t258 literal float
+{var:i,1.9;-1.9;x;3;1e3}{%i|split(;)|float}
+# t259 literal filter with numeric predicate
+{var:i,1.9;-1.9;x;3;1e3}{%i|split(;)|int|filter(> 1)}
+# t260 literal filter with numeric predicate
+{var:i,1.9;-1.9;x;3;1e3}{%i|split(;)|int|filter(>= 3)}
+# t261 literal filter with numeric predicate
+{var:i,1.9;-1.9;x;3;1e3}{%i|split(;)|int|filter(< 3)}
+# t262 literal filter with numeric predicate
+{var:i,1.9;-1.9;x;3;1e3}{%i|split(;)|int|filter(<= 3)}
+# t263 literal float of exponent, infinity and nan
+{var:f,1;1e16;inf;nan;x}{%f|split(;)|float}
+# t264 literal lower
+{var:t,hello wORLD}{%t|lower}
+# t265 literal upper
+{var:t,hello wORLD}{%t|upper}
+# t266 literal capitalize
+{var:t,hello wORLD}{%t|capitalize}
+# t267 literal titlecase
+{var:t,hello wORLD}{%t|titlecase}
+# t268 literal strip
+{var:t,  padded  }{%t|strip}
+# t269 literal braces
+{var:t,v}{%t|braces}
+# t270 literal parens
+{var:t,v}{%t|parens}
+# t271 literal brackets
+{var:t,v}{%t|brackets}
+# t272 literal shell_quote with a space
+{var:q,My file.jpeg}{%q|shell_quote}
+# t273 literal shell_quote of a safe word
+{var:q,plain}{%q|shell_quote}
+# t274 literal shell_quote with an apostrophe
+{var:q,it's}{%q|shell_quote}
+# t275 literal autosplit
+{var:c,a{comma}b;c d}{%c|autosplit}
+# t276 literal split on a comma
+{var:c,a{comma}b;c d}{%c|split(,)}
+# t277 literal split on a semicolon
+{var:c,a{comma}b;c d}{%c|split(;)}
+# t278 literal sslice
+{var:w,abcd}{%w|sslice(1:3)}
+# t279 literal sslice with a step
+{var:w,abcd}{%w|sslice(1:4:2)}
+# t280 literal sslice with a negative step
+{var:w,abcd}{%w|sslice(::-1)}
+# t281 literal sslice
+{var:w,abcd}{%w|sslice(:2)}
+# t282 literal sslice with a negative start
+{var:w,abcd}{%w|sslice(-2:)}
+# t283 literal path
+{var:p,/a/b/file.tar.gz}{%p|path}
+# t284 literal path.stem
+{var:p,/a/b/file.tar.gz}{%p|path.stem}
+# t285 literal path.name
+{var:p,/a/b/file.tar.gz}{%p|path.name}
+# t286 literal path.suffix
+{var:p,/a/b/file.tar.gz}{%p|path.suffix}
+# t287 literal path.suffixes
+{var:p,/a/b/file.tar.gz}{%p|path.suffixes}
+# t288 literal path.parent
+{var:p,/a/b/file.tar.gz}{%p|path.parent}
+# t289 literal path.parts
+{var:p,/a/b/file.tar.gz}{%p|path.parts}
+# t290 literal path.parent.name
+{var:p,/a/b/file.tar.gz}{%p|path.parent.name}
+# t291 literal path.suffix of a name without a suffix
+{var:p,file}{%p|path.suffix}
+# t292 literal sslice of a non-ASCII word
+{var:w,héllo}{%w|sslice(1:3)}
+# t293 literal chop of a non-ASCII word
+{var:w,héllo}{%w|chop(1)}
+# t294 literal chomp of a non-ASCII word
+{var:w,héllo}{%w|chomp(2)}
+# t295 literal upper of a non-ASCII word
+{var:w,héllo}{%w|upper}
+
+# == find and replace ==
+# t296 md:84
+{album[/,-]}
+# t297 md:84
+{album[/,-|:,-]}
+# t298 md:163
+{title[:,%%]}
+# t299 find and replace on a multi-valued field
+{keyword[a,b]}
+# t300 find and replace after a field argument
+{folder_album(>)[>,/]}
+# t301 literal find and replace
+{var:p,a/b:c}{%p[/,-]}
+# t302 literal two pairs
+{var:p,a/b:c}{%p[/,-|:,-]}
+# t303 literal empty replacement
+{var:p,a/b:c}{%p[/,]}
+# t304 literal escaped percent sign
+{var:p,a/b:c}{%p[:,%%]}
+# t305 md:155 on a literal
+{var:pipe,{pipe}}{var:p,a-b}{%p[-,%pipe]}
+# t306 md:155
+{var:pipe,{pipe}}{title[-,%pipe]}
+# t307 literal variable as the replacement
+{var:p,a-b}{var:v,X}{%p[-,%v]}
+# t308 literal variable as the text to find
+{var:p,a-b}{var:f,-}{%p[%f,_]}
+# t309 literal braces in the replacement
+{var:p,a-b}{%p[-,{x}]}
+# t310 literal pairs applied in order
+{var:p,abc}{%p[a,b|b,c]}
+# t311 literal find and replace on every value
+{var:p,a-1;b-2}{%p|split(;)[-,_]}
+# t312 literal comma in the text to find
+{var:p,a{comma}b-c}{%p[a,b,c]}
+# t313 literal empty text to find
+{var:p,a-b}{%p[,x]}
+
+# == punctuation and other fields without photo data ==
+# t314 field comma
+{comma}
+# t315 field semicolon
+{semicolon}
+# t316 field questionmark
+{questionmark}
+# t317 field pipe
+{pipe}
+# t318 field percent
+{percent}
+# t319 field ampersand
+{ampersand}
+# t320 field openbrace
+{openbrace}
+# t321 field closebrace
+{closebrace}
+# t322 field openparens
+{openparens}
+# t323 field closeparens
+{closeparens}
+# t324 field openbracket
+{openbracket}
+# t325 field closebracket
+{closebracket}
+# t326 field newline
+{newline}
+# t327 field lf
+{lf}
+# t328 field cr
+{cr}
+# t329 field crlf
+{crlf}
+# t330 field tab
+{tab}
+# t331 md:151
+{created.year}/{openbrace}{title}{closebrace}
+# t332 literal punctuation fields in a row
+a{comma}b{semicolon}c{pipe}d{ampersand}e{questionmark}f{percent}g
+# t333 field osxphotos_version
+{osxphotos_version}
+# t334 literal text
+literal text
+# t335 literal text with characters that are not special outside braces
+100% pure & simple | ok + yes
+# t336 literal variable assignment alone
+{var:a,b}
+# t337 field shell_quote
+{shell_quote,My file.jpeg}
+# t338 field shell_quote
+{shell_quote,plain}
+# t339 field shell_quote
+{shell_quote,{original_name}}
+# t340 field shell_quote without text
+{shell_quote}
+# t341 field strip
+{strip,  padded  }
+# t342 field strip
+{strip,{title}}
+# t343 field strip without text
+{strip}
+
+# == format ==
+# t344 field format
+{format:int:05d,42}
+# t345 field format
+{format:int:d,42}
+# t346 field format
+{format:int:5,42}
+# t347 field format
+{format:int:x,255}
+# t348 field format
+{format:int:X,255}
+# t349 field format
+{format:int:o,8}
+# t350 field format
+{format:int:b,10}
+# t351 field format
+{format:int:#x,255}
+# t352 field format
+{format:int:^7,42}
+# t353 field format
+{format:int:~^9,42}
+# t354 field format
+{format:int:-d,42}
+# t355 field format
+{format:int:_d,1000000}
+# t356 field format
+{format:int:010_d,1234567}
+# t357 field format, a decimal is cut to an integer
+{format:int:05d,3.9}
+# t358 field format
+{format:float:.1f,3.14159}
+# t359 field format
+{format:float:08.3f,3.14159}
+# t360 field format
+{format:float:.2e,12345.678}
+# t361 field format
+{format:float:g,0.00001234}
+# t362 field format
+{format:float:E,12345.678}
+# t363 field format
+{format:float:F,1.5}
+# t364 field format
+{format:float:%,0.5}
+# t365 field format
+{format:float:.0%,0.5}
+# t366 field format
+{format:float:f,2}
+# t367 field format
+{format:float:10.2f,3.14159}
+# t368 field format
+{format:float:^10.2f,3.14159}
+# t369 field format
+{format:float:.3,3.14159}
+# t370 field format
+{format:str:s,abc}
+# t371 field format
+{format:str:^9,mid}
+# t372 field format
+{format:str:~^9,mid}
+# t373 field format
+{format:str:.3,abcdef}
+# t374 field format
+{format:str:10,abc}
+# t375 field format
+{format:str:#^9,mid}
+# t376 field format of a field value
+{format:int:05d,{id}}
+# t377 field format of a field value
+{format:float:.2f,{created.year}}
+# t378 field id
+{id:x}
+# t379 field id
+{id:X}
+# t380 field id
+{id:o}
+# t381 field id
+{id:b}
+# t382 field id
+{id:#x}
+# t383 field id
+{id:^7}
+# t384 field id
+{id:~^9}
+# t385 field id
+{id:_d}
+# t386 field id
+{id:010_d}
+
+# == variables, combine and products without photo data ==
+# t387 md:159
+{var:year,{created.year}}{original_name}-{%year}
+# t388 md:159
+{var:name,Katie}{person contains {%name}?{%name},Not-{%name}}
+# t389 md:157 with real fields in place of template1, template2
+{var:myvar,{keyword&{album,},}}{%myvar|uniq}
+# t390 md:163
+{title contains Foo?{title}{percent},{title}}
+# t391 literal variable defined from a variable
+{var:a,x}{var:b,{%a}y}{%b}
+# t392 literal variable used twice
+{var:a,x}{%a}-{%a}
+# t393 literal bool value on a variable
+{var:a,x}{%a?Y,N}
+# t394 literal filter on a variable
+{var:a,x}{%a|upper}
+# t395 literal combine
+{var:s,a}{var:t,b}{%s&{%t}}
+# t396 literal combine with an empty default
+{var:s,a}{var:t,b}{%s&{%t,}}
+# t397 literal bool value that is a variable
+{var:s,a}{var:t,b}{%s?{%t},none}
+# t398 literal variable as the delimiter
+{var:d,; }{%d+keyword}
+# t399 literal product of two lists
+{var:s,a;b}{var:t,1;2}{%s|split(;)}-{%t|split(;)}
+# t400 literal product of two lists without a separator
+{var:s,a;b}{var:t,1;2}{%s|split(;)}{%t|split(;)}
+# t401 literal text before and after a list
+x{var:s,a;b}{%s|split(;)}y
+
+# == quirks of osxphotos ==
+# t402 quirk: a variable in the middle of a replacement is not expanded
+{var:p,a-b}{var:v,X}{%p[-,a%v]}
+# t403 quirk: titlecase capitalizes after an apostrophe
+{var:t,they're o'neil}{%t|titlecase}
+# t404 quirk: upper turns a sharp s into two letters
+{var:t,straße}{%t|upper}
+
+# == properties of the photo ==
+# t405 photo.title
+{photo.title}
+# t406 photo.uuid
+{photo.uuid}
+# t407 photo.filename
+{photo.filename}
+# t408 photo.original_filename
+{photo.original_filename}
+# t409 photo.description
+{photo.description}
+# t410 photo.tzname
+{photo.tzname}
+# t411 photo.uti
+{photo.uti}
+# t412 photo.uti_original
+{photo.uti_original}
+# t413 photo.uti_edited
+{photo.uti_edited}
+# t414 photo.uti_raw
+{photo.uti_raw}
+# t415 photo.cloud_guid
+{photo.cloud_guid}
+# t416 photo.cloud_owner_hashed_id
+{photo.cloud_owner_hashed_id}
+# t417 photo.fingerprint
+{photo.fingerprint}
+# t418 photo.owner
+{photo.owner}
+# t419 photo.adjustment_type
+{photo.adjustment_type}
+# t420 photo.height
+{photo.height}
+# t421 photo.width
+{photo.width}
+# t422 photo.original_height
+{photo.original_height}
+# t423 photo.original_width
+{photo.original_width}
+# t424 photo.original_orientation
+{photo.original_orientation}
+# t425 photo.original_filesize
+{photo.original_filesize}
+# t426 photo.tzoffset
+{photo.tzoffset}
+# t427 photo.spatial
+{photo.spatial}
+# t428 photo.rating
+{photo.rating}
+# t429 photo.latitude
+{photo.latitude}
+# t430 photo.longitude
+{photo.longitude}
+# t431 photo.score.overall
+{photo.score.overall}
+# t432 photo.location
+{photo.location}
+# t433 photo.imported_by
+{photo.imported_by}
+# t434 photo.keywords
+{photo.keywords}
+# t435 photo.persons
+{photo.persons}
+# t436 photo.albums
+{photo.albums}
+# t437 photo.burst_albums
+{photo.burst_albums}
+# t438 photo.labels
+{photo.labels}
+# t439 photo.labels_normalized
+{photo.labels_normalized}
+# t440 photo.date
+{photo.date}
+# t441 photo.date_modified
+{photo.date_modified}
+# t442 photo.date_added
+{photo.date_added}
+# t443 photo.date_trashed
+{photo.date_trashed}
+# t444 photo.date_original
+{photo.date_original}
+# t445 photo.favorite
+{photo.favorite}
+# t446 photo.hdr
+{photo.hdr}
+# t447 photo.hidden
+{photo.hidden}
+# t448 photo.has_raw
+{photo.has_raw}
+# t449 photo.hasadjustments
+{photo.hasadjustments}
+# t450 photo.israw
+{photo.israw}
+# t451 photo.ismissing
+{photo.ismissing}
+# t452 photo.ismovie
+{photo.ismovie}
+# t453 photo.isphoto
+{photo.isphoto}
+# t454 photo.intrash
+{photo.intrash}
+# t455 photo.iscloudasset
+{photo.iscloudasset}
+# t456 photo.isreference
+{photo.isreference}
+# t457 photo.incloud
+{photo.incloud}
+# t458 photo.burst
+{photo.burst}
+# t459 photo.burst_key
+{photo.burst_key}
+# t460 photo.burst_selected
+{photo.burst_selected}
+# t461 photo.burst_default_pick
+{photo.burst_default_pick}
+# t462 photo.live_photo
+{photo.live_photo}
+# t463 photo.panorama
+{photo.panorama}
+# t464 photo.portrait
+{photo.portrait}
+# t465 photo.screenshot
+{photo.screenshot}
+# t466 photo.screen_recording
+{photo.screen_recording}
+# t467 photo.selfie
+{photo.selfie}
+# t468 photo.slow_mo
+{photo.slow_mo}
+# t469 photo.time_lapse
+{photo.time_lapse}
+# t470 photo.shared
+{photo.shared}
+# t471 photo.shared_library
+{photo.shared_library}
+# t472 photo.shared_moment
+{photo.shared_moment}
+# t473 photo.syndicated
+{photo.syndicated}
+# t474 photo.saved_to_library
+{photo.saved_to_library}
+# t475 photo.visible
+{photo.visible}
+# t476 photo.external_edit
+{photo.external_edit}
+# t477 photo.raw_original
+{photo.raw_original}
+# t478 photo.flagged
+{photo.flagged}
+# t479 photo.place.name
+{photo.place.name}
+# t480 photo.place.country_code
+{photo.place.country_code}
+# t481 photo.exif_info.camera_make
+{photo.exif_info.camera_make}
+# t482 photo.favorite as a bool value
+{photo.favorite?Y,N}
+# t483 photo.hdr as a bool value
+{photo.hdr?Y,N}
+
+# == fields of the place, exif, moment, search info and labels ==
+# t484 field place.name
+{place.name}
+# t485 field place.country_code
+{place.country_code}
+# t486 field place.name.country
+{place.name.country}
+# t487 field place.name.state_province
+{place.name.state_province}
+# t488 field place.name.city
+{place.name.city}
+# t489 field place.name.area_of_interest
+{place.name.area_of_interest}
+# t490 field place.address
+{place.address}
+# t491 field place.address.street
+{place.address.street}
+# t492 field place.address.city
+{place.address.city}
+# t493 field place.address.state_province
+{place.address.state_province}
+# t494 field place.address.postal_code
+{place.address.postal_code}
+# t495 field place.address.country
+{place.address.country}
+# t496 field place.address.country_code
+{place.address.country_code}
+# t497 field place.name as a bool value
+{place.name?Y,N}
+# t498 field exif.camera_make
+{exif.camera_make}
+# t499 field exif.camera_model
+{exif.camera_model}
+# t500 field exif.lens_model
+{exif.lens_model}
+# t501 field moment
+{moment}
+# t502 field moment as a bool value
+{moment?Y,N}
+# t503 field searchinfo.season
+{searchinfo.season}
+# t504 field searchinfo.holiday
+{searchinfo.holiday}
+# t505 field searchinfo.activity
+{searchinfo.activity}
+# t506 field searchinfo.venue
+{searchinfo.venue}
+# t507 field searchinfo.venue_type
+{searchinfo.venue_type}
+# t508 field label
+{label}
+# t509 field label_normalized
+{label_normalized}
+# t510 field label with a filter
+{label|sort|join(;)}
+
+# == lines that read the albums go before this group ==
+# t511 field album_project
+{album_project}

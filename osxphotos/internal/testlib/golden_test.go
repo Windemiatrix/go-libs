@@ -3,11 +3,13 @@ package testlib
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"maps"
 	"net/url"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -24,15 +26,27 @@ func objects(prefix string, n int) string {
 	return "[" + strings.Join(items, ", ") + "]"
 }
 
+func templateObjects(prefix string, n int) string {
+	var items []string
+	for i := 1; i <= n; i++ {
+		items = append(items, fmt.Sprintf(`{"uuid": "%s-%d", "t001": "x", "t002": ["a", "b"]}`, prefix, i))
+	}
+	return "[" + strings.Join(items, ", ") + "]"
+}
+
 func validGolden() fstest.MapFS {
 	m := fstest.MapFS{
 		"fields.txt":       file("uuid\n"),
 		"NORMALIZATION.md": file("# Normalization\n"),
 		"divergences.json": file("[]"),
+		"templates.txt":    file("# t001 first\n{title}\n\n# t002 second\n{keyword}\n"),
+		"parse.txt":        file("{title}\n{title\n"),
+		"parse.json":       file(`{"p001": {"accept": true, "fields": ["title"]}, "p002": {"accept": false}}`),
 	}
 	for _, dir := range goldenLibs {
 		m[dir+"/query.json"] = file(objects(dir+"-q", 2))
 		m[dir+"/deleted.json"] = file(objects(dir+"-d", 1))
+		m[dir+"/templates.json"] = file(templateObjects(dir+"-q", 2))
 	}
 	return m
 }
@@ -75,6 +89,59 @@ func TestCheckGolden(t *testing.T) {
 		{"path in a list of strings", func(m fstest.MapFS) {
 			m["Test-13.0.0/query.json"] = file(`[{"uuid": "a", "album_info": [["ok", "/var/folders/x"]]}]`)
 		}, "album_info[0][1]"},
+		{"templates.json value is a number", func(m fstest.MapFS) {
+			m["synthetic/templates.json"] = file(`[{"uuid": "a", "t001": 5, "t002": "x"}]`)
+		}, "synthetic/templates.json: element 1, t001"},
+		{"templates.json list holds a number", func(m fstest.MapFS) {
+			m["synthetic/templates.json"] = file(`[{"uuid": "a", "t001": "x", "t002": ["a", 1]}]`)
+		}, "synthetic/templates.json: element 1, t002"},
+		{"templates.json missing t002 in one object", func(m fstest.MapFS) {
+			m["synthetic/templates.json"] = file(`[{"uuid": "a", "t001": "x", "t002": "y"}, {"uuid": "b", "t001": "x"}]`)
+		}, "synthetic/templates.json: element 2: missing key t002"},
+		{"templates.json has an unknown key", func(m fstest.MapFS) {
+			m["synthetic/templates.json"] = file(`[{"uuid": "a", "t001": "x", "t002": "y", "t003": "z"}]`)
+		}, "synthetic/templates.json: element 1: keys besides"},
+		{"path in a templates.json value", func(m fstest.MapFS) {
+			m["synthetic/templates.json"] = file(`[{"uuid": "a", "t001": "/Users/x/a.jpg", "t002": "y"}]`)
+		}, "synthetic/templates.json: 1 values are paths"},
+		{"parse.json is not an object", func(m fstest.MapFS) { m["parse.json"] = file("[]") }, "parse.json: is not a JSON object"},
+		{"parse.json missing a line", func(m fstest.MapFS) {
+			m["parse.json"] = file(`{"p001": {"accept": true, "fields": ["title"]}}`)
+		}, "parse.json: p002 is missing"},
+		{"parse.json has a key of no line", func(m fstest.MapFS) {
+			m["parse.json"] = file(`{"p001": {"accept": true, "fields": ["title"]}, "p002": {"accept": false}, "p003": {"accept": false}}`)
+		}, "parse.json: 1 keys"},
+		{"parse.json accept is not bool", func(m fstest.MapFS) {
+			m["parse.json"] = file(`{"p001": {"accept": true, "fields": ["title"]}, "p002": {"accept": "no"}}`)
+		}, "parse.json: p002: accept is not a bool"},
+		{"parse.json accepted line without fields", func(m fstest.MapFS) {
+			m["parse.json"] = file(`{"p001": {"accept": true}, "p002": {"accept": false}}`)
+		}, "parse.json: p001: an accepted line"},
+		{"parse.json fields hold a number", func(m fstest.MapFS) {
+			m["parse.json"] = file(`{"p001": {"accept": true, "fields": ["title", 1]}, "p002": {"accept": false}}`)
+		}, "parse.json: p001: an accepted line"},
+		{"parse.json fields with accept false", func(m fstest.MapFS) {
+			m["parse.json"] = file(`{"p001": {"accept": true, "fields": []}, "p002": {"accept": false, "fields": []}}`)
+		}, "parse.json: p002: a rejected line"},
+		{"comment id out of order", func(m fstest.MapFS) {
+			m["templates.txt"] = file("# t002 first\n{title}\n# t002 second\n{keyword}\n")
+		}, "templates.txt:1"},
+		{"template line starts with #", func(m fstest.MapFS) {
+			m["templates.txt"] = file("# t001 first\n#{title}\n# t002 second\n{keyword}\n")
+		}, "templates.txt:2"},
+		{"template without a comment", func(m fstest.MapFS) {
+			m["templates.txt"] = file("# t001 first\n{title}\n{album}\n# t002 second\n{keyword}\n")
+		}, "templates.txt:3"},
+		{"comment without a template", func(m fstest.MapFS) {
+			m["templates.txt"] = file("# t001 first\n{title}\n# t002 second\n")
+		}, "templates.txt: the last id comment"},
+		{"forbidden substring in templates.txt", func(m fstest.MapFS) {
+			m["templates.txt"] = file("# t001 first\n{function:https://example.com/a.py::f}\n# t002 second\n{keyword}\n")
+		}, "templates.txt:2"},
+		{"forbidden substring in a comment of templates.txt", func(m fstest.MapFS) {
+			m["templates.txt"] = file("# {exiftool}\n# t001 first\n{title}\n# t002 second\n{keyword}\n")
+		}, "templates.txt:1"},
+		{"forbidden substring in parse.txt", func(m fstest.MapFS) { m["parse.txt"] = file("{exiftool}\n{title\n") }, "parse.txt:1"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -96,14 +163,39 @@ func TestCheckGolden(t *testing.T) {
 // tells where it is, not what it is.
 func TestCheckGoldenKeepsValuesOut(t *testing.T) {
 	t.Parallel()
-	m := validGolden()
-	m["Test-13.0.0/query.json"] = file(`[{"uuid": "a", "title": "/Users/jane.doe/Pictures/secret.jpg"}]`)
-	errs := checkGolden(m, goldenLibs)
-	if len(errs) != 1 {
-		t.Fatalf("checkGolden = %v, want one error", errs)
+	for name, content := range map[string]string{
+		"Test-13.0.0/query.json":     `[{"uuid": "a", "title": "/Users/jane.doe/Pictures/secret.jpg"}]`,
+		"Test-13.0.0/templates.json": `[{"uuid": "a", "t001": "/Users/jane.doe/Pictures/secret.jpg", "t002": "x"}]`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			m := validGolden()
+			m[name] = file(content)
+			errs := checkGolden(m, goldenLibs)
+			if len(errs) != 1 {
+				t.Fatalf("checkGolden = %v, want one error", errs)
+			}
+			if strings.Contains(errs[0].Error(), "jane.doe") {
+				t.Errorf("the error repeats the value: %v", errs[0])
+			}
+		})
 	}
-	if strings.Contains(errs[0].Error(), "jane.doe") {
-		t.Errorf("the error repeats the value: %v", errs[0])
+}
+
+func TestCheckGoldenRequiresTemplateFiles(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"templates.txt", "parse.txt", "parse.json"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			m := validGolden()
+			delete(m, name)
+			errs := checkGolden(m, goldenLibs)
+			if !slices.ContainsFunc(errs, func(err error) bool {
+				return errors.Is(err, fs.ErrNotExist) && strings.Contains(err.Error(), name)
+			}) {
+				t.Errorf("checkGolden = %v, want an error that %s does not exist", errs, name)
+			}
+		})
 	}
 }
 
@@ -178,9 +270,14 @@ func libraryUUIDs(t *testing.T, name string) map[string]bool {
 }
 
 var (
-	rootFiles    = []string{"fields.txt", "NORMALIZATION.md", "divergences.json"}
-	dataFiles    = []string{"query.json", "deleted.json"}
+	rootFiles    = []string{"fields.txt", "NORMALIZATION.md", "divergences.json", "templates.txt", "parse.txt", "parse.json"}
+	dataFiles    = []string{"query.json", "deleted.json", "templates.json"}
 	hostPrefixes = []string{"/Users/", "/Volumes/", "/private/", "/var/", "/tmp/", "/home/", "/Library/"}
+
+	// The fields that download code, run a program or call Vision on the
+	// runner of golden-regen; scripts/golden-build.sh refuses the same text.
+	forbiddenInTemplates = []string{"{function", "|function:", "{exiftool", "{detected_text", "{osxphotos_cmd_line"}
+	idComment            = regexp.MustCompile(`^# t(\d+)(?: |$)`)
 )
 
 // The messages say where a problem is and never repeat a value of the data.
@@ -189,11 +286,12 @@ func checkGolden(fsys fs.FS, libraries []string) []error {
 	if err != nil {
 		return []error{err}
 	}
-	var errs []error
+	templates, errs := checkTemplatesTxt(fsys)
+	errs = append(errs, checkParse(fsys)...)
 	for _, e := range entries {
 		switch name := e.Name(); {
 		case e.IsDir() && slices.Contains(libraries, name):
-			errs = append(errs, checkDataDir(fsys, name)...)
+			errs = append(errs, checkDataDir(fsys, name, templates)...)
 		case !e.Type().IsRegular() || !slices.Contains(rootFiles, name):
 			errs = append(errs, fmt.Errorf("%s: unexpected entry; the root allows only the directories of the test libraries and the files %s",
 				name, strings.Join(rootFiles, ", ")))
@@ -202,7 +300,118 @@ func checkGolden(fsys fs.FS, libraries []string) []error {
 	return errs
 }
 
-func checkDataDir(fsys fs.FS, dir string) []error {
+// checkTemplatesTxt returns the number of templates: the ids t001... come from
+// the comment before each template, so a skipped or doubled line shows as a
+// comment out of order.
+func checkTemplatesTxt(fsys fs.FS) (int, []error) {
+	data, err := fs.ReadFile(fsys, "templates.txt")
+	if err != nil {
+		return 0, []error{err}
+	}
+	var errs []error
+	count, awaiting := 0, false
+	for i, line := range strings.Split(string(data), "\n") {
+		at := fmt.Sprintf("templates.txt:%d", i+1)
+		if hasForbidden(line) {
+			errs = append(errs, fmt.Errorf("%s: a field that runs a program or fetches code", at))
+		}
+		switch {
+		case line == "":
+		case strings.HasPrefix(line, "#"):
+			if awaiting {
+				errs = append(errs, fmt.Errorf("%s: an id comment is not followed by a template; a template never starts with #", at))
+				awaiting = false
+			}
+			if m := idComment.FindStringSubmatch(line); m != nil {
+				count++
+				if m[1] != fmt.Sprintf("%03d", count) {
+					errs = append(errs, fmt.Errorf("%s: the comment id is out of order, want t%03d", at, count))
+				}
+				awaiting = true
+			}
+		default:
+			if !awaiting {
+				errs = append(errs, fmt.Errorf("%s: a template without an id comment before it", at))
+			}
+			awaiting = false
+		}
+	}
+	if awaiting {
+		errs = append(errs, errors.New("templates.txt: the last id comment has no template after it"))
+	}
+	return count, errs
+}
+
+func checkParse(fsys fs.FS) []error {
+	txt, err := fs.ReadFile(fsys, "parse.txt")
+	if err != nil {
+		return []error{err}
+	}
+	var errs []error
+	// The file ends with a newline, so the last element is not a line.
+	lines := strings.Split(strings.TrimSuffix(string(txt), "\n"), "\n")
+	for i, line := range lines {
+		if hasForbidden(line) {
+			errs = append(errs, fmt.Errorf("parse.txt:%d: a field that runs a program or fetches code", i+1))
+		}
+	}
+	data, err := fs.ReadFile(fsys, "parse.json")
+	if err != nil {
+		return append(errs, err)
+	}
+	var oracle map[string]any
+	if err := json.Unmarshal(data, &oracle); err != nil {
+		return append(errs, fmt.Errorf("parse.json: is not a JSON object: %w", err))
+	}
+	for i := range lines {
+		id := fmt.Sprintf("p%03d", i+1)
+		entry, ok := oracle[id]
+		delete(oracle, id)
+		if !ok {
+			errs = append(errs, fmt.Errorf("parse.json: %s is missing", id))
+		} else if err := checkParseEntry(entry); err != nil {
+			errs = append(errs, fmt.Errorf("parse.json: %s: %w", id, err))
+		}
+	}
+	if len(oracle) > 0 {
+		errs = append(errs, fmt.Errorf("parse.json: %d keys do not belong to a line of parse.txt", len(oracle)))
+	}
+	return errs
+}
+
+func checkParseEntry(entry any) error {
+	obj, _ := entry.(map[string]any)
+	accept, ok := obj["accept"].(bool)
+	fields, hasFields := obj["fields"]
+	switch {
+	case !ok:
+		return errors.New("accept is not a bool")
+	case accept && !isStrings(fields):
+		return errors.New("an accepted line needs fields, a list of strings")
+	case !accept && hasFields:
+		return errors.New("a rejected line has fields")
+	}
+	return nil
+}
+
+func hasForbidden(line string) bool {
+	return slices.ContainsFunc(forbiddenInTemplates, func(s string) bool { return strings.Contains(line, s) })
+}
+
+func isStrings(v any) bool {
+	list, ok := v.([]any)
+	if !ok {
+		return false
+	}
+	for _, item := range list {
+		if _, isString := item.(string); !isString {
+			return false
+		}
+	}
+	return true
+}
+
+func checkDataDir(fsys fs.FS, dir string, templates int) []error {
 	entries, err := fs.ReadDir(fsys, dir)
 	if err != nil {
 		return []error{err}
@@ -214,14 +423,14 @@ func checkDataDir(fsys fs.FS, dir string) []error {
 			errs = append(errs, fmt.Errorf("%s: unexpected entry; a library allows only the files %s", p, strings.Join(dataFiles, ", ")))
 			continue
 		}
-		if err := checkDataFile(fsys, p); err != nil {
+		if err := checkDataFile(fsys, p, templates); err != nil {
 			errs = append(errs, err)
 		}
 	}
 	return errs
 }
 
-func checkDataFile(fsys fs.FS, p string) error {
+func checkDataFile(fsys fs.FS, p string, templates int) error {
 	data, err := fs.ReadFile(fsys, p)
 	if err != nil {
 		return err
@@ -241,8 +450,35 @@ func checkDataFile(fsys fs.FS, p string) error {
 			}
 		}
 	}
+	var errs []error
 	if hostCount > 0 {
-		return fmt.Errorf("%s: %d values are paths of a machine or of a library package, the first at %s", p, hostCount, hostFirst)
+		errs = append(errs, fmt.Errorf("%s: %d values are paths of a machine or of a library package, the first at %s", p, hostCount, hostFirst))
+	}
+	if strings.HasSuffix(p, "/templates.json") {
+		if err := checkTemplateValues(elems, templates); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", p, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// A template that renders to nothing or to several values is an empty or a
+// longer list (print_photo_info.py:138-149); every other result is a string.
+func checkTemplateValues(elems []map[string]any, templates int) error {
+	for i, el := range elems {
+		for k := 1; k <= templates; k++ {
+			id := fmt.Sprintf("t%03d", k)
+			v, ok := el[id]
+			if !ok {
+				return fmt.Errorf("element %d: missing key %s", i+1, id)
+			}
+			if _, isString := v.(string); !isString && !isStrings(v) {
+				return fmt.Errorf("element %d, %s: the value is neither a string nor a list of strings", i+1, id)
+			}
+		}
+		if len(el) != templates+1 {
+			return fmt.Errorf("element %d: keys besides uuid and the %d template ids", i+1, templates)
+		}
 	}
 	return nil
 }
