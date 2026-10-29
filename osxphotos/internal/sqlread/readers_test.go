@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
@@ -89,6 +90,10 @@ var readers = []struct {
 	}},
 	{"Comments", func(ctx context.Context, d *DB, _ schema.Schema) (int, error) {
 		r, err := d.Comments(ctx)
+		return len(r), err
+	}},
+	{"Exif", func(ctx context.Context, d *DB, _ schema.Schema) (int, error) {
+		r, err := d.Exif(ctx)
 		return len(r), err
 	}},
 }
@@ -174,6 +179,7 @@ func TestColumnsIncludeJoins(t *testing.T) {
 		"ZUNMANAGEDADJUSTMENT":       {"Z_PK", "ZADJUSTMENTFORMATIDENTIFIER"},
 		"ZASSETDESCRIPTION":          {"Z_PK", "ZLONGDESCRIPTION"},
 		"ZCLOUDMASTER":               {"Z_PK", "ZCLOUDLOCALSTATE", "ZCLOUDMASTERGUID"},
+		"ZEXTENDEDATTRIBUTES":        {"Z_PK", "ZASSET", "ZFLASHFIRED", "ZISO", "ZFPS", "ZLENSMODEL", "ZDATECREATED", "ZTIMEZONEOFFSET", "ZTIMEZONENAME"},
 		"ZINTERNALRESOURCE":          {"ZASSET", "ZDATASTORESUBTYPE", "ZRESOURCETYPE", "ZFINGERPRINT"},
 		"Z_1KEYWORDS":                {"Z_1ASSETATTRIBUTES", "Z_52KEYWORDS"},
 		"ZKEYWORD":                   {"Z_PK", "ZTITLE"},
@@ -711,6 +717,102 @@ func TestAssetsSpatialType(t *testing.T) {
 	})
 }
 
+func TestExifRows(t *testing.T) {
+	t.Parallel()
+
+	var total atomic.Int64
+	t.Run("libraries", func(t *testing.T) {
+		for _, lib := range libraryDBs(t) {
+			t.Run(lib.name, func(t *testing.T) {
+				t.Parallel()
+				ro := openRO(t, lib.path)
+				rows, err := openDB(t, lib.path).Exif(t.Context())
+				if err != nil {
+					t.Fatal(err)
+				}
+				const from = " FROM ZEXTENDEDATTRIBUTES WHERE ZASSET IS NOT NULL"
+				if want := count(t, ro, "SELECT COUNT(*)"+from); int64(len(rows)) != want {
+					t.Errorf("Exif: %d rows, want %d", len(rows), want)
+				}
+				var flash, isoSum, makes, dates int64
+				for i, r := range rows {
+					if i > 0 && (rows[i-1].AssetPK > r.AssetPK || (rows[i-1].AssetPK == r.AssetPK && rows[i-1].PK >= r.PK)) {
+						t.Errorf("Exif: row %d out of (ZASSET, Z_PK) order", i+1)
+					}
+					if r.FlashFired.Valid && r.FlashFired.Int64 == 1 {
+						flash++
+					}
+					isoSum += r.ISO.Int64
+					if r.CameraMake.Valid {
+						makes++
+					}
+					if r.DateCreated.Valid {
+						dates++
+					}
+				}
+				for _, c := range []struct {
+					name, query string
+					got         int64
+				}{
+					{"flash fired", "SELECT COUNT(*)" + from + " AND ZFLASHFIRED = 1", flash},
+					{"sum of ISO", "SELECT CAST(COALESCE(SUM(ZISO), 0) AS INTEGER)" + from, isoSum},
+					{"camera makes", "SELECT COUNT(ZCAMERAMAKE)" + from, makes},
+					{"creation dates", "SELECT COUNT(ZDATECREATED)" + from, dates},
+				} {
+					if want := count(t, ro, c.query); c.got != want {
+						t.Errorf("Exif: %s %d, want %d", c.name, c.got, want)
+					}
+				}
+				t.Logf("Exif: %d rows, %d with a camera make, %d with a date", len(rows), makes, dates)
+				total.Add(int64(len(rows)))
+			})
+		}
+	})
+	if total.Load() == 0 {
+		t.Error("no library has a ZEXTENDEDATTRIBUTES row: the test is vacuous")
+	}
+}
+
+func TestExifNull(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(testlib.Open(t, "Test-13.0.0"), "database", "Photos.sqlite")
+	w := openWriter(t, path)
+	total := count(t, w, "SELECT COUNT(*) FROM ZEXTENDEDATTRIBUTES WHERE ZASSET IS NOT NULL")
+	if total < 2 {
+		t.Fatalf("Test-13.0.0 has %d ZEXTENDEDATTRIBUTES rows: the case is vacuous", total)
+	}
+	last := count(t, w, "SELECT MAX(Z_PK) FROM ZEXTENDEDATTRIBUTES")
+	exec(t, w,
+		"UPDATE ZEXTENDEDATTRIBUTES SET ZASSET = NULL WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZEXTENDEDATTRIBUTES WHERE ZASSET IS NOT NULL)",
+		"UPDATE ZEXTENDEDATTRIBUTES SET ZFLASHFIRED = NULL, ZISO = NULL, ZAPERTURE = NULL, ZCAMERAMAKE = NULL, ZDATECREATED = NULL, "+
+			"ZTIMEZONEOFFSET = NULL, ZTIMEZONENAME = NULL WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZEXTENDEDATTRIBUTES)",
+	)
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := openDB(t, path).Exif(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if int64(len(rows)) != total-1 {
+		t.Errorf("Exif: %d rows, want %d: the row without ZASSET is no row of an asset", len(rows), total-1)
+	}
+	found := false
+	for i, r := range rows {
+		if r.PK != last {
+			continue
+		}
+		found = true
+		if r.FlashFired.Valid || r.ISO.Valid || r.Aperture.Valid || r.CameraMake.Valid || r.DateCreated.Valid || r.TZOffset.Valid || r.TZName.Valid {
+			t.Errorf("Exif: row %d keeps a value in a column set to NULL", i+1)
+		}
+	}
+	if !found {
+		t.Error("Exif: the row with NULL columns is missing")
+	}
+}
+
 func TestReadersEmpty(t *testing.T) {
 	t.Parallel()
 
@@ -722,6 +824,7 @@ func TestReadersEmpty(t *testing.T) {
 		"DELETE FROM ZKEYWORD",
 		"DELETE FROM ZDETECTEDFACE",
 		"DELETE FROM ZINTERNALRESOURCE",
+		"DELETE FROM ZEXTENDEDATTRIBUTES",
 		"DELETE FROM ZADDITIONALASSETATTRIBUTES",
 		"DELETE FROM ZASSET",
 		"DELETE FROM ZGENERICALBUM",
