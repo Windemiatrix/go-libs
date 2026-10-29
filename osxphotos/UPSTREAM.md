@@ -44,7 +44,7 @@ Only what is ported so far.
 | `uti.py` | `internal/uti` |
 | `utils.py` (`get_system_library_path`, `increment_filename_with_count`) | `photosdb`, `export` |
 | `photoexporter.py` (only the file names of an export) | `export` |
-| `phototemplate.tx` (without filters, find/replace pairs and conditions) | `template` |
+| `phototemplate.tx` | `template` |
 
 ## Intentional differences
 
@@ -156,7 +156,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 | `uti.py` | `internal/uti` |
 | `utils.py` (`get_system_library_path`, `increment_filename_with_count`) | `photosdb`, `export` |
 | `photoexporter.py` (только имена файлов экспорта) | `export` |
-| `phototemplate.tx` (без фильтров, пар find/replace и условий) | `template` |
+| `phototemplate.tx` | `template` |
 
 ### Намеренные отличия
 

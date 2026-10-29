@@ -22,6 +22,10 @@ func braced(f *Field) Segment { return Segment{Field: f} }
 
 func named(name string) *Field { return &Field{Name: name} }
 
+func cond(op, value string) *Conditional {
+	return &Conditional{Operator: op, Value: *stmt(lit(value))}
+}
+
 type nesting struct {
 	open string
 	wrap func(*Template) *Field
@@ -31,6 +35,9 @@ var nestings = []nesting{
 	{"{a,", func(t *Template) *Field { return &Field{Name: "a", Default: t} }},
 	{"{a&", func(t *Template) *Field { return &Field{Name: "a", Combine: t} }},
 	{"{a?", func(t *Template) *Field { return &Field{Name: "a", Bool: t} }},
+	{"{a contains ", func(t *Template) *Field {
+		return &Field{Name: "a", Conditional: &Conditional{Operator: "contains", Value: *t}}
+	}},
 }
 
 func nested(n int, k nesting) string {
@@ -57,8 +64,27 @@ func parseCases() []parseCase {
 		{"{,+keyword}", stmt(braced(&Field{Delim: ptr(","), Name: "keyword"}))},
 		{"{; +keyword}", stmt(braced(&Field{Delim: ptr("; "), Name: "keyword"}))},
 		{"{+keyword}", stmt(braced(&Field{Delim: ptr(""), Name: "keyword"}))},
+		{"{keyword|capitalize|parens}", stmt(braced(&Field{Name: "keyword", Filters: []string{"capitalize", "parens"}}))},
 		{"{folder_album(>)}", stmt(braced(&Field{Name: "folder_album", Arg: ptr(">")}))},
 		{"{folder_album()}", stmt(braced(&Field{Name: "folder_album", Arg: ptr("")}))},
+		{"{album[/,-]}", stmt(braced(&Field{Name: "album", FindReplace: []Pair{{"/", "-"}}}))},
+		{"{album[/,-|:,-]}", stmt(braced(&Field{Name: "album", FindReplace: []Pair{{"/", "-"}, {":", "-"}}}))},
+		{"{keyword matches Beach}", stmt(braced(&Field{Name: "keyword", Conditional: cond("matches", "Beach")}))},
+		{"{keyword contains Beach}", stmt(braced(&Field{Name: "keyword", Conditional: cond("contains", "Beach")}))},
+		{"{photo.score.overall > 0.7}", stmt(braced(&Field{Name: "photo.score.overall", Conditional: cond(">", "0.7")}))},
+		{"{keyword|lower contains beach}", stmt(braced(&Field{Name: "keyword", Filters: []string{"lower"}, Conditional: cond("contains", "beach")}))},
+		{"{keyword|lower not contains beach}", stmt(braced(&Field{
+			Name:        "keyword",
+			Filters:     []string{"lower"},
+			Conditional: &Conditional{Negate: true, Operator: "contains", Value: *stmt(lit("beach"))},
+		}))},
+		{"{keyword|lower matches travel|vacation?Travel-Photos,Not-Travel-Photos}", stmt(braced(&Field{
+			Name:        "keyword",
+			Filters:     []string{"lower"},
+			Conditional: cond("matches", "travel|vacation"),
+			Bool:        stmt(lit("Travel-Photos")),
+			Default:     stmt(lit("Not-Travel-Photos")),
+		}))},
 		{"{favorite?Favorite-{original_name},{original_name}}", stmt(braced(&Field{
 			Name:    "favorite",
 			Bool:    stmt(Segment{Pre: "Favorite-", Field: named("original_name")}),
@@ -88,11 +114,39 @@ func parseCases() []parseCase {
 			Segment{Field: named("created.year"), Post: "/"},
 			braced(named("openbrace")), braced(named("title")), braced(named("closebrace")),
 		)},
+		{"{var:pipe,{pipe}}{title[-,%pipe]}", stmt(
+			braced(&Field{Name: "var", Subfield: "pipe", Default: stmt(braced(named("pipe")))}),
+			braced(&Field{Name: "title", FindReplace: []Pair{{"-", "%pipe"}}}),
+		)},
+		{"{var:myvar,{template1&{template2,},}}{%myvar|uniq}", stmt(
+			braced(&Field{Name: "var", Subfield: "myvar", Default: stmt(braced(&Field{
+				Name:    "template1",
+				Combine: stmt(braced(&Field{Name: "template2", Default: stmt()})),
+				Default: stmt(),
+			}))}),
+			braced(&Field{Name: "%myvar", Filters: []string{"uniq"}}),
+		)},
 		{"{var:year,{created.year}}{original_name}-{%year}", stmt(
 			braced(&Field{Name: "var", Subfield: "year", Default: stmt(braced(named("created.year")))}),
 			Segment{Field: named("original_name"), Post: "-"},
 			braced(named("%year")),
 		)},
+		{"{var:name,Katie}{person contains {%name}?{%name},Not-{%name}}", stmt(
+			braced(&Field{Name: "var", Subfield: "name", Default: stmt(lit("Katie"))}),
+			braced(&Field{
+				Name:        "person",
+				Conditional: &Conditional{Operator: "contains", Value: *stmt(braced(named("%name")))},
+				Bool:        stmt(braced(named("%name"))),
+				Default:     stmt(Segment{Pre: "Not-", Field: named("%name")}),
+			}),
+		)},
+		{"{title[:,%%]}", stmt(braced(&Field{Name: "title", FindReplace: []Pair{{":", "%%"}}}))},
+		{"{title contains Foo?{title}{percent},{title}}", stmt(braced(&Field{
+			Name:        "title",
+			Conditional: cond("contains", "Foo"),
+			Bool:        stmt(braced(named("title")), braced(named("percent"))),
+			Default:     stmt(braced(named("title"))),
+		}))},
 		{"{counter:05d(1)}", stmt(braced(&Field{Name: "counter", Subfield: "05d", Arg: ptr("1")}))},
 		{"{counter(1,11,2)}", stmt(braced(&Field{Name: "counter", Arg: ptr("1,11,2")}))},
 		{"{counter(,,2)}", stmt(braced(&Field{Name: "counter", Arg: ptr(",,2")}))},
@@ -105,9 +159,20 @@ func parseCases() []parseCase {
 		{"{exiftool:EXIF:Make}", stmt(braced(&Field{Name: "exiftool", Subfield: "EXIF:Make"}))},
 		{"{function:file.py::function_name}", stmt(braced(&Field{Name: "function", Subfield: "file.py::function_name"}))},
 		{"{detected_text:0.5}", stmt(braced(&Field{Name: "detected_text", Subfield: "0.5"}))},
+		{"{photo.original_filename|path.stem}", stmt(braced(&Field{Name: "photo.original_filename", Filters: []string{"path.stem"}}))},
+		{"{folder_album|filter(contains Events)}", stmt(braced(&Field{Name: "folder_album", Filters: []string{"filter(contains Events)"}}))},
 
+		{"{keyword == a|b}", stmt(braced(&Field{Name: "keyword", Conditional: cond("==", "a|b")}))},
+		{"{title contains }", stmt(braced(&Field{Name: "title", Conditional: &Conditional{Operator: "contains"}}))},
+		{"{title  contains   x}", stmt(braced(&Field{Name: "title", Conditional: cond("contains", "x")}))},
+		{"{a < =1}", stmt(braced(&Field{Name: "a", Conditional: cond("<", "=1")}))},
+		{"{a contains x&y}", stmt(braced(&Field{Name: "a", Conditional: cond("contains", "x&y")}))},
 		{"{a}x{b}", stmt(Segment{Field: named("a"), Post: "x"}, braced(named("b")))},
 		{"a{b}", stmt(Segment{Pre: "a", Field: named("b")})},
+		{"{title|}", stmt(braced(named("title")))},
+		{"{title|[a,b]}", stmt(braced(&Field{Name: "title", FindReplace: []Pair{{"a", "b"}}}))},
+		{"{title|chop(1, ?|{})}", stmt(braced(&Field{Name: "title", Filters: []string{"chop(1, ?|{})"}}))},
+		{"{a|b.c:d/e}", stmt(braced(&Field{Name: "a", Filters: []string{"b.c:d/e"}}))},
 		{"{title,a+b}", stmt(braced(&Field{Delim: ptr("title,a"), Name: "b"}))},
 		{"{a+b+c}", stmt(braced(&Field{Delim: ptr("a+b"), Name: "c"}))},
 		{"{created.strftime,%Y+%m}", stmt(braced(&Field{Delim: ptr("created.strftime,%Y"), Name: "%m"}))},
@@ -119,6 +184,11 @@ func parseCases() []parseCase {
 		{"{a:b\\\tc}", stmt(braced(&Field{Name: "a", Subfield: "b\\\tc"}))},
 		{"{a:b\\\U0000001cc}", stmt(braced(&Field{Name: "a", Subfield: "b\\\U0000001cc"}))},
 		{"{a:./-~'\"%@#^\U00002019}", stmt(braced(&Field{Name: "a", Subfield: "./-~'\"%@#^\U00002019"}))},
+		{"{t[a,b,c]}", stmt(braced(&Field{Name: "t", FindReplace: []Pair{{"a,b", "c"}}}))},
+		{"{t[,x]}", stmt(braced(&Field{Name: "t", FindReplace: []Pair{{"", "x"}}}))},
+		{"{t[a,]}", stmt(braced(&Field{Name: "t", FindReplace: []Pair{{"a", ""}}}))},
+		{"{t[]}", stmt(braced(&Field{Name: "t", FindReplace: []Pair{}}))},
+		{"{t[a,{x}]}", stmt(braced(&Field{Name: "t", FindReplace: []Pair{{"a", "{x}"}}}))},
 		{"{title?A}", stmt(braced(&Field{Name: "title", Bool: stmt(lit("A"))}))},
 		{"{title,}", stmt(braced(&Field{Name: "title", Default: stmt()}))},
 		{"{a?x&y,z}", stmt(braced(&Field{Name: "a", Bool: stmt(lit("x&y")), Default: stmt(lit("z"))}))},
@@ -132,9 +202,51 @@ func parseCases() []parseCase {
 			Bool:     stmt(lit("y")),
 			Default:  stmt(lit("z")),
 		}))},
+		{"{,+a:b(c)|d[e,f] not == g?h,i}", stmt(braced(&Field{
+			Delim:       ptr(","),
+			Name:        "a",
+			Subfield:    "b",
+			Arg:         ptr("c"),
+			Filters:     []string{"d"},
+			FindReplace: []Pair{{"e", "f"}},
+			Conditional: &Conditional{Negate: true, Operator: "==", Value: *stmt(lit("g"))},
+			Bool:        stmt(lit("h")),
+			Default:     stmt(lit("i")),
+		}))},
+		{"{; +name:sub(arg)|f1|f2[a,b|c,d]&x?y,z}", stmt(braced(&Field{
+			Delim:       ptr("; "),
+			Name:        "name",
+			Subfield:    "sub",
+			Arg:         ptr("arg"),
+			Filters:     []string{"f1", "f2"},
+			FindReplace: []Pair{{"a", "b"}, {"c", "d"}},
+			Combine:     stmt(lit("x")),
+			Bool:        stmt(lit("y")),
+			Default:     stmt(lit("z")),
+		}))},
+		{"{; +name:sub(arg)|f1|f2[a,b|c,d] not contains v?y,z}", stmt(braced(&Field{
+			Delim:       ptr("; "),
+			Name:        "name",
+			Subfield:    "sub",
+			Arg:         ptr("arg"),
+			Filters:     []string{"f1", "f2"},
+			FindReplace: []Pair{{"a", "b"}, {"c", "d"}},
+			Conditional: &Conditional{Negate: true, Operator: "contains", Value: *stmt(lit("v"))},
+			Bool:        stmt(lit("y")),
+			Default:     stmt(lit("z")),
+		}))},
 	}
 	for _, k := range nestings {
 		cases = append(cases, parseCase{nested(31, k), nestedWant(31, k)}, parseCase{nested(32, k), nestedWant(32, k)})
+	}
+	for _, op := range []string{"contains", "matches", "startswith", "endswith", "<=", ">=", "<", ">", "==", "!="} {
+		cases = append(cases,
+			parseCase{"{a " + op + " 1}", stmt(braced(&Field{Name: "a", Conditional: cond(op, "1")}))},
+			parseCase{"{a not " + op + " 1}", stmt(braced(&Field{
+				Name:        "a",
+				Conditional: &Conditional{Negate: true, Operator: op, Value: *stmt(lit("1"))},
+			}))},
+		)
 	}
 	return cases
 }
@@ -192,6 +304,13 @@ func parseErrors() []parseError {
 		{"{title}}", 7, "end of input"},
 		{"{}", 1, "a field name"},
 		{"{ title}", 1, "a field name"},
+		{"{title }", 7, "an operator"},
+		{"{title|lower|}", 13, "a filter"},
+		{"{title|a b}", 9, "an operator"},
+		{"{title|chop(1}", 14, `")"`},
+		{"{title[a]}", 8, `","`},
+		{"{t[a,b|]}", 7, `","`},
+		{"{t[a,b}", 7, `"]"`},
 		{"{title(}", 7, `")"`},
 		{"{title(a(b)}", 8, `")"`},
 		{"{a(x{y)}", 4, `")"`},
@@ -209,6 +328,9 @@ func parseErrors() []parseError {
 		{"{a+b{c}}", 4, `"}"`},
 		{`{f:\ a}`, 3, "a subfield"},
 		{`{a:b\ \ c}`, 6, `"}"`},
+		{"{title contains}", 15, `" "`},
+		{"{a notcontains b}", 3, "an operator"},
+		{"{a not  contains b}", 7, "an operator"},
 		{"{e\U00000301}", 2, `"}"`},
 		{"{a&{b}", 6, `"}"`},
 		{nested(100, nestings[0]), 32 * len(nestings[0].open), depth},

@@ -17,6 +17,9 @@ func depthOf(t *Template) int {
 				d = max(d, depthOf(sub))
 			}
 		}
+		if f.Conditional != nil {
+			d = max(d, depthOf(&f.Conditional.Value))
+		}
 	}
 	return d + 1
 }
