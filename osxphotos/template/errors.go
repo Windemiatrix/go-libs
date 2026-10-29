@@ -13,6 +13,8 @@ var (
 	ErrUnsupportedField = errors.New("template: field not supported")
 	// ErrUnsupportedConstruct is a part of the language not rendered yet.
 	ErrUnsupportedConstruct = errors.New("template: construct not supported yet")
-	// ErrTooManyValues is a render of more than RenderOptions.MaxResults strings.
+	// ErrTooManyValues is a render of more than RenderOptions.MaxResults strings, or one that builds more than 16 MiB of strings.
 	ErrTooManyValues = errors.New("template: too many values")
+	// ErrRender is what upstream raises while rendering (SyntaxError, ValueError), or variables that do not settle.
+	ErrRender = errors.New("template: cannot render")
 )

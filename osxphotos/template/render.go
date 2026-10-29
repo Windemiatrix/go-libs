@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -16,14 +17,16 @@ import (
 // A field that upstream has but p does not give, and the never ported
 // {exiftool}, {function}, {detected_text} and {osxphotos_cmd_line}, give an error
 // that wraps ErrUnsupportedField and names the field; a part of the language not
-// ported yet wraps ErrUnsupportedConstruct; more than o.MaxResults strings,
-// ErrTooManyValues.
+// ported yet, ErrUnsupportedConstruct; more than o.MaxResults strings, or more than
+// 16 MiB of strings built, ErrTooManyValues; a SyntaxError or ValueError of upstream, or
+// variables that do not settle, ErrRender. The variables of {var} live for one Render.
 func (r *Renderer) Render(t *Template, p Photo, o RenderOptions) (values, unmatched []string, err error) {
 	o.NoneStr = cmp.Or(o.NoneStr, "_")
 	o.InplaceSep = cmp.Or(o.InplaceSep, ",")
 	o.PathSep = cmp.Or(o.PathSep, "/")
 	o.MaxResults = cmp.Or(o.MaxResults, DefaultMaxResults)
-	s := &rendering{p: p, o: o}
+	o.Today = cmp.Or(o.Today, time.Now()) // once for every {today}, as self.today (phototemplate.py:910-912)
+	s := &rendering{p: p, o: o, variables: map[string][]string{}, bytesLeft: maxRenderBytes}
 	if values, err = s.statement(t); err != nil {
 		return nil, nil, err
 	}
@@ -34,6 +37,8 @@ type rendering struct {
 	p         Photo
 	o         RenderOptions
 	unmatched []string
+	variables map[string][]string
+	bytesLeft int
 }
 
 // _render_statement (phototemplate.py:515-539).
@@ -77,6 +82,9 @@ func (s *rendering) segment(seg Segment, results []string) ([]string, error) {
 	out := make([]string, 0, len(rendered)*len(results))
 	for _, ren := range rendered {
 		for _, res := range results {
+			if s.bytesLeft -= len(res) + len(ren); s.bytesLeft < 0 {
+				return nil, errTooLong
+			}
 			out = append(out, res+ren)
 		}
 	}
@@ -88,9 +96,15 @@ func (s *rendering) field(f *Field) ([]string, bool, error) {
 	if never[f.Name] {
 		return nil, false, unsupported(ErrUnsupportedField, f.Name)
 	}
+	var err error
+	sep := s.o.InplaceSep
+	if f.Delim != nil { // phototemplate.py:570-575
+		if sep, err = s.expand(*f.Delim, "delim"); err != nil {
+			return nil, false, err
+		}
+	}
 	var parts [3][]string // phototemplate.py:577-622
 	for i, t := range []*Template{f.Combine, f.Bool, f.Default} {
-		var err error
 		if t != nil && len(t.Segments) == 0 {
 			parts[i] = []string{""}
 		} else if t != nil {
@@ -100,23 +114,57 @@ func (s *rendering) field(f *Field) ([]string, bool, error) {
 		}
 	}
 	combine, boolVal, def := parts[0], parts[1], parts[2]
-	vals, ok, err := s.values(f, def)
+	var cond []string
+	if f.Conditional != nil { // phototemplate.py:625-634
+		if cond, err = s.statement(&f.Conditional.Value); err != nil {
+			return nil, false, err
+		}
+	}
+	vals, ok := []string(nil), true
+	switch { // phototemplate.py:643-661
+	case strings.HasPrefix(f.Name, "%"):
+		vals, err = s.variable(f.Name[1:])
+	case f.Name == "var" && (f.Subfield == "" || len(def) == 0):
+		err = fmt.Errorf("%w: var takes a name and a value, {var:name,value}", ErrRender)
+	case f.Name == "var":
+		def = slices.DeleteFunc(def, func(v string) bool { return v == "" }) // phototemplate.py:654
+		s.variables[f.Subfield] = def
+	default:
+		vals, ok, err = s.values(f, def)
+	}
 	if err != nil || !ok {
 		return nil, ok, err
 	}
 	if (s.o.ExpandInplace || f.Delim != nil) && len(vals) > 0 {
-		vals = []string{strings.Join(vals, *cmp.Or(f.Delim, &s.o.InplaceSep))}
+		if s.bytesLeft -= len(sep) * len(vals); s.bytesLeft < 0 {
+			return nil, false, errTooLong
+		}
+		vals = []string{strings.Join(vals, sep)}
 	}
 	if len(f.Filters) > 0 {
 		return nil, false, unsupported(ErrUnsupportedConstruct, "filter "+f.Filters[0])
 	}
 	for i := range vals {
-		for _, pair := range f.FindReplace {
-			vals[i] = strings.ReplaceAll(vals[i], pair.Find, pair.Replace)
+		for _, pair := range f.FindReplace { // phototemplate.py:672-683
+			find, errFind := s.expand(pair.Find, "find/replace")
+			replace, err := s.expand(pair.Replace, "find/replace")
+			if err = cmp.Or(errFind, err); err != nil {
+				return nil, false, err
+			}
+			if s.bytesLeft -= len(vals[i]) + strings.Count(vals[i], find)*len(replace); s.bytesLeft < 0 {
+				return nil, false, errTooLong
+			}
+			vals[i] = strings.ReplaceAll(vals[i], find, replace)
 		}
 	}
 	if f.Conditional != nil {
-		return nil, false, unsupported(ErrUnsupportedConstruct, "operator "+f.Conditional.Operator)
+		match, err := condition(f.Conditional.Operator, vals, cond)
+		if err != nil {
+			return nil, false, err
+		}
+		if vals = nil; match != f.Conditional.Negate {
+			vals = []string{"True"}
+		}
 	}
 	for _, v := range combine {
 		if v != "" {
@@ -126,9 +174,9 @@ func (s *rendering) field(f *Field) ([]string, bool, error) {
 	switch {
 	case f.Bool != nil && len(vals) > 0:
 		vals = boolVal
-	case f.Bool != nil, len(vals) == 0 && len(def) > 0:
+	case f.Bool != nil, len(vals) == 0 && len(def) > 0 && f.Name != "var":
 		vals = def
-	case len(vals) == 0:
+	case len(vals) == 0 && f.Name != "var": // phototemplate.py:770-772
 		vals = []string{s.o.NoneStr}
 	}
 	return vals, true, nil
@@ -138,16 +186,17 @@ func (s *rendering) field(f *Field) ([]string, bool, error) {
 // the slice it returns.
 func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 	name := f.Name
-	stem, _, dotted := strings.Cut(name, ".")
+	stem, part, dotted := strings.Cut(name, ".")
 	switch {
-	case name == "var" || strings.HasPrefix(name, "%"): // before get_field_values (phototemplate.py:643-656)
-		return nil, false, unsupported(ErrUnsupportedConstruct, name)
 	case !upstreamField(name, stem): // ahead of later: upstream puts shell_quote.x in unmatched (849-883)
 		s.unmatched = append(s.unmatched, name)
 		return nil, false, nil
 	case later[stem], pathFields[stem] && dotted,
 		f.Default != nil && (name == "media_type" || name == "photo_or_video"), name == "id" && f.Subfield != "":
 		return nil, false, unsupported(ErrUnsupportedConstruct, name)
+	case stem == "created" || stem == "modified" || stem == "today":
+		vals, err := s.date(name, stem, part)
+		return vals, true, err
 	case punctuation[name] != "":
 		return []string{punctuation[name]}, true, nil
 	case name == "osxphotos_version":
