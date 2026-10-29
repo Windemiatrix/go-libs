@@ -44,6 +44,10 @@ func (*cgoBridge) RequestAuthorization(timeout time.Duration) (int, error) {
 	return int(status), nil
 }
 
+func (*cgoBridge) FetchAssets([]string) ([]AssetRecord, error) { return nil, ErrNotSupported }
+
+func (*cgoBridge) FetchBurst(string, bool) ([]AssetRecord, error) { return nil, ErrNotSupported }
+
 func check(r C.pk_result) error {
 	if r.message != nil {
 		defer C.free(unsafe.Pointer(r.message)) //nolint:gosec // G103: the strdup buffer of bridge.m is freed here

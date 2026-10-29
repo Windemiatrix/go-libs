@@ -3,7 +3,9 @@ package fake
 
 import (
 	"context"
+	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,12 +16,17 @@ import (
 // RequestDelay longer than the timeout gives context.DeadlineExceeded at
 // once, so that a test does not wait for it. Hold, when not nil, keeps
 // RequestAuthorization waiting until it is closed or the timeout passes, as an
-// open dialog does.
+// open dialog does. FetchAssets finds the Assets whose LocalIdentifier is one
+// of the ids or one of them followed by "/", as PhotoKit finds "UUID/L0/001" by
+// its UUID; FetchBurst finds those of the burst whatever all is. Both keep the
+// order of Assets and return FetchErr when it is set.
 type Bridge struct {
 	Status, RequestStatus int
 	StatusErr, RequestErr error
 	RequestDelay          time.Duration
 	Hold                  chan struct{}
+	Assets                []bridge.AssetRecord
+	FetchErr              error
 
 	mu    sync.Mutex
 	calls []string
@@ -62,4 +69,27 @@ func (b *Bridge) RequestAuthorization(timeout time.Duration) (int, error) {
 	}
 	time.Sleep(b.RequestDelay)
 	return b.RequestStatus, b.RequestErr
+}
+
+// FetchAssets implements bridge.Bridge.
+func (b *Bridge) FetchAssets(ids []string) ([]bridge.AssetRecord, error) {
+	b.log("FetchAssets " + strings.Join(ids, " "))
+	return b.except(func(r bridge.AssetRecord) bool {
+		return !slices.ContainsFunc(ids, func(id string) bool {
+			return r.LocalIdentifier == id || strings.HasPrefix(r.LocalIdentifier, id+"/")
+		})
+	})
+}
+
+// FetchBurst implements bridge.Bridge.
+func (b *Bridge) FetchBurst(burstID string, all bool) ([]bridge.AssetRecord, error) {
+	b.log(fmt.Sprintf("FetchBurst %s %t", burstID, all))
+	return b.except(func(r bridge.AssetRecord) bool { return r.BurstIdentifier != burstID })
+}
+
+func (b *Bridge) except(drop func(bridge.AssetRecord) bool) ([]bridge.AssetRecord, error) {
+	if b.FetchErr != nil {
+		return nil, b.FetchErr
+	}
+	return slices.DeleteFunc(slices.Clone(b.Assets), drop), nil
 }
