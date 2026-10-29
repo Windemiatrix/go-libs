@@ -20,3 +20,5 @@ func (*stub) FetchAssets([]string) ([]AssetRecord, error) { return nil, ErrNotSu
 func (*stub) FetchBurst(string, bool) ([]AssetRecord, error) { return nil, ErrNotSupported }
 
 func (*stub) AssetResources(string) ([]ResourceRecord, error) { return nil, ErrNotSupported }
+
+func (*stub) RequestResource(string, int, ResourceSink) (Request, error) { return nil, ErrNotSupported }

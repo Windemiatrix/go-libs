@@ -97,6 +97,10 @@ func (*cgoBridge) AssetResources(id string) ([]ResourceRecord, error) {
 	return recs, nil
 }
 
+func (*cgoBridge) RequestResource(string, int, ResourceSink) (Request, error) {
+	return nil, ErrNotSupported
+}
+
 func records(r C.pk_result, out *C.pk_asset, count C.int) ([]AssetRecord, error) {
 	defer C.pk_free_assets(out, count)
 	if err := check(r); err != nil {
