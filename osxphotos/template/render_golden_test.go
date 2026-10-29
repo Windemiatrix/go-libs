@@ -16,9 +16,16 @@ import (
 // osxphotos gave every photo the same value, which Render must give for a
 // photo without fields.
 var literalIDs = []string{
+	"t126", "t127", "t128", "t129", "t130", "t131", "t132", "t133", "t134", "t135",
+	"t136", "t137", "t138", "t139", "t140", "t141", "t142", "t143", "t144", "t145",
+	"t146", "t147", "t148", "t149", "t150", "t151", "t152", "t153", "t154", "t155",
+	"t156", "t157", "t158", "t159",
+	"t301", "t302", "t303", "t304", "t305", "t307", "t308", "t309", "t310", "t312",
+	"t313",
 	"t314", "t315", "t316", "t317", "t318", "t319", "t320", "t321", "t322", "t323",
 	"t324", "t325", "t326", "t327", "t328", "t329", "t330", "t332", "t333", "t334",
-	"t335", "t341", "t343",
+	"t335", "t336", "t341", "t343",
+	"t391", "t392", "t393", "t395", "t396", "t397", "t402",
 }
 
 func goldenTemplates(t *testing.T, dir string) []string {
