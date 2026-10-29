@@ -60,6 +60,8 @@ jobs:
     env:
       CGO_ENABLED: "1"
       MACOSX_DEPLOYMENT_TARGET: "13.0"
+      # SEC-C.5: a warning of the ObjC bridge fails CI, not the build of a consumer.
+      CGO_CFLAGS: "-g -O2 -Werror"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

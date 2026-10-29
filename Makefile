@@ -21,9 +21,10 @@ mod: ## go.mod is tidy and the modules match go.sum
 	go -C osxphotos mod tidy -diff
 	go -C osxphotos mod verify
 
+# photokit_live files change a real library and never run in CI; vet keeps them compiling.
 .PHONY: vet
 vet: ## go vet
-	go -C osxphotos vet -tags difflocal ./...
+	go -C osxphotos vet -tags difflocal,photokit_live ./...
 
 .PHONY: cover
 cover: ## Tests with the race detector and the coverage threshold
@@ -32,9 +33,10 @@ cover: ## Tests with the race detector and the coverage threshold
 	echo "coverage: $$pct% (minimum $(COVERAGE_MIN)%)"; \
 	test "$${pct%.*}" -ge $(COVERAGE_MIN)
 
+# cgo is off by default when cross-compiling; without it the stub is built.
 .PHONY: cross-build
 cross-build: ## cgo build for amd64 (macOS)
-	GOARCH=amd64 CC="clang -arch x86_64" go -C osxphotos build ./...
+	CGO_ENABLED=1 GOARCH=amd64 CC="clang -arch x86_64" go -C osxphotos build ./...
 
 .PHONY: lint
 lint: ## Run golangci-lint
