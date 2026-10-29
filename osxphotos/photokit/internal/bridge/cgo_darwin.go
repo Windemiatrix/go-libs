@@ -126,7 +126,9 @@ func date(ok bool, sec float64) *time.Time {
 	return &t
 }
 
-func duration(sec float64) time.Duration { return time.Duration(math.Round(sec * float64(time.Second))) }
+func duration(sec float64) time.Duration {
+	return time.Duration(math.Round(sec * float64(time.Second)))
+}
 
 func check(r C.pk_result) error {
 	defer C.free(unsafe.Pointer(r.message)) //nolint:gosec // G103: the strdup buffer of bridge.m is freed here

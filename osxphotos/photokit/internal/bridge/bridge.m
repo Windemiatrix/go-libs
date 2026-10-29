@@ -53,10 +53,7 @@ _Static_assert(PHAssetMediaSubtypeVideoScreenRecording == (1 << 19), "PHAssetMed
 @end
 
 // The string or its UTF8String may be nil, and strdup(NULL) crashes.
-static char *pk_strdup(NSString *s) {
-	const char *text = s.UTF8String;
-	return text ? strdup(text) : NULL;
-}
+static char *pk_strdup(NSString *s) { return s.UTF8String ? strdup(s.UTF8String) : NULL; }
 
 static pk_result pk_exception(NSException *e) {
 	return (pk_result){PK_EXCEPTION, pk_strdup(e.reason ?: e.name)};
