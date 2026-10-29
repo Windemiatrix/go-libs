@@ -1,0 +1,134 @@
+{title}
+The title of the photo is {title}
+{keyword}
+{,+keyword}
+{; +keyword}
+{+keyword}
+{keyword|capitalize|parens}
+{folder_album(>)}
+{folder_album()}
+{album[/,-]}
+{album[/,-|:,-]}
+{keyword matches Beach}
+{keyword contains Beach}
+{photo.score.overall > 0.7}
+{keyword|lower contains beach}
+{keyword|lower not contains beach}
+{keyword|lower matches travel|vacation?Travel-Photos,Not-Travel-Photos}
+{favorite?Favorite-{original_name},{original_name}}
+{created.year&{folder_album,}}
+{template1&{template2&{template3,},},}
+{hdr?ISHDR,NOTHDR}
+{title,I have no title}
+{created.strftime,%Y-%m-%d-%H%M%S}
+{media_type,video=vidéo;time_lapse=vidéo_accélérée}
+{created.year}/{openbrace}{title}{closebrace}
+{var:pipe,{pipe}}{title[-,%pipe]}
+{var:myvar,{template1&{template2,},}}{%myvar|uniq}
+{var:year,{created.year}}{original_name}-{%year}
+{var:name,Katie}{person contains {%name}?{%name},Not-{%name}}
+{title[:,%%]}
+{title contains Foo?{title}{percent},{title}}
+{counter:05d(1)}
+{counter(1,11,2)}
+{counter(,,2)}
+{album_seq:05d(1)}
+{photo.original_filename|path.stem}
+{folder_album|filter(contains Events)}
+literal text without fields
+{keyword == a|b}
+{title contains }
+{a}x{b}
+a{b}
+{title|}
+{title|[a,b]}
+{title|chop(1, ?|{})}
+{title,a+b}
+{a+b+c}
+{created.strftime,%Y+%m}
+{a,+b}
+{title,x+}
+{a%b}
+{a:b\ c}
+{f:\ a}
+{t[a,b,c]}
+{t[,x]}
+{t[]}
+{t[a,{x}]}
+{a contains b}
+{a not contains b}
+{a matches b}
+{a not matches b}
+{a startswith b}
+{a not startswith b}
+{a endswith b}
+{a not endswith b}
+{a <= 1}
+{a not <= 1}
+{a >= 1}
+{a not >= 1}
+{a < 1}
+{a not < 1}
+{a > 1}
+{a not > 1}
+{a == 1}
+{a not == 1}
+{a != 1}
+{a not != 1}
+{a < =1}
+a,b
+a?b
+a}b
+{title
+{title}}
+{}
+{ title}
+{title }
+{title|lower|}
+{title|a b}
+{title[a]}
+{title(}
+{title:}
+{a,b,c}
+{a?x?y}
+{a%}
+{%}
+{title+}
+{+}
+{a+b{c}}
+{title contains}
+{a not  contains b}
+{a  contains  b}
+{a?x&y,z}
+{keyword matches travel|vacation?T,F}
+{a&}
+{a?}
+{a,}
+{a?,}
+{a:b.c:d}
+{a::b}
+{a:b\ }
+{a:b\c}
+{a(b)}
+{a()}
+{a(b(c))}
+{a(b}
+{a|b(c)}
+{a|b(c}
+{a|b(c)|d}
+{a[b,c]|d}
+{a|b[c,d]}
+{a[b,c|d,e]}
+{a[b,c|d]}
+{é}
+{a²}
+{a b}
+{a{b}}
+{a,{b}}
+{a,{b,{c}}}
+{a}{b}{c}
+{a,{a,{a,{a,{a,{a,{a,{a}}}}}}}}
+{a +b}
+{a+ b}
+{+a+b}
+{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}

@@ -74,7 +74,7 @@ golden-fetch: ## Download the reference data of the latest successful golden-reg
 	@run=$$(gh run list --repo Windemiatrix/go-libs --workflow golden-regen.yml --event workflow_dispatch --status success --limit 1 --json databaseId --jq '.[0].databaseId'); \
 	test -n "$$run" || { echo "golden-fetch: no successful golden-regen run" >&2; exit 1; }; \
 	echo "golden-fetch: run $$run"; \
-	rm -f testdata/golden/*/query.json testdata/golden/*/deleted.json; \
+	rm -f testdata/golden/*/query.json testdata/golden/*/deleted.json testdata/golden/*/templates.json testdata/golden/parse.json; \
 	gh run download "$$run" --repo Windemiatrix/go-libs --name golden --dir testdata/golden
 
 # The library is the owner's data. TMPDIR puts the temporary files of osxphotos

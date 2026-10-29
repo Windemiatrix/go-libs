@@ -1,0 +1,719 @@
+{
+ "p001": {
+  "accept": true,
+  "fields": [
+   "title"
+  ]
+ },
+ "p002": {
+  "accept": true,
+  "fields": [
+   "title"
+  ]
+ },
+ "p003": {
+  "accept": true,
+  "fields": [
+   "keyword"
+  ]
+ },
+ "p004": {
+  "accept": true,
+  "fields": [
+   "keyword"
+  ]
+ },
+ "p005": {
+  "accept": true,
+  "fields": [
+   "keyword"
+  ]
+ },
+ "p006": {
+  "accept": true,
+  "fields": [
+   "keyword"
+  ]
+ },
+ "p007": {
+  "accept": true,
+  "fields": [
+   "keyword"
+  ]
+ },
+ "p008": {
+  "accept": true,
+  "fields": [
+   "folder_album"
+  ]
+ },
+ "p009": {
+  "accept": true,
+  "fields": [
+   "folder_album"
+  ]
+ },
+ "p010": {
+  "accept": true,
+  "fields": [
+   "album"
+  ]
+ },
+ "p011": {
+  "accept": true,
+  "fields": [
+   "album"
+  ]
+ },
+ "p012": {
+  "accept": true,
+  "fields": [
+   "keyword"
+  ]
+ },
+ "p013": {
+  "accept": true,
+  "fields": [
+   "keyword"
+  ]
+ },
+ "p014": {
+  "accept": true,
+  "fields": [
+   "photo.score.overall"
+  ]
+ },
+ "p015": {
+  "accept": true,
+  "fields": [
+   "keyword"
+  ]
+ },
+ "p016": {
+  "accept": true,
+  "fields": [
+   "keyword"
+  ]
+ },
+ "p017": {
+  "accept": true,
+  "fields": [
+   "keyword"
+  ]
+ },
+ "p018": {
+  "accept": true,
+  "fields": [
+   "favorite"
+  ]
+ },
+ "p019": {
+  "accept": true,
+  "fields": [
+   "created.year"
+  ]
+ },
+ "p020": {
+  "accept": true,
+  "fields": [
+   "template1"
+  ]
+ },
+ "p021": {
+  "accept": true,
+  "fields": [
+   "hdr"
+  ]
+ },
+ "p022": {
+  "accept": true,
+  "fields": [
+   "title"
+  ]
+ },
+ "p023": {
+  "accept": true,
+  "fields": [
+   "created.strftime"
+  ]
+ },
+ "p024": {
+  "accept": true,
+  "fields": [
+   "media_type"
+  ]
+ },
+ "p025": {
+  "accept": true,
+  "fields": [
+   "created.year",
+   "openbrace",
+   "title",
+   "closebrace"
+  ]
+ },
+ "p026": {
+  "accept": true,
+  "fields": [
+   "var",
+   "title"
+  ]
+ },
+ "p027": {
+  "accept": true,
+  "fields": [
+   "var",
+   "%myvar"
+  ]
+ },
+ "p028": {
+  "accept": true,
+  "fields": [
+   "var",
+   "original_name",
+   "%year"
+  ]
+ },
+ "p029": {
+  "accept": true,
+  "fields": [
+   "var",
+   "person"
+  ]
+ },
+ "p030": {
+  "accept": true,
+  "fields": [
+   "title"
+  ]
+ },
+ "p031": {
+  "accept": true,
+  "fields": [
+   "title"
+  ]
+ },
+ "p032": {
+  "accept": true,
+  "fields": [
+   "counter"
+  ]
+ },
+ "p033": {
+  "accept": true,
+  "fields": [
+   "counter"
+  ]
+ },
+ "p034": {
+  "accept": true,
+  "fields": [
+   "counter"
+  ]
+ },
+ "p035": {
+  "accept": true,
+  "fields": [
+   "album_seq"
+  ]
+ },
+ "p036": {
+  "accept": true,
+  "fields": [
+   "photo.original_filename"
+  ]
+ },
+ "p037": {
+  "accept": true,
+  "fields": [
+   "folder_album"
+  ]
+ },
+ "p038": {
+  "accept": true,
+  "fields": []
+ },
+ "p039": {
+  "accept": true,
+  "fields": [
+   "keyword"
+  ]
+ },
+ "p040": {
+  "accept": true,
+  "fields": [
+   "title"
+  ]
+ },
+ "p041": {
+  "accept": true,
+  "fields": [
+   "a",
+   "b"
+  ]
+ },
+ "p042": {
+  "accept": true,
+  "fields": [
+   "b"
+  ]
+ },
+ "p043": {
+  "accept": true,
+  "fields": [
+   "title"
+  ]
+ },
+ "p044": {
+  "accept": true,
+  "fields": [
+   "title"
+  ]
+ },
+ "p045": {
+  "accept": true,
+  "fields": [
+   "title"
+  ]
+ },
+ "p046": {
+  "accept": true,
+  "fields": [
+   "b"
+  ]
+ },
+ "p047": {
+  "accept": true,
+  "fields": [
+   "c"
+  ]
+ },
+ "p048": {
+  "accept": true,
+  "fields": [
+   "%m"
+  ]
+ },
+ "p049": {
+  "accept": true,
+  "fields": [
+   "b"
+  ]
+ },
+ "p050": {
+  "accept": true,
+  "fields": [
+   "title"
+  ]
+ },
+ "p051": {
+  "accept": true,
+  "fields": [
+   "a%b"
+  ]
+ },
+ "p052": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p053": {
+  "accept": false
+ },
+ "p054": {
+  "accept": true,
+  "fields": [
+   "t"
+  ]
+ },
+ "p055": {
+  "accept": true,
+  "fields": [
+   "t"
+  ]
+ },
+ "p056": {
+  "accept": true,
+  "fields": [
+   "t"
+  ]
+ },
+ "p057": {
+  "accept": true,
+  "fields": [
+   "t"
+  ]
+ },
+ "p058": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p059": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p060": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p061": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p062": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p063": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p064": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p065": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p066": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p067": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p068": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p069": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p070": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p071": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p072": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p073": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p074": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p075": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p076": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p077": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p078": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p079": {
+  "accept": false
+ },
+ "p080": {
+  "accept": false
+ },
+ "p081": {
+  "accept": false
+ },
+ "p082": {
+  "accept": false
+ },
+ "p083": {
+  "accept": false
+ },
+ "p084": {
+  "accept": false
+ },
+ "p085": {
+  "accept": false
+ },
+ "p086": {
+  "accept": false
+ },
+ "p087": {
+  "accept": false
+ },
+ "p088": {
+  "accept": false
+ },
+ "p089": {
+  "accept": false
+ },
+ "p090": {
+  "accept": false
+ },
+ "p091": {
+  "accept": false
+ },
+ "p092": {
+  "accept": false
+ },
+ "p093": {
+  "accept": false
+ },
+ "p094": {
+  "accept": false
+ },
+ "p095": {
+  "accept": false
+ },
+ "p096": {
+  "accept": false
+ },
+ "p097": {
+  "accept": false
+ },
+ "p098": {
+  "accept": false
+ },
+ "p099": {
+  "accept": false
+ },
+ "p100": {
+  "accept": false
+ },
+ "p101": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p102": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p103": {
+  "accept": true,
+  "fields": [
+   "keyword"
+  ]
+ },
+ "p104": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p105": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p106": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p107": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p108": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p109": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p110": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p111": {
+  "accept": false
+ },
+ "p112": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p113": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p114": {
+  "accept": false
+ },
+ "p115": {
+  "accept": false
+ },
+ "p116": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p117": {
+  "accept": false
+ },
+ "p118": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p119": {
+  "accept": false
+ },
+ "p120": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p121": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p122": {
+  "accept": false
+ },
+ "p123": {
+  "accept": true,
+  "fields": [
+   "\u00e9"
+  ]
+ },
+ "p124": {
+  "accept": true,
+  "fields": [
+   "a\u00b2"
+  ]
+ },
+ "p125": {
+  "accept": false
+ },
+ "p126": {
+  "accept": false
+ },
+ "p127": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p128": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p129": {
+  "accept": true,
+  "fields": [
+   "a",
+   "b",
+   "c"
+  ]
+ },
+ "p130": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ },
+ "p131": {
+  "accept": true,
+  "fields": [
+   "b"
+  ]
+ },
+ "p132": {
+  "accept": false
+ },
+ "p133": {
+  "accept": true,
+  "fields": [
+   "b"
+  ]
+ },
+ "p134": {
+  "accept": true,
+  "fields": [
+   "a"
+  ]
+ }
+}
