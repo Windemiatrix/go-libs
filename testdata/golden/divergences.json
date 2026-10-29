@@ -1,11 +1,1 @@
-[
-  {
-    "library": "synthetic",
-    "uuid": "*",
-    "field": "has_raw",
-    "want": false,
-    "got": true,
-    "reason": "The second original of a RAW+JPEG pair is a resource of subtype 3 and resource type 4; upstream reads only subtype 17.",
-    "upstream": "photosdb/photosdb.py:2537-2551"
-  }
-]
+[]

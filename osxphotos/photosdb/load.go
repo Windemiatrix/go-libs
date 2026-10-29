@@ -51,9 +51,6 @@ const (
 	// and of a RAW resource (photosdb.py:2550).
 	resOriginal, resSecond, resRAW = 1, 3, 17
 
-	// ZRESOURCETYPE of the RAW resource of a RAW+JPEG pair.
-	resTypeRAW = 4
-
 	// Part of the UTI of every RAW format (photoinfo.py:1368-1371).
 	rawUTIMarker = "raw-image"
 
@@ -265,7 +262,7 @@ func photo(a sqlread.Asset, res []sqlread.Resource) *photoinfo.PhotoInfo {
 	}
 	p.IsRAW = strings.Contains(p.UTIOriginal, rawUTIMarker)
 
-	p.HasRAW = hasRAW(res)
+	p.HasRAW = slices.ContainsFunc(res, func(r sqlread.Resource) bool { return is(r.Subtype, resRAW) }) // photosdb.py:2537-2577
 	p.IsMissing = isMissing(res)
 	for _, r := range res {
 		p.Resources = append(p.Resources, photoinfo.Resource{
@@ -277,18 +274,6 @@ func photo(a sqlread.Asset, res []sqlread.Resource) *photoinfo.PhotoInfo {
 		})
 	}
 	return p
-}
-
-// Data store subtype 17 of any resource type is a RAW resource, as upstream
-// (photosdb.py:2537-2577).
-// extension: not in osxphotos — the subtype 3 rule.
-func hasRAW(res []sqlread.Resource) bool {
-	for _, r := range res {
-		if is(r.Subtype, resRAW) || is(r.Subtype, resSecond) && is(r.Type, resTypeRAW) {
-			return true
-		}
-	}
-	return false
 }
 
 // The first pass of photosdb.py:2441-2495: the resources of subtypes 1 and 3 of
