@@ -38,4 +38,11 @@ var (
 	// not access the whole library (PhotoKitAuthError, photokit.py:174-175,
 	// 1200-1204).
 	ErrNotAuthorized = errors.New("photokit: access to the Photos library is not authorized")
+	// ErrNotFound is returned when a fetch finds no asset (PhotoKitFetchFailed,
+	// photokit.py:1244-1246, 1292-1294).
+	ErrNotFound = errors.New("photokit: no asset found")
+	// ErrMediaType is wrapped, with the number PhotoKit gave, when a fetched
+	// asset is neither an image, a video nor a Live Photo
+	// (PhotoKitMediaTypeError, photokit.py:1309-1319).
+	ErrMediaType = errors.New("photokit: unknown media type")
 )
