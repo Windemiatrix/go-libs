@@ -1,0 +1,14 @@
+package bridge
+
+import "time"
+
+type stub struct{}
+
+var _ Bridge = (*stub)(nil)
+
+// New returns the bridge of this build.
+func New() Bridge { return &stub{} }
+
+func (*stub) AuthorizationStatus() (int, error) { return 0, ErrNotSupported }
+
+func (*stub) RequestAuthorization(time.Duration) (int, error) { return 0, ErrNotSupported }
