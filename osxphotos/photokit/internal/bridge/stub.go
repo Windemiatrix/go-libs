@@ -14,3 +14,7 @@ func New() Bridge { return &stub{} }
 func (*stub) AuthorizationStatus() (int, error) { return 0, ErrNotSupported }
 
 func (*stub) RequestAuthorization(time.Duration) (int, error) { return 0, ErrNotSupported }
+
+func (*stub) FetchAssets([]string) ([]AssetRecord, error) { return nil, ErrNotSupported }
+
+func (*stub) FetchBurst(string, bool) ([]AssetRecord, error) { return nil, ErrNotSupported }
