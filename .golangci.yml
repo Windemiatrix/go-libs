@@ -67,6 +67,7 @@ linters:
             - "**/osxphotos/albuminfo/**"
             - "**/osxphotos/adjustmentsinfo/**"
             - "**/osxphotos/exifinfo/**"
+            - "**/osxphotos/placeinfo/**"
             - "**/osxphotos/query/**"
             - "**/osxphotos/internal/schema/**"
             - "!$test"
@@ -102,6 +103,7 @@ linters:
           deny:
             - {pkg: github.com/Windemiatrix/go-libs/osxphotos/internal/golden, desc: "golden is imported by tests only"}
             - {pkg: github.com/Windemiatrix/go-libs/osxphotos/internal/testlib, desc: "testlib is imported by tests only"}
+            - {pkg: github.com/Windemiatrix/go-libs/osxphotos/photokit/internal/bridge/fake, desc: "the bridge fake is imported by photokit tests only"}
     forbidigo:
       forbid:
         - pattern: ^fmt\.Print(f|ln)?$
