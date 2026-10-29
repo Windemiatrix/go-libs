@@ -11,9 +11,25 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Windemiatrix/go-libs/osxphotos/template"
 )
 
 const extensionMarker = "extension: not in osxphotos"
+
+// {osxphotos_version} renders the release the port follows.
+func TestUpstreamTemplateVersion(t *testing.T) {
+	t.Parallel()
+
+	data, err := os.ReadFile("UPSTREAM.md")
+	if err != nil {
+		t.Fatalf("read UPSTREAM.md: %v", err)
+	}
+	m := regexp.MustCompile(`(?m)^Upstream version: (\S+)$`).FindSubmatch(data)
+	if m == nil || string(m[1]) != template.UpstreamVersion {
+		t.Errorf("UPSTREAM.md gives the upstream version %q, template.UpstreamVersion is %q", m, template.UpstreamVersion)
+	}
+}
 
 func TestUpstreamExtensions(t *testing.T) {
 	t.Parallel()
