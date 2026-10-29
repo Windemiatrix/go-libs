@@ -20,7 +20,7 @@ Upstream references below are written as `file:line` in that release. Paths are 
 
 ## Correspondence
 
-Only what is ported so far. Templates, export and PhotoKit appear together with their own packages.
+Only what is ported so far.
 
 | osxphotos module | Go package |
 |---|---|
@@ -39,6 +39,7 @@ Only what is ported so far. Templates, export and PhotoKit appear together with 
 | `adjustmentsinfo.py` | `adjustmentsinfo`, `photosdb` |
 | `photoquery.py` | `query` |
 | `photos_datetime.py` | `photosdb` |
+| `tzcanonical.py` | `photosdb` |
 | `unicode.py` | `photosdb` |
 | `uti.py` | `internal/uti` |
 | `utils.py` (only `get_system_library_path`) | `photosdb` |
@@ -127,7 +128,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 
 ### Соответствие
 
-Только то, что уже перенесено. Шаблоны, экспорт и PhotoKit появятся вместе со своими пакетами.
+Только то, что уже перенесено.
 
 | Модуль osxphotos | Пакет Go |
 |---|---|
@@ -146,6 +147,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 | `adjustmentsinfo.py` | `adjustmentsinfo`, `photosdb` |
 | `photoquery.py` | `query` |
 | `photos_datetime.py` | `photosdb` |
+| `tzcanonical.py` | `photosdb` |
 | `unicode.py` | `photosdb` |
 | `uti.py` | `internal/uti` |
 | `utils.py` (только `get_system_library_path`) | `photosdb` |
