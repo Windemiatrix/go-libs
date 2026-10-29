@@ -26,7 +26,7 @@ _Static_assert(PHAssetMediaSubtypePhotoDepthEffect == (1 << 4), "PHAssetMediaSub
 _Static_assert(PHAssetMediaSubtypeVideoStreamed == (1 << 16), "PHAssetMediaSubtypeVideoStreamed");
 _Static_assert(PHAssetMediaSubtypeVideoHighFrameRate == (1 << 17), "PHAssetMediaSubtypeVideoHighFrameRate");
 _Static_assert(PHAssetMediaSubtypeVideoTimelapse == (1 << 18), "PHAssetMediaSubtypeVideoTimelapse");
-#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 150000 // the name came with the macOS 15 SDK; the build targets macOS 13
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000 // the name came with the macOS 26 SDK; the build targets macOS 13
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunguarded-availability-new"
 _Static_assert(PHAssetMediaSubtypeVideoScreenRecording == (1 << 19), "PHAssetMediaSubtypeVideoScreenRecording");
