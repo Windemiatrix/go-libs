@@ -71,6 +71,32 @@ func (*cgoBridge) FetchBurst(burstID string, all bool) ([]AssetRecord, error) {
 	return records(r, out, count)
 }
 
+func (*cgoBridge) AssetResources(id string) ([]ResourceRecord, error) {
+	cid := C.CString(id)
+	defer C.free(unsafe.Pointer(cid)) //nolint:gosec // G103: the C.CString buffer of this call is freed here
+	var out *C.pk_resource
+	var count C.int
+	r := C.pk_asset_resources(cid, &out, &count)
+	defer C.pk_free_resources(out, count)
+	if err := check(r); err != nil {
+		return nil, err
+	}
+	if count <= 0 {
+		return nil, nil
+	}
+	resources := unsafe.Slice(out, count) //nolint:gosec // G103: count is the length of the array bridge.m allocated
+	recs := make([]ResourceRecord, len(resources))
+	for i := range resources {
+		name, nameErr := cString(C.GoString(resources[i].original_filename))
+		uti, utiErr := cString(C.GoString(resources[i].uti))
+		if err := cmp.Or(nameErr, utiErr); err != nil {
+			return nil, err
+		}
+		recs[i] = ResourceRecord{Type: int(resources[i].resource_type), OriginalFilename: name, UTI: uti}
+	}
+	return recs, nil
+}
+
 func records(r C.pk_result, out *C.pk_asset, count C.int) ([]AssetRecord, error) {
 	defer C.pk_free_assets(out, count)
 	if err := check(r); err != nil {

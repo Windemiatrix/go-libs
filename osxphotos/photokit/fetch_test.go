@@ -19,6 +19,7 @@ const (
 	slowMoID  = "22222222-2222-2222-2222-222222222222"
 	frameID   = "33333333-3333-3333-3333-333333333333"
 	burstID   = "44444444-4444-4444-4444-444444444444"
+	editedID  = "55555555-5555-5555-5555-555555555555"
 	unknownID = "99999999-9999-9999-9999-999999999999"
 )
 
@@ -101,7 +102,11 @@ func TestFetch(t *testing.T) {
 			if err != nil || !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Fetch(%q) = %+v, %v; want %+v", tt.ids, got, err, tt.want)
 			}
-			if want := []string{"FetchAssets " + strings.Join(tt.ids, " ")}; !slices.Equal(b.Calls(), want) {
+			want := []string{"FetchAssets " + strings.Join(tt.ids, " ")}
+			for _, a := range tt.want {
+				want = append(want, "AssetResources "+a.LocalIdentifier)
+			}
+			if !slices.Equal(b.Calls(), want) {
 				t.Errorf("calls = %q, want %q", b.Calls(), want)
 			}
 		})
@@ -180,7 +185,7 @@ func TestFetchBurst(t *testing.T) {
 		if err != nil || !reflect.DeepEqual(got, []Asset{wantFrame}) {
 			t.Errorf("FetchBurst(%t) = %+v, %v; want %+v", all, got, err, wantFrame)
 		}
-		if want := []string{fmt.Sprintf("FetchBurst %s %t", burstID, all)}; !slices.Equal(b.Calls(), want) {
+		if want := []string{fmt.Sprintf("FetchBurst %s %t", burstID, all), "AssetResources " + wantFrame.LocalIdentifier}; !slices.Equal(b.Calls(), want) {
 			t.Errorf("calls = %q, want %q", b.Calls(), want)
 		}
 	}
@@ -249,5 +254,106 @@ func TestAssetFlags(t *testing.T) {
 		if err != nil || a.Subtypes != tt.bits || !slices.Equal(flags(a), tt.want) {
 			t.Errorf("asset(subtypes %#x) = flags %q, subtypes %#x, %v; want %q", tt.bits, flags(a), a.Subtypes, err, tt.want)
 		}
+	}
+}
+
+// Upstream takes the first resource of a type: the second Photo, Video and
+// AlternatePhoto resources here must not win (photokit.py:310-352, 484-493).
+func TestResources(t *testing.T) {
+	edited := bridge.AssetRecord{LocalIdentifier: editedID + "/L0/001", MediaType: 1}
+	b := &fake.Bridge{
+		Assets: []bridge.AssetRecord{livePhoto, slowMo, frame, edited},
+		Resources: map[string][]bridge.ResourceRecord{
+			livePhoto.LocalIdentifier: {
+				{Type: 5, OriginalFilename: "FullSizeRender.heic", UTI: "public.heic"},
+				{Type: 1, OriginalFilename: "IMG_0001.JPG", UTI: "public.jpeg"},
+				{Type: 4, OriginalFilename: "IMG_0001.CR2", UTI: "com.canon.cr2-raw-image"},
+				{Type: 1, OriginalFilename: "IMG_0002.JPG", UTI: "public.jpeg"},
+				{Type: 4, OriginalFilename: "IMG_0002.DNG", UTI: "com.adobe.raw-image"},
+				{Type: 7, OriginalFilename: "Adjustments.plist", UTI: "com.apple.property-list"},
+				{Type: 13},
+			},
+			slowMo.LocalIdentifier: {
+				{Type: 1, OriginalFilename: "IMG_0003.JPG", UTI: "public.jpeg"},
+				{Type: 2, OriginalFilename: "IMG_0003.MOV", UTI: "com.apple.quicktime-movie"},
+				{Type: 4, OriginalFilename: "IMG_0003.CR2", UTI: "com.canon.cr2-raw-image"},
+				{Type: 2, OriginalFilename: "IMG_0004.MOV", UTI: "com.apple.quicktime-movie"},
+				{Type: 7, OriginalFilename: "Adjustments.plist", UTI: "com.apple.property-list"},
+			},
+			edited.LocalIdentifier: {{Type: 7, OriginalFilename: "Adjustments.plist", UTI: "com.apple.property-list"}},
+		},
+	}
+	lib := &Library{b}
+
+	photo := wantLive
+	photo.OriginalFilename, photo.RAWFilename, photo.UTIRaw, photo.HasAdjustments = "IMG_0001.JPG", "IMG_0001.CR2", "com.canon.cr2-raw-image", true
+	video := wantSlowMo
+	video.OriginalFilename, video.HasAdjustments = "IMG_0003.MOV", true
+	wantEdited := Asset{LocalIdentifier: editedID + "/L0/001", MediaType: MediaTypeImage, IsPhoto: true, HasAdjustments: true}
+	want := []Asset{photo, video, wantFrame, wantEdited}
+	got, err := lib.Fetch(t.Context(), []string{liveID, slowMoID, frameID, editedID})
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Errorf("Fetch = %+v, %v; want %+v", got, err, want)
+	}
+
+	// original_filename takes the Video resource of anything but a photo, and
+	// hasadjustments only AdjustmentData (photokit.py:310-322, 336-352).
+	for _, tt := range []struct {
+		r    bridge.AssetRecord
+		res  []bridge.ResourceRecord
+		want Asset
+	}{
+		{bridge.AssetRecord{MediaSubtypes: 1 << 3}, []bridge.ResourceRecord{{Type: 1, OriginalFilename: "A"}, {Type: 2, OriginalFilename: "B"}}, Asset{Subtypes: 1 << 3, Live: true, OriginalFilename: "B"}},
+		{bridge.AssetRecord{MediaType: 1}, []bridge.ResourceRecord{{Type: 5}, {Type: 8}}, Asset{MediaType: MediaTypeImage, IsPhoto: true}},
+	} {
+		a, err := asset(tt.r)
+		withResources(&a, tt.res)
+		if err != nil || !reflect.DeepEqual(a, tt.want) {
+			t.Errorf("asset %+v with resources %+v = %+v, %v; want %+v", tt.r, tt.res, a, err, tt.want)
+		}
+	}
+
+	wantResources := []Resource{
+		{ResourceFullSizePhoto, "FullSizeRender.heic", "public.heic"},
+		{ResourcePhoto, "IMG_0001.JPG", "public.jpeg"},
+		{ResourceAlternatePhoto, "IMG_0001.CR2", "com.canon.cr2-raw-image"},
+		{ResourcePhoto, "IMG_0002.JPG", "public.jpeg"},
+		{ResourceAlternatePhoto, "IMG_0002.DNG", "com.adobe.raw-image"},
+		{ResourceAdjustmentData, "Adjustments.plist", "com.apple.property-list"},
+		{Type: 13},
+	}
+	if res, err := lib.Resources(t.Context(), livePhoto.LocalIdentifier); err != nil || !reflect.DeepEqual(res, wantResources) {
+		t.Errorf("Resources = %+v, %v; want %+v", res, err, wantResources)
+	}
+
+	canceled, cancel := context.WithCancel(t.Context())
+	cancel()
+	bridgeErr := errors.New("bridge failed")
+	for _, tt := range []struct {
+		name  string
+		ctx   context.Context
+		b     *fake.Bridge
+		want  error
+		calls int
+	}{
+		{"no such asset", t.Context(), &fake.Bridge{}, ErrNotFound, 1},
+		{"no resource", t.Context(), &fake.Bridge{Resources: map[string][]bridge.ResourceRecord{unknownID: {}}}, ErrNotFound, 1},
+		{"canceled", canceled, &fake.Bridge{}, context.Canceled, 0},
+		{"bridge error", t.Context(), &fake.Bridge{ResourcesErr: bridgeErr}, bridgeErr, 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			res, err := (&Library{tt.b}).Resources(tt.ctx, unknownID)
+			if res != nil || !errors.Is(err, tt.want) {
+				t.Errorf("Resources = %v, %v; want %v", res, err, tt.want)
+			}
+			if calls := tt.b.Calls(); len(calls) != tt.calls {
+				t.Errorf("calls = %q, want %d", calls, tt.calls)
+			}
+		})
+	}
+
+	failing := &fake.Bridge{Assets: []bridge.AssetRecord{livePhoto}, ResourcesErr: bridgeErr}
+	if got, err := (&Library{failing}).Fetch(t.Context(), []string{liveID}); got != nil || !errors.Is(err, bridgeErr) {
+		t.Errorf("Fetch with a failing AssetResources = %v, %v; want %v", got, err, bridgeErr)
 	}
 }

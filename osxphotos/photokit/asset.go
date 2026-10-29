@@ -40,6 +40,11 @@ type Location struct{ Latitude, Longitude float64 }
 // as PhotoKit gives them (354-362); IsPhoto, IsMovie and IsAudio follow
 // MediaType (295-308); the flags from Panorama to Portrait are bits of Subtypes
 // (364-409): SlowMo is a high frame rate video, Portrait a depth effect photo.
+// OriginalFilename, RAWFilename, UTIRaw and HasAdjustments come from the
+// resources (310-352, 484-493): OriginalFilename is that of the first Photo
+// resource of a photo and of the first Video one of anything else, RAWFilename
+// and UTIRaw those of the first AlternatePhoto one of a photo, "" without one;
+// HasAdjustments is whether one resource is AdjustmentData, for any media type.
 // BurstID is "" outside a burst (411-419). Date and DateModified are nil when
 // PhotoKit gives none (436-444), Location is nil without one (446-449).
 type Asset struct {
@@ -48,6 +53,9 @@ type Asset struct {
 	Subtypes        uint64
 
 	IsPhoto, IsMovie, IsAudio bool
+
+	OriginalFilename, RAWFilename, UTIRaw string
+	HasAdjustments                        bool
 
 	Panorama, HDR, Screenshot, ScreenRecording, Live bool
 	Streamed, SlowMo, TimeLapse, Portrait            bool
@@ -61,4 +69,31 @@ type Asset struct {
 	Location                *Location
 	Duration                time.Duration
 	Favorite, Hidden        bool
+}
+
+// ResourceType is PHAssetResourceType. A value without a constant is kept as
+// PhotoKit gives it: a newer macOS may add one.
+type ResourceType int
+
+// The values of PHAssetResourceType, pinned by the _Static_assert of bridge.m.
+const (
+	ResourcePhoto ResourceType = iota + 1
+	ResourceVideo
+	ResourceAudio
+	ResourceAlternatePhoto // the RAW of a RAW+JPEG pair (photokit.py:324-334)
+	ResourceFullSizePhoto
+	ResourceFullSizeVideo
+	ResourceAdjustmentData
+	ResourceAdjustmentBasePhoto
+	ResourcePairedVideo // the video of a Live Photo
+	ResourceFullSizePairedVideo
+	ResourceAdjustmentBasePairedVideo
+	ResourceAdjustmentBaseVideo
+)
+
+// Resource is a PHAssetResource of an asset (photokit.py:769-772); UTI is its
+// uniformTypeIdentifier. A string is "" when PhotoKit gives none.
+type Resource struct {
+	Type                  ResourceType
+	OriginalFilename, UTI string
 }
