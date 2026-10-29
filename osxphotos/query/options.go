@@ -53,6 +53,8 @@ type Options struct {
 	CloudAsset, NotCloudAsset           bool
 	InCloud, NotInCloud                 bool // of the photos that are not Shared (photoquery.py:648-651)
 	HasRAW                              bool
+	HasComment, NoComment               bool // comments of a shared album on the photo, by Catalog.Comments (photoquery.py:656-659)
+	HasLikes, NoLikes                   bool // likes of a shared album on the photo, by Catalog.Likes (photoquery.py:661-664)
 	IsReference, NotReference           bool
 	Location, NoLocation                bool
 	Syndicated, NotSyndicated           bool

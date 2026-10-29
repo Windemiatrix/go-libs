@@ -154,7 +154,20 @@ func Open(ctx context.Context, path string, o Options) (db *DB, err error) {
 		participants:  loadParticipants(t.participants),
 		comments:      comments,
 		likes:         likes,
+		commented:     uuidSet(comments),
+		liked:         uuidSet(likes),
 	}, nil
+}
+
+// query.Catalog takes the photos that have a comment or a like: loadComments
+// adds a key only together with an element (a comment with empty text adds
+// none, _photosdb_process_comments.py:140-143), so the keys are those photos.
+func uuidSet[V any](byUUID map[string][]V) map[string]bool {
+	set := make(map[string]bool, len(byUUID))
+	for u := range byUUID {
+		set[u] = true
+	}
+	return set
 }
 
 // Upstream resolves symbolic links (photosdb.py:349-350); they are kept here.

@@ -7,13 +7,62 @@ import (
 	"math/rand/v2"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
+	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
+
+// PK is the value of {id} (phototemplate.py:977-978).
+func TestLoadPK(t *testing.T) {
+	t.Parallel()
+
+	if got := loadOne(t, baseAsset(7, "A-1")).PK; got != 7 {
+		t.Errorf("PK = %d, want 7", got)
+	}
+	var mu sync.Mutex
+	apart := 0
+	t.Run("libraries", func(t *testing.T) {
+		for _, lib := range goldenLibraries(t) {
+			t.Run(lib.name, func(t *testing.T) {
+				t.Parallel()
+				db, err := Open(t.Context(), lib.path, Options{TempDir: t.TempDir()})
+				if err != nil {
+					t.Fatal(err)
+				}
+				photos := db.Photos()
+				if len(photos) == 0 {
+					t.Fatal("no photos: the test is vacuous")
+				}
+				ro := roDB(t, lib.path)
+				want := map[string]string{}
+				for _, row := range testlib.Rows(t, ro, "SELECT a.ZUUID || ':' || a.Z_PK FROM ZASSET a "+
+					"JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK WHERE a.ZUUID IS NOT NULL") {
+					uuid, pk, _ := strings.Cut(row, ":")
+					want[uuid] = pk
+				}
+				for _, p := range photos {
+					if want[p.UUID] != strconv.FormatInt(p.PK, 10) {
+						t.Errorf("photo %s: PK %d, want its ZASSET.Z_PK %s", p.UUID, p.PK, want[p.UUID])
+					}
+				}
+				n := testlib.Count(t, ro, "SELECT COUNT(*) FROM ZASSET a JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK WHERE x.Z_PK != a.Z_PK")
+				t.Logf("%d photos, %d with a ZADDITIONALASSETATTRIBUTES.Z_PK apart from ZASSET.Z_PK", len(photos), n)
+				mu.Lock()
+				defer mu.Unlock()
+				apart += n
+			})
+		}
+	})
+	if apart == 0 {
+		t.Error("ZADDITIONALASSETATTRIBUTES.Z_PK equals ZASSET.Z_PK in every library: the test cannot tell the two keys apart")
+	}
+}
 
 func nullString(s string) sql.NullString { return sql.NullString{String: s, Valid: true} }
 

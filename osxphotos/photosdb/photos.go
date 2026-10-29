@@ -33,6 +33,8 @@ type DB struct {
 	participants map[string][]photoinfo.ShareParticipant // by photo UUID, in ZSHAREPARTICIPANT.Z_PK order
 	comments     map[string][]photoinfo.CommentInfo      // by photo UUID, oldest first
 	likes        map[string][]photoinfo.LikeInfo         // by photo UUID, oldest first
+	commented    map[string]bool                         // the keys of comments, for query.Catalog
+	liked        map[string]bool                         // the keys of likes, for query.Catalog
 }
 
 // Close releases the DB. It releases nothing today: the copy of the

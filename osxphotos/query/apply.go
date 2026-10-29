@@ -20,30 +20,11 @@ type photo = photoinfo.PhotoInfo
 // The result is new, in the order of Sort (reversed with
 // NewestFirst), each photo once unless a Function returns it twice and
 // BurstPhotos is off; its elements are the pointers of photos. photos and
-// albums are not modified.
+// albums are not modified. Apply has no comments and likes: with HasComment
+// or HasLikes it selects nothing, with NoComment or NoLikes everything;
+// ApplyCatalog takes them.
 func Apply(o Options, photos []*photoinfo.PhotoInfo, albums []*albuminfo.AlbumInfo) []*photoinfo.PhotoInfo {
-	before, after := filters(o, newPhotoAlbums(albums))
-	var out []*photo
-	for _, p := range photos {
-		if inSelection(o, p) && passes(before, p) {
-			out = append(out, p)
-		}
-	}
-	if o.Duplicate {
-		out = withDuplicates(out, photos, o)
-	}
-	out = slices.DeleteFunc(out, func(p *photo) bool { return !passes(after, p) })
-	for _, f := range o.Function {
-		out = f(out)
-	}
-	if o.BurstPhotos { // after the functions, as photoquery.py:863 (ref #640)
-		out = withBursts(out, photos, o.MissingBursts)
-	}
-	slices.SortStableFunc(out, comparePhotos)
-	if o.NewestFirst { // the keys of Sort are unique, so this is sorted(reverse=True)
-		slices.Reverse(out)
-	}
-	return out
+	return ApplyCatalog(o, Catalog{Photos: photos, Albums: albums})
 }
 
 // photo_query starts from the photos() calls (photoquery.py:426-445;
@@ -81,7 +62,8 @@ func passes(fs []filter, p *photo) bool {
 // The conditions are in the order of photo_query (photoquery.py:447-857),
 // split where the duplicate step runs (photoquery.py:754-771). A pair X/NotX
 // is "if X … elif NotX": X wins.
-func filters(o Options, in photoAlbums) (before, after []filter) {
+func filters(o Options, c Catalog) (before, after []filter) {
+	in := newPhotoAlbums(c.Albums)
 	fold := caseFold(o.IgnoreCase)
 	var fs []filter
 	when := func(set bool, f filter) {
@@ -129,6 +111,8 @@ func filters(o Options, in photoAlbums) (before, after []filter) {
 	pair(o.InCloud, o.NotInCloud, func(p *photo) bool { return p.InCloud != nil && *p.InCloud })
 	when(o.InCloud || o.NotInCloud, func(p *photo) bool { return !p.Shared }) // photoquery.py:648-651
 	when(o.HasRAW, func(p *photo) bool { return p.HasRAW })
+	pair(o.HasComment, o.NoComment, func(p *photo) bool { return c.Comments[p.UUID] })
+	pair(o.HasLikes, o.NoLikes, func(p *photo) bool { return c.Likes[p.UUID] })
 	pair(o.IsReference, o.NotReference, func(p *photo) bool { return p.IsReference })
 	pair(o.InAlbum, o.NotInAlbum, func(p *photo) bool { return in.has(p, func(*albuminfo.AlbumInfo) bool { return true }) })
 	when(o.FromTime != nil, func(p *photo) bool { return timeOfDay(p.Date) >= *o.FromTime })

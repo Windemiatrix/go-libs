@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"testing"
@@ -314,6 +315,94 @@ func TestApplyFilters(t *testing.T) {
 		}...)
 	}
 	applyRun(t, tests, nil)
+}
+
+// photoquery.py:656-664: has_comment and has_likes win over no_comment and
+// no_likes.
+func TestApplyCatalog(t *testing.T) {
+	t.Parallel()
+
+	day := func(uuid string, d int) *photoinfo.PhotoInfo {
+		return &photoinfo.PhotoInfo{UUID: uuid, IsPhoto: true, Date: at("2020-01-01T00:00:00Z").AddDate(0, 0, d), AlbumUUIDs: []string{"AL1"}}
+	}
+	photos := []*photoinfo.PhotoInfo{day("N", 2), day("C", 0), day("L", 1)}
+	albums := []*albuminfo.AlbumInfo{{UUID: "AL1", Title: "A"}}
+	comments, likes := map[string]bool{"C": true, "X": true}, map[string]bool{"L": true, "X": true}
+	c := Catalog{Photos: photos, Albums: albums, Comments: comments, Likes: likes}
+	before, beforeComments, beforeLikes := slices.Clone(photos), maps.Clone(comments), maps.Clone(likes)
+	var photoValues []photoinfo.PhotoInfo
+	for _, p := range photos {
+		photoValues = append(photoValues, *p)
+	}
+
+	all := []string{"C", "L", "N"}
+	for _, tt := range []struct {
+		name string
+		o    Options
+		want []string
+	}{
+		{"has comment", Options{HasComment: true}, []string{"C"}},
+		{"no comment", Options{NoComment: true}, []string{"L", "N"}},
+		{"has comment and no comment", Options{HasComment: true, NoComment: true}, []string{"C"}},
+		{"has likes", Options{HasLikes: true}, []string{"L"}},
+		{"no likes", Options{NoLikes: true}, []string{"C", "N"}},
+		{"has likes and no likes", Options{HasLikes: true, NoLikes: true}, []string{"L"}},
+		{"has comment and has likes", Options{HasComment: true, HasLikes: true}, nil},
+		{"no comment and no likes", Options{NoComment: true, NoLikes: true}, []string{"N"}},
+		{"with an album option", Options{HasComment: true, Album: []string{"A"}}, []string{"C"}},
+		{"none", Options{}, all},
+	} {
+		if got := uuids(ApplyCatalog(tt.o, c)); !slices.Equal(got, tt.want) {
+			t.Errorf("%s: ApplyCatalog = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+
+	// The filters run before the duplicate step (photoquery.py:656-664,
+	// 754-771), so the step brings back the twin they leave out.
+	twins := Catalog{Photos: []*photoinfo.PhotoInfo{flagsTwin("D1"), flagsTwin("D2")},
+		Comments: map[string]bool{"D1": true}, Likes: map[string]bool{"D1": true}}
+	for _, tt := range []struct {
+		name string
+		o    Options
+	}{
+		{"has comment", Options{HasComment: true, Duplicate: true}},
+		{"no comment", Options{NoComment: true, Duplicate: true}},
+		{"has likes", Options{HasLikes: true, Duplicate: true}},
+		{"no likes", Options{NoLikes: true, Duplicate: true}},
+	} {
+		if got := uuids(ApplyCatalog(tt.o, twins)); !slices.Equal(got, []string{"D1", "D2"}) {
+			t.Errorf("%s with duplicate: ApplyCatalog = %q, want [D1 D2]", tt.name, got)
+		}
+	}
+
+	for _, tt := range []struct {
+		name string
+		o    Options
+		want []string
+	}{
+		{"has comment", Options{HasComment: true}, nil},
+		{"no comment", Options{NoComment: true}, all},
+		{"has likes", Options{HasLikes: true}, nil},
+		{"no likes", Options{NoLikes: true}, all},
+		{"album", Options{Album: []string{"A"}}, all},
+	} {
+		got := uuids(Apply(tt.o, photos, albums))
+		if !slices.Equal(got, tt.want) {
+			t.Errorf("%s: Apply = %q, want %q", tt.name, got, tt.want)
+		}
+		if nilMaps := uuids(ApplyCatalog(tt.o, Catalog{Photos: photos, Albums: albums})); !slices.Equal(nilMaps, got) {
+			t.Errorf("%s: ApplyCatalog with nil maps = %q, Apply = %q", tt.name, nilMaps, got)
+		}
+	}
+
+	if !slices.Equal(photos, before) || !maps.Equal(comments, beforeComments) || !maps.Equal(likes, beforeLikes) {
+		t.Error("ApplyCatalog changed its input slice or maps")
+	}
+	for i, p := range photos {
+		if !reflect.DeepEqual(*p, photoValues[i]) {
+			t.Errorf("ApplyCatalog changed photo %s", p.UUID)
+		}
+	}
 }
 
 func TestApplyAlbums(t *testing.T) {

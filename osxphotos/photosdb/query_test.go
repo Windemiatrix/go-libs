@@ -24,42 +24,44 @@ import (
 // as upstream turns "" into None (NORMALIZATION.md). The rules put the values
 // they search for in NFC, as photo_query does (photoquery.py:447-455).
 type queryRef struct {
-	UUID             string          `json:"uuid"`
-	IsPhoto          bool            `json:"isphoto"`
-	IsMovie          bool            `json:"ismovie"`
-	HasAdjustments   bool            `json:"hasadjustments"`
-	Favorite         bool            `json:"favorite"`
-	Hidden           bool            `json:"hidden"`
-	Shared           bool            `json:"shared"`
-	Burst            bool            `json:"burst"`
-	Live             bool            `json:"live_photo"`
-	Screenshot       bool            `json:"screenshot"`
-	CloudAsset       bool            `json:"iscloudasset"`
-	InCloud          *bool           `json:"incloud"`
-	HasRAW           bool            `json:"has_raw"`
-	IsReference      bool            `json:"isreference"`
-	Syndicated       bool            `json:"syndicated"`
-	SavedToLibrary   bool            `json:"saved_to_library"`
-	SharedLibrary    bool            `json:"shared_library"`
-	ExternalEdit     bool            `json:"external_edit"`
-	Portrait         bool            `json:"portrait"`
-	Spatial          int             `json:"spatial"`
-	ScreenRecording  bool            `json:"screen_recording"`
-	SlowMo           bool            `json:"slow_mo"`
-	TimeLapse        bool            `json:"time_lapse"`
-	HDR              bool            `json:"hdr"`
-	Selfie           bool            `json:"selfie"`
-	Panorama         bool            `json:"panorama"`
-	SharedMoment     bool            `json:"shared_moment"`
-	Keywords         []string        `json:"keywords"`
-	Persons          []string        `json:"persons"`
-	Title            string          `json:"title"`
-	Description      string          `json:"description"`
-	OriginalFilename string          `json:"original_filename"`
-	UTIOriginal      string          `json:"uti_original"`
-	AlbumInfo        []queryRefAlbum `json:"album_info"`
-	Latitude         *float64        `json:"latitude"`
-	Longitude        *float64        `json:"longitude"`
+	UUID             string            `json:"uuid"`
+	IsPhoto          bool              `json:"isphoto"`
+	IsMovie          bool              `json:"ismovie"`
+	HasAdjustments   bool              `json:"hasadjustments"`
+	Favorite         bool              `json:"favorite"`
+	Hidden           bool              `json:"hidden"`
+	Shared           bool              `json:"shared"`
+	Burst            bool              `json:"burst"`
+	Live             bool              `json:"live_photo"`
+	Screenshot       bool              `json:"screenshot"`
+	CloudAsset       bool              `json:"iscloudasset"`
+	InCloud          *bool             `json:"incloud"`
+	HasRAW           bool              `json:"has_raw"`
+	IsReference      bool              `json:"isreference"`
+	Syndicated       bool              `json:"syndicated"`
+	SavedToLibrary   bool              `json:"saved_to_library"`
+	SharedLibrary    bool              `json:"shared_library"`
+	ExternalEdit     bool              `json:"external_edit"`
+	Portrait         bool              `json:"portrait"`
+	Spatial          int               `json:"spatial"`
+	ScreenRecording  bool              `json:"screen_recording"`
+	SlowMo           bool              `json:"slow_mo"`
+	TimeLapse        bool              `json:"time_lapse"`
+	HDR              bool              `json:"hdr"`
+	Selfie           bool              `json:"selfie"`
+	Panorama         bool              `json:"panorama"`
+	SharedMoment     bool              `json:"shared_moment"`
+	Keywords         []string          `json:"keywords"`
+	Persons          []string          `json:"persons"`
+	Title            string            `json:"title"`
+	Description      string            `json:"description"`
+	OriginalFilename string            `json:"original_filename"`
+	UTIOriginal      string            `json:"uti_original"`
+	AlbumInfo        []queryRefAlbum   `json:"album_info"`
+	Latitude         *float64          `json:"latitude"`
+	Longitude        *float64          `json:"longitude"`
+	Comments         []json.RawMessage `json:"comments"`
+	Likes            []json.RawMessage `json:"likes"`
 }
 
 // album_info holds the user and the shared albums, as the albums that
@@ -178,6 +180,10 @@ func queryFlagCases() []queryCase {
 			func(r queryRef) bool { return r.InCloud != nil && *r.InCloud }, func(r queryRef) bool { return !r.Shared }},
 		{"has raw", []string{"has_raw"}, func(o *query.Options) { o.HasRAW = true }, nil,
 			func(r queryRef) bool { return r.HasRAW }, nil},
+		{"comment", []string{"comments"}, func(o *query.Options) { o.HasComment = true }, func(o *query.Options) { o.NoComment = true },
+			func(r queryRef) bool { return len(r.Comments) > 0 }, nil},
+		{"likes", []string{"likes"}, func(o *query.Options) { o.HasLikes = true }, func(o *query.Options) { o.NoLikes = true },
+			func(r queryRef) bool { return len(r.Likes) > 0 }, nil},
 		{"reference", []string{"isreference"}, func(o *query.Options) { o.IsReference = true }, func(o *query.Options) { o.NotReference = true },
 			func(r queryRef) bool { return r.IsReference }, nil},
 		{"location", []string{"latitude", "longitude"}, func(o *query.Options) { o.Location = true }, func(o *query.Options) { o.NoLocation = true },
@@ -548,6 +554,46 @@ func querySelection(t *testing.T, db *DB, inQuery, inDeleted []queryRef, skip fu
 	}
 	if len(outsideIDs) == 0 {
 		t.Error("query.json has no photos: the test is vacuous")
+	}
+}
+
+// Upstream: _photosdb_process_comments.py:140-143, photoquery.py:656-664. A
+// photo with only a like or only a comment with empty text has no comment; the
+// references may hold no such photo.
+func TestQueryCommentSets(t *testing.T) {
+	t.Parallel()
+
+	lib := testlib.OpenPristine(t, "synthetic")
+	// Plain photos outside the trash and the bursts, so that Query selects them all.
+	photos := testlib.Rows(t, roDB(t, lib), "SELECT a.ZUUID FROM ZASSET a JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK "+
+		"WHERE a.ZKIND = 0 AND a.ZTRASHEDSTATE = 0 AND a.ZAVALANCHEUUID IS NULL "+
+		"AND NOT EXISTS (SELECT 1 FROM ZCLOUDSHAREDCOMMENT c WHERE a.Z_PK IN (c.ZCOMMENTEDASSET, c.ZLIKEDASSET)) ORDER BY a.ZUUID LIMIT 4")
+	if len(photos) != 4 {
+		t.Fatalf("%d plain photos without comments, want 4", len(photos))
+	}
+	commented, liked, emptyText, none := photos[0], photos[1], photos[2], photos[3]
+	change(t, lib, commentInsert+
+		"(900001, 0, 694224000, 'A comment', NULL, 0, "+commentAssetPK(commented)+", NULL), "+
+		"(900002, 1, 694224000, NULL, NULL, 0, NULL, "+commentAssetPK(liked)+"), "+
+		"(900003, 0, 694224000, '', NULL, 0, "+commentAssetPK(emptyText)+", NULL)")
+	db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		name string
+		o    query.Options
+		want []string
+	}{
+		{"has comment", query.Options{HasComment: true}, []string{commented}},
+		{"no comment", query.Options{NoComment: true}, []string{liked, emptyText, none}},
+		{"has likes", query.Options{HasLikes: true}, []string{liked}},
+		{"no likes", query.Options{NoLikes: true}, []string{commented, emptyText, none}},
+	} {
+		tt.o.UUID = photos
+		if got := slices.Sorted(slices.Values(queryIDs(db.Query(tt.o), nil))); !slices.Equal(got, tt.want) {
+			t.Errorf("%s: Query = %q, want %q", tt.name, got, tt.want)
+		}
 	}
 }
 
