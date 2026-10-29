@@ -66,6 +66,7 @@ linters:
             - "**/osxphotos/photoinfo/**"
             - "**/osxphotos/albuminfo/**"
             - "**/osxphotos/adjustmentsinfo/**"
+            - "**/osxphotos/exifinfo/**"
             - "**/osxphotos/query/**"
             - "**/osxphotos/internal/schema/**"
             - "!$test"

@@ -254,6 +254,9 @@ func readTables(ctx context.Context, src *sqlread.DB, s schema.Schema) (t tables
 	if t.comments, err = src.Comments(ctx); err != nil {
 		return tables{}, err
 	}
+	if t.exif, err = src.Exif(ctx); err != nil {
+		return tables{}, err
+	}
 	// groupMembers and membershipOrder sort; nothing relies on the order of members.
 	t.members = append(t.members, t.shareMembers...)
 	return t, nil
