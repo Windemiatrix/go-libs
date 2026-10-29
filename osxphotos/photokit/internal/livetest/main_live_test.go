@@ -3,11 +3,23 @@
 package livetest
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"os/user"
+	"path/filepath"
+	"syscall"
 	"testing"
+
+	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/photosdb"
 )
+
+// markerPhotos are the photos of the marker album, read before the first call
+// to PhotoKit. The tests get no other photo of the library, so that they
+// cannot touch one outside the album.
+var markerPhotos []*photoinfo.PhotoInfo
 
 // The guard is here and not in each test, so that a test cannot forget it:
 // no call to PhotoKit happens before it passes.
@@ -21,5 +33,37 @@ func TestMain(m *testing.M) {
 		fmt.Println(reason)
 		os.Exit(0)
 	}
+	if reason := readMarkerPhotos(); reason != "" {
+		fmt.Println(reason)
+		os.Exit(0)
+	}
 	os.Exit(m.Run())
+}
+
+func readMarkerPhotos() (reason string) {
+	// PhotoKit works on the system library only: a library chosen by a
+	// variable could pass the guard while PhotoKit acts on another.
+	path, err := photosdb.SystemLibraryPath()
+	if err != nil {
+		// SystemLibraryPath may find no key on macOS 26.
+		home, homeErr := os.UserHomeDir()
+		if homeErr != nil {
+			return "livetest: no home directory"
+		}
+		path = filepath.Join(home, "Pictures", "Photos Library.photoslibrary")
+	}
+	// Open asks for a ctx canceled on SIGINT and SIGTERM, so that an
+	// interrupted Open still removes its copy of the database.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	lib, err := photosdb.Open(ctx, path, photosdb.Options{})
+	stop()
+	if err != nil {
+		return openFailure(err)
+	}
+	album := markerOf(lib.AlbumInfo())
+	if reason = libraryReason(len(lib.Photos()), album != nil); reason != "" {
+		return reason
+	}
+	markerPhotos = lib.AlbumPhotos(album)
+	return ""
 }
