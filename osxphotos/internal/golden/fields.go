@@ -47,8 +47,8 @@ func keysOf(needsAlbums bool) []string {
 // Defaults of upstream for a missing date (photos_datetime.py:19-21 and the
 // 0 of photosdb.py:1937-1938, which is 2001-01-01 in Core Data seconds).
 var (
-	defaultDateAdded    = time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
-	defaultCreationDate = time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
+	defaultDateTimeLocal = time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
+	defaultCreationDate  = time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
 )
 
 func buildRules() map[string]rule {
@@ -81,7 +81,7 @@ func buildRules() map[string]rule {
 		importedBy(),
 
 		zonedDate(),
-		moment("date_added", defaultDateAdded, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateAdded }),
+		moment("date_added", defaultDateTimeLocal, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateAdded }),
 		moment("date_modified", time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateModified }),
 		moment("date_trashed", time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateTrashed }),
 
@@ -299,7 +299,7 @@ func commentsRule[T any](key string, hasText bool, byPhoto func(*env) map[string
 }
 
 func commentElem(date *time.Time, user string, mine bool, text *string) map[string]any {
-	elem := map[string]any{"datetime": goMoment(date, defaultDateAdded), "user": user, "ismine": mine}
+	elem := map[string]any{"datetime": goMoment(date, defaultDateTimeLocal), "user": user, "ismine": mine}
 	if text != nil {
 		elem["text"] = *text
 	}
