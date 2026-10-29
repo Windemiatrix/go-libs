@@ -3,10 +3,12 @@ package golden
 import (
 	"errors"
 	"math"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Windemiatrix/go-libs/osxphotos/exifinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
@@ -43,6 +45,24 @@ func goCanon(t *testing.T, key string, p *photoinfo.PhotoInfo) string {
 		t.Fatal(err)
 	}
 	return s
+}
+
+const zeroExif = `{"aperture":null,"bit_rate":null,"camera_make":"","camera_model":"","codec":"","date":null,"duration":null,` +
+	`"exposure_bias":null,"flash_fired":null,"focal_length":null,"fps":null,"iso":null,"latitude":null,"lens_model":"","longitude":null,` +
+	`"metering_mode":null,"sample_rate":null,"shutter_speed":null,"track_format":null,"tzname":"","tzoffset":null,"white_balance":null}`
+
+// The rule reads the fields of exifinfo.ExifInfo by position.
+func TestExifKeysFollowFields(t *testing.T) {
+	t.Parallel()
+	typ := reflect.TypeFor[exifinfo.ExifInfo]()
+	if typ.NumField() != len(exifKeys) {
+		t.Fatalf("ExifInfo has %d fields, exifKeys %d keys", typ.NumField(), len(exifKeys))
+	}
+	for i, k := range exifKeys {
+		if got, want := strings.ToLower(typ.Field(i).Name), strings.ReplaceAll(k, "_", ""); got != want {
+			t.Errorf("field %d is %s, its key %s", i, typ.Field(i).Name, k)
+		}
+	}
 }
 
 func TestParseMoment(t *testing.T) {
@@ -241,6 +261,28 @@ func TestNormalize(t *testing.T) {
 		{name: "a like with a date that is not a date", key: "likes", raw: `[{"datetime": "SECRET-DATE", "ismine": false, "user": null}]`, wantErr: "likes: want a list of likes"},
 		{name: "a like with a string ismine", key: "likes", raw: `[{"datetime": "2020-06-06T00:00:00+00:00", "ismine": "SECRET-M", "user": null}]`, wantErr: "likes: want a list of likes"},
 
+		{name: "date_original", key: "date_original", raw: `"2020-06-06T19:45:24.725564+05:30"`, want: `["2020-06-06T14:15:24.725564Z",19800]`},
+		{name: "date_original null", key: "date_original", raw: `null`, wantErr: "date_original: want an ISO 8601 string"},
+		{name: "owner", key: "owner", raw: `"A"`, want: `"A"`},
+		{name: "owner null", key: "owner", raw: `null`, want: `""`},
+		{name: "owner number", key: "owner", raw: `5`, wantErr: "owner: want a string or null"},
+
+		{name: "exif_info", key: "exif_info", raw: refExif, want: `{"aperture":1.8,"bit_rate":1000.5,"camera_make":"Acme","camera_model":"Acme One","codec":"hvc1",` +
+			`"date":["2020-06-06T10:00:00Z",19800],"duration":12.25,"exposure_bias":-0.5,"flash_fired":true,"focal_length":4.25,"fps":29.97,"iso":100,` +
+			`"latitude":48.8566,"lens_model":"Acme One 4mm","longitude":2.3522,"metering_mode":5,"sample_rate":48000,"shutter_speed":0.008,` +
+			`"track_format":1,"tzname":"Asia/Kolkata","tzoffset":19800,"white_balance":0}`},
+		{name: "exif_info of a photo without a row", key: "exif_info", raw: refExifNull, want: zeroExif},
+		{name: "exif_info null", key: "exif_info", raw: `null`, wantErr: "exif_info: want an object"},
+		{name: "exif_info list", key: "exif_info", raw: `[]`, wantErr: "exif_info: want an object"},
+		{name: "exif_info empty", key: "exif_info", raw: `{}`, wantErr: "exif_info.flash_fired: want a value (the key is missing)"},
+		{name: "exif_info without tzname", key: "exif_info", raw: strings.Replace(refExifNull, `, "tzname": null`, ``, 1), wantErr: "exif_info.tzname: want a value (the key is missing)"},
+		{name: "exif_info iso as a float", key: "exif_info", raw: strings.Replace(refExif, `"iso": 100`, `"iso": 100.0`, 1), wantErr: "exif_info.iso: want a value of the type"},
+		{name: "exif_info iso as a string", key: "exif_info", raw: strings.Replace(refExif, `"iso": 100`, `"iso": "SECRET-ISO"`, 1), wantErr: "exif_info.iso: want a value of the type"},
+		{name: "exif_info flash_fired as a number", key: "exif_info", raw: strings.Replace(refExif, `"flash_fired": true`, `"flash_fired": 1`, 1), wantErr: "exif_info.flash_fired: want a value of the type"},
+		{name: "exif_info camera_make as a number", key: "exif_info", raw: strings.Replace(refExif, `"camera_make": "Acme"`, `"camera_make": 5`, 1), wantErr: "exif_info.camera_make: want a value of the type"},
+		{name: "exif_info date that is not a date", key: "exif_info", raw: strings.Replace(refExif, `"2020-06-06T15:30:00+05:30"`, `"SECRET-DATE"`, 1), wantErr: "exif_info.date: want an ISO 8601 string"},
+		{name: "exif_info date as a number", key: "exif_info", raw: strings.Replace(refExif, `"2020-06-06T15:30:00+05:30"`, `5`, 1), wantErr: "exif_info.date: want an ISO 8601 string or null"},
+
 		{name: "no key", key: "title", raw: ``, wantErr: "title: want a value (the key is missing)"},
 	}
 	for _, c := range cases {
@@ -294,6 +336,17 @@ func TestNormalizeGoSide(t *testing.T) {
 			}
 		}
 	})
+	t.Run("date_original and the date of exif_info are the moment and the offset of their zone", func(t *testing.T) {
+		t.Parallel()
+		p := &photoinfo.PhotoInfo{DateOriginal: when}
+		p.ExifInfo.Date = ptr(when.In(zones[2]))
+		if got := goCanon(t, "date_original", p); got != `["2020-06-06T14:15:24.725564Z",19800]` {
+			t.Errorf("date_original %s", got)
+		}
+		if got := goCanon(t, "exif_info", p); !strings.Contains(got, `"date":["2020-06-06T14:15:24.725564Z",-25200]`) {
+			t.Errorf("exif_info %s", got)
+		}
+	})
 	t.Run("date_added is a moment in any zone", func(t *testing.T) {
 		t.Parallel()
 		for _, loc := range zones {
@@ -320,6 +373,7 @@ func TestNormalizeGoSide(t *testing.T) {
 			"persons": `[]`, "burst_default_pick": `false`,
 			"adjustment_type": `null`, "imported_by": `["",""]`, "spatial": `0`, "tzname": `""`, "visible": `false`,
 			"import_info": `{}`, "project_info": `[]`, "comments": `[]`, "likes": `[]`,
+			"owner": `""`, "exif_info": zeroExif,
 		}
 		for key, w := range want {
 			if got := goCanon(t, key, p); got != w {
