@@ -8,6 +8,8 @@ import "time"
 // counterpart in osxphotos.
 type PhotoInfo struct {
 	UUID            string
+	PK              int64  // ZASSET.Z_PK: osxphotos _info["pk"], the value of the {id} template field (phototemplate.py:977-978)
+	Owner           string // the full name of the owner of a shared photo, found by CloudOwnerHashedID among the people that give albuminfo.AlbumInfo.Owner (photoinfo.py:1441-1459); "" without an owner or for an owner without a name, where osxphotos has None
 	CloudAssetGUID  string // extension: not in osxphotos — ZASSET.ZCLOUDASSETGUID; "" when absent
 	CloudMasterGUID string // osxphotos cloud_guid
 

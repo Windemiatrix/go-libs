@@ -32,6 +32,8 @@ type Asset struct {
 	ScopeParticipation, ScopeShareState, Scope sql.NullInt64   // ZACTIVELIBRARYSCOPEPARTICIPATIONSTATE, ZLIBRARYSCOPESHARESTATE, ZLIBRARYSCOPE
 	HDRType, DepthType, VisibilityState        sql.NullInt64   // ZHDRTYPE, ZDEPTHTYPE, ZVISIBILITYSTATE
 	CloudOwnerHashedID                         sql.NullString  // ZCLOUDOWNERHASHEDPERSONID
+	Owner                                      sql.NullString  // the full name of the person of CloudOwnerHashedID, as Album.Owner (photoinfo.py:1441-1459); NULL when not found
+	OwnerComponents                            [][]byte        // as Album.OwnerComponents, for CloudOwnerHashedID
 	MomentShare                                sql.NullInt64   // ZMOMENTSHARE
 	SpatialType                                sql.NullInt64   // ZSPATIALTYPE; NULL when ZASSET has no such column
 
@@ -111,6 +113,10 @@ func (d *DB) Assets(ctx context.Context, s schema.Schema) ([]Asset, error) {
 	if slices.Contains(assetCols, "ZSPATIALTYPE") {
 		spatial = "a.ZSPATIALTYPE"
 	}
+	people, err := d.personIndex(ctx)
+	if err != nil {
+		return nil, err
+	}
 	q := "SELECT " + selectList(assetSelect(s)) + ", " + spatial + ` FROM ZASSET a
 LEFT JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK
 LEFT JOIN ZASSETDESCRIPTION d ON d.Z_PK = x.ZASSETDESCRIPTION
@@ -142,6 +148,7 @@ ORDER BY a.ZUUID, a.Z_PK`
 			return err
 		}
 		r.HasAttributes, r.HasMaster = attrPK.Valid, mastPK.Valid
+		r.Owner, r.OwnerComponents = people.name(r.CloudOwnerHashedID.String)
 		out = append(out, r)
 		return nil
 	})

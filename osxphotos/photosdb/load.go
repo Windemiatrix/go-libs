@@ -116,6 +116,8 @@ func load(t tables) (*catalog, error) {
 	for _, m := range t.shareMembers {
 		inShare[m.AssetPK] = true
 	}
+	// Owners are memoized by ID: personName would decode their ZSHAREPARTICIPANT archives again for every photo.
+	owners := map[string]string{}
 
 	c := &catalog{byUUID: make(map[string]*photoinfo.PhotoInfo, len(t.assets))}
 	var noUUID, dupUUID int
@@ -133,6 +135,11 @@ func load(t tables) (*catalog, error) {
 			continue
 		}
 		p := photo(a, resources[a.PK])
+		id := a.CloudOwnerHashedID.String
+		if _, ok := owners[id]; !ok {
+			owners[id] = personName(a.Owner, a.OwnerComponents)
+		}
+		p.Owner = owners[id]
 		if local, ok := available[p.UUID]; ok {
 			p.IsMissing = !is(local, localAvailable)
 		}
@@ -162,6 +169,7 @@ func load(t tables) (*catalog, error) {
 func photo(a sqlread.Asset, res []sqlread.Resource) *photoinfo.PhotoInfo {
 	p := &photoinfo.PhotoInfo{
 		UUID:           a.UUID.String,
+		PK:             a.PK,
 		CloudAssetGUID: a.CloudAssetGUID.String,
 		Fingerprint:    a.Fingerprint.String,
 
