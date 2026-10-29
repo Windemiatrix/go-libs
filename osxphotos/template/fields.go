@@ -7,7 +7,7 @@ import "strings"
 var never = set("exiftool function detected_text osxphotos_cmd_line")
 
 // Fields of upstream, by the name before the first ".", not rendered yet.
-var later = set("shell_quote format counter album_seq folder_album_seq")
+var later = set("format counter album_seq folder_album_seq")
 
 // PUNCTUATION (phototemplate.py:345-363).
 var punctuation = map[string]string{

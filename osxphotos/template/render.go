@@ -15,8 +15,8 @@ import (
 // none for an empty template (509-511). unmatched are the names that upstream
 // does not have (881-883); the statement up to such a name gives no strings (661).
 // A field that upstream has but p does not give, and the never ported
-// {exiftool}, {function}, {detected_text} and {osxphotos_cmd_line}, give an error
-// that wraps ErrUnsupportedField and names the field; a part of the language not
+// {exiftool}, {function}, {detected_text}, {osxphotos_cmd_line} and the filter function:,
+// give an error that wraps ErrUnsupportedField and names the field; a part of the language not
 // ported yet, ErrUnsupportedConstruct; more than o.MaxResults strings, or more than
 // 16 MiB of strings built, ErrTooManyValues; a SyntaxError or ValueError of upstream, or
 // variables that do not settle, ErrRender. The variables of {var} live for one Render.
@@ -136,13 +136,12 @@ func (s *rendering) field(f *Field) ([]string, bool, error) {
 		return nil, ok, err
 	}
 	if (s.o.ExpandInplace || f.Delim != nil) && len(vals) > 0 {
-		if s.bytesLeft -= len(sep) * len(vals); s.bytesLeft < 0 {
-			return nil, false, errTooLong
+		if vals, err = s.join(vals, sep); err != nil {
+			return nil, false, err
 		}
-		vals = []string{strings.Join(vals, sep)}
 	}
-	if len(f.Filters) > 0 {
-		return nil, false, unsupported(ErrUnsupportedConstruct, "filter "+f.Filters[0])
+	if vals, err = s.filters(f.Filters, vals); err != nil {
+		return nil, false, err
 	}
 	for i := range vals {
 		for _, pair := range f.FindReplace { // phototemplate.py:672-683
@@ -188,7 +187,7 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 	name := f.Name
 	stem, part, dotted := strings.Cut(name, ".")
 	switch {
-	case !upstreamField(name, stem): // ahead of later: upstream puts shell_quote.x in unmatched (849-883)
+	case !upstreamField(name, stem): // ahead of later: upstream puts format.x in unmatched (849-883)
 		s.unmatched = append(s.unmatched, name)
 		return nil, false, nil
 	case later[stem], pathFields[stem] && dotted,
@@ -215,6 +214,9 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 			out[i] = strings.TrimFunc(v, isSpace)
 		}
 		return out, true, nil
+	case name == "shell_quote": // phototemplate.py:1340-1341
+		out := slices.DeleteFunc(slices.Clone(def), func(v string) bool { return v == "" })
+		return out, true, s.each(out, shellQuote)
 	}
 	v, ok := s.p.Field(name)
 	if !ok {

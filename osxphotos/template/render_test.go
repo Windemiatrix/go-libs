@@ -142,7 +142,9 @@ func renderCases() []renderCase {
 		{"t174 keywords", "{keyword&{album}?T,F}", ex(), RenderOptions{}, []string{"T"}, nil},
 		// The combined {album} renders "_" without albums, so the bool value is taken.
 		{"t174", "{keyword&{album}?T,F}", with(with(ex(), "keyword", none), "album", none), RenderOptions{}, []string{"T"}, nil},
-		{"t175 without the filter", "{; +keyword[a,b]&{album}?Y,N}", ex(), RenderOptions{}, []string{"Y"}, nil},
+		{"t175", "{; +keyword|lower[a,b]&{album}?Y,N}", ex(), RenderOptions{}, []string{"Y"}, nil},
+		// phototemplate.py:669-670, 765-766
+		{"filters do not touch combine", "{keyword|upper&{album}}", ex(), RenderOptions{}, []string{"FOO", "BAR", "Album1"}, nil},
 		// fields without photo data
 		{"strip", "{strip,  padded  }", fakePhoto{}, RenderOptions{}, []string{"padded"}, nil},
 		{"strip of every value", "{strip,{keyword}}", with(ex(), "keyword", strs(" a ", "\U0000001cb\t")), RenderOptions{}, []string{"a", "b"}, nil},
@@ -175,7 +177,7 @@ func renderCases() []renderCase {
 		{"unmatched in default", "{title,{nosuch}}", with(ex(), "title", none), RenderOptions{}, []string{"_"}, []string{"nosuch"}},
 		{"unmatched dotted", "{album.x}", ex(), RenderOptions{}, nil, []string{"album.x"}},
 		// shell_quote is multi-valued: upstream matches its name whole (phototemplate.py:875)
-		{"unmatched dotted not rendered yet", "{shell_quote.x}", ex(), RenderOptions{}, nil, []string{"shell_quote.x"}},
+		{"unmatched dotted multi-valued", "{shell_quote.x}", ex(), RenderOptions{}, nil, []string{"shell_quote.x"}},
 	}
 }
 
@@ -271,7 +273,6 @@ func TestRenderErrors(t *testing.T) {
 		{"{media_type}", missing, ErrUnsupportedField, "media_type"},
 		{"{folder_album}", missing, ErrUnsupportedField, "folder_album"},
 		{"x{keyword,{title}}", missing, ErrUnsupportedField, "title"},
-		{"{keyword|lower}", missing, ErrUnsupportedConstruct, "lower"},
 		{"{id:05d}", missing, ErrUnsupportedConstruct, "id"},
 		// variables (phototemplate.py:643-656, 793-837)
 		{"{%a}", missing, ErrRender, `"a"`},
@@ -295,6 +296,7 @@ func TestRenderErrors(t *testing.T) {
 		// the condition drops the joined string, so only the join can count it
 		{"{var:a,x}" + strings.Repeat("{var:a,{%a&{%a}}}", 13) + "{var:s,x}" + strings.Repeat("{var:s,{%s}{%s}}", 12) + "{%s+%a contains q?Y,N}",
 			missing, ErrTooManyValues, "bytes"},
+		{"{,+keyword?Y,N}", keywords(slices.Repeat([]string{strings.Repeat("a", 1<<20)}, 20)...), ErrTooManyValues, "bytes"},
 		// conditions (phototemplate.py:705-725)
 		{"{keyword > x}", missing, ErrRender, ">"},
 		{"{id > {nosuch}?Y,N}", conditionPhoto(), ErrRender, ">"},
@@ -318,7 +320,6 @@ func TestRenderErrors(t *testing.T) {
 		{"{today.nope}", missing, ErrRender, "today.nope"},
 		{"{created.}", missing, ErrRender, "created."},
 		{"{today.}", missing, ErrRender, "today."},
-		{"{shell_quote,x}", missing, ErrUnsupportedConstruct, "shell_quote"},
 		{"{format:int:05d,42}", missing, ErrUnsupportedConstruct, "format"},
 		{"{counter}", missing, ErrUnsupportedConstruct, "counter"},
 		{"{counter.a}", missing, ErrUnsupportedConstruct, "counter.a"},
@@ -347,8 +348,9 @@ func TestRenderErrors(t *testing.T) {
 func TestRenderErrorHidesValues(t *testing.T) {
 	t.Parallel()
 	for in, keyword := range map[string]string{
-		"{keyword < 9?Y,N}":                "Holidays",
-		"{var:k,{keyword}}{keyword[o,%k]}": "%Holidays",
+		"{keyword < 9?Y,N}":                   "Holidays",
+		"{var:k,{keyword}}{keyword[o,%k]}":    "%Holidays",
+		"{var:k,{keyword}}{keyword|join(%k)}": "%Holidays",
 	} {
 		_, _, err := render(t, in, with(conditionPhoto(), "keyword", strs(keyword)), RenderOptions{})
 		if !errors.Is(err, ErrRender) || strings.Contains(fmt.Sprint(err), "Holidays") {
@@ -457,7 +459,8 @@ func TestRenderConditions(t *testing.T) {
 		{"md103", "{keyword matches Beach}", c(), o, []string{"True"}, nil},
 		{"matches is equality", "{keyword matches Beac}", c(), o, []string{"_"}, nil},
 		{"md104", "{keyword contains Beach}", c(), o, []string{"True"}, nil},
-		{"md111 without the filter", "{keyword matches travel|vacation?T,F}", c(), o, []string{"T"}, nil},
+		{"md106", "{keyword|lower contains beach}", c(), o, []string{"True"}, nil},
+		{"md111", "{keyword|lower matches travel|vacation?T,F}", c(), o, []string{"T"}, nil},
 		{"no alternative matches", "{keyword matches vacation|holiday?T,F}", c(), o, []string{"F"}, nil},
 		{"contains an alternative", "{keyword contains Sea|Day?Y,N}", c(), o, yes, nil},
 		// t102-t109
@@ -668,6 +671,7 @@ func TestRenderRace(t *testing.T) {
 		"{keyword contains foo?{title},none}",
 		"{title}/{folder_album}/{today.year}",
 		"{var:d,-}{%d+keyword}",
+		"{keyword|lower|upper|titlecase|capitalize}",
 	} {
 		tmpl, err := Parse(in)
 		if err != nil {
