@@ -1,5 +1,6 @@
-// Package uti maps file name extensions to Uniform Type Identifiers with
-// the table of osxphotos (uti.py:40-514). Data only.
+// Package uti maps file name extensions to Uniform Type Identifiers, and
+// back to their preferred extensions, with the table of osxphotos
+// (uti.py:40-514). Data only.
 package uti
 
 import (
@@ -9,19 +10,21 @@ import (
 
 // Read as csv.DictReader of uti.py:521-526 reads it: the first line is the
 // header, the number of fields is not checked, and of two lines with one
-// extension the last one wins.
-var table = func() map[string]string {
+// extension, or with one UTI, the last one wins.
+var table, extByUTI = func() (map[string]string, map[string]string) {
 	r := csv.NewReader(strings.NewReader(utiCSV))
 	r.FieldsPerRecord = -1
 	recs, err := r.ReadAll()
 	if err != nil {
 		panic(err) // utiCSV is a constant: an error fails every test of the package
 	}
-	m := make(map[string]string, len(recs))
+	exts := make(map[string]string, len(recs))
+	prefs := make(map[string]string, len(recs))
 	for _, rec := range recs[1:] {
-		m[rec[0]] = rec[1]
+		exts[rec[0]] = rec[1]
+		prefs[rec[1]] = rec[2]
 	}
-	return m
+	return exts, prefs
 }()
 
 // ForExtension returns the UTI of ext, with or without the leading ".",
