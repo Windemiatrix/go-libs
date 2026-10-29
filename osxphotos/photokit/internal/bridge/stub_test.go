@@ -22,4 +22,7 @@ func TestStubNotSupported(t *testing.T) {
 	if got, err := b.FetchBurst("id", true); got != nil || !errors.Is(err, ErrNotSupported) {
 		t.Errorf("FetchBurst = %v, %v; want ErrNotSupported", got, err)
 	}
+	if got, err := b.AssetResources("id"); got != nil || !errors.Is(err, ErrNotSupported) {
+		t.Errorf("AssetResources = %v, %v; want ErrNotSupported", got, err)
+	}
 }

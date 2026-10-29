@@ -21,6 +21,30 @@ import (
 // cannot touch one outside the album.
 var markerPhotos []*photoinfo.PhotoInfo
 
+// markerBursts holds the burst of each burst photo of markerPhotos by its
+// UUID. Only counts are kept: the frames may lie outside the album.
+var markerBursts map[string]burstFrames
+
+// frames are those outside the trash, where PhotoKit finds none. unpicked is
+// a frame that FetchBurst leaves out without all: one with a pick type (0 is
+// a single image with a burst UUID) that is neither selected, the key photo
+// nor the default pick (photosdb.py:3347-3351, _constants.py:676-681).
+type burstFrames struct {
+	frames   int
+	unpicked bool
+}
+
+func framesOf(burst []*photoinfo.PhotoInfo) burstFrames {
+	var b burstFrames
+	for _, f := range burst {
+		if !f.InTrash {
+			b.frames++
+			b.unpicked = b.unpicked || (f.BurstPickType != 0 && !f.BurstSelected && !f.BurstKey && !f.BurstDefaultPick)
+		}
+	}
+	return b
+}
+
 // The guard is here and not in each test, so that a test cannot forget it:
 // no call to PhotoKit happens before it passes.
 func TestMain(m *testing.M) {
@@ -65,5 +89,11 @@ func readMarkerPhotos() (reason string) {
 		return reason
 	}
 	markerPhotos = lib.AlbumPhotos(album)
+	markerBursts = map[string]burstFrames{}
+	for _, p := range markerPhotos {
+		if p.Burst {
+			markerBursts[p.UUID] = framesOf(append([]*photoinfo.PhotoInfo{p}, lib.BurstPhotos(p)...))
+		}
+	}
 	return ""
 }

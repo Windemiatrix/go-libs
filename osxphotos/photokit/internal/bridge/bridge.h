@@ -29,3 +29,15 @@ typedef struct {
 pk_result pk_fetch_assets(const char *const *ids, int64_t n, pk_asset **out, int *count);
 pk_result pk_fetch_burst(const char *burst_id, bool include_all, pk_asset **out, int *count);
 void pk_free_assets(pk_asset *assets, int count);
+
+// A string is NULL when PhotoKit gives none; type is a keyword in Go.
+typedef struct {
+	char *original_filename, *uti;
+	int resource_type;
+} pk_resource;
+
+// Finds a hidden asset too. *out holds the *count resources of the asset
+// local_id in the order of PhotoKit, or is NULL with *count 0 on an error or
+// when there is no such asset; pk_free_resources frees it in every case.
+pk_result pk_asset_resources(const char *local_id, pk_resource **out, int *count);
+void pk_free_resources(pk_resource *resources, int count);
