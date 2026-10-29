@@ -18,6 +18,8 @@ const attempts = 3
 type DB struct {
 	db  *sql.DB
 	dir string // the copy directory, removed by Close
+
+	people *personIndex // read once by the first of Albums, CollectionShares and Comments
 }
 
 // Tests set afterCopy to damage one attempt (attempts count from 1);

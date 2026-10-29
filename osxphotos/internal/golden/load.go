@@ -180,7 +180,7 @@ func orderKeyOf(obj Object) (orderKey, error) {
 		return orderKey{}, err
 	}
 	if added == nil {
-		added = &defaultDateAdded
+		added = &defaultDateTimeLocal
 	}
 	uuid, err := decode[string](obj, "uuid", false, "a string")
 	if err != nil {
