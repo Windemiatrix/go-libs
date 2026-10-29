@@ -88,41 +88,90 @@ func (s *rendering) field(f *Field) ([]string, bool, error) {
 	if never[f.Name] {
 		return nil, false, unsupported(ErrUnsupportedField, f.Name)
 	}
-	vals, ok, err := s.values(f)
+	var parts [3][]string // phototemplate.py:577-622
+	for i, t := range []*Template{f.Combine, f.Bool, f.Default} {
+		var err error
+		if t != nil && len(t.Segments) == 0 {
+			parts[i] = []string{""}
+		} else if t != nil {
+			if parts[i], err = s.statement(t); err != nil {
+				return nil, false, err
+			}
+		}
+	}
+	combine, boolVal, def := parts[0], parts[1], parts[2]
+	vals, ok, err := s.values(f, def)
 	if err != nil || !ok {
 		return nil, ok, err
-	}
-	// rendering {title,x} as {title} would be a wrong value, not an error
-	if f.Combine != nil || f.Bool != nil || f.Default != nil || len(f.Filters) > 0 || len(f.FindReplace) > 0 || f.Conditional != nil {
-		return nil, false, unsupported(ErrUnsupportedConstruct, "a part of "+f.Name)
 	}
 	if (s.o.ExpandInplace || f.Delim != nil) && len(vals) > 0 {
 		vals = []string{strings.Join(vals, *cmp.Or(f.Delim, &s.o.InplaceSep))}
 	}
-	if len(vals) == 0 {
+	if len(f.Filters) > 0 {
+		return nil, false, unsupported(ErrUnsupportedConstruct, "filter "+f.Filters[0])
+	}
+	for i := range vals {
+		for _, pair := range f.FindReplace {
+			vals[i] = strings.ReplaceAll(vals[i], pair.Find, pair.Replace)
+		}
+	}
+	if f.Conditional != nil {
+		return nil, false, unsupported(ErrUnsupportedConstruct, "operator "+f.Conditional.Operator)
+	}
+	for _, v := range combine {
+		if v != "" {
+			vals = append(vals, v)
+		}
+	}
+	switch {
+	case f.Bool != nil && len(vals) > 0:
+		vals = boolVal
+	case f.Bool != nil, len(vals) == 0 && len(def) > 0:
+		vals = def
+	case len(vals) == 0:
 		vals = []string{s.o.NoneStr}
 	}
 	return vals, true, nil
 }
 
-// values is get_field_values (phototemplate.py:839-884).
-func (s *rendering) values(f *Field) ([]string, bool, error) {
+// values is get_field_values (phototemplate.py:839-884); the caller may change
+// the slice it returns.
+func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 	name := f.Name
-	stem, _, _ := strings.Cut(name, ".")
+	stem, _, dotted := strings.Cut(name, ".")
 	switch {
 	case name == "var" || strings.HasPrefix(name, "%"): // before get_field_values (phototemplate.py:643-656)
 		return nil, false, unsupported(ErrUnsupportedConstruct, name)
 	case !upstreamField(name, stem): // ahead of later: upstream puts shell_quote.x in unmatched (849-883)
 		s.unmatched = append(s.unmatched, name)
 		return nil, false, nil
-	case later[stem], name == "id" && f.Subfield != "":
+	case later[stem], pathFields[stem] && dotted,
+		f.Default != nil && (name == "media_type" || name == "photo_or_video"), name == "id" && f.Subfield != "":
 		return nil, false, unsupported(ErrUnsupportedConstruct, name)
+	case punctuation[name] != "":
+		return []string{punctuation[name]}, true, nil
+	case name == "osxphotos_version":
+		return []string{UpstreamVersion}, true, nil
+	case name == "edited_version" && s.o.EditedVersion:
+		return []string{name}, true, nil
+	case name == "edited_version":
+		return nil, true, nil
+	case name == "export_dir":
+		return []string{cmp.Or(s.o.ExportDir, "None")}, true, nil
+	case name == "filepath":
+		return []string{cmp.Or(s.o.Filepath, "None")}, true, nil
+	case name == "strip":
+		out := make([]string, len(def))
+		for i, v := range def {
+			out[i] = strings.TrimFunc(v, isSpace)
+		}
+		return out, true, nil
 	}
 	v, ok := s.p.Field(name)
 	if !ok {
 		return nil, false, unsupported(ErrUnsupportedField, name)
 	}
-	vals := v.Strings
+	vals := slices.Clone(v.Strings)
 	if v.Int != nil {
 		vals = append(vals, strconv.FormatInt(*v.Int, 10))
 	}

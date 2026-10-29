@@ -7,9 +7,14 @@ import "strings"
 var never = set("exiftool function detected_text osxphotos_cmd_line")
 
 // Fields of upstream, by the name before the first ".", not rendered yet.
-var later = set(`created modified today shell_quote format counter album_seq folder_album_seq comma semicolon pipe percent
-	ampersand openbrace closebrace openparens closeparens openbracket closebracket questionmark newline lf cr crlf tab
-	osxphotos_version edited_version export_dir filepath strip`)
+var later = set("created modified today shell_quote format counter album_seq folder_album_seq")
+
+// PUNCTUATION (phototemplate.py:345-363).
+var punctuation = map[string]string{
+	"comma": ",", "semicolon": ";", "pipe": "|", "percent": "%", "ampersand": "&", "openbrace": "{",
+	"closebrace": "}", "openparens": "(", "closeparens": ")", "openbracket": "[", "closebracket": "]",
+	"questionmark": "?", "newline": "\n", "lf": "\n", "cr": "\r", "crlf": "\r\n", "tab": "\t",
+}
 
 // TEMPLATE_SUBSTITUTIONS (phototemplate.py:73-227) but the names whose part
 // before the first "." is a name too, which get_field_values matches (851).
