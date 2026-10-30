@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "_cgo_export.h"
 #include "bridge.h"
 
 // photokit maps these numbers in Go, where the PhotoKit headers cannot be
@@ -203,17 +204,21 @@ void pk_free_assets(pk_asset *assets, int count) {
 	free(assets);
 }
 
+static NSArray<PHAssetResource *> *pk_resources(const char *local_id) {
+	// A string that is not UTF-8 names no asset, and @[nil] would raise.
+	NSString *identifier = [NSString stringWithUTF8String:local_id];
+	NSArray<NSString *> *identifiers = identifier != nil ? @[ identifier ] : @[];
+	PHAsset *asset = [PHAsset fetchAssetsWithLocalIdentifiers:identifiers options:pk_fetch_options()].firstObject;
+	return asset != nil ? [PHAssetResource assetResourcesForAsset:asset] : nil;
+}
+
 pk_result pk_asset_resources(const char *local_id, pk_resource **out, int *count) {
 	pk_result r = {PK_OK, NULL};
 	*out = NULL;
 	*count = 0;
 	@autoreleasepool {
 		@try {
-			// A string that is not UTF-8 names no asset, and @[nil] would raise.
-			NSString *identifier = [NSString stringWithUTF8String:local_id];
-			NSArray<NSString *> *identifiers = identifier != nil ? @[ identifier ] : @[];
-			PHAsset *asset = [PHAsset fetchAssetsWithLocalIdentifiers:identifiers options:pk_fetch_options()].firstObject;
-			NSArray<PHAssetResource *> *resources = asset != nil ? [PHAssetResource assetResourcesForAsset:asset] : nil;
+			NSArray<PHAssetResource *> *resources = pk_resources(local_id);
 			if (resources.count > 0) {
 				*out = calloc(resources.count, sizeof(pk_resource));
 				if (*out == NULL) {
@@ -243,4 +248,62 @@ void pk_free_resources(pk_resource *resources, int count) {
 		free(resources[i].uti);
 	}
 	free(resources);
+}
+
+// _request_resource_data (photokit.py:693-736). The handlers may run on queues
+// of PhotoKit after this function has returned, so they hold only handle, a
+// number: C keeps no pointer of Go. The request is the last call of the @try:
+// after an exception no handler runs, and Go forgets the handle.
+pk_result pk_request_resource(const char *local_id, int64_t type, uintptr_t handle, int32_t *request_id) {
+	pk_result r = {PK_NO_RESOURCE, NULL};
+	@autoreleasepool {
+		@try {
+			for (PHAssetResource *resource in pk_resources(local_id)) {
+				if (resource.type != type) {
+					continue;
+				}
+				PHAssetResourceRequestOptions *options = [[PHAssetResourceRequestOptions alloc] init];
+				// An original kept only in iCloud is downloaded (photokit.py:705).
+				options.networkAccessAllowed = YES;
+				// extension: not in osxphotos; it feeds ExportOptions.Progress.
+				options.progressHandler = ^(double progress) {
+					@autoreleasepool {
+						pk_go_progress(handle, progress);
+					}
+				};
+				*request_id = [[PHAssetResourceManager defaultManager] requestDataForAssetResource:resource
+					options:options
+					dataReceivedHandler:^(NSData *data) {
+						// Go copies the bytes before it returns; data is not kept.
+						@autoreleasepool {
+							pk_go_write(handle, (void *)data.bytes, data.length);
+						}
+					}
+					completionHandler:^(NSError *error) {
+						// A message to a nil error gives 0. A domain whose UTF8String
+						// is NULL must still fail the request. The description is left
+						// out: it may name a file.
+						@autoreleasepool {
+							pk_go_done(handle, error.code, error == nil ? NULL : (char *)(error.domain.UTF8String ?: ""));
+						}
+					}];
+				r.code = PK_OK;
+				break;
+			}
+		} @catch (NSException *e) {
+			r = pk_exception(e);
+		}
+	}
+	return r;
+}
+
+// cancelDataRequest: of an ended request does nothing, so a Cancel that races the completion is harmless.
+void pk_cancel_resource(int32_t request_id) {
+	@autoreleasepool {
+		@try {
+			[[PHAssetResourceManager defaultManager] cancelDataRequest:request_id];
+		} @catch (NSException *e) {
+			// An exception must not unwind into Go; Export stops waiting after its grace.
+		}
+	}
 }
