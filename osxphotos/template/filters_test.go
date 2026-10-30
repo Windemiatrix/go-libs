@@ -74,6 +74,7 @@ func TestFilters(t *testing.T) {
 		{"lower.x", "{keyword|lower.x}", k(), o, one("_"), nil},
 		{"int:y", "{keyword|int:y}", k(), o, one("_"), nil},
 		{"function without a colon", "{keyword|function}", k(), o, one("_"), nil},
+		{"lower.path", "{keyword|lower.path}", k(), o, one("_"), nil},
 		// after delim, before [find,replace] (phototemplate.py:665-683)
 		{"after delim", "{,+keyword|upper}", k(), o, one("FOO,BAR,FOO,BAZ"), nil},
 		{"sort after delim", "{,+keyword|sort}", k(), o, one("Foo,bar,Foo,baz"), nil},
@@ -155,9 +156,19 @@ func TestFilterErrors(t *testing.T) {
 		// int(float("inf")) raises OverflowError, which values_to_int does not catch (1725-1731)
 		{"{var:i,inf}{%i|int}", ErrRender, "int"},
 		{"{var:i,-1e400}{%i|split(;)|int}", ErrRender, "int"},
-		{"{keyword|path}", ErrUnsupportedConstruct, "path"},
-		{"{keyword|path.stem}", ErrUnsupportedConstruct, "path.stem"},
-		{"{keyword|path:x}", ErrUnsupportedConstruct, "path:x"},
+		// get_template_values_pathlib checks the properties before any value (phototemplate.py:1837-1843)
+		{"{keyword|path.suffixes}", ErrUnsupportedConstruct, "path.suffixes"},
+		{"{keyword|path.parts}", ErrUnsupportedConstruct, "path.parts"},
+		{"{keyword|path.parent.parts}", ErrUnsupportedConstruct, "path.parent.parts"},
+		{"{keyword|path.parents}", ErrRender, "path.parents"},
+		{"{keyword|path.exists}", ErrRender, "path.exists"},
+		{"{keyword|path.x.y}", ErrRender, "path.x.y"},
+		{"{keyword|path.name.x}", ErrRender, "path.name.x"},
+		{"{keyword|path.}", ErrRender, "path."},
+		{"{keyword|path.stem:x}", ErrRender, "path.stem:x"},
+		// an error whatever the values, where upstream gives none (UPSTREAM.md)
+		{"{descr|path.suffixes}", ErrUnsupportedConstruct, "path.suffixes"},
+		{"{descr|path.exists}", ErrRender, "path.exists"},
 	} {
 		t.Run(tt.in, func(t *testing.T) {
 			t.Parallel()
@@ -199,6 +210,12 @@ func TestFilterBounds(t *testing.T) {
 		{"{title" + strings.Repeat("|sslice(0:)", 17) + "?Y,N}", fakePhoto{"title": strs(mib)}, ErrTooManyValues},
 		{"{title" + strings.Repeat("|chop(1)", 17) + "?Y,N}", fakePhoto{"title": strs(mib)}, ErrTooManyValues},
 		{"{title" + strings.Repeat("|chomp(-1048576)", 17) + "?Y,N}", fakePhoto{"title": strs(mib)}, ErrTooManyValues},
+		{"{title" + strings.Repeat("|path", 15) + "?Y,N}", fakePhoto{"title": strs(mib)}, nil},
+		{"{title" + strings.Repeat("|path", 17) + "?Y,N}", fakePhoto{"title": strs(mib)}, ErrTooManyValues},
+		{"{title" + strings.Repeat("|path.name", 17) + "?Y,N}", fakePhoto{"title": strs(mib)}, ErrTooManyValues},
+		// each step of a property chain splits the path again
+		{"{title|path" + strings.Repeat(".parent", 14) + "?Y,N}", fakePhoto{"title": strs(strings.Repeat("a/", 1<<19))}, nil},
+		{"{title|path" + strings.Repeat(".parent", 17) + "?Y,N}", fakePhoto{"title": strs(strings.Repeat("a/", 1<<19))}, ErrTooManyValues},
 		// int(1e300) has 301 digits: 10000 of them are 3 MB
 		{"{keyword" + strings.Repeat("|int", 5) + "?Y,N}", keywords(slices.Repeat([]string{"1e300"}, DefaultMaxResults)...), nil},
 		{"{keyword" + strings.Repeat("|int", 6) + "?Y,N}", keywords(slices.Repeat([]string{"1e300"}, DefaultMaxResults)...), ErrTooManyValues},
@@ -386,6 +403,86 @@ func TestPyFloatRepr(t *testing.T) {
 	} {
 		if got := pyFloatRepr(tt.f); got != tt.want {
 			t.Errorf("pyFloatRepr(%v) = %q, want %q", tt.f, got, tt.want)
+		}
+	}
+}
+
+func TestPathlib(t *testing.T) {
+	t.Parallel()
+	k := func() fakePhoto {
+		return keywords("/a/b/file.tar.gz", "file", ".bashrc", "file.", "/", "a", "", "..", "//a/b")
+	}
+	o, none := RenderOptions{}, fakePhoto{}
+	file := RenderOptions{Filepath: "/export/IMG_0001.HEIC"}
+	one := func(s string) []string { return []string{s} }
+	checkRender(t, []renderCase{
+		// str(pathlib.Path(v)) (phototemplate.py:1853)
+		{"path", "{keyword|path}", keywords("a//b/", "./a/../b", "//a", "///a", "", "/", "a/./b/.", "//"), o,
+			[]string{"a/b", "a/../b", "//a", "/a", ".", "/", "a/b", "//"}, nil},
+		{"path ignores its arguments", "{keyword|path(x)}", keywords("a//b"), o, one("a/b"), nil},
+		{"path:x is path", "{keyword|path:x}", keywords("a//b"), o, one("a/b"), nil},
+		{"path of no values", "{descr|path}", keywords(), o, one("_"), nil},
+		// the properties (phototemplate.py:1837-1851)
+		{"path.name", "{keyword|path.name}", k(), o, []string{"file.tar.gz", "file", ".bashrc", "file.", "", "a", "", "..", "b"}, nil},
+		{"path.stem", "{keyword|path.stem}", k(), o, []string{"file.tar", "file", ".bashrc", "file.", "", "a", "", "..", "b"}, nil},
+		{"path.suffix", "{keyword|path.suffix}", k(), o, []string{".gz", "", "", "", "", "", "", "", ""}, nil},
+		{"path.parent", "{keyword|path.parent}", k(), o, []string{"/a/b", ".", ".", ".", "/", ".", ".", ".", "//a"}, nil},
+		{"path.parent.name", "{keyword|path.parent.name}", k(), o, []string{"b", "", "", "", "", "", "", "", "a"}, nil},
+		{"path.parent.parent", "{keyword|path.parent.parent}", keywords("/a/b/c", "a/b", "//a/b"), o, []string{"/a", ".", "//"}, nil},
+		{"path:x.stem", "{keyword|path:x.stem}", keywords("/a/b.c"), o, one("b"), nil},
+		{"path.anchor", "{keyword|path.anchor}", keywords("/a", "a", "//a", "///a", ""), o, []string{"/", "", "//", "/", ""}, nil},
+		{"path.root", "{keyword|path.root}", keywords("/a", "a", "//a"), o, []string{"/", "", "//"}, nil},
+		{"path.drive", "{keyword|path.drive}", keywords("/a"), o, one(""), nil},
+		// a property after a string reads the path of that string, as the field form does (1643-1647)
+		{"path.name.stem", "{keyword|path.name.stem}", keywords("/a/file.tar.gz"), o, one("file.tar"), nil},
+		{"path.stem.suffix", "{keyword|path.stem.suffix}", keywords("/a/file.tar.gz"), o, one(".tar"), nil},
+		{"path.suffix.parent", "{keyword|path.suffix.parent}", keywords("/a/file.gz"), o, one("."), nil},
+		// the fields (phototemplate.py:1016-1044, 1631-1654)
+		{"filepath.stem", "{filepath.stem}", none, file, one("IMG_0001"), nil},
+		{"filepath.suffix", "{filepath.suffix}", none, file, one(".HEIC"), nil},
+		{"filepath.parent", "{filepath.parent}", none, file, one("/export"), nil},
+		{"filepath.parent.name", "{filepath.parent.name}", none, file, one("export"), nil},
+		{"filepath.parent.stem", "{filepath.parent.stem}", none, RenderOptions{Filepath: "/a/b.d/c.jpg"}, one("b"), nil},
+		{"filepath.suffix of a dot file", "{filepath.suffix}", none, RenderOptions{Filepath: "/a/.bashrc"}, one(""), nil},
+		{"filepath is not normalized", "{filepath}", none, RenderOptions{Filepath: "./a//b/"}, one("./a//b/"), nil},
+		{"filepath.parent normalizes", "{filepath.parent}", none, RenderOptions{Filepath: "./a//b/"}, one("a"), nil},
+		{"export_dir.name", "{export_dir.name}", none, RenderOptions{ExportDir: "/x/y/"}, one("y"), nil},
+		{"filepath.anchor", "{filepath.anchor}", none, file, one("/"), nil},
+		// RenderOptions.Quote (phototemplate.py:1641, 1652)
+		{"filepath with Quote", "{filepath}", none, RenderOptions{Filepath: "/a b/c.jpg", Quote: true}, one("'/a b/c.jpg'"), nil},
+		{"filepath.stem with Quote", "{filepath.stem}", none, RenderOptions{Filepath: "/x/my file.jpg", Quote: true}, one("'my file'"), nil},
+		{"export_dir.parent with Quote", "{export_dir.parent}", none, RenderOptions{ExportDir: "/it's/x", Quote: true},
+			one(`'/it'"'"'s'`), nil},
+		{"a safe name with Quote", "{filepath.name}", none, RenderOptions{Filepath: "/x/IMG_0001.HEIC", Quote: true},
+			one("IMG_0001.HEIC"), nil},
+		{"unset with Quote", "{export_dir}", none, RenderOptions{Quote: true}, one("None"), nil},
+		{"an empty suffix with Quote", "{filepath.suffix}", none, RenderOptions{Filepath: "/x/file", Quote: true}, one("''"), nil},
+		{"filepath.drive with Quote", "{filepath.drive}", none, RenderOptions{Filepath: "/x", Quote: true}, one("''"), nil},
+		{"Quote leaves the filters alone", "{keyword|path.name}", keywords("/x/my file.jpg"), RenderOptions{Quote: true},
+			one("my file.jpg"), nil},
+		// the filter path reads the quoted value as it is, as upstream
+		{"path of a quoted filepath", "{filepath|path.name}", none, RenderOptions{Filepath: "/x/my file.jpg", Quote: true},
+			one("my file.jpg'"), nil},
+	})
+}
+
+// The field counts its value, and a property its path and its value, as a
+// filter does: the bool value drops them.
+func TestPathFieldBytes(t *testing.T) {
+	t.Parallel()
+	o := RenderOptions{Filepath: strings.Repeat("a", 1<<20)}
+	for _, tt := range []struct {
+		field string
+		n     int
+		want  error
+	}{
+		{"{filepath?Y,N}", 15, nil},
+		{"{filepath?Y,N}", 17, ErrTooManyValues},
+		{"{filepath.name?Y,N}", 7, nil},
+		{"{filepath.name?Y,N}", 9, ErrTooManyValues},
+	} {
+		if got, _, err := render(t, strings.Repeat(tt.field, tt.n), fakePhoto{}, o); !errors.Is(err, tt.want) {
+			t.Errorf("Render of %d times %s with a Filepath of 1 MiB = %d values, %v; want %v", tt.n, tt.field, len(got), err, tt.want)
 		}
 	}
 }
