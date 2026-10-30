@@ -2,6 +2,7 @@ package template
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -26,8 +27,8 @@ var literalIDs = []string{
 	"t248", "t249", "t250", "t251", "t252", "t253", "t254", "t255", "t256", "t257",
 	"t258", "t259", "t260", "t261", "t262", "t263",
 	"t264", "t265", "t266", "t267", "t268", "t269", "t270", "t271", "t272", "t273",
-	"t274", "t275", "t276", "t277", "t278", "t279", "t280", "t281", "t282",
-	"t292", "t293", "t294", "t295",
+	"t274", "t275", "t276", "t277", "t278", "t279", "t280", "t281", "t282", "t283",
+	"t284", "t285", "t286", "t288", "t290", "t291", "t292", "t293", "t294", "t295",
 	"t301", "t302", "t303", "t304", "t305", "t307", "t308", "t309", "t310", "t311",
 	"t312", "t313",
 	"t314", "t315", "t316", "t317", "t318", "t319", "t320", "t321", "t322", "t323",
@@ -36,6 +37,10 @@ var literalIDs = []string{
 	"t391", "t392", "t393", "t394", "t395", "t396", "t397", "t399", "t400", "t401",
 	"t402", "t403", "t404",
 }
+
+// path.suffixes and path.parts: osxphotos rendered the repr of a Python list
+// and tuple ("['.tar', '.gz']"), which Render does not mimic.
+var pythonReprIDs = []string{"t287", "t289"}
 
 func goldenTemplates(t *testing.T, dir string) []string {
 	t.Helper()
@@ -106,6 +111,28 @@ func TestRenderGoldenLiterals(t *testing.T) {
 				t.Errorf("%s: Render(%q) = %q, osxphotos gave %q for element %d", id, templates[k-1], got, want, i+1)
 				break
 			}
+		}
+	}
+}
+
+func TestRenderGoldenPythonRepr(t *testing.T) {
+	dir := testlib.RepoDir(t, "golden")
+	templates := goldenTemplates(t, dir)
+	first := goldenObjects(t, filepath.Join(dir, "synthetic", "templates.json"))[0]
+	for _, id := range pythonReprIDs {
+		k, err := strconv.Atoi(id[1:])
+		if err != nil || k < 1 || k > len(templates) || slices.Contains(literalIDs, id) {
+			t.Fatalf("%s is not an id of the %d templates of templates.txt outside literalIDs", id, len(templates))
+		}
+		if v := oracleValues(t, first[id]); len(v) != 1 || !strings.HasPrefix(v[0], "[") && !strings.HasPrefix(v[0], "(") {
+			t.Fatalf("%s: osxphotos gave %q, not the repr of a list or a tuple", id, v)
+		}
+		tmpl, err := Parse(templates[k-1])
+		if err != nil {
+			t.Fatalf("%s: %v", id, err)
+		}
+		if got, _, err := NewRenderer().Render(tmpl, fakePhoto{}, RenderOptions{}); !errors.Is(err, ErrUnsupportedConstruct) {
+			t.Errorf("%s: Render(%q) = %q, %v; want ErrUnsupportedConstruct", id, templates[k-1], got, err)
 		}
 	}
 }

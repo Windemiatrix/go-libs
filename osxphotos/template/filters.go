@@ -99,7 +99,7 @@ func (s *rendering) filter(name string, vals []string) ([]string, error) {
 		return s.numbers(name, vals)
 	default:
 		if strings.HasPrefix(name, "path") {
-			return nil, unsupported(ErrUnsupportedConstruct, "filter "+name)
+			return s.paths(name, vals)
 		}
 		return nil, nil // the name passes the check of upstream but matches no filter (1182-1183)
 	}

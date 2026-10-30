@@ -85,36 +85,41 @@ func FuzzRender(f *testing.F) {
 		"{keyword|filter(not not contains a)}", "{keyword|filter(< 1|x)}", "{keyword|filter(not)}", "{keyword|filter( )}",
 		"{keyword|int|float}", "{var:i,inf;nan;-0;1e400}{%i|split(;)|float|int}", "{var:n,> 1}{keyword|filter(%n)|sort}",
 		"{var:a,x}{%a|split(;)|appends(%a)|shell_quote|upper|titlecase}", "{title|path.parent.name}",
+		"{keyword|path:x.parent|path}", "{filepath.parent.stem|path.name.suffix}", "{export_dir.parts}", "{keyword|path.parents}",
 	} {
 		f.Add(in)
 	}
 	unicodePhoto := examplePhoto()
 	unicodePhoto["title"] = strs("h\U000000e9llo")
-	unicodePhoto["keyword"] = strs("h\U000000e9llo", "stra\U000000dfe", "\U00000130", "a/b:c", "", "1.5", "-inf", "Holidays")
+	unicodePhoto["keyword"] = strs("h\U000000e9llo", "stra\U000000dfe", "\U00000130", "a/b:c", "", "1.5", "-inf", "Holidays",
+		"..", "//", "/")
 	renderErrors := []error{ErrUnsupportedField, ErrUnsupportedConstruct, ErrTooManyValues, ErrRender}
-	o := RenderOptions{Today: time.Date(2001, 2, 3, 4, 5, 6, 0, time.UTC)}
+	today := time.Date(2001, 2, 3, 4, 5, 6, 0, time.UTC)
+	opts := []RenderOptions{{Today: today}, {Today: today, ExportDir: "//e x/", Filepath: "/a b/./it's.tar.gz/../c.", Quote: true}}
 	f.Fuzz(func(t *testing.T, s string) {
 		tmpl, err := Parse(s)
 		if err != nil {
 			return
 		}
 		for _, p := range []Photo{fakePhoto{}, unicodePhoto, &countingPhoto{}} {
-			got, unmatched, err := NewRenderer().Render(tmpl, p, o)
-			size := 0
-			for _, v := range got {
-				size += len(v)
-			}
-			switch {
-			case err != nil && !slices.ContainsFunc(renderErrors, func(e error) bool { return errors.Is(err, e) }):
-				t.Fatalf("Render(%q): %v wraps none of the errors of Render", s, err)
-			case err != nil && strings.Contains(err.Error(), "Holidays") && !strings.Contains(s, "Holidays"):
-				t.Fatalf("Render(%q): %v names a value", s, err)
-			case len(got) > DefaultMaxResults || size > maxRenderBytes+len(s)*DefaultMaxResults:
-				t.Fatalf("Render(%q) = %d strings of %d bytes", s, len(got), size)
-			}
-			again, unmatchedAgain, errAgain := NewRenderer().Render(tmpl, p, o)
-			if !slices.Equal(got, again) || !slices.Equal(unmatched, unmatchedAgain) || fmt.Sprint(err) != fmt.Sprint(errAgain) {
-				t.Fatalf("Render(%q) = %.200q, %q, %v, then %.200q, %q, %v", s, got, unmatched, err, again, unmatchedAgain, errAgain)
+			for _, o := range opts {
+				got, unmatched, err := NewRenderer().Render(tmpl, p, o)
+				size := 0
+				for _, v := range got {
+					size += len(v)
+				}
+				switch {
+				case err != nil && !slices.ContainsFunc(renderErrors, func(e error) bool { return errors.Is(err, e) }):
+					t.Fatalf("Render(%q): %v wraps none of the errors of Render", s, err)
+				case err != nil && strings.Contains(err.Error(), "Holidays") && !strings.Contains(s, "Holidays"):
+					t.Fatalf("Render(%q): %v names a value", s, err)
+				case len(got) > DefaultMaxResults || size > maxRenderBytes+len(s)*DefaultMaxResults:
+					t.Fatalf("Render(%q) = %d strings of %d bytes", s, len(got), size)
+				}
+				again, unmatchedAgain, errAgain := NewRenderer().Render(tmpl, p, o)
+				if !slices.Equal(got, again) || !slices.Equal(unmatched, unmatchedAgain) || fmt.Sprint(err) != fmt.Sprint(errAgain) {
+					t.Fatalf("Render(%q) = %.200q, %q, %v, then %.200q, %q, %v", s, got, unmatched, err, again, unmatchedAgain, errAgain)
+				}
 			}
 		}
 	})

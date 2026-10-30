@@ -185,12 +185,12 @@ func (s *rendering) field(f *Field) ([]string, bool, error) {
 // the slice it returns.
 func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 	name := f.Name
-	stem, part, dotted := strings.Cut(name, ".")
+	stem, part, _ := strings.Cut(name, ".")
 	switch {
 	case !upstreamField(name, stem): // ahead of later: upstream puts format.x in unmatched (849-883)
 		s.unmatched = append(s.unmatched, name)
 		return nil, false, nil
-	case later[stem], pathFields[stem] && dotted,
+	case later[stem],
 		f.Default != nil && (name == "media_type" || name == "photo_or_video"), name == "id" && f.Subfield != "":
 		return nil, false, unsupported(ErrUnsupportedConstruct, name)
 	case stem == "created" || stem == "modified" || stem == "today":
@@ -204,10 +204,9 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 		return []string{name}, true, nil
 	case name == "edited_version":
 		return nil, true, nil
-	case name == "export_dir":
-		return []string{cmp.Or(s.o.ExportDir, "None")}, true, nil
-	case name == "filepath":
-		return []string{cmp.Or(s.o.Filepath, "None")}, true, nil
+	case pathFields[stem]:
+		vals, err := s.pathField(name, stem)
+		return vals, true, err
 	case name == "strip":
 		out := make([]string, len(def))
 		for i, v := range def {
