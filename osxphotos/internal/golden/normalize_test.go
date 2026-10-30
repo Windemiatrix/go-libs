@@ -334,15 +334,15 @@ func TestNormalize(t *testing.T) {
 		{name: "place without names", key: "place", raw: `{"name": null}`, wantErr: "place.names: want a value (the key is missing)"},
 		{name: "place without name", key: "place", raw: placeWith(`"name": "Example Park, Townsville, Exampleland", `, ``),
 			wantErr: "place.name: want a value (the key is missing)"},
-		{name: "place name number", key: "place", raw: placeWith(`"name": "Example Park, Townsville, Exampleland"`, `"name": 5`),
+		{name: "place name number", key: "place", raw: placeWith(`"name": "Example Park, Townsville, Exampleland"`, `"name": 424242`),
 			wantErr: "place.name: want a string or null"},
 		{name: "place ishome string", key: "place", raw: placeWith(`"ishome": true`, `"ishome": "SECRET-H"`), wantErr: "place.ishome: want a boolean or null"},
 		{name: "place address null", key: "place", raw: placeWith(refPlaceAddress, `null`), wantErr: "place.address: want an object"},
-		{name: "place address city number", key: "place", raw: placeWith(`"city": "Townsville"`, `"city": 5`), wantErr: "place.address.city: want a string or null"},
+		{name: "place address city number", key: "place", raw: placeWith(`"city": "Townsville"`, `"city": 424242`), wantErr: "place.address.city: want a string or null"},
 		{name: "place names without city", key: "place", raw: placeWith(`"city": ["Townsville", "Greater Townsville"], `, ``),
 			wantErr: "place.names.city: want a value (the key is missing)"},
 		{name: "place names city null", key: "place", raw: placeWith(`["Townsville", "Greater Townsville"]`, `null`), wantErr: "place.names.city: want a list of strings"},
-		{name: "place names city with a number", key: "place", raw: placeWith(`["Townsville", "Greater Townsville"]`, `["SECRET-C", 5]`),
+		{name: "place names city with a number", key: "place", raw: placeWith(`["Townsville", "Greater Townsville"]`, `["SECRET-C", 424242]`),
 			wantErr: "place.names.city: want a list of strings"},
 
 		{name: "no key", key: "title", raw: ``, wantErr: "title: want a value (the key is missing)"},
@@ -366,7 +366,7 @@ func TestNormalize(t *testing.T) {
 				if err == nil || !errors.As(err, &se) || !strings.Contains(err.Error(), c.wantErr) {
 					t.Fatalf("error = %v, want a shape error with %q", err, c.wantErr)
 				}
-				if strings.Contains(err.Error(), "SECRET") || strings.Contains(err.Error(), c.raw) && len(c.raw) > 6 {
+				if strings.Contains(err.Error(), "SECRET") || strings.Contains(err.Error(), "424242") || strings.Contains(err.Error(), c.raw) && len(c.raw) > 6 {
 					t.Errorf("the error repeats the value: %v", err)
 				}
 				return

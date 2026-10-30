@@ -1,7 +1,6 @@
 # Keys of `osxphotos query --json` (PhotoInfo.json(shallow=False),
 # osxphotos/photoinfo.py:2119-2253) kept in testdata/golden. scripts/golden-build.sh
-# keeps only these top-level keys; nested objects (album_info, comments,
-# exif_info, import_info, likes, place, project_info) are kept whole.
+# keeps only these top-level keys, each with its whole value.
 adjustment_type
 album_info
 albums

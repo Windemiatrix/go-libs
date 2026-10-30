@@ -51,7 +51,6 @@ func decode[T any](o Object, key string, nullOK bool, want string) (T, error) {
 	return decodeAt[T](o, key, key, nullOK, want)
 }
 
-// The key of a nested object is named by its whole path.
 func decodeAt[T any](m map[string]json.RawMessage, key, path string, nullOK bool, want string) (T, error) {
 	raw, ok := m[key]
 	if !ok {

@@ -27,8 +27,8 @@ type Options struct {
 	NoTitle             bool
 	Description         []string // substrings of Description
 	NoDescription       bool
-	Place               []string // each a substring of a name of Place.Names, of any kind (photoquery.py:518-548)
-	NoPlace             bool     // Place is nil (photoquery.py:549-550)
+	Place               []string // place: each value is a substring of a name in any list of PhotoInfo.Place.Names; "" matches a photo with a name that is not "" (photoquery.py:518-548)
+	NoPlace             bool     // no_place: PhotoInfo.Place is nil; ignored with Place (photoquery.py:549-550)
 	Name                []string // substrings of OriginalFilename (photoquery.py:685-720)
 	UTI                 string   // a substring of UTIOriginal, case kept (photoquery.py:585-586)
 	Album               []string // "Folder/Subfolder/Album"; a "/" of a title is written "//"

@@ -170,18 +170,12 @@ func photoMutations() []mutation {
 		{"ExifInfo TZOffset nil", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.TZOffset = nil }), "exif_info"},
 		{"ExifInfo TZName", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.TZName = "" }), "exif_info"},
 
+		// Only nil, order and position here: TestComparePlaceEveryLeaf changes each leaf.
 		{"Place nil", p(func(x *photoinfo.PhotoInfo) { x.Place = nil }), "place"},
-		{"Place Name", p(func(x *photoinfo.PhotoInfo) { x.Place.Name = "Townsville" }), "place"},
 		{"Place City swapped", p(func(x *photoinfo.PhotoInfo) { x.Place.Names.City = []string{"Greater Townsville", "Townsville"} }), "place"},
 		{"Place Field13 of Field15", p(func(x *photoinfo.PhotoInfo) {
 			x.Place.Names.Field13, x.Place.Names.Field15 = nil, x.Place.Names.Field13
 		}), "place"},
-		{"Place BodyOfWater", p(func(x *photoinfo.PhotoInfo) { x.Place.Names.BodyOfWater = []string{"Example Bay"} }), "place"},
-		{"Place CountryCode", p(func(x *photoinfo.PhotoInfo) { x.Place.CountryCode = "" }), "place"},
-		{"Place IsHome", p(func(x *photoinfo.PhotoInfo) { x.Place.IsHome = false }), "place"},
-		{"Place AddressStr", p(func(x *photoinfo.PhotoInfo) { x.Place.AddressStr = "" }), "place"},
-		{"Place Address ISOCountryCode", p(func(x *photoinfo.PhotoInfo) { x.Place.Address.ISOCountryCode = "" }), "place"},
-		{"Place Address PostalCode", p(func(x *photoinfo.PhotoInfo) { x.Place.Address.PostalCode = "00000" }), "place"},
 
 		{"InCloud false", p(func(x *photoinfo.PhotoInfo) { x.InCloud = ptr(false) }), "incloud"},
 		{"InCloud nil", p(func(x *photoinfo.PhotoInfo) { x.InCloud = nil }), "incloud"},
@@ -334,10 +328,54 @@ func TestCompareEachKey(t *testing.T) {
 	}
 }
 
+// Both sides go through placeValue, so a leaf it dropped would be dropped on
+// both: only a change on one side shows it.
+func TestComparePlaceEveryLeaf(t *testing.T) {
+	t.Parallel()
+	type leaf struct {
+		name  string
+		index []int
+	}
+	var leaves []leaf
+	top := reflect.TypeFor[placeinfo.PlaceInfo]()
+	for i := range top.NumField() {
+		f := top.Field(i)
+		if f.Type.Kind() != reflect.Struct {
+			leaves = append(leaves, leaf{f.Name, []int{i}})
+			continue
+		}
+		for j := range f.Type.NumField() {
+			leaves = append(leaves, leaf{f.Name + "." + f.Type.Field(j).Name, []int{i, j}})
+		}
+	}
+	if len(leaves) != 4+19+8 {
+		t.Fatalf("PlaceInfo has %d leaves, want 31", len(leaves))
+	}
+	for _, l := range leaves {
+		t.Run(l.name, func(t *testing.T) {
+			t.Parallel()
+			lib := fixtureLib()
+			v := reflect.ValueOf(lib.Photos[0].Place).Elem().FieldByIndex(l.index)
+			switch v.Kind() {
+			case reflect.String:
+				v.SetString(v.String() + "x")
+			case reflect.Bool:
+				v.SetBool(!v.Bool())
+			default:
+				v.Set(reflect.Append(v, reflect.ValueOf("x")))
+			}
+			if got := diffKeys(compare(t, fixtureRef(), lib)); !slices.Equal(got, []string{"place"}) {
+				t.Errorf("differences in %v, want place", got)
+			}
+		})
+	}
+}
+
 // The comparison must not normalize strings: upstream gives the title in NFC
-// (unicode.py:76-92) and the strings of exif_info as SQLite returns them
-// (exifinfo.py:63-66), so a Go string in another form than the reference is a
-// difference to be fixed in the port.
+// (unicode.py:76-92), the strings of exif_info as SQLite returns them
+// (exifinfo.py:63-66) and the country codes of place as the archive holds them
+// (placeinfo.py:96, 250), so a Go string in another form than the reference is
+// a difference to be fixed in the port.
 func TestCompareNFD(t *testing.T) {
 	t.Parallel()
 	nfc := "Caf" + string(rune(0xe9))
@@ -347,6 +385,15 @@ func TestCompareNFD(t *testing.T) {
 	}
 	titleRef := map[string]string{"title": jsonString(nfc)}
 	exifRef := map[string]string{"exif_info": exif(nfd)}
+	placeRef := map[string]string{"place": strings.NewReplacer(
+		`"name": "Example Park, Townsville, Exampleland"`, `"name": `+jsonString(nfc),
+		`"country_code": "EX"`, `"country_code": `+jsonString(nfd)).Replace(refPlace)}
+	place := func(name, countryCode string) func(p *photoinfo.PhotoInfo) {
+		return func(p *photoinfo.PhotoInfo) {
+			p.Place = fixtureLib().Photos[0].Place
+			p.Place.Name, p.Place.CountryCode = name, countryCode
+		}
+	}
 	for name, tc := range map[string]struct {
 		ref  map[string]string
 		set  func(p *photoinfo.PhotoInfo)
@@ -356,6 +403,9 @@ func TestCompareNFD(t *testing.T) {
 		"title NFD":              {titleRef, func(p *photoinfo.PhotoInfo) { p.Title = nfd }, []string{"title"}},
 		"camera_make NFD kept":   {exifRef, func(p *photoinfo.PhotoInfo) { p.ExifInfo.CameraMake = nfd }, nil},
 		"camera_make NFD to NFC": {exifRef, func(p *photoinfo.PhotoInfo) { p.ExifInfo.CameraMake = nfc }, []string{"exif_info"}},
+		"place name NFC":         {placeRef, place(nfc, nfd), nil},
+		"place name NFD":         {placeRef, place(nfd, nfd), []string{"place"}},
+		"place country_code NFC": {placeRef, place(nfc, nfc), []string{"place"}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -486,7 +536,7 @@ func TestWriteDetailsExifAndOwner(t *testing.T) {
 	for _, line := range []string{
 		"owner " + selectedFrame + " want=<name> got=<name>\n",
 		`"camera_make":"<value>"`,
-		`"codec":"","date":"<value>"`,
+		`"codec":"","date":["<value>","<value>"]`,
 		`"flash_fired":"<value>"`,
 		`"white_balance":"<value>"`,
 		`stale exif_info ` + emptyPhoto + ` want={"camera_make":"<value>","codec":""} got=*` + "\n",
@@ -504,9 +554,14 @@ func TestWriteDetailsExifAndOwner(t *testing.T) {
 func TestWriteDetailsPlace(t *testing.T) {
 	t.Parallel()
 	lib := fixtureLib()
-	lib.Photos[0].Place.Names.City = []string{"SECRET-CITY"}
-	lib.Photos[0].Place.Address.Street = ""
-	stale := Divergence{Library: "lib", UUID: emptyPhoto, Field: "place", Want: []byte(`{"name":"SECRET-STALE","ishome":false}`), Reason: "r", Upstream: "a.py:1"}
+	pl := lib.Photos[0].Place
+	pl.Name, pl.CountryCode, pl.AddressStr, pl.IsHome = "SECRET-NAME", "SECRET-CODE", "SECRET-STR", false
+	address := reflect.ValueOf(&pl.Address).Elem()
+	for i := range address.NumField() {
+		address.Field(i).SetString("SECRET-ADDRESS")
+	}
+	pl.Names.City, pl.Names.Region, pl.Names.Field16 = []string{"SECRET-CITY"}, []string{"SECRET-REGION", ""}, []string{"SECRET-FIELD"}
+	stale := Divergence{Library: "lib", UUID: emptyPhoto, Field: "place", Want: []byte(`{"name":"SECRET-STALE","ishome":false,"names":{"city":["SECRET-S",""]}}`), Reason: "r", Upstream: "a.py:1"}
 	unparsed := Divergence{Library: "lib", UUID: selectedFrame, Field: "place", Want: []byte(`[1]`), Reason: "r", Upstream: "a.py:1"}
 	rep := compare(t, fixtureRef(), lib, stale, unparsed)
 	if got := diffKeys(rep); !slices.Equal(got, []string{"place"}) {
@@ -521,17 +576,25 @@ func TestWriteDetailsPlace(t *testing.T) {
 			t.Errorf("WriteDetails writes %q", leak)
 		}
 	}
-	for _, part := range []string{
-		`"city":["<value>","<value>"]`,
-		`"city":["<value>"]`,
-		`"street":""`,
-		`"field0":[]`,
-		`"ishome":"<value>"`,
-		`stale place ` + emptyPhoto + ` want={"ishome":"<value>","name":"<value>"} got=*` + "\n",
+	names := func(city, region, field16 string) string {
+		return `"names":{"additional_city_info":[],"area_of_interest":["<value>"],"body_of_water":[],"city":` + city +
+			`,"country":["<value>"],"field0":[],"field10":[],"field13":["<value>"],"field15":[],"field16":` + field16 +
+			`,"field5":[],"inland_water":[],"ocean":[],"postal_code":[],"region":` + region +
+			`,"state_province":[],"street_address":[],"sub_administrative_area":[],"sub_throughfare":[]}}`
+	}
+	want := `{"address":{"city":"<value>","country":"<value>","iso_country_code":"<value>","postal_code":"","state_province":"",` +
+		`"street":"<value>","sub_administrative_area":"","sub_locality":""},"address_str":"<value>","country_code":"<value>",` +
+		`"ishome":"<value>","name":"<value>",` + names(`["<value>","<value>"]`, `[]`, `[]`)
+	got := `{"address":{"city":"<value>","country":"<value>","iso_country_code":"<value>","postal_code":"<value>","state_province":"<value>",` +
+		`"street":"<value>","sub_administrative_area":"<value>","sub_locality":"<value>"},"address_str":"<value>","country_code":"<value>",` +
+		`"ishome":"<value>","name":"<value>",` + names(`["<value>"]`, `["<value>",""]`, `["<value>"]`)
+	for _, line := range []string{
+		"place " + selectedFrame + " want=" + want + " got=" + got + "\n",
+		`stale place ` + emptyPhoto + ` want={"ishome":"<value>","name":"<value>","names":{"city":["<value>",""]}} got=*` + "\n",
 		"stale place " + selectedFrame + " want=<unparsed> got=*\n",
 	} {
-		if !strings.Contains(b.String(), part) {
-			t.Errorf("WriteDetails lacks %q:\n%s", part, b.String())
+		if !strings.Contains(b.String(), line) {
+			t.Errorf("WriteDetails lacks %q:\n%s", line, b.String())
 		}
 	}
 }
