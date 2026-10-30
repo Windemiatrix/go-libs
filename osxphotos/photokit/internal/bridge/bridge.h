@@ -1,7 +1,11 @@
+// cgo copies the preamble of cgo_darwin.go, which includes this file, into
+// _cgo_export.h, and bridge.m includes both.
+#pragma once
+
 #include <stdbool.h>
 #include <stdint.h>
 
-enum { PK_OK, PK_EXCEPTION, PK_TIMEOUT };
+enum { PK_OK, PK_EXCEPTION, PK_TIMEOUT, PK_NO_RESOURCE };
 
 // message is NULL unless code is PK_EXCEPTION; the caller frees it.
 typedef struct {
@@ -41,3 +45,12 @@ typedef struct {
 // when there is no such asset; pk_free_resources frees it in every case.
 pk_result pk_asset_resources(const char *local_id, pk_resource **out, int *count);
 void pk_free_resources(pk_resource *resources, int count);
+
+// Starts requestDataForAssetResource for the first resource of the type of
+// the asset local_id, a hidden one too, and sets *request_id; no such asset or
+// resource is PK_NO_RESOURCE and starts nothing. Once started, the request
+// calls pk_go_write, pk_go_progress and, at most once, pk_go_done with handle,
+// in an order PhotoKit does not promise; Go ignores a call after pk_go_done. A
+// stalled iCloud download may never end.
+pk_result pk_request_resource(const char *local_id, int64_t type, uintptr_t handle, int32_t *request_id);
+void pk_cancel_resource(int32_t request_id);

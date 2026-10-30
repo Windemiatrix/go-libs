@@ -18,6 +18,8 @@ import (
 	"context"
 	"errors"
 	"math"
+	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 	"unsafe"
@@ -97,8 +99,96 @@ func (*cgoBridge) AssetResources(id string) ([]ResourceRecord, error) {
 	return recs, nil
 }
 
-func (*cgoBridge) RequestResource(string, int, ResourceSink) (Request, error) {
-	return nil, ErrNotSupported
+func (*cgoBridge) RequestResource(id string, typ int, sink ResourceSink) (Request, error) {
+	cid := C.CString(id)
+	defer C.free(unsafe.Pointer(cid)) //nolint:gosec // G103: the C.CString buffer of this call is freed here
+	r := &cgoRequest{sink: sink, done: make(chan error, 1)}
+	// The completion handler may run long after Export returned, or never:
+	// the request stays known until it runs.
+	h := lastRequest.Add(1)
+	requests.Store(h, r)
+	var rid C.int32_t
+	if err := check(C.pk_request_resource(cid, C.int64_t(typ), C.uintptr_t(h), &rid)); err != nil {
+		requests.Delete(h)
+		return nil, err
+	}
+	r.id = rid
+	return r, nil
+}
+
+type cgoRequest struct {
+	id               C.int32_t
+	sink             ResourceSink
+	done             chan error
+	failed, canceled atomic.Bool
+}
+
+var _ Request = (*cgoRequest)(nil)
+
+// PhotoKit calls the three handlers on queues of its own, in no order: a
+// handler after the completion finds no request here, where the Value of a
+// deleted cgo.Handle would panic.
+var (
+	requests    sync.Map
+	lastRequest atomic.Uintptr
+)
+
+func (r *cgoRequest) Cancel() {
+	if r.canceled.CompareAndSwap(false, true) {
+		C.pk_cancel_resource(r.id)
+	}
+}
+
+func (r *cgoRequest) Done() <-chan error { return r.done }
+
+// The three below do not recover: a panic recovered here would leave a partial
+// file looking whole or Export waiting forever; unrecovered, it ends the
+// process, as in any goroutine.
+
+//export pk_go_write
+func pk_go_write(h C.uintptr_t, p unsafe.Pointer, n C.size_t) {
+	if r, ok := requests.Load(uintptr(h)); ok && n > 0 {
+		r.(*cgoRequest).write(unsafe.Slice((*byte)(p), n)) //nolint:gosec // G103: n is the length of the NSData of the call, kept by PhotoKit until it returns
+	}
+}
+
+//export pk_go_progress
+func pk_go_progress(h C.uintptr_t, fraction C.double) {
+	if r, ok := requests.Load(uintptr(h)); ok {
+		r.(*cgoRequest).sink.Progress(float64(fraction))
+	}
+}
+
+//export pk_go_done
+func pk_go_done(h C.uintptr_t, code C.int64_t, domain *C.char) {
+	r, ok := requests.LoadAndDelete(uintptr(h))
+	if !ok {
+		// A second completion is a bug of the bridge; returning would hide it.
+		panic("photokit: completion of an unknown request")
+	}
+	r.(*cgoRequest).finish(domain != nil, C.GoString(domain), int64(code))
+}
+
+// write and finish take Go values, so that a test can reach them without PhotoKit.
+
+func (r *cgoRequest) write(p []byte) {
+	if !r.failed.Load() && r.sink.Write(p) != nil {
+		r.failed.Store(true)
+	}
+}
+
+func (r *cgoRequest) finish(failed bool, domain string, code int64) {
+	var err error
+	switch {
+	case r.canceled.Load():
+		err = ErrCanceled
+	case failed:
+		// Done delivers nothing but a *PhotoKitError for an NSError, so a
+		// domain that is not UTF-8 is dropped, not the error.
+		d, _ := cString(domain)
+		err = &PhotoKitError{Domain: d, Code: code}
+	}
+	r.done <- err
 }
 
 func records(r C.pk_result, out *C.pk_asset, count C.int) ([]AssetRecord, error) {
@@ -172,6 +262,8 @@ func codeError(code int, message string) error {
 		return nil
 	case C.PK_TIMEOUT:
 		return context.DeadlineExceeded
+	case C.PK_NO_RESOURCE:
+		return ErrNoResource
 	}
 	reason, err := cString(message)
 	if err != nil {
