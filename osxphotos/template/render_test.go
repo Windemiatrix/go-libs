@@ -327,8 +327,15 @@ func TestRenderErrors(t *testing.T) {
 		{"{folder_album_seq(1)}", missing, ErrUnsupportedConstruct, "folder_album_seq"},
 		{"{media_type,video=v}", missing, ErrUnsupportedConstruct, "media_type"},
 		{"{photo_or_video,photo=p}", missing, ErrUnsupportedConstruct, "photo_or_video"},
-		{"{export_dir.stem}", missing, ErrUnsupportedConstruct, "export_dir.stem"},
-		{"{filepath.name}", missing, ErrUnsupportedConstruct, "filepath.name"},
+		// _get_pathlib_value (phototemplate.py:1643-1649)
+		{"{export_dir.parents}", missing, ErrRender, "export_dir.parents"},
+		{"{filepath.stem.x}", missing, ErrRender, "filepath.stem.x"},
+		{"{filepath.}", missing, ErrRender, "filepath."},
+		{"{filepath.suffixes}", missing, ErrUnsupportedConstruct, "filepath.suffixes"},
+		{"{export_dir.parts}", missing, ErrUnsupportedConstruct, "export_dir.parts"},
+		// pathlib.Path(None) raises TypeError (phototemplate.py:1643)
+		{"{export_dir.name}", missing, ErrRender, "export_dir.name"},
+		{"{filepath.parent}", missing, ErrRender, "filepath.parent"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.in, func(t *testing.T) {
@@ -344,9 +351,10 @@ func TestRenderErrors(t *testing.T) {
 	}
 }
 
-// A keyword is personal data, so an error names the operator or the field and not the value.
+// A keyword or a path is personal data, so an error names the operator or the field and not the value.
 func TestRenderErrorHidesValues(t *testing.T) {
 	t.Parallel()
+	o := RenderOptions{Filepath: "/Holidays/x.jpg", ExportDir: "/Holidays"}
 	for in, keyword := range map[string]string{
 		"{keyword < 9?Y,N}":                     "Holidays",
 		"{var:k,{keyword}}{keyword[o,%k]}":      "%Holidays",
@@ -355,8 +363,11 @@ func TestRenderErrorHidesValues(t *testing.T) {
 		"{var:k,{keyword}}{keyword|filter(%k)}": "Holidays a",
 		"{var:k,{keyword}}{keyword|sslice(%k)}": "Holidays",
 		"{keyword|int}":                         "Infinity",
+		"{keyword|path.parents}":                "Holidays",
+		"{filepath.parents}":                    "Holidays",
+		"{export_dir.parents}":                  "Holidays",
 	} {
-		_, _, err := render(t, in, with(conditionPhoto(), "keyword", strs(keyword)), RenderOptions{})
+		_, _, err := render(t, in, with(conditionPhoto(), "keyword", strs(keyword)), o)
 		if msg := fmt.Sprint(err); !errors.Is(err, ErrRender) || strings.Contains(msg, "Holidays") || strings.Contains(msg, keyword) {
 			t.Errorf("Render(%q) = %v; want ErrRender without the keyword", in, err)
 		}

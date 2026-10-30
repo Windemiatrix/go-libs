@@ -17,8 +17,9 @@ type RenderOptions struct {
 	PathSep       string    // in folder_album without "(sep)" (1255)
 	Strip         bool      // strip every rendered string, of nested statements too (534-537)
 	EditedVersion bool      // gives {edited_version} its value (946-947)
-	ExportDir     string    // {export_dir}; "" renders "None", as the None of upstream (1641)
-	Filepath      string    // {filepath}; "" renders "None" (1641)
+	ExportDir     string    // {export_dir}; "" renders "None", as the None of upstream (1641), and a property of it is ErrRender (1643)
+	Filepath      string    // {filepath}; "" renders "None" (1641), and a property of it is ErrRender (1643)
+	Quote         bool      // {export_dir}, {filepath} and their properties through shlex.quote (384, 1641, 1652), before the filters and [find,replace], which act on the quoted string and may break it (663-683)
 	Today         time.Time // {today}; the zero time is time.Now() at the start of a Render (910-912)
 	MaxResults    int       // the most strings of one statement; 0 is DefaultMaxResults
 }
