@@ -3,6 +3,7 @@ package template
 import (
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 	"testing"
@@ -126,13 +127,34 @@ func TestFilterErrors(t *testing.T) {
 		{"{var:k,{keyword}}{keyword|join(%k)}", ErrRender, "filter arguments"},
 		{"{keyword|function:f.py::g}", ErrUnsupportedField, "function"},
 		{"{keyword|function:f.py::g(%nope)}", ErrUnsupportedField, "function"},
-		{"{keyword|slice(1:)}", ErrUnsupportedConstruct, "slice"},
-		{"{keyword|sslice(1)}", ErrUnsupportedConstruct, "sslice"},
-		{"{keyword|chop(1)}", ErrUnsupportedConstruct, "chop"},
-		{"{keyword|chomp(1)}", ErrUnsupportedConstruct, "chomp"},
-		{"{keyword|filter(contains a)}", ErrUnsupportedConstruct, "filter"},
-		{"{keyword|int}", ErrUnsupportedConstruct, "int"},
-		{"{keyword|float}", ErrUnsupportedConstruct, "float"},
+		// create_slice and int() (phototemplate.py:1106-1119, 1703-1722); a ValueError of slice even without values
+		{"{keyword|slice(::0)}", ErrRender, "slice step"},
+		{"{descr|slice(::0)}", ErrRender, "slice step"},
+		{"{keyword|sslice(1::0)}", ErrRender, "sslice step"},
+		{"{keyword|slice(1:2:3:4)}", ErrRender, "slice"},
+		{"{keyword|slice(1:2:3:)}", ErrRender, "slice"},
+		{"{keyword|slice(x)}", ErrRender, "slice"},
+		{"{keyword|slice( )}", ErrRender, "slice"},
+		{"{keyword|slice(1.5:)}", ErrRender, "slice"},
+		{"{keyword|chop(x)}", ErrRender, "chop"},
+		{"{keyword|chop(1:2)}", ErrRender, "chop"},
+		{"{keyword|chomp(1.0)}", ErrRender, "chomp"},
+		{"{keyword|chomp(1:2)}", ErrRender, "chomp"},
+		// filter_predicate (phototemplate.py:1190-1233)
+		{"{keyword|filter(contains)}", ErrRender, "operator and a value"},
+		{"{keyword|filter( )}", ErrRender, "operator and a value"},
+		{"{keyword|filter(not)}", ErrRender, "operator and a value"},
+		{"{keyword|filter(not not  )}", ErrRender, "operator and a value"},
+		{"{keyword|filter(nope a)}", ErrRender, "unknown operator"},
+		{"{keyword|filter(not = a)}", ErrRender, "unknown operator"},
+		{"{var:l,1;5;x}{%l|split(;)|filter(> 2)}", ErrRender, ">"},
+		{"{var:l,5}{%l|filter(< 1|x)}", ErrRender, "<"},
+		{"{var:l,x}{%l|filter(>= 1|2)}", ErrRender, ">="},
+		// the variable is not at the start of the argument, so it stays "%n" (t402)
+		{"{var:n,2}{var:l,1;5}{%l|split(;)|filter(> %n)}", ErrRender, ">"},
+		// int(float("inf")) raises OverflowError, which values_to_int does not catch (1725-1731)
+		{"{var:i,inf}{%i|int}", ErrRender, "int"},
+		{"{var:i,-1e400}{%i|split(;)|int}", ErrRender, "int"},
 		{"{keyword|path}", ErrUnsupportedConstruct, "path"},
 		{"{keyword|path.stem}", ErrUnsupportedConstruct, "path.stem"},
 		{"{keyword|path:x}", ErrUnsupportedConstruct, "path:x"},
@@ -173,10 +195,197 @@ func TestFilterBounds(t *testing.T) {
 		{"{title|autosplit|join?Y,N}", fakePhoto{"title": strs(strings.Repeat("a ", DefaultMaxResults+1))}, ErrTooManyValues},
 		{"{keyword|append(x)|join?Y,N}", keywords(numbered("k", DefaultMaxResults-1)...), nil},
 		{"{keyword|append(x)|join?Y,N}", keywords(numbered("k", DefaultMaxResults)...), ErrTooManyValues},
+		{"{title" + strings.Repeat("|sslice(0:)", 15) + "?Y,N}", fakePhoto{"title": strs(mib)}, nil},
+		{"{title" + strings.Repeat("|sslice(0:)", 17) + "?Y,N}", fakePhoto{"title": strs(mib)}, ErrTooManyValues},
+		{"{title" + strings.Repeat("|chop(1)", 17) + "?Y,N}", fakePhoto{"title": strs(mib)}, ErrTooManyValues},
+		{"{title" + strings.Repeat("|chomp(-1048576)", 17) + "?Y,N}", fakePhoto{"title": strs(mib)}, ErrTooManyValues},
+		// int(1e300) has 301 digits: 10000 of them are 3 MB
+		{"{keyword" + strings.Repeat("|int", 5) + "?Y,N}", keywords(slices.Repeat([]string{"1e300"}, DefaultMaxResults)...), nil},
+		{"{keyword" + strings.Repeat("|int", 6) + "?Y,N}", keywords(slices.Repeat([]string{"1e300"}, DefaultMaxResults)...), ErrTooManyValues},
+		// 10000 strings of 21 to 23 bytes are 210 to 230 kB
+		{"{keyword" + strings.Repeat("|float", 60) + "?Y,N}",
+			keywords(slices.Repeat([]string{"1.2345678901234567e-300"}, DefaultMaxResults)...), nil},
+		{"{keyword" + strings.Repeat("|float", 100) + "?Y,N}",
+			keywords(slices.Repeat([]string{"1.2345678901234567e-300"}, DefaultMaxResults)...), ErrTooManyValues},
 	} {
 		got, _, err := render(t, tt.in, tt.photo, RenderOptions{})
 		if !errors.Is(err, tt.want) || tt.want == nil && !slices.Equal(got, []string{"Y"}) {
 			t.Errorf("Render(%q) = %d values, %v; want %v", tt.in, len(got), err, tt.want)
+		}
+	}
+}
+
+// slice.indices of Python, as list(range(n))[start:end:step] gives them.
+func TestPySlice(t *testing.T) {
+	t.Parallel()
+	p := func(i int) *int { return &i }
+	seq := func(n int) []int {
+		xs := make([]int, n)
+		for i := range xs {
+			xs[i] = i
+		}
+		return xs
+	}
+	for _, tt := range []struct {
+		n    int
+		b    [3]*int
+		want []int
+	}{
+		{6, [3]*int{p(1), p(3), nil}, []int{1, 2}},
+		{6, [3]*int{p(1), p(5), p(2)}, []int{1, 3}},
+		{6, [3]*int{p(1), nil, nil}, []int{1, 2, 3, 4, 5}},
+		{6, [3]*int{nil, p(-1), nil}, []int{0, 1, 2, 3, 4}},
+		{6, [3]*int{nil, nil, p(-1)}, []int{5, 4, 3, 2, 1, 0}},
+		{6, [3]*int{p(2), nil, nil}, []int{2, 3, 4, 5}},
+		{6, [3]*int{p(-2), nil, nil}, []int{4, 5}},
+		{6, [3]*int{p(10), nil, nil}, nil},
+		{6, [3]*int{p(-10), nil, nil}, []int{0, 1, 2, 3, 4, 5}},
+		{6, [3]*int{nil, nil, p(2)}, []int{0, 2, 4}},
+		{6, [3]*int{p(5), p(1), p(-1)}, []int{5, 4, 3, 2}},
+		{6, [3]*int{nil, nil, p(-2)}, []int{5, 3, 1}},
+		{6, [3]*int{p(10), nil, p(-1)}, []int{5, 4, 3, 2, 1, 0}},
+		{6, [3]*int{p(-10), nil, p(-1)}, nil},
+		{6, [3]*int{nil, p(-10), p(-1)}, []int{5, 4, 3, 2, 1, 0}},
+		{6, [3]*int{nil, p(10), p(-1)}, nil},
+		{6, [3]*int{p(3), p(3), nil}, nil},
+		{6, [3]*int{p(4), p(2), nil}, nil},
+		{6, [3]*int{p(1), p(-1), p(math.MaxInt)}, []int{1}},
+		{6, [3]*int{nil, nil, p(math.MinInt)}, []int{5}},
+		{6, [3]*int{p(math.MinInt), p(math.MaxInt), nil}, []int{0, 1, 2, 3, 4, 5}},
+		{6, [3]*int{p(math.MaxInt), p(math.MinInt), p(-1)}, []int{5, 4, 3, 2, 1, 0}},
+		{1, [3]*int{nil, nil, p(-3)}, []int{0}},
+		{0, [3]*int{nil, nil, nil}, nil},
+		{0, [3]*int{nil, nil, p(-1)}, nil},
+		{0, [3]*int{p(-1), p(1), p(math.MaxInt)}, nil},
+	} {
+		if got := pySlice(seq(tt.n), tt.b); !slices.Equal(got, tt.want) {
+			t.Errorf("pySlice(%d, %s) = %v, want %v", tt.n, sliceString(tt.b), got, tt.want)
+		}
+	}
+}
+
+func sliceString(b [3]*int) string {
+	parts := make([]string, len(b))
+	for i, p := range b {
+		if p != nil {
+			parts[i] = fmt.Sprint(*p)
+		}
+	}
+	return strings.Join(parts, ":")
+}
+
+func TestSlice(t *testing.T) {
+	t.Parallel()
+	k := func() fakePhoto { return keywords("a", "b", "c", "d", "e", "f") }
+	o, none := RenderOptions{}, fakePhoto{}
+	one := func(s string) []string { return []string{s} }
+	checkRender(t, []renderCase{
+		// phototemplate.py:1162-1168, 1703-1722
+		{"slice with a step", "{keyword|slice(::2)}", k(), o, []string{"a", "c", "e"}, nil},
+		{"slice before the start", "{keyword|slice(-10:)}", k(), o, []string{"a", "b", "c", "d", "e", "f"}, nil},
+		{"slice past the end", "{keyword|slice(10:)}", k(), o, one("_"), nil},
+		{"slice of int() with spaces", "{var:s, 1 : 3}{keyword|slice(%s)}", k(), o, []string{"b", "c"}, nil},
+		{"slice of int() with U+001C", "{var:s,\U0000001c4\U0000001c}{keyword|slice(%s)}", k(), o, []string{"e", "f"}, nil},
+		{"slice with a plus sign", "{var:s,{title}}{keyword|slice(%s)}", with(k(), "title", strs(" 1 :+3")), o, []string{"b", "c"}, nil},
+		{"slice of empty parts", "{keyword|slice(:)}", k(), o, []string{"a", "b", "c", "d", "e", "f"}, nil},
+		{"slice with an empty step", "{keyword|slice(4::)}", k(), o, []string{"e", "f"}, nil},
+		{"slice of one number", "{keyword|slice(-1)}", k(), o, one("f"), nil},
+		{"slice of no values", "{descr|slice(1:)}", k(), o, one("_"), nil},
+		{"sslice backwards", "{var:w,abcdef}{%w|sslice(5:1:-1)}", none, o, one("fedc"), nil},
+		{"sslice backwards with a step", "{var:w,abcdef}{%w|sslice(::-2)}", none, o, one("fdb"), nil},
+		{"sslice of every value", "{keyword|sslice(1)}", keywords("ab", "c"), o, []string{"b", ""}, nil},
+		{"t292 sslice by code points", "{var:w,h\U000000e9llo}{%w|sslice(1:3)}", none, o, one("\U000000e9l"), nil},
+		// sslice raises the ValueError of a step 0 only on a value (1167-1168)
+		{"sslice step 0 of no values", "{descr|sslice(::0)}", k(), o, one("_"), nil},
+		// v[:-n] and v[n:] (1106-1119)
+		{"t293 chop by code points", "{var:w,h\U000000e9llo}{%w|chop(1)}", none, o, one("h\U000000e9ll"), nil},
+		{"t294 chomp by code points", "{var:w,h\U000000e9llo}{%w|chomp(2)}", none, o, one("llo"), nil},
+		{"chop of a negative number keeps the start", "{var:w,hello}{%w|chop(-1)}", none, o, one("h"), nil},
+		{"chomp of a negative number keeps the end", "{var:w,hello}{%w|chomp(-1)}", none, o, one("o"), nil},
+		{"chop(0)", "{var:w,hello}{%w|chop(0)}", none, o, one("hello"), nil},
+		{"chomp(0)", "{var:w,hello}{%w|chomp(0)}", none, o, one("hello"), nil},
+		{"chop past the length", "{var:w,hello}{%w|chop(10)}", none, o, one(""), nil},
+		{"chomp before the start", "{var:w,hello}{%w|chomp(-10)}", none, o, one("hello"), nil},
+		{"chop of every value", "{keyword|chop( 1 )}", keywords("ab", "c", ""), o, []string{"a", "", ""}, nil},
+		// int() has no bound, and slice.indices clamps to the length
+		{"sslice past 64 bits", "{var:w,abc}{%w|sslice(:99999999999999999999)}", none, o, one("abc"), nil},
+		{"chop of the smallest int", "{var:w,hello}{%w|chop(-9223372036854775808)}", none, o, one("hello"), nil},
+		{"chop past 64 bits", "{var:w,hello}{%w|chop(99999999999999999999)}", none, o, one(""), nil},
+	})
+}
+
+func TestPredicate(t *testing.T) {
+	t.Parallel()
+	k := func() fakePhoto { return keywords("a", "b", "ab", "1", "5", "x") }
+	n := func() fakePhoto { return keywords("1", "5") }
+	o := RenderOptions{}
+	all := []string{"a", "b", "ab", "1", "5", "x"}
+	checkRender(t, []renderCase{
+		// phototemplate.py:1186-1235
+		{"contains", "{keyword|filter(contains a)}", k(), o, []string{"a", "ab"}, nil},
+		{"not contains", "{keyword|filter(not contains a)}", k(), o, []string{"b", "1", "5", "x"}, nil},
+		{"not not", "{keyword|filter(not not contains a)}", k(), o, []string{"a", "ab"}, nil},
+		{"not not not", "{keyword|filter(not  not not contains a)}", k(), o, []string{"b", "1", "5", "x"}, nil},
+		{"matches an alternative", "{keyword|filter(matches a|b)}", k(), o, []string{"a", "b"}, nil},
+		{"== a", "{keyword|filter(== a)}", k(), o, []string{"a"}, nil},
+		{"== splits on the pipe, unlike a condition", "{keyword|filter(== a|b)}", k(), o, []string{"a", "b"}, nil},
+		{"!= a", "{keyword|filter(!= a)}", k(), o, []string{"b", "ab", "1", "5", "x"}, nil},
+		{"!= of two alternatives holds for every value", "{keyword|filter(!= a|b)}", k(), o, all, nil},
+		{"startswith", "{keyword|filter(startswith a)}", k(), o, []string{"a", "ab"}, nil},
+		{"endswith", "{keyword|filter(endswith b)}", k(), o, []string{"b", "ab"}, nil},
+		{"spaces around the operator", "{keyword|filter(  contains   a)}", k(), o, []string{"a", "ab"}, nil},
+		{"U+001C separates the operator", "{keyword|filter(contains\U0000001ca)}", k(), o, []string{"a", "ab"}, nil},
+		// str.split(None, 1) keeps the spaces at the end of the value
+		{"space after the value", "{keyword|filter(contains a )}", k(), o, []string{"_"}, nil},
+		{"empty alternative", "{keyword|filter(contains |q)}", k(), o, all, nil},
+		{"nothing matches", "{keyword|filter(matches q)}", k(), o, []string{"_"}, nil},
+		{"> 2", "{keyword|filter(> 2)}", n(), o, []string{"5"}, nil},
+		{"not > 2", "{keyword|filter(not > 2)}", n(), o, []string{"1"}, nil},
+		{"<= an alternative", "{keyword|filter(<= 1|5)}", n(), o, []string{"1", "5"}, nil},
+		{">= 5", "{keyword|filter(>= 5)}", n(), o, []string{"5"}, nil},
+		{"< 5", "{keyword|filter(< 5)}", n(), o, []string{"1"}, nil},
+		{"nan is below nothing", "{keyword|filter(< 2)}", keywords("nan", "1"), o, []string{"1"}, nil},
+		// any() stops at the first match (1204-1207)
+		{"an alternative after a match is not read", "{keyword|filter(< 1|x)}", keywords("0"), o, []string{"0"}, nil},
+		{"the argument from a variable", "{var:n,> 2}{keyword|filter(%n)}", n(), o, []string{"5"}, nil},
+		// upstream reads the argument for each value (1171)
+		{"unknown operator without values", "{descr|filter(nope a)}", k(), o, []string{"_"}, nil},
+		{"no value without values", "{descr|filter(contains)}", k(), o, []string{"_"}, nil},
+	})
+}
+
+func TestNumbers(t *testing.T) {
+	t.Parallel()
+	o, none := RenderOptions{}, fakePhoto{}
+	checkRender(t, []renderCase{
+		// phototemplate.py:1725-1740
+		{"int", "{keyword|int}",
+			keywords("1.9", "-1.9", "x", "3", "1e3", "-0.5", " 7 ", "nan", "1e20", "1_000", "", "0x10"), o,
+			[]string{"1", "-1", "3", "1000", "0", "7", "100000000000000000000", "1000"}, nil},
+		{"int gives the exact digits of the double", "{var:i,1e23}{%i|int}", none, o, []string{"99999999999999991611392"}, nil},
+		{"int of nan", "{var:i,nan}{%i|int}", none, o, []string{"_"}, nil},
+		{"int of no values", "{descr|int}", keywords(), o, []string{"_"}, nil},
+		{"float", "{keyword|float}",
+			keywords("1", "1e16", "inf", "nan", "x", "-0", "1e-5", "-inf", " 2 ", "1e400", "0.1", "-Infinity", "-nan"), o,
+			[]string{"1.0", "1e+16", "inf", "nan", "-0.0", "1e-05", "-inf", "2.0", "inf", "0.1", "-inf"}, nil},
+		{"int then filter", "{var:i,1.9;-1.9;x;3;1e3}{%i|split(;)|int|filter(> 1)}", none, o, []string{"3", "1000"}, nil},
+	})
+}
+
+// repr of a float of Python 3 (float_repr_style "short").
+func TestPyFloatRepr(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		f    float64
+		want string
+	}{
+		{1, "1.0"}, {1000, "1000.0"}, {1e16, "1e+16"}, {1e15, "1000000000000000.0"}, {9999999999999998, "9999999999999998.0"},
+		{0.0001, "0.0001"}, {0.00001, "1e-05"}, {0.1, "0.1"}, {123456789.125, "123456789.125"}, {1.5e300, "1.5e+300"},
+		{-1.5e-7, "-1.5e-07"}, {5e-324, "5e-324"}, {math.MaxFloat64, "1.7976931348623157e+308"}, {0, "0.0"},
+		{math.Copysign(0, -1), "-0.0"}, {math.Inf(1), "inf"}, {math.Inf(-1), "-inf"}, {math.NaN(), "nan"},
+	} {
+		if got := pyFloatRepr(tt.f); got != tt.want {
+			t.Errorf("pyFloatRepr(%v) = %q, want %q", tt.f, got, tt.want)
 		}
 	}
 }
