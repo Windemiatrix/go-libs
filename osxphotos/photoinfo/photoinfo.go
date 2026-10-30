@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/exifinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 )
 
 // PhotoInfo is one asset of the library. Fields marked "extension" have no
@@ -37,6 +38,8 @@ type PhotoInfo struct {
 
 	ExifInfo     exifinfo.ExifInfo // the EXIF data Photos stored on import; zero without a ZEXTENDEDATTRIBUTES row (photoinfo.py:1687-1704)
 	DateOriginal time.Time         // ExifInfo.Date when it is set, otherwise Date (photoinfo.py:147-163)
+
+	Place *placeinfo.PlaceInfo // the reverse geolocation Photos stored (photoinfo.py:1327-1361); nil without one, and for an archive that does not decode, where osxphotos logs a warning and gives None
 
 	Width, Height, Orientation                         int
 	OriginalWidth, OriginalHeight, OriginalOrientation int

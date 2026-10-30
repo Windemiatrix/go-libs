@@ -18,6 +18,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 )
 
 // PK is the value of {id} (phototemplate.py:977-978).
@@ -830,6 +831,126 @@ WHERE a.ZUUID IS NOT NULL GROUP BY a.Z_PK HAVING COUNT(*) = 1 ORDER BY a.ZUUID L
 	if second.ExifInfo.CameraMake != "Second Make" {
 		t.Error("the photo with two rows: CameraMake is not the one of the second row")
 	}
+}
+
+// The oracle is the database and the rule of the name of Photos
+// (placeinfo.py:671-686). The messages hold photo indexes and counts, not the
+// places of a library.
+func TestLoadPlace(t *testing.T) {
+	t.Parallel()
+
+	var mu sync.Mutex
+	var places, named int
+	t.Run("libraries", func(t *testing.T) {
+		for _, lib := range goldenLibraries(t) {
+			t.Run(lib.name, func(t *testing.T) {
+				t.Parallel()
+				db, err := Open(t.Context(), lib.path, Options{TempDir: t.TempDir()})
+				if err != nil {
+					t.Fatal(err)
+				}
+				hasData := map[string]bool{}
+				for _, pk := range testlib.Rows(t, roDB(t, lib.path),
+					"SELECT DISTINCT ZASSET FROM ZADDITIONALASSETATTRIBUTES WHERE ZASSET IS NOT NULL AND length(ZREVERSELOCATIONDATA) > 0") {
+					hasData[pk] = true
+				}
+				var withPlace, withName, withCountry, home, checked int
+				for i, p := range db.Photos() {
+					has := hasData[strconv.FormatInt(p.PK, 10)]
+					if p.Place == nil {
+						if has {
+							t.Errorf("photo %d: the archive of the database gives no Place", i)
+						}
+						continue
+					}
+					if !has {
+						t.Errorf("photo %d: a Place without an archive in the database", i)
+					}
+					withPlace++
+					if p.Place.Name != "" {
+						withName++
+					}
+					if p.Place.Address.Country != "" {
+						withCountry++
+					}
+					if p.Place.IsHome {
+						home++
+					}
+					if checked < 5 {
+						checked++
+						n := p.Place.Names
+						var parts []string
+						for _, list := range [][]string{n.AreaOfInterest, n.Region, n.City, n.StateProvince, n.Country, n.InlandWater, n.Ocean} {
+							if len(list) > 0 && list[0] != "" {
+								parts = append(parts, list[0])
+							}
+						}
+						if p.Place.Name != strings.Join(parts, ", ") {
+							t.Errorf("photo %d: Name is not the first names of Names", i)
+						}
+					}
+				}
+				t.Logf("%d photos: %d with a Place, %d with a name, %d with a country, %d at home", len(db.Photos()), withPlace, withName, withCountry, home)
+				mu.Lock()
+				defer mu.Unlock()
+				places += withPlace
+				named += withName
+			})
+		}
+	})
+	if places == 0 || named == 0 {
+		t.Errorf("%d photos with a Place, %d with a name in all libraries; want some of both: the test is vacuous", places, named)
+	}
+
+	// The rows come by Z_PK (sqlread.ReverseLocations): the last row of an asset decides.
+	t.Run("two rows of an asset", func(t *testing.T) {
+		t.Parallel()
+		archive := keyedArchiveOf(t, placeObjects())
+		c, err := load(tables{
+			assets: []sqlread.Asset{baseAsset(1, "A-1"), baseAsset(2, "A-2"), baseAsset(3, "A-3")},
+			places: []sqlread.ReverseLocation{{AssetPK: 1, Data: archive}, {AssetPK: 1}, {AssetPK: 2}, {AssetPK: 2, Data: archive}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p := c.byUUID["A-1"].Place; p != nil {
+			t.Errorf("A-1: %+v, want the nil of its last row", *p)
+		}
+		if p := c.byUUID["A-2"].Place; !reflect.DeepEqual(p, &examplePlace) {
+			t.Errorf("A-2: %+v, want the place of its last row", p)
+		}
+		if p := c.byUUID["A-3"].Place; p != nil {
+			t.Errorf("A-3: %+v, want nil without a row", *p)
+		}
+	})
+
+	t.Run("synthetic", func(t *testing.T) {
+		t.Parallel()
+		lib := testlib.OpenPristine(t, "synthetic")
+		photos := testlib.Rows(t, roDB(t, lib), "SELECT a.ZUUID FROM ZASSET a JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK ORDER BY a.ZUUID LIMIT 4")
+		if len(photos) != 4 {
+			t.Fatalf("%d photos in the synthetic library, want 4", len(photos))
+		}
+		set := func(photo, value string) string {
+			return "UPDATE ZADDITIONALASSETATTRIBUTES SET ZREVERSELOCATIONDATA = " + value + " WHERE ZASSET = (SELECT Z_PK FROM ZASSET WHERE ZUUID = '" + photo + "')"
+		}
+		// The third archive is over the bound of sqlread.ReverseLocations.
+		change(t, lib, set(photos[0], "NULL"), set(photos[1], "X'00'"), set(photos[2], "zeroblob(1048577)"),
+			set(photos[3], fmt.Sprintf("X'%x'", keyedArchiveOf(t, placeObjects()))))
+		db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, want := range []*placeinfo.PlaceInfo{nil, nil, nil, &examplePlace} {
+			p, ok := db.Photo(photos[i])
+			if !ok {
+				t.Fatalf("photo %d not found", i)
+			}
+			if !reflect.DeepEqual(p.Place, want) {
+				t.Errorf("photo %d: Place %+v, want %+v", i, p.Place, want)
+			}
+		}
+	})
 }
 
 // As upstream (photosdb.py:2498-2516), the rows of the fingerprint query

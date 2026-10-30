@@ -278,6 +278,9 @@ func TestNameComponents(t *testing.T) {
 	noRoot := marshal(t, map[string]any{"$objects": []any{"$null"}}, plist.BinaryFormat)
 	noPrivate := marshal(t, map[string]any{"$top": map[string]any{"root": plist.UID(1)}, "$objects": []any{"$null", map[string]any{"$class": null}}},
 		plist.BinaryFormat)
+	inline := marshal(t, map[string]any{"$top": map[string]any{"root": plist.UID(1)}, "$objects": []any{
+		"$null", map[string]any{"NSnameComponentsPrivate": map[string]any{"NSgivenName": plist.UID(2)}}, "Jose",
+	}}, plist.BinaryFormat)
 	for _, tt := range []struct {
 		name    string
 		archive []byte
@@ -290,6 +293,8 @@ func TestNameComponents(t *testing.T) {
 		{"not a property list", []byte("not a list"), photoinfo.PersonNameComponents{}, false},
 		{"no root", noRoot, photoinfo.PersonNameComponents{}, false},
 		{"no NSnameComponentsPrivate", noPrivate, photoinfo.PersonNameComponents{}, false},
+		// An inline dictionary stays a dict for bpylist2, without the attributes upstream reads (shareparticipant.py:157-158).
+		{"inline NSnameComponentsPrivate", inline, photoinfo.PersonNameComponents{}, false},
 		// bpylist2 indexes $objects and raises IndexError.
 		{"a reference out of range", nameArchive(t, plist.UID(99), plist.UID(4)), photoinfo.PersonNameComponents{}, false},
 		{"a reference at len($objects)", nameArchive(t, plist.UID(7), plist.UID(4)), photoinfo.PersonNameComponents{}, false},

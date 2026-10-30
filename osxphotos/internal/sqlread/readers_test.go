@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -96,6 +97,10 @@ var readers = []struct {
 		r, err := d.Exif(ctx)
 		return len(r), err
 	}},
+	{"ReverseLocations", func(ctx context.Context, d *DB, _ schema.Schema) (int, error) {
+		r, err := d.ReverseLocations(ctx)
+		return len(r), err
+	}},
 }
 
 func contains(list []string, s string) bool {
@@ -175,7 +180,7 @@ func TestColumnsIncludeJoins(t *testing.T) {
 	c := Columns(schemaByID(t, "photos11_1"))
 	want := map[string][]string{
 		"ZASSET":                     {"ZMASTER", "ZCLOUDASSETGUID", "ZADJUSTMENTSSTATE", "ZHDRTYPE", "ZDEPTHTYPE", "ZVISIBILITYSTATE", "ZCLOUDOWNERHASHEDPERSONID", "ZMOMENTSHARE", "ZIMPORTSESSION"},
-		"ZADDITIONALASSETATTRIBUTES": {"ZASSET", "ZASSETDESCRIPTION", "ZORIGINALSTABLEHASH", "ZCAMERACAPTUREDEVICE", "ZTIMEZONENAME", "ZIMPORTEDBYDISPLAYNAME", "ZIMPORTEDBYBUNDLEIDENTIFIER", "ZUNMANAGEDADJUSTMENT"},
+		"ZADDITIONALASSETATTRIBUTES": {"ZASSET", "ZASSETDESCRIPTION", "ZORIGINALSTABLEHASH", "ZCAMERACAPTUREDEVICE", "ZTIMEZONENAME", "ZIMPORTEDBYDISPLAYNAME", "ZIMPORTEDBYBUNDLEIDENTIFIER", "ZUNMANAGEDADJUSTMENT", "ZREVERSELOCATIONDATA"},
 		"ZUNMANAGEDADJUSTMENT":       {"Z_PK", "ZADJUSTMENTFORMATIDENTIFIER"},
 		"ZASSETDESCRIPTION":          {"Z_PK", "ZLONGDESCRIPTION"},
 		"ZCLOUDMASTER":               {"Z_PK", "ZCLOUDLOCALSTATE", "ZCLOUDMASTERGUID"},
@@ -811,6 +816,79 @@ func TestExifNull(t *testing.T) {
 	if !found {
 		t.Error("Exif: the row with NULL columns is missing")
 	}
+}
+
+func TestReverseLocationRows(t *testing.T) {
+	t.Parallel()
+
+	var total atomic.Int64
+	t.Run("libraries", func(t *testing.T) {
+		for _, lib := range libraryDBs(t) {
+			t.Run(lib.name, func(t *testing.T) {
+				t.Parallel()
+				rows, err := openDB(t, lib.path).ReverseLocations(t.Context())
+				if err != nil {
+					t.Fatal(err)
+				}
+				// The archives of the test libraries are under the bound, so the
+				// length of each row is that of its Data.
+				want := testlib.Rows(t, openRO(t, lib.path), "SELECT ZASSET || ':' || length(CAST(ZREVERSELOCATIONDATA AS BLOB)) "+
+					"FROM ZADDITIONALASSETATTRIBUTES WHERE ZASSET IS NOT NULL AND ZREVERSELOCATIONDATA IS NOT NULL ORDER BY ZASSET, Z_PK")
+				got := make([]string, len(rows))
+				empty := 0
+				for i, r := range rows {
+					got[i] = strconv.FormatInt(r.AssetPK, 10) + ":" + strconv.Itoa(len(r.Data))
+					if len(r.Data) == 0 {
+						empty++
+					}
+				}
+				if !slices.Equal(got, want) {
+					t.Errorf("ReverseLocations: %d rows, want the %d rows of the query in (ZASSET, Z_PK) order", len(got), len(want))
+				}
+				if empty > 0 {
+					t.Errorf("ReverseLocations: %d rows without Data", empty)
+				}
+				t.Logf("ReverseLocations: %d rows", len(rows))
+				total.Add(int64(len(rows)))
+			})
+		}
+	})
+	if total.Load() == 0 {
+		t.Error("no library has a ZREVERSELOCATIONDATA: the test is vacuous")
+	}
+
+	// The bound is that of photosdb, which refuses a larger property list.
+	t.Run("an archive over 1 MiB", func(t *testing.T) {
+		t.Parallel()
+		path := syntheticDB(t)
+		w := openWriter(t, path)
+		exec(t, w,
+			// An archive without an asset is no row of an asset.
+			"UPDATE ZADDITIONALASSETATTRIBUTES SET ZREVERSELOCATIONDATA = X'01', ZASSET = NULL WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZADDITIONALASSETATTRIBUTES)",
+			"UPDATE ZADDITIONALASSETATTRIBUTES SET ZREVERSELOCATIONDATA = zeroblob(1048576) WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZADDITIONALASSETATTRIBUTES WHERE ZASSET IS NOT NULL)",
+			"UPDATE ZADDITIONALASSETATTRIBUTES SET ZREVERSELOCATIONDATA = zeroblob(1048577) WHERE Z_PK = (SELECT MAX(Z_PK) FROM ZADDITIONALASSETATTRIBUTES WHERE ZASSET IS NOT NULL)",
+		)
+		want := count(t, w, "SELECT COUNT(*) FROM ZADDITIONALASSETATTRIBUTES WHERE ZASSET IS NOT NULL AND ZREVERSELOCATIONDATA IS NOT NULL")
+		if err := w.Close(); err != nil {
+			t.Fatal(err)
+		}
+		rows, err := openDB(t, path).ReverseLocations(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		mib, null := 0, 0
+		for _, r := range rows {
+			switch {
+			case r.Data == nil:
+				null++
+			case len(r.Data) == 1048576:
+				mib++
+			}
+		}
+		if int64(len(rows)) != want || mib != 1 || null != 1 {
+			t.Errorf("%d rows, %d of 1 MiB, %d without Data; want %d, 1, 1", len(rows), mib, null, want)
+		}
+	})
 }
 
 func TestReadersEmpty(t *testing.T) {

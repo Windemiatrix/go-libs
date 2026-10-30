@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"time"
 
-	"howett.net/plist"
-
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
@@ -78,36 +76,18 @@ func loadParticipants(rows []sqlread.Participant) map[string][]photoinfo.SharePa
 
 // Upstream: shareparticipant.py:90-127, 153-187. The bool is false where the
 // unarchiving or the attribute access of upstream raises: not a property
-// list, no root object, a root without NSnameComponentsPrivate, or a
-// reference outside $objects, which bpylist2 indexes.
+// list, no root object, a root without a referenced NSnameComponentsPrivate,
+// or a reference outside $objects, which bpylist2 indexes.
 func nameComponents(archive []byte) (photoinfo.PersonNameComponents, bool) {
-	keyed, _ := plistAny(archive).(map[string]any)
-	objects, _ := keyed["$objects"].([]any)
-	top, _ := keyed["$top"].(map[string]any)
-	outside := false
-	object := func(ref any) any {
-		uid, isUID := ref.(plist.UID)
-		if isUID && uint64(uid) >= uint64(len(objects)) {
-			outside = true
-			return nil
-		}
-		if !isUID || objects[uid] == "$null" {
-			return nil
-		}
-		return objects[uid]
-	}
-	person, _ := object(top["root"]).(map[string]any)
-	data, ok := object(person["NSnameComponentsPrivate"]).(map[string]any)
-	part := func(key string) string {
-		s, _ := object(data[key]).(string)
-		return nfc(s)
-	}
+	a := newKeyedArchive(archive)
+	data := a.dict(a.root()["NSnameComponentsPrivate"])
+	part := func(key string) string { return nfc(a.text(data[key])) }
 	n := photoinfo.PersonNameComponents{
 		GivenName: part("NSgivenName"), MiddleName: part("NSmiddleName"), FamilyName: part("NSfamilyName"),
 		NamePrefix: part("NSnamePrefix"), NameSuffix: part("NSnameSuffix"), Nickname: part("NSnickname"),
 		PhoneticRepresentation: part("NSphoneticRepresentation"),
 	}
-	if !ok || outside {
+	if data == nil || a.outside {
 		return photoinfo.PersonNameComponents{}, false
 	}
 	return n, true
