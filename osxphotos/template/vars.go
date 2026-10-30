@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// (?:%%)*(%[\w]+) (phototemplate.py:813, 826); \w of RE2 is ASCII, of Python every script.
+// (?:%%)*(%[\w]+) (phototemplate.py:813); \w of RE2 is ASCII, of Python every script.
 var variableRe = regexp.MustCompile(`(%%)*%([\p{L}\p{N}_]+)`)
 
 // maxRenderBytes bounds the strings one Render builds: a variable keeps what a statement built
@@ -35,21 +35,23 @@ func (s *rendering) expand(text, what string) (string, error) {
 			if m == nil || m[0] != 0 {
 				break
 			}
-			vals, err := s.variable(cur[m[4]:m[5]])
+			name := cur[m[4]:m[5]]
+			vals, err := s.variable(name)
 			if err != nil && round > 0 { // the name is part of a value, which may be a keyword
-				err = fmt.Errorf("%w: a value of a variable in %s starts with an undefined %%name", ErrRender, what)
-			} else if err == nil && len(next)+len(values)*len(vals) > s.o.MaxResults {
-				err = fmt.Errorf("%w: more than %d", ErrTooManyValues, s.o.MaxResults)
-			}
-			if err != nil {
+				return "", fmt.Errorf("%w: a value of a variable in %s starts with an undefined %%name", ErrRender, what)
+			} else if err != nil {
 				return "", err
+			} else if len(next)+len(values)*len(vals) > s.o.MaxResults {
+				return "", fmt.Errorf("%w: more than %d", ErrTooManyValues, s.o.MaxResults)
 			}
+			// re.sub(f"(%%)*{var}", r"\g<1>" + var_val) (826), with var_val literal: re.sub reads its backslashes.
+			sub := regexp.MustCompile(`(%%)*%` + name)
 			for _, v := range values {
 				for _, val := range vals {
-					if s.bytesLeft -= len(v) + strings.Count(v, "%"+cur[m[4]:m[5]])*len(val); s.bytesLeft < 0 {
+					if s.bytesLeft -= len(v) + strings.Count(v, "%"+name)*len(val); s.bytesLeft < 0 {
 						return "", errTooLong
 					}
-					next = append(next, replaceVariable(v, cur[m[4]:m[5]], val))
+					next = append(next, sub.ReplaceAllString(v, "${1}"+strings.ReplaceAll(val, "$", "$$")))
 				}
 			}
 		}
@@ -64,15 +66,4 @@ func (s *rendering) expand(text, what string) (string, error) {
 		return "", fmt.Errorf("%w: %s takes one value, not %d", ErrRender, what, len(values))
 	}
 	return strings.ReplaceAll(values[0], "%%", "%"), nil
-}
-
-// re.sub(f"(%%)*%{name}", r"\g<1>" + value) (phototemplate.py:826) keeps the
-// last "%%" before the name. value is literal; re.sub reads its backslashes.
-func replaceVariable(text, name, value string) string {
-	return variableRe.ReplaceAllStringFunc(text, func(m string) string {
-		if pairs, rest, ok := strings.Cut(m, "%"+name); ok {
-			return pairs[:min(len(pairs), 2)] + value + rest
-		}
-		return m
-	})
 }

@@ -20,10 +20,8 @@ func (s *rendering) date(name, family, part string) ([]string, error) {
 	if family != "today" {
 		v, ok := s.p.Field(family)
 		if ok && v.Time == nil && family == "modified" {
-			family = "created"
-			v, ok = s.p.Field(family)
-		}
-		if !ok {
+			return s.date(name, "created", part)
+		} else if !ok {
 			return nil, unsupported(ErrUnsupportedField, family)
 		} else if t = v.Time; t == nil {
 			return nil, nil
