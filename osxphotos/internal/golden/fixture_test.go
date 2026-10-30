@@ -14,6 +14,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/exifinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 )
 
 const (
@@ -82,6 +83,15 @@ func fixtureLib() Library {
 					CameraMake: "Acme", CameraModel: "Acme One", Codec: "hvc1", LensModel: "Acme One 4mm",
 					Date: ptr(utc(2020, 6, 6, 10, 0, 0, 0).In(ist)), TZOffset: ptr(19800), TZName: "Asia/Kolkata",
 				},
+				Place: &placeinfo.PlaceInfo{
+					Name: "Example Park, Townsville, Exampleland",
+					Names: placeinfo.Names{
+						Country: []string{"Exampleland"}, City: []string{"Townsville", "Greater Townsville"},
+						AreaOfInterest: []string{"Example Park"}, Field13: []string{"Field Thirteen"},
+					},
+					CountryCode: "EX", IsHome: true, AddressStr: "1 Example Street, Townsville",
+					Address: placeinfo.Address{Street: "1 Example Street", City: "Townsville", Country: "Exampleland", ISOCountryCode: "EX"},
+				},
 			},
 			{UUID: unselectedFrame, IsPhoto: true, Burst: true, BurstUUID: "BURST-A", BurstPickType: 2},
 			{
@@ -145,6 +155,17 @@ const (
 		`"latitude": null, "longitude": null, "shutter_speed": null, ` +
 		`"camera_make": null, "camera_model": null, "codec": null, "lens_model": null, ` +
 		`"date": null, "tzoffset": null, "tzname": null}`
+)
+
+// The lists of names are in the order of area, not sorted (placeinfo.py:643-653).
+const (
+	refPlaceAddress = `{"city": "Townsville", "country": "Exampleland", "iso_country_code": "EX", "postal_code": null, "state_province": null, ` +
+		`"street": "1 Example Street", "sub_administrative_area": null, "sub_locality": null}`
+	refPlace = `{"address": ` + refPlaceAddress + `, "address_str": "1 Example Street, Townsville", "country_code": "EX", "ishome": true, ` +
+		`"name": "Example Park, Townsville, Exampleland", "names": {"additional_city_info": [], "area_of_interest": ["Example Park"], ` +
+		`"body_of_water": [], "city": ["Townsville", "Greater Townsville"], "country": ["Exampleland"], "field0": [], "field10": [], ` +
+		`"field13": ["Field Thirteen"], "field15": [], "field16": [], "field5": [], "inland_water": [], "ocean": [], "postal_code": [], ` +
+		`"region": [], "state_province": [], "street_address": [], "sub_administrative_area": [], "sub_throughfare": []}}`
 )
 
 const elemImport = `{"creation_date": "2020-06-07T01:02:03+00:00", "end_date": "2020-06-07T01:01:00.500000+00:00", ` +
@@ -223,6 +244,7 @@ func refSelectedFrame() map[string]string {
 		"original_width":       "4032",
 		"owner":                `"Photo Owner"`,
 		"persons":              `["Person A", "_UNKNOWN_"]`,
+		"place":                refPlace,
 		"raw_original":         "false",
 		"saved_to_library":     "true",
 		"screen_recording":     "true",
@@ -278,7 +300,7 @@ func refEmptyPhoto() map[string]string {
 		"import_info": "{}", "imported_by": "[null, null]", "panorama": "false", "portrait": "false", "project_info": "[]", "selfie": "false",
 		"shared_moment": "false", "spatial": "0", "tzname": "null", "visible": "false",
 		"comments": "[]", "likes": "[]",
-		"date_original": `"1970-01-01T00:00:00+00:00"`, "exif_info": refExifNull, "owner": "null",
+		"date_original": `"1970-01-01T00:00:00+00:00"`, "exif_info": refExifNull, "owner": "null", "place": "{}",
 	}
 }
 

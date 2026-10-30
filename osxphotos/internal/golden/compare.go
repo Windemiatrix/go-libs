@@ -383,9 +383,10 @@ func (r *Report) Summary() string {
 // UUIDs and values; a value of persons is written as its number of names, the
 // owner of a photo or of an album and the user of a comment or a like as
 // "<name>", the text of a comment as "<text>", a value of exif_info that is
-// not null or "" as "<value>", and a value of album_info, burst_album_info,
-// project_info, comments or likes that is not a list of objects, or of
-// exif_info that is not an object, as "<unparsed>".
+// not null or "" and a string, number or boolean of place that is not "" as
+// "<value>", and a value of album_info, burst_album_info, project_info,
+// comments or likes that is not a list of objects, or of exif_info or place
+// that is not an object, as "<unparsed>".
 func (r *Report) WriteDetails(w io.Writer) error {
 	for _, d := range r.Diffs {
 		if _, err := fmt.Fprintf(w, "%s %s want=%s got=%s\n", d.Field, d.UUID, redact(d.Field, d.Want), redact(d.Field, d.Got)); err != nil {
@@ -418,6 +419,9 @@ func redact(field, value string) string {
 	}
 	if field == "exif_info" {
 		return redactExif(value)
+	}
+	if field == "place" {
+		return redactPlace(value)
 	}
 	placeholders, ok := redacted[field]
 	if !ok {
@@ -452,6 +456,35 @@ func redactExif(value string) string {
 	}
 	s, _ := canonical(obj) // decoded JSON holds no NaN
 	return s
+}
+
+// Names and addresses of places are personal data; the keys and the lengths of
+// the lists stay, so that a difference can still be located.
+func redactPlace(value string) string {
+	var obj map[string]any
+	if json.Unmarshal([]byte(value), &obj) != nil {
+		return "<unparsed>"
+	}
+	s, _ := canonical(redactLeaves(obj)) // decoded JSON holds no NaN
+	return s
+}
+
+func redactLeaves(v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		for k, e := range x {
+			x[k] = redactLeaves(e)
+		}
+	case []any:
+		for i, e := range x {
+			x[i] = redactLeaves(e)
+		}
+	default:
+		if v != nil && v != "" {
+			return "<value>"
+		}
+	}
+	return v
 }
 
 func redactOrAny(field string, raw []byte) string {

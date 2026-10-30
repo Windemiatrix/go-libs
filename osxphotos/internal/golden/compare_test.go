@@ -12,6 +12,7 @@ import (
 
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 )
 
 func TestFixtureKeys(t *testing.T) {
@@ -30,8 +31,8 @@ func TestCompareNoDifferences(t *testing.T) {
 	if !rep.OK() || len(rep.Diffs) != 0 || len(rep.Explained) != 0 || len(rep.Stale) != 0 {
 		t.Fatalf("report = %+v, want no differences", rep)
 	}
-	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 79 {
-		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 79", rep.Library, rep.Objects, len(rep.Keys))
+	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 80 {
+		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 80", rep.Library, rep.Objects, len(rep.Keys))
 	}
 	if !slices.IsSorted(rep.Keys) {
 		t.Error("Keys are not sorted")
@@ -168,6 +169,19 @@ func photoMutations() []mutation {
 		}), "exif_info"},
 		{"ExifInfo TZOffset nil", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.TZOffset = nil }), "exif_info"},
 		{"ExifInfo TZName", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.TZName = "" }), "exif_info"},
+
+		{"Place nil", p(func(x *photoinfo.PhotoInfo) { x.Place = nil }), "place"},
+		{"Place Name", p(func(x *photoinfo.PhotoInfo) { x.Place.Name = "Townsville" }), "place"},
+		{"Place City swapped", p(func(x *photoinfo.PhotoInfo) { x.Place.Names.City = []string{"Greater Townsville", "Townsville"} }), "place"},
+		{"Place Field13 of Field15", p(func(x *photoinfo.PhotoInfo) {
+			x.Place.Names.Field13, x.Place.Names.Field15 = nil, x.Place.Names.Field13
+		}), "place"},
+		{"Place BodyOfWater", p(func(x *photoinfo.PhotoInfo) { x.Place.Names.BodyOfWater = []string{"Example Bay"} }), "place"},
+		{"Place CountryCode", p(func(x *photoinfo.PhotoInfo) { x.Place.CountryCode = "" }), "place"},
+		{"Place IsHome", p(func(x *photoinfo.PhotoInfo) { x.Place.IsHome = false }), "place"},
+		{"Place AddressStr", p(func(x *photoinfo.PhotoInfo) { x.Place.AddressStr = "" }), "place"},
+		{"Place Address ISOCountryCode", p(func(x *photoinfo.PhotoInfo) { x.Place.Address.ISOCountryCode = "" }), "place"},
+		{"Place Address PostalCode", p(func(x *photoinfo.PhotoInfo) { x.Place.Address.PostalCode = "00000" }), "place"},
 
 		{"InCloud false", p(func(x *photoinfo.PhotoInfo) { x.InCloud = ptr(false) }), "incloud"},
 		{"InCloud nil", p(func(x *photoinfo.PhotoInfo) { x.InCloud = nil }), "incloud"},
@@ -487,6 +501,41 @@ func TestWriteDetailsExifAndOwner(t *testing.T) {
 	}
 }
 
+func TestWriteDetailsPlace(t *testing.T) {
+	t.Parallel()
+	lib := fixtureLib()
+	lib.Photos[0].Place.Names.City = []string{"SECRET-CITY"}
+	lib.Photos[0].Place.Address.Street = ""
+	stale := Divergence{Library: "lib", UUID: emptyPhoto, Field: "place", Want: []byte(`{"name":"SECRET-STALE","ishome":false}`), Reason: "r", Upstream: "a.py:1"}
+	unparsed := Divergence{Library: "lib", UUID: selectedFrame, Field: "place", Want: []byte(`[1]`), Reason: "r", Upstream: "a.py:1"}
+	rep := compare(t, fixtureRef(), lib, stale, unparsed)
+	if got := diffKeys(rep); !slices.Equal(got, []string{"place"}) {
+		t.Fatalf("differences in %v, want place", got)
+	}
+	var b strings.Builder
+	if err := rep.WriteDetails(&b); err != nil {
+		t.Fatal(err)
+	}
+	for _, leak := range []string{"SECRET", "Townsville", "Exampleland", "Example", `"EX"`, "Thirteen"} {
+		if strings.Contains(b.String(), leak) {
+			t.Errorf("WriteDetails writes %q", leak)
+		}
+	}
+	for _, part := range []string{
+		`"city":["<value>","<value>"]`,
+		`"city":["<value>"]`,
+		`"street":""`,
+		`"field0":[]`,
+		`"ishome":"<value>"`,
+		`stale place ` + emptyPhoto + ` want={"ishome":"<value>","name":"<value>"} got=*` + "\n",
+		"stale place " + selectedFrame + " want=<unparsed> got=*\n",
+	} {
+		if !strings.Contains(b.String(), part) {
+			t.Errorf("WriteDetails lacks %q:\n%s", part, b.String())
+		}
+	}
+}
+
 func TestWriteDetailsComments(t *testing.T) {
 	t.Parallel()
 	lib := fixtureLib()
@@ -674,6 +723,7 @@ func TestCompareNulls(t *testing.T) {
 		{"ExifInfo CameraMake", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ExifInfo.CameraMake = "x" }), "exif_info"},
 		{"ExifInfo Date at the epoch is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ExifInfo.Date = ptr(time.Unix(0, 0).UTC()) }), "exif_info"},
 		{"ExifInfo TZOffset 0 is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ExifInfo.TZOffset = ptr(0) }), "exif_info"},
+		{"Place zero is not {}", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Place = &placeinfo.PlaceInfo{} }), "place"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 )
 
 type applyCase struct {
@@ -315,6 +316,38 @@ func TestApplyFilters(t *testing.T) {
 		}...)
 	}
 	applyRun(t, tests, nil)
+}
+
+// photoquery.py:518-550.
+func TestApplyPlace(t *testing.T) {
+	t.Parallel()
+	applyCheckNFD(t)
+
+	placed := func(uuid string, names placeinfo.Names) *photoinfo.PhotoInfo {
+		return &photoinfo.PhotoInfo{UUID: uuid, IsPhoto: true, Place: &placeinfo.PlaceInfo{Name: "Nameton", Names: names}}
+	}
+	photos := []*photoinfo.PhotoInfo{
+		placed("P1", placeinfo.Names{City: []string{"Townsville"}, Country: []string{"Exampleland"}}),
+		placed("P2", placeinfo.Names{Field13: []string{"Example Park"}}),
+		placed("P3", placeinfo.Names{Region: []string{"", applyNFC + " Bay"}}),
+		placed("P4", placeinfo.Names{}),
+		placed("P5", placeinfo.Names{City: []string{""}}),
+		{UUID: "N", IsPhoto: true},
+	}
+	applyRun(t, []applyCase{
+		{"place substring", Options{Place: []string{"Towns"}}, photos, []string{"P1"}},
+		{"place keeps case", Options{Place: []string{"towns"}}, photos, nil},
+		{"place ignore case", Options{Place: []string{"tOWNS"}, IgnoreCase: true}, photos, []string{"P1"}},
+		{"place every value, in names of two kinds", Options{Place: []string{"Towns", "land"}}, photos, []string{"P1"}},
+		{"place every value, one not found", Options{Place: []string{"Towns", "nope"}}, photos, nil},
+		{"place of a kind without a name upstream", Options{Place: []string{"Park"}}, photos, []string{"P2"}},
+		{"place not of Name", Options{Place: []string{"Nameton"}}, photos, nil},
+		{"place in NFD", Options{Place: []string{applyNFD}}, photos, []string{"P3"}},
+		{"place empty value finds a name that is not empty", Options{Place: []string{""}}, photos, []string{"P1", "P2", "P3"}},
+		{"no place", Options{NoPlace: true}, photos, []string{"N"}},
+		{"no place with place", Options{NoPlace: true, Place: []string{"Park"}}, photos, []string{"P2"}},
+		{"empty place list", Options{Place: []string{}}, photos, []string{"N", "P1", "P2", "P3", "P4", "P5"}},
+	}, nil)
 }
 
 // photoquery.py:656-664: has_comment and has_likes win over no_comment and
