@@ -94,6 +94,7 @@
     "persons": [
       "Maria"
     ],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -210,6 +211,55 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {
+      "address": {
+        "city": "Washington",
+        "country": "United States",
+        "iso_country_code": "US",
+        "postal_code": "20009",
+        "state_province": "DC",
+        "street": "2038 18th St NW",
+        "sub_administrative_area": null,
+        "sub_locality": "Adams Morgan"
+      },
+      "address_str": "2038 18th St NW, Washington, DC  20009, United States",
+      "country_code": "US",
+      "ishome": false,
+      "name": "Washington, District of Columbia, United States",
+      "names": {
+        "additional_city_info": [
+          "Adams Morgan"
+        ],
+        "area_of_interest": [],
+        "body_of_water": [],
+        "city": [
+          "Washington",
+          "Washington",
+          "Washington"
+        ],
+        "country": [
+          "United States"
+        ],
+        "field0": [],
+        "field10": [],
+        "field13": [],
+        "field15": [],
+        "field16": [],
+        "field5": [],
+        "inland_water": [],
+        "ocean": [],
+        "postal_code": [],
+        "region": [],
+        "state_province": [
+          "District of Columbia"
+        ],
+        "street_address": [
+          "2038 18th St NW"
+        ],
+        "sub_administrative_area": [],
+        "sub_throughfare": []
+      }
+    },
     "portrait": false,
     "project_info": [],
     "raw_original": false,

@@ -122,6 +122,7 @@
     "owner": "Rhet Turnbull",
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -238,6 +239,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -390,6 +392,7 @@
     "persons": [
       "_UNKNOWN_"
     ],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -532,6 +535,7 @@
     "owner": "Rhet Turnbull",
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -681,6 +685,7 @@
     "owner": "Rhet Turnbull",
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": true,
     "project_info": [],
     "raw_original": false,
@@ -799,6 +804,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": true,
     "project_info": [],
     "raw_original": false,
@@ -960,6 +966,7 @@
     "owner": "Rhet Turnbull",
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -1109,6 +1116,7 @@
     "owner": "Rhet Turnbull",
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -1225,6 +1233,65 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {
+      "address": {
+        "city": "Santa Monica",
+        "country": "United States",
+        "iso_country_code": "US",
+        "postal_code": "90401",
+        "state_province": "CA",
+        "street": "402 Colorado Ave",
+        "sub_administrative_area": "Los Angeles County",
+        "sub_locality": null
+      },
+      "address_str": "Santa Monica Pier, 402 Colorado Ave, Santa Monica, CA  90401, United States",
+      "country_code": "US",
+      "ishome": false,
+      "name": "Santa Monica Pier, Santa Monica, California, United States",
+      "names": {
+        "additional_city_info": [],
+        "area_of_interest": [
+          "Santa Monica Pier",
+          "Santa Monica Pier",
+          "Santa Monica Mountains National Recreation Area"
+        ],
+        "body_of_water": [],
+        "city": [
+          "Santa Monica",
+          "Santa Monica",
+          "Santa Monica"
+        ],
+        "country": [
+          "United States"
+        ],
+        "field0": [],
+        "field10": [],
+        "field13": [],
+        "field15": [],
+        "field16": [],
+        "field5": [],
+        "inland_water": [],
+        "ocean": [],
+        "postal_code": [],
+        "region": [],
+        "state_province": [
+          "California",
+          "Western United States"
+        ],
+        "street_address": [],
+        "sub_administrative_area": [
+          "Northern West Los Angeles",
+          "West Los Angeles",
+          "Los Angeles County",
+          "Tech Coast",
+          "Southern California",
+          "International Border States (Southwest)",
+          "Southwest",
+          "Continental United States"
+        ],
+        "sub_throughfare": []
+      }
+    },
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -1367,6 +1434,7 @@
     "owner": "Wallace Rutherford",
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -1477,6 +1545,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -1587,6 +1656,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -1697,6 +1767,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -1807,6 +1878,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -1917,6 +1989,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -2029,6 +2102,7 @@
     "persons": [
       "_UNKNOWN_"
     ],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -2139,6 +2213,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -2255,6 +2330,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -2365,6 +2441,69 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {
+      "address": {
+        "city": "Los Angeles",
+        "country": "United States",
+        "iso_country_code": "US",
+        "postal_code": "90731",
+        "state_province": "CA",
+        "street": "110 W 22nd St",
+        "sub_administrative_area": "Los Angeles County",
+        "sub_locality": "Coastal San Pedro"
+      },
+      "address_str": "110 W 22nd St, San Pedro, CA  90731, United States",
+      "country_code": "US",
+      "ishome": false,
+      "name": "San Pedro, California, United States",
+      "names": {
+        "additional_city_info": [
+          "Coastal San Pedro",
+          "Terminal Island",
+          "San Pedro"
+        ],
+        "area_of_interest": [],
+        "body_of_water": [],
+        "city": [
+          "San Pedro",
+          "San Pedro",
+          "Los Angeles"
+        ],
+        "country": [
+          "United States"
+        ],
+        "field0": [],
+        "field10": [],
+        "field13": [],
+        "field15": [],
+        "field16": [],
+        "field5": [],
+        "inland_water": [],
+        "ocean": [],
+        "postal_code": [],
+        "region": [],
+        "state_province": [
+          "California",
+          "Western United States"
+        ],
+        "street_address": [
+          "110 W 22nd St"
+        ],
+        "sub_administrative_area": [
+          "Palos Verdes",
+          "Harbor Area",
+          "Gateway Cities",
+          "Los Angeles County",
+          "Tech Coast",
+          "Greater Los Angeles Area",
+          "Southern California",
+          "International Border States (Southwest)",
+          "Southwest",
+          "Continental United States"
+        ],
+        "sub_throughfare": []
+      }
+    },
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -2481,6 +2620,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -2630,6 +2770,7 @@
     "owner": "Wallace Rutherford",
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -2740,6 +2881,65 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {
+      "address": {
+        "city": "Lomita",
+        "country": "United States",
+        "iso_country_code": "US",
+        "postal_code": "90717",
+        "state_province": "CA",
+        "street": "1939 Pacific Coast Hwy",
+        "sub_administrative_area": "Los Angeles County",
+        "sub_locality": "Central Area"
+      },
+      "address_str": "1939 Pacific Coast Hwy, Lomita, CA  90717, United States",
+      "country_code": "US",
+      "ishome": false,
+      "name": "Lomita, California, United States",
+      "names": {
+        "additional_city_info": [
+          "Central Area"
+        ],
+        "area_of_interest": [],
+        "body_of_water": [],
+        "city": [
+          "Lomita",
+          "Lomita",
+          "Lomita"
+        ],
+        "country": [
+          "United States"
+        ],
+        "field0": [],
+        "field10": [],
+        "field13": [],
+        "field15": [],
+        "field16": [],
+        "field5": [],
+        "inland_water": [],
+        "ocean": [],
+        "postal_code": [],
+        "region": [],
+        "state_province": [
+          "California",
+          "Western United States"
+        ],
+        "street_address": [
+          "1939 Pacific Coast Hwy"
+        ],
+        "sub_administrative_area": [
+          "Harbor Area",
+          "Los Angeles County",
+          "Tech Coast",
+          "Greater Los Angeles Area",
+          "Southern California",
+          "International Border States (Southwest)",
+          "Southwest",
+          "Continental United States"
+        ],
+        "sub_throughfare": []
+      }
+    },
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -2850,6 +3050,65 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {
+      "address": {
+        "city": "Lomita",
+        "country": "United States",
+        "iso_country_code": "US",
+        "postal_code": "90717",
+        "state_province": "CA",
+        "street": "1951 Pacific Coast Hwy",
+        "sub_administrative_area": "Los Angeles County",
+        "sub_locality": "Central Area"
+      },
+      "address_str": "1951 Pacific Coast Hwy, Lomita, CA  90717, United States",
+      "country_code": "US",
+      "ishome": false,
+      "name": "Lomita, California, United States",
+      "names": {
+        "additional_city_info": [
+          "Central Area"
+        ],
+        "area_of_interest": [],
+        "body_of_water": [],
+        "city": [
+          "Lomita",
+          "Lomita",
+          "Lomita"
+        ],
+        "country": [
+          "United States"
+        ],
+        "field0": [],
+        "field10": [],
+        "field13": [],
+        "field15": [],
+        "field16": [],
+        "field5": [],
+        "inland_water": [],
+        "ocean": [],
+        "postal_code": [],
+        "region": [],
+        "state_province": [
+          "California",
+          "Western United States"
+        ],
+        "street_address": [
+          "1951 Pacific Coast Hwy"
+        ],
+        "sub_administrative_area": [
+          "Harbor Area",
+          "Los Angeles County",
+          "Tech Coast",
+          "Greater Los Angeles Area",
+          "Southern California",
+          "International Border States (Southwest)",
+          "Southwest",
+          "Continental United States"
+        ],
+        "sub_throughfare": []
+      }
+    },
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -2960,6 +3219,65 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {
+      "address": {
+        "city": "Lomita",
+        "country": "United States",
+        "iso_country_code": "US",
+        "postal_code": "90717",
+        "state_province": "CA",
+        "street": "1951 Pacific Coast Hwy",
+        "sub_administrative_area": "Los Angeles County",
+        "sub_locality": "Central Area"
+      },
+      "address_str": "1951 Pacific Coast Hwy, Lomita, CA  90717, United States",
+      "country_code": "US",
+      "ishome": false,
+      "name": "Lomita, California, United States",
+      "names": {
+        "additional_city_info": [
+          "Central Area"
+        ],
+        "area_of_interest": [],
+        "body_of_water": [],
+        "city": [
+          "Lomita",
+          "Lomita",
+          "Lomita"
+        ],
+        "country": [
+          "United States"
+        ],
+        "field0": [],
+        "field10": [],
+        "field13": [],
+        "field15": [],
+        "field16": [],
+        "field5": [],
+        "inland_water": [],
+        "ocean": [],
+        "postal_code": [],
+        "region": [],
+        "state_province": [
+          "California",
+          "Western United States"
+        ],
+        "street_address": [
+          "1951 Pacific Coast Hwy"
+        ],
+        "sub_administrative_area": [
+          "Harbor Area",
+          "Los Angeles County",
+          "Tech Coast",
+          "Greater Los Angeles Area",
+          "Southern California",
+          "International Border States (Southwest)",
+          "Southwest",
+          "Continental United States"
+        ],
+        "sub_throughfare": []
+      }
+    },
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -3070,6 +3388,65 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {
+      "address": {
+        "city": "Lomita",
+        "country": "United States",
+        "iso_country_code": "US",
+        "postal_code": "90717",
+        "state_province": "CA",
+        "street": "1951 Pacific Coast Hwy",
+        "sub_administrative_area": "Los Angeles County",
+        "sub_locality": "Central Area"
+      },
+      "address_str": "1951 Pacific Coast Hwy, Lomita, CA  90717, United States",
+      "country_code": "US",
+      "ishome": false,
+      "name": "Lomita, California, United States",
+      "names": {
+        "additional_city_info": [
+          "Central Area"
+        ],
+        "area_of_interest": [],
+        "body_of_water": [],
+        "city": [
+          "Lomita",
+          "Lomita",
+          "Lomita"
+        ],
+        "country": [
+          "United States"
+        ],
+        "field0": [],
+        "field10": [],
+        "field13": [],
+        "field15": [],
+        "field16": [],
+        "field5": [],
+        "inland_water": [],
+        "ocean": [],
+        "postal_code": [],
+        "region": [],
+        "state_province": [
+          "California",
+          "Western United States"
+        ],
+        "street_address": [
+          "1951 Pacific Coast Hwy"
+        ],
+        "sub_administrative_area": [
+          "Harbor Area",
+          "Los Angeles County",
+          "Tech Coast",
+          "Greater Los Angeles Area",
+          "Southern California",
+          "International Border States (Southwest)",
+          "Southwest",
+          "Continental United States"
+        ],
+        "sub_throughfare": []
+      }
+    },
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -3180,6 +3557,65 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {
+      "address": {
+        "city": "Lomita",
+        "country": "United States",
+        "iso_country_code": "US",
+        "postal_code": "90717",
+        "state_province": "CA",
+        "street": "1951 Pacific Coast Hwy",
+        "sub_administrative_area": "Los Angeles County",
+        "sub_locality": "Central Area"
+      },
+      "address_str": "1951 Pacific Coast Hwy, Lomita, CA  90717, United States",
+      "country_code": "US",
+      "ishome": false,
+      "name": "Lomita, California, United States",
+      "names": {
+        "additional_city_info": [
+          "Central Area"
+        ],
+        "area_of_interest": [],
+        "body_of_water": [],
+        "city": [
+          "Lomita",
+          "Lomita",
+          "Lomita"
+        ],
+        "country": [
+          "United States"
+        ],
+        "field0": [],
+        "field10": [],
+        "field13": [],
+        "field15": [],
+        "field16": [],
+        "field5": [],
+        "inland_water": [],
+        "ocean": [],
+        "postal_code": [],
+        "region": [],
+        "state_province": [
+          "California",
+          "Western United States"
+        ],
+        "street_address": [
+          "1951 Pacific Coast Hwy"
+        ],
+        "sub_administrative_area": [
+          "Harbor Area",
+          "Los Angeles County",
+          "Tech Coast",
+          "Greater Los Angeles Area",
+          "Southern California",
+          "International Border States (Southwest)",
+          "Southwest",
+          "Continental United States"
+        ],
+        "sub_throughfare": []
+      }
+    },
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -3290,6 +3726,65 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {
+      "address": {
+        "city": "Lomita",
+        "country": "United States",
+        "iso_country_code": "US",
+        "postal_code": "90717",
+        "state_province": "CA",
+        "street": "1951 Pacific Coast Hwy",
+        "sub_administrative_area": "Los Angeles County",
+        "sub_locality": "Central Area"
+      },
+      "address_str": "1951 Pacific Coast Hwy, Lomita, CA  90717, United States",
+      "country_code": "US",
+      "ishome": false,
+      "name": "Lomita, California, United States",
+      "names": {
+        "additional_city_info": [
+          "Central Area"
+        ],
+        "area_of_interest": [],
+        "body_of_water": [],
+        "city": [
+          "Lomita",
+          "Lomita",
+          "Lomita"
+        ],
+        "country": [
+          "United States"
+        ],
+        "field0": [],
+        "field10": [],
+        "field13": [],
+        "field15": [],
+        "field16": [],
+        "field5": [],
+        "inland_water": [],
+        "ocean": [],
+        "postal_code": [],
+        "region": [],
+        "state_province": [
+          "California",
+          "Western United States"
+        ],
+        "street_address": [
+          "1951 Pacific Coast Hwy"
+        ],
+        "sub_administrative_area": [
+          "Harbor Area",
+          "Los Angeles County",
+          "Tech Coast",
+          "Greater Los Angeles Area",
+          "Southern California",
+          "International Border States (Southwest)",
+          "Southwest",
+          "Continental United States"
+        ],
+        "sub_throughfare": []
+      }
+    },
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -3400,6 +3895,66 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {
+      "address": {
+        "city": "Lomita",
+        "country": "United States",
+        "iso_country_code": "US",
+        "postal_code": "90717",
+        "state_province": "CA",
+        "street": "1961 Pacific Coast Hwy",
+        "sub_administrative_area": "Los Angeles County",
+        "sub_locality": "Lomita Pines"
+      },
+      "address_str": "1961 Pacific Coast Hwy, Lomita, CA  90717, United States",
+      "country_code": "US",
+      "ishome": false,
+      "name": "Lomita, California, United States",
+      "names": {
+        "additional_city_info": [
+          "Lomita Pines",
+          "Central Area"
+        ],
+        "area_of_interest": [],
+        "body_of_water": [],
+        "city": [
+          "Lomita",
+          "Lomita",
+          "Lomita"
+        ],
+        "country": [
+          "United States"
+        ],
+        "field0": [],
+        "field10": [],
+        "field13": [],
+        "field15": [],
+        "field16": [],
+        "field5": [],
+        "inland_water": [],
+        "ocean": [],
+        "postal_code": [],
+        "region": [],
+        "state_province": [
+          "California",
+          "Western United States"
+        ],
+        "street_address": [
+          "1961 Pacific Coast Hwy"
+        ],
+        "sub_administrative_area": [
+          "Harbor Area",
+          "Los Angeles County",
+          "Tech Coast",
+          "Greater Los Angeles Area",
+          "Southern California",
+          "International Border States (Southwest)",
+          "Southwest",
+          "Continental United States"
+        ],
+        "sub_throughfare": []
+      }
+    },
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -3516,6 +4071,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -3658,6 +4214,7 @@
     "owner": "Rhet Turnbull",
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -3806,6 +4363,7 @@
     "owner": "Rhet Turnbull",
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": true,
     "project_info": [],
     "raw_original": false,
@@ -3926,6 +4484,65 @@
     "persons": [
       "_UNKNOWN_"
     ],
+    "place": {
+      "address": {
+        "city": "Torrance",
+        "country": "United States",
+        "iso_country_code": "US",
+        "postal_code": "90501",
+        "state_province": "CA",
+        "street": null,
+        "sub_administrative_area": "Los Angeles County",
+        "sub_locality": "East Torrance"
+      },
+      "address_str": "Torrance High School, Torrance, CA  90501, United States",
+      "country_code": "US",
+      "ishome": false,
+      "name": "Torrance High School, Torrance, California, United States",
+      "names": {
+        "additional_city_info": [
+          "East Torrance"
+        ],
+        "area_of_interest": [
+          "Torrance High School",
+          "Torrance High School"
+        ],
+        "body_of_water": [],
+        "city": [
+          "Torrance",
+          "Torrance",
+          "Torrance"
+        ],
+        "country": [
+          "United States"
+        ],
+        "field0": [],
+        "field10": [],
+        "field13": [],
+        "field15": [],
+        "field16": [],
+        "field5": [],
+        "inland_water": [],
+        "ocean": [],
+        "postal_code": [],
+        "region": [],
+        "state_province": [
+          "California",
+          "Western United States"
+        ],
+        "street_address": [],
+        "sub_administrative_area": [
+          "Los Angeles County",
+          "Tech Coast",
+          "Greater Los Angeles Area",
+          "Southern California",
+          "International Border States (Southwest)",
+          "Southwest",
+          "Continental United States"
+        ],
+        "sub_throughfare": []
+      }
+    },
     "portrait": true,
     "project_info": [],
     "raw_original": false,
