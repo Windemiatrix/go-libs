@@ -9,6 +9,7 @@ import (
 
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 )
 
 // photo keeps each predicate of filters on one line.
@@ -81,6 +82,7 @@ func filters(o Options, c Catalog) (before, after []filter) {
 	}
 	albums, folders := parseAlbumPaths(o.Album, fold), parseAlbumPaths(o.Folder, fold)
 	keywords, persons, names := searchValues(o.Keyword, fold), searchValues(o.Person, fold), searchValues(o.Name, fold)
+	places := searchValues(o.Place, fold)
 
 	when(len(albums.paths) > 0, func(p *photo) bool { return in.has(p, albums.namesAlbum) })
 	when(len(keywords) > 0, func(p *photo) bool { return fold.anyEqual(p.Keywords, keywords) })
@@ -89,6 +91,8 @@ func filters(o Options, c Catalog) (before, after []filter) {
 	when(len(folders.paths) > 0, func(p *photo) bool { return in.has(p, folders.enclosesAlbum) })
 	text(searchValues(o.Title, fold), o.NoTitle, func(p *photo) string { return p.Title })
 	text(searchValues(o.Description, fold), o.NoDescription, func(p *photo) string { return p.Description })
+	when(len(places) > 0, func(p *photo) bool { return p.Place != nil && inPlaceNames(p.Place.Names, places, fold) })
+	when(len(places) == 0 && o.NoPlace, func(p *photo) bool { return p.Place == nil })
 	pair(o.Edited, o.NotEdited, func(p *photo) bool { return p.HasAdjustments })
 	when(o.ExternalEdit, func(p *photo) bool { return p.ExternalEdit })
 	pair(o.Favorite, o.NotFavorite, func(p *photo) bool { return p.Favorite })
@@ -203,6 +207,17 @@ func searchValues(values []string, fold caseFold) []string {
 		out[i] = fold.apply(norm.NFC.String(v))
 	}
 	return out
+}
+
+// Upstream walks every list of the PlaceNames tuple and takes a name only when
+// it is true, so "" matches no value (photoquery.py:518-548).
+func inPlaceNames(n placeinfo.Names, values []string, fold caseFold) bool {
+	names := slices.Concat(n.Field0, n.Country, n.StateProvince, n.SubAdministrativeArea, n.City, n.Field5,
+		n.AdditionalCityInfo, n.Ocean, n.AreaOfInterest, n.InlandWater, n.Field10, n.Region,
+		n.SubThroughfare, n.Field13, n.PostalCode, n.Field15, n.Field16, n.StreetAddress, n.BodyOfWater)
+	return !slices.ContainsFunc(values, func(v string) bool {
+		return !slices.ContainsFunc(names, func(s string) bool { return s != "" && strings.Contains(fold.apply(s), v) })
+	})
 }
 
 func containsAny(s string, subs []string) bool {

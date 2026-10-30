@@ -48,12 +48,16 @@ func decodeRaw[T any](raw json.RawMessage, path string, nullOK bool, want string
 
 // A missing key is a mistake of the input, not a null.
 func decode[T any](o Object, key string, nullOK bool, want string) (T, error) {
-	raw, ok := o[key]
+	return decodeAt[T](o, key, key, nullOK, want)
+}
+
+func decodeAt[T any](m map[string]json.RawMessage, key, path string, nullOK bool, want string) (T, error) {
+	raw, ok := m[key]
 	if !ok {
 		var zero T
-		return zero, shape(key, "a value (the key is missing)")
+		return zero, shape(path, "a value (the key is missing)")
 	}
-	return decodeRaw[T](raw, key, nullOK, want)
+	return decodeRaw[T](raw, path, nullOK, want)
 }
 
 // A null in the list is "" as in the sort key of upstream (photoinfo.py:2285).

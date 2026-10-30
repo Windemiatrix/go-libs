@@ -2,6 +2,7 @@ package golden
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"reflect"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 )
 
 type rule struct {
@@ -84,6 +86,7 @@ func buildRules() map[string]rule {
 		zonedDate("date", func(p *photoinfo.PhotoInfo) time.Time { return p.Date }),
 		zonedDate("date_original", func(p *photoinfo.PhotoInfo) time.Time { return p.DateOriginal }),
 		exifInfoRule(),
+		placeRule(),
 		moment("date_added", defaultDateTimeLocal, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateAdded }),
 		moment("date_modified", time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateModified }),
 		moment("date_trashed", time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateTrashed }),
@@ -286,6 +289,93 @@ func exifInfoRule() rule {
 			out["date"] = zonedOrNil(p.ExifInfo.Date)
 			return out, nil
 		},
+	}
+}
+
+// The keys of place.names and place.address in the order of the fields of
+// placeinfo.Names and placeinfo.Address, which the rule reads by position
+// (placeinfo.py:30-42, 51-74).
+var (
+	placeNameKeys = []string{
+		"field0", "country", "state_province", "sub_administrative_area", "city", "field5",
+		"additional_city_info", "ocean", "area_of_interest", "inland_water", "field10", "region",
+		"sub_throughfare", "field13", "postal_code", "field15", "field16", "street_address", "body_of_water",
+	}
+	addressKeys = []string{"street", "sub_locality", "city", "sub_administrative_area", "state_province", "postal_code", "country", "iso_country_code"}
+)
+
+// json() writes {} for a photo without a place (photoinfo.py:2127) and sorts
+// only the lists at the top level, so the lists of names keep the order of
+// area (2279-2285). null is "" for a string and false for ishome; address is
+// an object also without a postal address (placeinfo.py:622-625, 708-716).
+func placeRule() rule {
+	const key = "place"
+	return rule{
+		key: key,
+		ref: func(o Object) (any, error) {
+			raw, err := decode[map[string]json.RawMessage](o, key, false, "an object")
+			if err != nil {
+				return nil, err
+			}
+			if len(raw) == 0 {
+				return placeValue(nil), nil
+			}
+			pl, err := decodePlace(raw)
+			if err != nil {
+				return nil, err
+			}
+			return placeValue(&pl), nil
+		},
+		got: func(_ *env, p *photoinfo.PhotoInfo, _ any) (any, error) { return placeValue(p.Place), nil },
+	}
+}
+
+func decodePlace(raw map[string]json.RawMessage) (placeinfo.PlaceInfo, error) {
+	const want = "a string or null"
+	names, namesErr := decodeAt[map[string]json.RawMessage](raw, "names", "place.names", false, "an object")
+	address, addressErr := decodeAt[map[string]json.RawMessage](raw, "address", "place.address", false, "an object")
+	name, nameErr := decodeAt[*string](raw, "name", "place.name", true, want)
+	code, codeErr := decodeAt[*string](raw, "country_code", "place.country_code", true, want)
+	home, homeErr := decodeAt[*bool](raw, "ishome", "place.ishome", true, "a boolean or null")
+	str, strErr := decodeAt[*string](raw, "address_str", "place.address_str", true, want)
+	if err := errors.Join(namesErr, addressErr, nameErr, codeErr, homeErr, strErr); err != nil {
+		return placeinfo.PlaceInfo{}, err
+	}
+	pl := placeinfo.PlaceInfo{Name: deref(name), CountryCode: deref(code), IsHome: home != nil && *home, AddressStr: deref(str)}
+	lists := reflect.ValueOf(&pl.Names).Elem()
+	for i, k := range placeNameKeys {
+		list, err := decodeAt[[]*string](names, k, "place.names."+k, false, "a list of strings")
+		if err != nil {
+			return placeinfo.PlaceInfo{}, err
+		}
+		lists.Field(i).Set(reflect.ValueOf(derefAll(list)))
+	}
+	parts := reflect.ValueOf(&pl.Address).Elem()
+	for i, k := range addressKeys {
+		s, err := decodeAt[*string](address, k, "place.address."+k, true, want)
+		if err != nil {
+			return placeinfo.PlaceInfo{}, err
+		}
+		parts.Field(i).SetString(deref(s))
+	}
+	return pl, nil
+}
+
+func placeValue(pl *placeinfo.PlaceInfo) map[string]any {
+	if pl == nil {
+		return map[string]any{}
+	}
+	names, address := map[string]any{}, map[string]any{}
+	lists, parts := reflect.ValueOf(pl.Names), reflect.ValueOf(pl.Address)
+	for i, k := range placeNameKeys {
+		names[k] = strs(lists.Field(i).Interface().([]string))
+	}
+	for i, k := range addressKeys {
+		address[k] = parts.Field(i).String()
+	}
+	return map[string]any{
+		"name": pl.Name, "names": names, "country_code": pl.CountryCode,
+		"ishome": pl.IsHome, "address_str": pl.AddressStr, "address": address,
 	}
 }
 

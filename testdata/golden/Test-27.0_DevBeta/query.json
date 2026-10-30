@@ -90,6 +90,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -309,6 +310,60 @@
     "persons": [
       "_UNKNOWN_"
     ],
+    "place": {
+      "address": {
+        "city": "Adelaide",
+        "country": "Australia",
+        "iso_country_code": "AU",
+        "postal_code": "5000",
+        "state_province": "SA",
+        "street": "River Torrens Linear Park Trail",
+        "sub_administrative_area": "Adelaide",
+        "sub_locality": "Central Ward"
+      },
+      "address_str": "River Torrens Linear Park Trail, SA 5000, Australia",
+      "country_code": "AU",
+      "ishome": false,
+      "name": "Adelaide, Adelaide, Australia, Karrawirra Parri / River Torrens",
+      "names": {
+        "additional_city_info": [
+          "Central Ward"
+        ],
+        "area_of_interest": [],
+        "body_of_water": [
+          "Karrawirra Parri / River Torrens"
+        ],
+        "city": [
+          "Adelaide",
+          "South Australia"
+        ],
+        "country": [
+          "Australia"
+        ],
+        "field0": [],
+        "field10": [],
+        "field13": [],
+        "field15": [],
+        "field16": [],
+        "field5": [],
+        "inland_water": [
+          "Karrawirra Parri / River Torrens"
+        ],
+        "ocean": [],
+        "postal_code": [],
+        "region": [],
+        "state_province": [
+          "Adelaide"
+        ],
+        "street_address": [],
+        "sub_administrative_area": [
+          "Adelaide"
+        ],
+        "sub_throughfare": [
+          "River Torrens Linear Park Trail"
+        ]
+      }
+    },
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -489,6 +544,7 @@
       "_UNKNOWN_",
       "_UNKNOWN_"
     ],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -668,6 +724,7 @@
     "persons": [
       "_UNKNOWN_"
     ],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -822,6 +879,7 @@
       "_UNKNOWN_",
       "_UNKNOWN_"
     ],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -945,6 +1003,60 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {
+      "address": {
+        "city": "London",
+        "country": "United Kingdom",
+        "iso_country_code": "GB",
+        "postal_code": "SW1A 2BJ",
+        "state_province": "England",
+        "street": "The Cake House, Horse Guards Road",
+        "sub_administrative_area": "London",
+        "sub_locality": "City of Westminster"
+      },
+      "address_str": "St. James's Park, The Cake House, Horse Guards Road, London, SW1A 2BJ, England",
+      "country_code": "GB",
+      "ishome": false,
+      "name": "St. James's Park, London, England, United Kingdom",
+      "names": {
+        "additional_city_info": [
+          "City of Westminster"
+        ],
+        "area_of_interest": [
+          "St. James's Park",
+          "St. James's Park"
+        ],
+        "body_of_water": [],
+        "city": [
+          "London",
+          "London"
+        ],
+        "country": [
+          "United Kingdom"
+        ],
+        "field0": [],
+        "field10": [],
+        "field13": [],
+        "field15": [],
+        "field16": [],
+        "field5": [],
+        "inland_water": [],
+        "ocean": [],
+        "postal_code": [],
+        "region": [],
+        "state_province": [
+          "England"
+        ],
+        "street_address": [],
+        "sub_administrative_area": [
+          "Central London",
+          "Middlesex",
+          "Home Counties",
+          "The South"
+        ],
+        "sub_throughfare": []
+      }
+    },
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -1068,6 +1180,60 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {
+      "address": {
+        "city": "London",
+        "country": "United Kingdom",
+        "iso_country_code": "GB",
+        "postal_code": "SW1A 2BJ",
+        "state_province": "England",
+        "street": "The Cake House, Horse Guards Road",
+        "sub_administrative_area": "London",
+        "sub_locality": "City of Westminster"
+      },
+      "address_str": "St. James's Park, The Cake House, Horse Guards Road, London, SW1A 2BJ, England",
+      "country_code": "GB",
+      "ishome": false,
+      "name": "St. James's Park, London, England, United Kingdom",
+      "names": {
+        "additional_city_info": [
+          "City of Westminster"
+        ],
+        "area_of_interest": [
+          "St. James's Park",
+          "St. James's Park"
+        ],
+        "body_of_water": [],
+        "city": [
+          "London",
+          "London"
+        ],
+        "country": [
+          "United Kingdom"
+        ],
+        "field0": [],
+        "field10": [],
+        "field13": [],
+        "field15": [],
+        "field16": [],
+        "field5": [],
+        "inland_water": [],
+        "ocean": [],
+        "postal_code": [],
+        "region": [],
+        "state_province": [
+          "England"
+        ],
+        "street_address": [],
+        "sub_administrative_area": [
+          "Central London",
+          "Middlesex",
+          "Home Counties",
+          "The South"
+        ],
+        "sub_throughfare": []
+      }
+    },
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -1262,6 +1428,7 @@
     "persons": [
       "_UNKNOWN_"
     ],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -1381,6 +1548,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -1539,6 +1707,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -1697,6 +1866,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -1855,6 +2025,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,
@@ -1971,6 +2142,7 @@
     "owner": null,
     "panorama": false,
     "persons": [],
+    "place": {},
     "portrait": false,
     "project_info": [],
     "raw_original": false,

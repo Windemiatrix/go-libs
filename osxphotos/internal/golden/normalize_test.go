@@ -10,6 +10,7 @@ import (
 
 	"github.com/Windemiatrix/go-libs/osxphotos/exifinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 )
 
 // The escape is built, not written, so that the source has no such escape that
@@ -64,6 +65,40 @@ func TestExifKeysFollowFields(t *testing.T) {
 		}
 	}
 }
+
+// The rule reads the fields of placeinfo.Names and placeinfo.Address by
+// position.
+func TestPlaceKeysFollowFields(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		typ  reflect.Type
+		keys []string
+	}{
+		{reflect.TypeFor[placeinfo.Names](), placeNameKeys},
+		{reflect.TypeFor[placeinfo.Address](), addressKeys},
+	} {
+		if c.typ.NumField() != len(c.keys) {
+			t.Fatalf("%s has %d fields, %d keys", c.typ.Name(), c.typ.NumField(), len(c.keys))
+		}
+		for i, k := range c.keys {
+			if got, want := strings.ToLower(c.typ.Field(i).Name), strings.ReplaceAll(k, "_", ""); got != want {
+				t.Errorf("%s field %d is %s, its key %s", c.typ.Name(), i, c.typ.Field(i).Name, k)
+			}
+		}
+	}
+}
+
+const (
+	wantPlaceAddress = `{"city":"Townsville","country":"Exampleland","iso_country_code":"EX","postal_code":"","state_province":"",` +
+		`"street":"1 Example Street","sub_administrative_area":"","sub_locality":""}`
+	wantPlace = `{"address":` + wantPlaceAddress + `,"address_str":"1 Example Street, Townsville","country_code":"EX","ishome":true,` +
+		`"name":"Example Park, Townsville, Exampleland","names":{"additional_city_info":[],"area_of_interest":["Example Park"],` +
+		`"body_of_water":[],"city":["Townsville","Greater Townsville"],"country":["Exampleland"],"field0":[],"field10":[],` +
+		`"field13":["Field Thirteen"],"field15":[],"field16":[],"field5":[],"inland_water":[],"ocean":[],"postal_code":[],` +
+		`"region":[],"state_province":[],"street_address":[],"sub_administrative_area":[],"sub_throughfare":[]}}`
+)
+
+func placeWith(old, value string) string { return strings.Replace(refPlace, old, value, 1) }
 
 func TestParseMoment(t *testing.T) {
 	t.Parallel()
@@ -283,6 +318,33 @@ func TestNormalize(t *testing.T) {
 		{name: "exif_info date that is not a date", key: "exif_info", raw: strings.Replace(refExif, `"2020-06-06T15:30:00+05:30"`, `"SECRET-DATE"`, 1), wantErr: "exif_info.date: want an ISO 8601 string"},
 		{name: "exif_info date as a number", key: "exif_info", raw: strings.Replace(refExif, `"2020-06-06T15:30:00+05:30"`, `5`, 1), wantErr: "exif_info.date: want an ISO 8601 string or null"},
 
+		{name: "place of a photo without one", key: "place", raw: `{}`, want: `{}`},
+		{name: "place", key: "place", raw: refPlace, want: wantPlace},
+		{name: "place with nulls", key: "place",
+			raw: strings.NewReplacer(refPlaceAddress, `{"city": null, "country": null, "iso_country_code": null, "postal_code": null, `+
+				`"state_province": null, "street": null, "sub_administrative_area": null, "sub_locality": null}`,
+				`"ishome": true`, `"ishome": null`, `"name": "Example Park, Townsville, Exampleland"`, `"name": null`,
+				`"city": ["Townsville"`, `"city": [null`).Replace(refPlace),
+			want: strings.NewReplacer(wantPlaceAddress, `{"city":"","country":"","iso_country_code":"","postal_code":"","state_province":"",`+
+				`"street":"","sub_administrative_area":"","sub_locality":""}`,
+				`"ishome":true`, `"ishome":false`, `"name":"Example Park, Townsville, Exampleland"`, `"name":""`,
+				`"city":["Townsville"`, `"city":[""`).Replace(wantPlace)},
+		{name: "place null", key: "place", raw: `null`, wantErr: "place: want an object"},
+		{name: "place list", key: "place", raw: `[]`, wantErr: "place: want an object"},
+		{name: "place without names", key: "place", raw: `{"name": null}`, wantErr: "place.names: want a value (the key is missing)"},
+		{name: "place without name", key: "place", raw: placeWith(`"name": "Example Park, Townsville, Exampleland", `, ``),
+			wantErr: "place.name: want a value (the key is missing)"},
+		{name: "place name number", key: "place", raw: placeWith(`"name": "Example Park, Townsville, Exampleland"`, `"name": 424242`),
+			wantErr: "place.name: want a string or null"},
+		{name: "place ishome string", key: "place", raw: placeWith(`"ishome": true`, `"ishome": "SECRET-H"`), wantErr: "place.ishome: want a boolean or null"},
+		{name: "place address null", key: "place", raw: placeWith(refPlaceAddress, `null`), wantErr: "place.address: want an object"},
+		{name: "place address city number", key: "place", raw: placeWith(`"city": "Townsville"`, `"city": 424242`), wantErr: "place.address.city: want a string or null"},
+		{name: "place names without city", key: "place", raw: placeWith(`"city": ["Townsville", "Greater Townsville"], `, ``),
+			wantErr: "place.names.city: want a value (the key is missing)"},
+		{name: "place names city null", key: "place", raw: placeWith(`["Townsville", "Greater Townsville"]`, `null`), wantErr: "place.names.city: want a list of strings"},
+		{name: "place names city with a number", key: "place", raw: placeWith(`["Townsville", "Greater Townsville"]`, `["SECRET-C", 424242]`),
+			wantErr: "place.names.city: want a list of strings"},
+
 		{name: "no key", key: "title", raw: ``, wantErr: "title: want a value (the key is missing)"},
 	}
 	for _, c := range cases {
@@ -304,7 +366,7 @@ func TestNormalize(t *testing.T) {
 				if err == nil || !errors.As(err, &se) || !strings.Contains(err.Error(), c.wantErr) {
 					t.Fatalf("error = %v, want a shape error with %q", err, c.wantErr)
 				}
-				if strings.Contains(err.Error(), "SECRET") || strings.Contains(err.Error(), c.raw) && len(c.raw) > 6 {
+				if strings.Contains(err.Error(), "SECRET") || strings.Contains(err.Error(), "424242") || strings.Contains(err.Error(), c.raw) && len(c.raw) > 6 {
 					t.Errorf("the error repeats the value: %v", err)
 				}
 				return
@@ -373,7 +435,7 @@ func TestNormalizeGoSide(t *testing.T) {
 			"persons": `[]`, "burst_default_pick": `false`,
 			"adjustment_type": `null`, "imported_by": `["",""]`, "spatial": `0`, "tzname": `""`, "visible": `false`,
 			"import_info": `{}`, "project_info": `[]`, "comments": `[]`, "likes": `[]`,
-			"owner": `""`, "exif_info": zeroExif,
+			"owner": `""`, "exif_info": zeroExif, "place": `{}`,
 		}
 		for key, w := range want {
 			if got := goCanon(t, key, p); got != w {

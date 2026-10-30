@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 )
 
 func flagsTwin(uuid string) *photoinfo.PhotoInfo {
@@ -78,6 +79,9 @@ func TestApplyDuplicate(t *testing.T) {
 	noKind := func(p *photoinfo.PhotoInfo) { p.IsPhoto = false }
 	sharedMoment := func(p *photoinfo.PhotoInfo) { p.SharedMoment = true }
 	portrait := func(p *photoinfo.PhotoInfo) { p.Portrait = true }
+	placed := func(p *photoinfo.PhotoInfo) {
+		p.Place = &placeinfo.PlaceInfo{Names: placeinfo.Names{City: []string{"Townsville"}}}
+	}
 
 	trashed := []*photoinfo.PhotoInfo{
 		twin("P", "2020-01-01T00:00:00Z", nil),
@@ -114,6 +118,14 @@ func TestApplyDuplicate(t *testing.T) {
 			twin("R1", "2020-01-01T00:00:00Z", portrait),
 			twin("R2", "2020-01-01T00:00:00Z", nil),
 		}, []string{"R1", "R2"}},
+		{"place before the step", Options{Duplicate: true, Place: []string{"Towns"}}, []*photoinfo.PhotoInfo{
+			twin("C1", "2020-01-01T00:00:00Z", placed),
+			twin("C2", "2020-01-01T00:00:00Z", nil),
+		}, []string{"C1", "C2"}},
+		{"no place before the step", Options{Duplicate: true, NoPlace: true}, []*photoinfo.PhotoInfo{
+			twin("C1", "2020-01-01T00:00:00Z", placed),
+			twin("C2", "2020-01-01T00:00:00Z", nil),
+		}, []string{"C1", "C2"}},
 	}, nil)
 
 	// g2b precedes g2a in the catalog so that only Sort, not the catalog order,
