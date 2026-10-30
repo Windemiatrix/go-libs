@@ -348,12 +348,16 @@ func TestRenderErrors(t *testing.T) {
 func TestRenderErrorHidesValues(t *testing.T) {
 	t.Parallel()
 	for in, keyword := range map[string]string{
-		"{keyword < 9?Y,N}":                   "Holidays",
-		"{var:k,{keyword}}{keyword[o,%k]}":    "%Holidays",
-		"{var:k,{keyword}}{keyword|join(%k)}": "%Holidays",
+		"{keyword < 9?Y,N}":                     "Holidays",
+		"{var:k,{keyword}}{keyword[o,%k]}":      "%Holidays",
+		"{var:k,{keyword}}{keyword|join(%k)}":   "%Holidays",
+		"{keyword|filter(> 1)}":                 "Holidays",
+		"{var:k,{keyword}}{keyword|filter(%k)}": "Holidays a",
+		"{var:k,{keyword}}{keyword|sslice(%k)}": "Holidays",
+		"{keyword|int}":                         "Infinity",
 	} {
 		_, _, err := render(t, in, with(conditionPhoto(), "keyword", strs(keyword)), RenderOptions{})
-		if !errors.Is(err, ErrRender) || strings.Contains(fmt.Sprint(err), "Holidays") {
+		if msg := fmt.Sprint(err); !errors.Is(err, ErrRender) || strings.Contains(msg, "Holidays") || strings.Contains(msg, keyword) {
 			t.Errorf("Render(%q) = %v; want ErrRender without the keyword", in, err)
 		}
 	}
@@ -672,6 +676,7 @@ func TestRenderRace(t *testing.T) {
 		"{title}/{folder_album}/{today.year}",
 		"{var:d,-}{%d+keyword}",
 		"{keyword|lower|upper|titlecase|capitalize}",
+		"{keyword|sslice(::-1)|filter(not contains o)|chop(1)|slice(::-1)}",
 	} {
 		tmpl, err := Parse(in)
 		if err != nil {

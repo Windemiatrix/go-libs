@@ -14,8 +14,6 @@ var filterNames = set(`lower upper strip titlecase capitalize braces parens brac
 // phototemplate.py:1065-1078.
 var needsArgs = set("append appends chomp chop filter prepend prepends remove slice split sslice")
 
-var laterFilters = set("slice sslice chop chomp filter int float")
-
 // phototemplate.py:1080-1097.
 var valueFilters = map[string]func(string) string{
 	"lower": pyLower, "upper": pyUpper, "capitalize": pyCapitalize, "titlecase": pyTitle, "shell_quote": shellQuote,
@@ -93,8 +91,14 @@ func (s *rendering) filter(name string, vals []string) ([]string, error) {
 		return vals, s.each(vals, func(v string) string { return arg + v })
 	case "remove":
 		vals = slices.DeleteFunc(vals, func(v string) bool { return v == arg })
+	case "slice", "sslice", "chop", "chomp":
+		return s.slice(name, arg, vals)
+	case "filter":
+		return keep(vals, arg)
+	case "int", "float":
+		return s.numbers(name, vals)
 	default:
-		if laterFilters[name] || strings.HasPrefix(name, "path") {
+		if strings.HasPrefix(name, "path") {
 			return nil, unsupported(ErrUnsupportedConstruct, "filter "+name)
 		}
 		return nil, nil // the name passes the check of upstream but matches no filter (1182-1183)
