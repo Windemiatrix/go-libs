@@ -149,8 +149,7 @@ func (s *rendering) field(f *Field) ([]string, bool, error) {
 			replace, err := s.expand(pair.Replace, "find/replace")
 			if err = cmp.Or(errFind, err); err != nil {
 				return nil, false, err
-			}
-			if s.bytesLeft -= len(vals[i]) + strings.Count(vals[i], find)*len(replace); s.bytesLeft < 0 {
+			} else if s.bytesLeft -= len(vals[i]) + strings.Count(vals[i], find)*len(replace); s.bytesLeft < 0 {
 				return nil, false, errTooLong
 			}
 			vals[i] = strings.ReplaceAll(vals[i], find, replace)
@@ -160,8 +159,7 @@ func (s *rendering) field(f *Field) ([]string, bool, error) {
 		match, err := condition(f.Conditional.Operator, vals, cond)
 		if err != nil {
 			return nil, false, err
-		}
-		if vals = nil; match != f.Conditional.Negate {
+		} else if vals = nil; match != f.Conditional.Negate {
 			vals = []string{"True"}
 		}
 	}
