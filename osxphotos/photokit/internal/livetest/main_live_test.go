@@ -64,17 +64,25 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func readMarkerPhotos() (reason string) {
-	// PhotoKit works on the system library only: a library chosen by a
-	// variable could pass the guard while PhotoKit acts on another.
+// PhotoKit works on the system library only: a library chosen by a variable
+// could pass the guard while PhotoKit acts on another.
+func systemLibraryPath() (string, error) {
 	path, err := photosdb.SystemLibraryPath()
+	if err == nil {
+		return path, nil
+	}
+	// SystemLibraryPath may find no key on macOS 26.
+	home, err := os.UserHomeDir()
 	if err != nil {
-		// SystemLibraryPath may find no key on macOS 26.
-		home, homeErr := os.UserHomeDir()
-		if homeErr != nil {
-			return "livetest: no home directory"
-		}
-		path = filepath.Join(home, "Pictures", "Photos Library.photoslibrary")
+		return "", err
+	}
+	return filepath.Join(home, "Pictures", "Photos Library.photoslibrary"), nil
+}
+
+func readMarkerPhotos() (reason string) {
+	path, err := systemLibraryPath()
+	if err != nil {
+		return "livetest: no home directory"
 	}
 	// Open asks for a ctx canceled on SIGINT and SIGTERM, so that an
 	// interrupted Open still removes its copy of the database.
