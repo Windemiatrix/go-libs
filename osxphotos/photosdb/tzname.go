@@ -1,7 +1,10 @@
 package photosdb
 
 import (
+	"fmt"
 	"path"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -39,23 +42,64 @@ var tzOverrides = map[string]string{
 }
 
 // nameZone follows canonical_timezone (tzcanonical.py:398-424); nil stands for
-// the fixed zone of offset. An offset string equal to offset gives a zone with
-// that offset upstream (tzcanonical.py:412-415), and the zones upstream
-// searches for any other name have offset (tzcanonical.py:426-446), so neither
-// is ported.
+// the fixed zone of offset. For a name it resolves no other way, upstream
+// searches every zone of the system (tzcanonical.py:426-446); package time
+// cannot list them, so the fixed zone stands in.
 // Upstream checks the offset of an override at the naive local time of the
 // photo (tzcanonical.py:300-321); here it is checked at the moment.
 func nameZone(t time.Time, offset int64, name string) *time.Location {
-	name = strings.TrimSpace(name)
-	if z := loadZone(name); z != nil {
+	token := strings.TrimSpace(name)
+	if z := loadZone(token); z != nil {
 		return z
 	}
-	if z := loadZone(tzOverrides[strings.ToUpper(name)]); z != nil {
+	if token == "" && name != "" { // photos_datetime.py:54 tests the name before it is stripped
+		return loadZone(etcZone(offset))
+	}
+	if parsed, ok := parseOffset(token); ok && parsed == offset {
+		return loadZone(etcZone(offset))
+	}
+	if z := loadZone(tzOverrides[strings.ToUpper(token)]); z != nil {
 		if _, off := t.In(z).Zone(); int64(off) == offset {
 			return z
 		}
 	}
 	return nil
+}
+
+// etcZone is _etc_from_offset_seconds (tzcanonical.py:41-57), "" for None; the
+// Etc/GMT zones invert the sign, as POSIX does.
+func etcZone(offset int64) string {
+	switch {
+	case offset%3600 != 0:
+		return ""
+	case offset == 0:
+		return "Etc/UTC"
+	}
+	return fmt.Sprintf("Etc/GMT%+d", -offset/3600)
+}
+
+// The three patterns of _parse_offset_str (tzcanonical.py:215, 221, 227).
+var offsetString = regexp.MustCompile(`^(?:(?:GMT)?([+-])(\d{2}):?|(\d{1,2}):)(\d{2})$`)
+
+// parseOffset is _parse_offset_str (tzcanonical.py:207-232) of a stripped
+// name, in seconds. Go \d is ASCII only; Python \d takes any decimal digit.
+func parseOffset(name string) (int64, bool) {
+	name = strings.ToUpper(name)
+	if name == "Z" || name == "UTC" || name == "GMT" {
+		return 0, true
+	}
+	m := offsetString.FindStringSubmatch(name)
+	if m == nil {
+		return 0, false
+	}
+	// exactly one of the two hour groups is set
+	h, _ := strconv.Atoi(m[2] + m[3])
+	mi, _ := strconv.Atoi(m[4])
+	offset := int64(h*3600 + mi*60)
+	if m[1] == "-" {
+		offset = -offset
+	}
+	return offset, true
 }
 
 // time.LoadLocation reads the zoneinfo on every call and returns a new
