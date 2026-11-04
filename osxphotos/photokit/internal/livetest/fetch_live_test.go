@@ -21,7 +21,7 @@ import (
 
 func TestLiveFetch(t *testing.T) {
 	lib := openLibrary(t)
-	photos := untrashedMarkerPhotos(t)
+	photos := visibleMarkerPhotos(t)
 	assets := fetchMarker(t, lib, photos)
 
 	t.Run("fields", func(t *testing.T) {
@@ -35,7 +35,6 @@ func TestLiveFetch(t *testing.T) {
 			{"IsMovie", func(p *photoinfo.PhotoInfo) bool { return p.IsMovie }, func(a photokit.Asset, p *photoinfo.PhotoInfo) bool { return a.IsMovie == p.IsMovie }},
 			{"Live", func(p *photoinfo.PhotoInfo) bool { return p.Live }, func(a photokit.Asset, p *photoinfo.PhotoInfo) bool { return a.Live == p.Live }},
 			{"Favorite", func(p *photoinfo.PhotoInfo) bool { return p.Favorite }, func(a photokit.Asset, p *photoinfo.PhotoInfo) bool { return a.Favorite == p.Favorite }},
-			{"Hidden", func(p *photoinfo.PhotoInfo) bool { return p.Hidden }, func(a photokit.Asset, p *photoinfo.PhotoInfo) bool { return a.Hidden == p.Hidden }},
 			{"PixelWidth", func(p *photoinfo.PhotoInfo) bool { return p.Width != 0 }, func(a photokit.Asset, p *photoinfo.PhotoInfo) bool { return a.PixelWidth == p.Width }},
 			{"PixelHeight", func(p *photoinfo.PhotoInfo) bool { return p.Height != 0 }, func(a photokit.Asset, p *photoinfo.PhotoInfo) bool { return a.PixelHeight == p.Height }},
 			{"Date", func(p *photoinfo.PhotoInfo) bool { return !p.Date.IsZero() }, func(a photokit.Asset, p *photoinfo.PhotoInfo) bool {
@@ -85,16 +84,6 @@ func TestLiveFetch(t *testing.T) {
 		})
 		if n > 0 {
 			t.Errorf("Duration differs from photosdb by 10 ms or more for %d of %d videos", n, len(videos))
-		}
-	})
-
-	t.Run("hidden", func(t *testing.T) {
-		hidden := filter(photos, func(p *photoinfo.PhotoInfo) bool { return p.Hidden })
-		if len(hidden) == 0 {
-			skipNone(t, "hidden photo")
-		}
-		if n := count(hidden, func(p *photoinfo.PhotoInfo) bool { return !assets[p.UUID].Hidden }); n > 0 {
-			t.Errorf("%d of %d hidden photos found but not hidden", n, len(hidden))
 		}
 	})
 
@@ -151,6 +140,22 @@ func TestLiveFetch(t *testing.T) {
 	})
 }
 
+func TestLiveFetchHidden(t *testing.T) {
+	lib := openLibrary(t)
+	hidden := filter(untrashedMarkerPhotos(t), func(p *photoinfo.PhotoInfo) bool { return p.Hidden })
+	t.Logf("%d hidden photos among the first %d untrashed photos of the marker album", len(hidden), maxFetched)
+	if len(hidden) == 0 {
+		skipNone(t, "hidden photo")
+	}
+	found := count(hidden, func(p *photoinfo.PhotoInfo) bool {
+		_, err := lib.Fetch(t.Context(), []string{p.UUID})
+		return !errors.Is(err, photokit.ErrNotFound)
+	})
+	if found > 0 {
+		t.Errorf("Fetch of %d of %d hidden photos: not ErrNotFound", found, len(hidden))
+	}
+}
+
 func TestLiveFetchNotFound(t *testing.T) {
 	lib := openLibrary(t)
 	const none = "00000000-0000-0000-0000-000000000000"
@@ -197,6 +202,17 @@ func untrashedMarkerPhotos(t *testing.T) []*photoinfo.PhotoInfo {
 		t.Skip("no photo outside the trash in the marker album")
 	}
 	return photos[:min(len(photos), maxFetched)]
+}
+
+// Upstream fetches with the default PHFetchOptions, which leave hidden assets
+// out (photokit.py:1234-1237).
+func visibleMarkerPhotos(t *testing.T) []*photoinfo.PhotoInfo {
+	t.Helper()
+	photos := filter(untrashedMarkerPhotos(t), func(p *photoinfo.PhotoInfo) bool { return !p.Hidden })
+	if len(photos) == 0 {
+		skipNone(t, "photo that is not hidden")
+	}
+	return photos
 }
 
 const maxFetched = 20
