@@ -39,6 +39,7 @@ _Static_assert(PHAssetResourceTypePairedVideo == 9, "PHAssetResourceTypePairedVi
 _Static_assert(PHAssetResourceTypeFullSizePairedVideo == 10, "PHAssetResourceTypeFullSizePairedVideo");
 _Static_assert(PHAssetResourceTypeAdjustmentBasePairedVideo == 11, "PHAssetResourceTypeAdjustmentBasePairedVideo");
 _Static_assert(PHAssetResourceTypeAdjustmentBaseVideo == 12, "PHAssetResourceTypeAdjustmentBaseVideo");
+_Static_assert(PHPhotosErrorUserCancelled == 3072, "PHPhotosErrorUserCancelled");
 #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000 // the name came with the macOS 26 SDK; the build targets macOS 13
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunguarded-availability-new"
@@ -299,4 +300,145 @@ void pk_cancel_resource(int32_t request_id) {
 			// An exception must not unwind into Go; Export stops waiting after its grace.
 		}
 	}
+}
+
+// The change block and the handler may run after pk_perform_changes has
+// returned on its timeout: as for OSXPhotosAuthRequest, they hold only this.
+@interface OSXPhotosChangeRequest : NSObject
+@property(atomic) BOOL ok;
+@property(atomic, strong) NSError *error;
+@property(atomic, copy) NSString *identifier, *exception;
+@property(nonatomic, strong, readonly) dispatch_semaphore_t done;
+@end
+
+@implementation OSXPhotosChangeRequest
+- (instancetype)init {
+	if ((self = [super init])) {
+		_done = dispatch_semaphore_create(0);
+	}
+	return self;
+}
+@end
+
+// The reason of an exception may name a file or an identifier of the caller,
+// and the message reaches the error of Go: a change gives the name only.
+static pk_result pk_exception_name(NSException *e) { return (pk_result){PK_EXCEPTION, pk_strdup(e.name)}; }
+
+// changes sets request.identifier. PhotoKit commits what it requested before an exception: the outcome is then unknown.
+static pk_result pk_perform_changes(void (^changes)(OSXPhotosChangeRequest *), int64_t timeout_ms, char **identifier, int64_t *ns_code, char **ns_domain) {
+	pk_result r = {PK_OK, NULL};
+	@autoreleasepool {
+		@try {
+			OSXPhotosChangeRequest *request = [[OSXPhotosChangeRequest alloc] init];
+			[[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
+				@autoreleasepool {
+					@try {
+						changes(request);
+					} @catch (NSException *e) {
+						request.exception = e.name;
+					}
+				}
+			} completionHandler:^(BOOL ok, NSError *error) {
+				@autoreleasepool {
+					@try {
+						request.ok = ok;
+						request.error = error;
+					} @catch (NSException *e) {
+						request.exception = e.name;
+					}
+				}
+				dispatch_semaphore_signal(request.done);
+			}];
+			dispatch_time_t deadline = dispatch_time(DISPATCH_TIME_NOW, timeout_ms * (int64_t)NSEC_PER_MSEC);
+			if (dispatch_semaphore_wait(request.done, deadline) != 0 || (request.ok && request.exception != nil)) {
+				r.code = PK_TIMEOUT;
+			} else if (request.exception != nil) {
+				r = (pk_result){PK_EXCEPTION, pk_strdup(request.exception)};
+			} else if (!request.ok) {
+				// A nil error or a code of 0 must still fail; the description may name a file.
+				*ns_code = request.error.code;
+				*ns_domain = strdup(request.error.domain.UTF8String ?: "");
+			} else {
+				*identifier = pk_strdup(request.identifier);
+			}
+		} @catch (NSException *e) {
+			r = pk_exception_name(e);
+		}
+	}
+	return r;
+}
+
+// extension: not in osxphotos, which imports through AppleScript. Every value
+// of r and albums is copied before performChanges: on its timeout this returns,
+// Go frees the strings, and the change block may not have run yet.
+pk_result pk_import(const pk_import_request *r, const char *const *albums, int64_t n_albums, int64_t timeout_ms, char **identifier, int64_t *ns_code, char **ns_domain) {
+	pk_result result = {PK_NOT_FOUND, NULL};
+	@autoreleasepool {
+		@try {
+			// The bytes of a path are taken as they are: Go does not require UTF-8 of a path.
+			const char *paths[] = {*r->photo ? r->photo : r->video, r->paired_video, r->alternate_photo};
+			PHAssetResourceType kinds[] = {*r->photo ? PHAssetResourceTypePhoto : PHAssetResourceTypeVideo, PHAssetResourceTypePairedVideo, PHAssetResourceTypeAlternatePhoto};
+			NSMutableArray<NSNumber *> *types = [NSMutableArray array];
+			NSMutableArray<NSURL *> *urls = [NSMutableArray array];
+			for (int i = 0; i < 3; i++) {
+				if (*paths[i]) {
+					[types addObject:@(kinds[i])];
+					[urls addObject:[NSURL fileURLWithFileSystemRepresentation:paths[i] isDirectory:NO relativeToURL:nil]];
+				}
+			}
+			NSString *name = *r->original_filename ? [NSString stringWithUTF8String:r->original_filename] : nil;
+			// In the change, a set PhotoKit refuses would raise after a part is requested, and a nil name would keep that of the file.
+			if (![PHAssetCreationRequest supportsAssetResourceTypes:types] || (*r->original_filename && name == nil)) [NSException raise:NSInvalidArgumentException format:@"pk_import_request"];
+			NSDate *date = r->has_creation_date ? [NSDate dateWithTimeIntervalSince1970:r->creation_date] : nil;
+			CLLocation *location = r->has_location ? [[CLLocation alloc] initWithLatitude:r->latitude longitude:r->longitude] : nil;
+			BOOL favorite = r->favorite, hidden = r->hidden;
+			// A string that is not UTF-8 names no album.
+			NSMutableSet<NSString *> *ids = [NSMutableSet setWithCapacity:(NSUInteger)n_albums];
+			for (int64_t i = 0; i < n_albums; i++) {
+				NSString *s = [NSString stringWithUTF8String:albums[i]];
+				if (s == nil) return result;
+				[ids addObject:s];
+			}
+			PHFetchResult<PHAssetCollection *> *collections = [PHAssetCollection fetchAssetCollectionsWithLocalIdentifiers:ids.allObjects options:nil];
+			// A smart or shared album takes no asset, which would be created outside it.
+			BOOL editable = collections.count == ids.count;
+			for (PHAssetCollection *album in collections) {
+				editable = editable && [album canPerformEditOperation:PHCollectionEditOperationAddContent];
+			}
+			if (editable) {
+				result = pk_perform_changes(^(OSXPhotosChangeRequest *request) {
+					// Albums first: a nil request raises before any change, a later exception leaves the asset in them.
+					NSMutableArray<PHAssetCollectionChangeRequest *> *adds = [NSMutableArray array];
+					for (PHAssetCollection *album in collections) {
+						[adds addObject:[PHAssetCollectionChangeRequest changeRequestForAssetCollection:album]];
+					}
+					PHAssetCreationRequest *asset = [PHAssetCreationRequest creationRequestForAsset];
+					PHObjectPlaceholder *placeholder = asset.placeholderForCreatedAsset;
+					request.identifier = placeholder.localIdentifier;
+					for (PHAssetCollectionChangeRequest *add in adds) {
+						[add addAssets:@[ placeholder ]];
+					}
+					for (NSUInteger i = 0; i < urls.count; i++) {
+						PHAssetResourceCreationOptions *o = [[PHAssetResourceCreationOptions alloc] init];
+						// The file of the caller must stay: Photos copies it.
+						o.shouldMoveFile = NO;
+						o.originalFilename = i == 0 ? name : nil;
+						[asset addResourceWithType:(PHAssetResourceType)types[i].integerValue fileURL:urls[i] options:o];
+					}
+					if (date) {
+						asset.creationDate = date;
+					}
+					if (location) {
+						asset.location = location;
+					}
+					// Only YES is written: a write of hidden, even of NO, may ask the user.
+					if (favorite) asset.favorite = YES;
+					if (hidden) asset.hidden = YES;
+				}, timeout_ms, identifier, ns_code, ns_domain);
+			}
+		} @catch (NSException *e) {
+			result = pk_exception_name(e);
+		}
+	}
+	return result;
 }
