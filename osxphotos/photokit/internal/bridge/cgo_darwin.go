@@ -116,6 +116,9 @@ func (*cgoBridge) RequestResource(id string, typ int, sink ResourceSink) (Reques
 	return r, nil
 }
 
+// The PhotoKit side of the import is not built yet.
+func (*cgoBridge) Import(ImportRecord, time.Duration) (string, error) { return "", ErrNotSupported }
+
 type cgoRequest struct {
 	id               C.int32_t
 	sink             ResourceSink

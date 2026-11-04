@@ -2,8 +2,10 @@
 package fake
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -30,6 +32,10 @@ import (
 // as PhotoKit does not stop by itself. Then it waits for HoldRequest to be
 // closed when it is not nil, whatever Cancel, as a completion that never comes.
 // Done delivers DoneErr, or bridge.ErrCanceled after Cancel.
+//
+// Import keeps the record and the timeout for LastImport and, when HoldImport
+// is not nil, waits for it to be closed or the timeout to pass, as Hold does;
+// then it returns ImportID and ImportErr.
 type Bridge struct {
 	Status, RequestStatus int
 	StatusErr, RequestErr error
@@ -43,10 +49,15 @@ type Bridge struct {
 	Chunk                 int
 	DoneErr               error
 	HoldRequest           chan struct{}
+	ImportID              string
+	ImportErr             error
+	HoldImport            chan struct{}
 
-	mu    sync.Mutex
-	calls []string
-	sink  bridge.ResourceSink
+	mu          sync.Mutex
+	calls       []string
+	sink        bridge.ResourceSink
+	lastImport  bridge.ImportRecord
+	lastTimeout time.Duration
 }
 
 var _ bridge.Bridge = (*Bridge)(nil)
@@ -130,6 +141,30 @@ func (b *Bridge) LastSink() bridge.ResourceSink {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.sink
+}
+
+// Import implements bridge.Bridge.
+func (b *Bridge) Import(r bridge.ImportRecord, timeout time.Duration) (string, error) {
+	b.log(fmt.Sprintf("Import %s %d albums", cmp.Or(r.OriginalFilename, filepath.Base(cmp.Or(r.Photo, r.Video))), len(r.Albums)))
+	b.mu.Lock()
+	b.lastImport, b.lastTimeout = r, timeout
+	b.mu.Unlock()
+	if b.HoldImport != nil {
+		select {
+		case <-b.HoldImport:
+		case <-time.After(timeout):
+			return "", context.DeadlineExceeded
+		}
+	}
+	return b.ImportID, b.ImportErr
+}
+
+// LastImport returns the record and the timeout of the latest Import, zero
+// values before one.
+func (b *Bridge) LastImport() (bridge.ImportRecord, time.Duration) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.lastImport, b.lastTimeout
 }
 
 type request struct {
