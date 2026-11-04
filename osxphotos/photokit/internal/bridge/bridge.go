@@ -20,7 +20,7 @@ var (
 	// then.
 	ErrCanceled = errors.New("photokit: the request was canceled")
 	// ErrNoAlbum is returned by Import when an album of the record is not
-	// found; nothing was changed.
+	// found or cannot take an asset; nothing was changed.
 	ErrNoAlbum = errors.New("photokit: no such album")
 )
 
@@ -46,9 +46,9 @@ type Bridge interface {
 	RequestResource(id string, typ int, sink ResourceSink) (Request, error)
 	// Import runs one performChanges that creates the asset of r and adds it to
 	// its albums, and blocks until the completion handler, or up to timeout,
-	// then returns context.DeadlineExceeded while the change goes on. It
-	// returns the LocalIdentifier of the created asset; a failed change is a
-	// *PhotoKitError.
+	// then returns context.DeadlineExceeded while the change goes on; so does an
+	// exception in a change that PhotoKit commits. It returns the LocalIdentifier
+	// of the created asset; a failed change is a *PhotoKitError.
 	Import(r ImportRecord, timeout time.Duration) (string, error)
 }
 

@@ -58,6 +58,50 @@ func TestRequestFinish(t *testing.T) {
 	}
 }
 
+func TestChangeResult(t *testing.T) {
+	const id = "00000000-0000-0000-0000-000000000001/L0/001"
+	for _, tt := range []struct {
+		name       string
+		failed     bool
+		domain     string
+		code       int64
+		id, wantID string
+		wantErr    error
+	}{
+		{"refused", true, "PHPhotosErrorDomain", 3072, "", "", &PhotoKitError{"PHPhotosErrorDomain", 3072}},
+		{"failed without an NSError", true, "", 0, "", "", &PhotoKitError{"", 0}},
+		{"domain not UTF-8", true, "\xff", 1, "", "", &PhotoKitError{"", 1}},
+		{"failed with an identifier", true, "PHPhotosErrorDomain", 3300, id, "", &PhotoKitError{"PHPhotosErrorDomain", 3300}},
+		{"created", false, "", 0, id, id, nil},
+		{"identifier not UTF-8", false, "", 0, "\xff", "", errors.New("photokit: a string from PhotoKit is not valid UTF-8")},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := changeResult(tt.failed, tt.domain, tt.code, tt.id)
+			if got != tt.wantID || !reflect.DeepEqual(err, tt.wantErr) {
+				t.Errorf("changeResult(%t, %q, %d, %q) = %q, %v, want %q, %v", tt.failed, tt.domain, tt.code, tt.id, got, err, tt.wantID, tt.wantErr)
+			}
+		})
+	}
+}
+
+// Both calls fail before a change is requested, which the tests must not reach.
+func TestImportBeforeChange(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		r    ImportRecord
+		want string
+	}{
+		{"name not UTF-8", ImportRecord{Photo: "/x/IMG_0001.JPG", OriginalFilename: "\xff"}, "photokit: Objective-C exception: NSInvalidArgumentException"},
+		{"album not UTF-8", ImportRecord{Photo: "/x/IMG_0001.JPG", Albums: []string{"\xff"}}, ErrNoAlbum.Error()},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if id, err := New().Import(tt.r, time.Second); id != "" || err == nil || err.Error() != tt.want {
+				t.Errorf("Import = %q, %v, want an error %q", id, err, tt.want)
+			}
+		})
+	}
+}
+
 // The handle is far above those RequestResource gives; a call after the
 // completion must not panic, as the Value of a deleted cgo.Handle does.
 func TestRequestHandlers(t *testing.T) {
@@ -95,6 +139,9 @@ func TestCodeError(t *testing.T) {
 	}
 	if err := codeError(3, ""); !errors.Is(err, ErrNoResource) {
 		t.Errorf("codeError(3) = %v, want ErrNoResource", err)
+	}
+	if err := codeError(4, ""); !errors.Is(err, ErrNoAlbum) {
+		t.Errorf("codeError(4) = %v, want ErrNoAlbum", err)
 	}
 	for _, tt := range []struct{ name, message, want string }{
 		{"valid", "IMG_0001.HEIC caf\U000000e9", "photokit: Objective-C exception: IMG_0001.HEIC caf\U000000e9"},

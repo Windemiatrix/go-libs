@@ -25,6 +25,14 @@ var markerPhotos []*photoinfo.PhotoInfo
 // UUID. Only counts are kept: the frames may lie outside the album.
 var markerBursts map[string]burstFrames
 
+// markerAlbumUUID is the album every import goes to, so that the guard and
+// the removal at the end of the run find the imported assets.
+var markerAlbumUUID string
+
+// importedAssets are the LocalIdentifiers Import returned in this run, for the
+// removal at the end of the run.
+var importedAssets []string
+
 // frames are those outside the trash, where PhotoKit finds none. unpicked is
 // a frame that FetchBurst leaves out without all: one with a pick type (0 is
 // a single image with a burst UUID) that is neither selected, the key photo
@@ -96,6 +104,7 @@ func readMarkerPhotos() (reason string) {
 	if reason = libraryReason(len(lib.Photos()), album != nil); reason != "" {
 		return reason
 	}
+	markerAlbumUUID = album.UUID
 	markerPhotos = lib.AlbumPhotos(album)
 	markerBursts = map[string]burstFrames{}
 	for _, p := range markerPhotos {

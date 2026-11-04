@@ -40,7 +40,7 @@ var (
 	ErrNotAuthorized = errors.New("photokit: access to the Photos library is not authorized")
 	// ErrNotFound is returned when a fetch or Resources finds no asset
 	// (PhotoKitFetchFailed, photokit.py:1244-1246, 1292-1294), and wrapped by
-	// Import when the library has no album of the request.
+	// Import when an album of the request is missing or cannot take an asset.
 	ErrNotFound = errors.New("photokit: no asset found")
 	// ErrMediaType is wrapped, with the number PhotoKit gave, when a fetched
 	// asset is neither an image, a video nor a Live Photo
@@ -72,8 +72,9 @@ var (
 	// extension: not in osxphotos
 	ErrUserCanceled = errors.New("photokit: the user canceled the change")
 	// ErrOutcomeUnknown is wrapped, together with the error of ctx, when ctx
-	// ends before PhotoKit reports the outcome of a change: the change may
-	// still complete. Read the library again before the next change.
+	// ends before PhotoKit reports the outcome of a change, which may still
+	// complete, and with context.DeadlineExceeded when PhotoKit commits a change
+	// that raised an exception. Read the library again before the next change.
 	// extension: not in osxphotos
 	ErrOutcomeUnknown = errors.New("photokit: the outcome of the change is unknown")
 )
