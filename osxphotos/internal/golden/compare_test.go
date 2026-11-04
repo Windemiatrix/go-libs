@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/personinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 )
@@ -31,8 +32,8 @@ func TestCompareNoDifferences(t *testing.T) {
 	if !rep.OK() || len(rep.Diffs) != 0 || len(rep.Explained) != 0 || len(rep.Stale) != 0 {
 		t.Fatalf("report = %+v, want no differences", rep)
 	}
-	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 80 {
-		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 80", rep.Library, rep.Objects, len(rep.Keys))
+	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 81 {
+		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 81", rep.Library, rep.Objects, len(rep.Keys))
 	}
 	if !slices.IsSorted(rep.Keys) {
 		t.Error("Keys are not sorted")
@@ -287,7 +288,30 @@ func photoMutations() []mutation {
 		{"a second like", func(l *Library) {
 			l.Likes[selectedFrame] = append(l.Likes[selectedFrame], photoinfo.LikeInfo{Datetime: ptr(utc(2020, 7, 4, 0, 0, 0, 0))})
 		}, "likes"},
+
+		{"Persons nil", func(l *Library) { l.Persons = nil }, "person_info"},
+		{"Persons of another photo", func(l *Library) { l.Persons[emptyPhoto], l.Persons[selectedFrame] = l.Persons[selectedFrame], nil }, "person_info"},
+		// A person per face (photoinfo.py:605-611): a repeat is not merged.
+		{"Persons with a repeat", func(l *Library) {
+			l.Persons[selectedFrame] = append(l.Persons[selectedFrame], l.Persons[selectedFrame][1])
+		}, "person_info"},
+		{"PersonInfo UUID", person(1, func(x *personinfo.PersonInfo) { x.UUID = personUnknown }), "person_info"},
+		{"PersonInfo Name", person(1, func(x *personinfo.PersonInfo) { x.Name = "Person B" }), "person_info"},
+		{"PersonInfo Name of the unknown person empty", person(0, func(x *personinfo.PersonInfo) { x.Name = "" }), "person_info"},
+		{"PersonInfo DisplayName", person(1, func(x *personinfo.PersonInfo) { x.DisplayName = "" }), "person_info"},
+		{"PersonInfo KeyFace", person(1, func(x *personinfo.PersonInfo) { x.KeyFace++ }), "person_info"},
+		{"PersonInfo FaceCount", person(1, func(x *personinfo.PersonInfo) { x.FaceCount++ }), "person_info"},
+		{"PersonInfo KeyPhotoUUID", person(1, func(x *personinfo.PersonInfo) { x.KeyPhotoUUID = "" }), "person_info"},
+		{"PersonInfo Favorite", person(1, func(x *personinfo.PersonInfo) { x.Favorite = false }), "person_info"},
+		{"PersonInfo SortOrder", person(1, func(x *personinfo.PersonInfo) { x.SortOrder++ }), "person_info"},
+		{"PersonInfo FeatureLess", person(1, func(x *personinfo.PersonInfo) { x.FeatureLess = false }), "person_info"},
+		{"PersonInfo FeatureLess of the unknown person", person(0, func(x *personinfo.PersonInfo) { x.FeatureLess = true }), "person_info"},
 	}
+}
+
+// i indexes Library.Persons of selectedFrame: 0 is the unknown person, 1 Person A.
+func person(i int, f func(x *personinfo.PersonInfo)) func(l *Library) {
+	return func(l *Library) { f(&l.Persons[selectedFrame][i]) }
 }
 
 // The expectations and the reference are literals, not computed by the package.
@@ -479,6 +503,40 @@ func TestWriteDetailsPersons(t *testing.T) {
 	}
 }
 
+func TestWriteDetailsPersonInfo(t *testing.T) {
+	t.Parallel()
+	lib := fixtureLib()
+	lib.Persons[selectedFrame][1].Name, lib.Persons[selectedFrame][1].DisplayName = "SECRET-NAME", "SECRET-DISPLAY"
+	stale := Divergence{Library: "lib", UUID: emptyPhoto, Field: "person_info", Want: []byte(`[{"name":"SECRET-STALE","displayname":""}]`), Reason: "r", Upstream: "a.py:1"}
+	unparsed := Divergence{Library: "lib", UUID: selectedFrame, Field: "person_info", Want: []byte(`{"name":"SECRET-OBJECT"}`), Reason: "r", Upstream: "a.py:1"}
+	rep := compare(t, fixtureRef(), lib, stale, unparsed)
+	if got := diffKeys(rep); !slices.Equal(got, []string{"person_info"}) {
+		t.Fatalf("differences in %v, want person_info", got)
+	}
+	var b strings.Builder
+	if err := rep.WriteDetails(&b); err != nil {
+		t.Fatal(err)
+	}
+	for _, leak := range []string{"SECRET", "Person A", "Pat", "_UNKNOWN_"} {
+		if strings.Contains(b.String(), leak) {
+			t.Errorf("WriteDetails writes %q", leak)
+		}
+	}
+	// want 2 + got 2 names, the stale record 1; want 1 + got 1 display names, "" kept.
+	if n := strings.Count(b.String(), `"name":"<name>"`); n != 5 {
+		t.Errorf("%d names written as <name>, want 5:\n%s", n, b.String())
+	}
+	if n := strings.Count(b.String(), `"displayname":"<name>"`); n != 2 {
+		t.Errorf("%d display names written as <name>, want 2:\n%s", n, b.String())
+	}
+	if !strings.Contains(b.String(), `"displayname":""`) || !strings.Contains(b.String(), personA) {
+		t.Errorf("WriteDetails lost the empty display names or the UUIDs:\n%s", b.String())
+	}
+	if line := "stale person_info " + selectedFrame + " want=<unparsed> got=*\n"; !strings.Contains(b.String(), line) {
+		t.Errorf("WriteDetails has no line %q:\n%s", line, b.String())
+	}
+}
+
 func TestWriteDetailsOwners(t *testing.T) {
 	t.Parallel()
 	lib := fixtureLib()
@@ -657,6 +715,7 @@ func TestCompareEquivalent(t *testing.T) {
 			c := &l.Comments[selectedFrame][0]
 			c.Datetime = ptr(c.Datetime.In(time.FixedZone("X", -7*3600)))
 		}, ""},
+		{"persons in another order", func(l *Library) { p := l.Persons[selectedFrame]; p[0], p[1] = p[1], p[0] }, ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -680,6 +739,22 @@ func TestCompareEquivalent(t *testing.T) {
 			if rep := compare(t, ref, lib); !rep.OK() {
 				t.Errorf("date %s: differences %+v, want none", date, rep.Diffs)
 			}
+		}
+	})
+
+	// Upstream sorts by name only, equal names in the order of SQLite (photoinfo.py:605-611).
+	t.Run("persons of one name in the order of SQLite", func(t *testing.T) {
+		t.Parallel()
+		const other = "00000000-0000-0000-0000-0000000000d7"
+		unknown := func(uuid string) string {
+			return `{"displayname": null, "facecount": null, "favorite": false, "feature_less": false, "keyface": null, "keyphoto": null, ` +
+				`"name": "_UNKNOWN_", "sort_order": null, "uuid": "` + uuid + `"}`
+		}
+		ref := refOf(refObj(refSelectedFrame()), refObj(refEmptyPhoto(), map[string]string{"person_info": "[" + unknown(other) + ", " + unknown(personUnknown) + "]"}))
+		lib := fixtureLib()
+		lib.Persons[emptyPhoto] = []personinfo.PersonInfo{{UUID: personUnknown, Name: "_UNKNOWN_"}, {UUID: other, Name: "_UNKNOWN_"}}
+		if rep := compare(t, ref, lib); !rep.OK() {
+			t.Errorf("differences %+v, want none: equal names are compared by uuid", rep.Diffs)
 		}
 	})
 
@@ -778,6 +853,8 @@ func TestCompareNulls(t *testing.T) {
 		{"ProjectUUIDs", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = []string{projectP} }), "project_info"},
 		{"Comments empty, not nil", func(l *Library) { l.Comments[emptyPhoto] = []photoinfo.CommentInfo{} }, ""},
 		{"Likes", func(l *Library) { l.Likes[emptyPhoto] = []photoinfo.LikeInfo{{}} }, "likes"},
+		{"PersonInfo", func(l *Library) { l.Persons[emptyPhoto] = []personinfo.PersonInfo{{Name: "_UNKNOWN_"}} }, "person_info"},
+		{"PersonInfo empty, not nil", func(l *Library) { l.Persons[emptyPhoto] = []personinfo.PersonInfo{} }, ""},
 		{"Owner", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Owner = "x" }), "owner"},
 		{"DateOriginal", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.DateOriginal = time.Unix(1, 0).UTC() }), "date_original"},
 		{"ExifInfo FlashFired false is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ExifInfo.FlashFired = ptr(false) }), "exif_info"},

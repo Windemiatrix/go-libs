@@ -1,6 +1,7 @@
 package photosdb
 
 import (
+	"cmp"
 	"database/sql"
 	"reflect"
 	"slices"
@@ -26,8 +27,7 @@ func personDB(t *testing.T, in tables) *DB {
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	persons, byUUID, personsOf := loadPersons(in, c)
-	return &DB{photos: c.photos, byUUID: c.byUUID, persons: persons, personByUUID: byUUID, personsOf: personsOf}
+	return &DB{photos: c.photos, byUUID: c.byUUID, personData: loadPersons(in, c)}
 }
 
 func schemaOfLibrary(t *testing.T, db *DB) schema.Schema {
@@ -51,6 +51,9 @@ func checkPersonInfoOf(t *testing.T, db *DB) (withFaces, faces int) {
 		}
 		if !slices.Equal(names, p.Persons) {
 			t.Errorf("photo %d: PersonInfoOf has %d persons and Persons %d, or their names differ", i, len(names), len(p.Persons))
+		}
+		if n := len(db.FaceInfoOf(p)); n != len(got) {
+			t.Errorf("photo %d: FaceInfoOf has %d faces and PersonInfoOf %d persons", i, n, len(got))
 		}
 		faces += len(got)
 		if len(got) > 0 {
@@ -88,7 +91,8 @@ func TestLoadPersonInfo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, byUUID, _ := loadPersons(in, c)
+	d := loadPersons(in, c)
+	got, byUUID := d.persons, d.personByUUID
 	want := []personinfo.PersonInfo{
 		{UUID: "P-2", Name: personNFC, DisplayName: personNFC, KeyFace: 11, FaceCount: 3, KeyPhotoUUID: "A-1", Favorite: true, SortOrder: 2},
 		{UUID: "P-1", Name: unknownName},
@@ -104,6 +108,174 @@ func TestLoadPersonInfo(t *testing.T) {
 	if p := byUUID["D"]; p.Name != "Second Example" || byUUID["P-3"] != want[2] || byUUID[""] != want[6] || len(byUUID) != 6 {
 		t.Errorf("byUUID has %d persons, D is %q; want 6 with the empty UUID, D the row with the highest Z_PK", len(byUUID), p.Name)
 	}
+	if d.personPK["D"] != 6 || d.personPK["P-3"] != 3 || len(d.personPK) != 6 {
+		t.Errorf("personPK of D is %d, of P-3 %d, %d UUIDs; want 6, 3 and 6", d.personPK["D"], d.personPK["P-3"], len(d.personPK))
+	}
+}
+
+// The expected values are literals: the faces of
+// _photosdb_process_faceinfo.py:186-331 from built rows. HasSmile, Manual and
+// InTrash differ in some face for every pair, so that a swap of two flags
+// fails. The A-9 face is of an asset outside the catalog, the face 10 of an
+// asset without attributes that shares the ZUUID of A-1.
+func TestLoadFaceInfo(t *testing.T) {
+	t.Parallel()
+
+	skipped := baseAsset(3, "A-1")
+	skipped.HasAttributes = false
+	in := tables{
+		assets:  []sqlread.Asset{baseAsset(1, "A-1"), baseAsset(2, "A-2"), skipped},
+		persons: []sqlread.Person{{PK: 1, UUID: nullString("P-2"), FullName: nullString(personNFD)}, {PK: 2, UUID: nullString("P-1")}},
+		faces: []sqlread.Face{
+			{
+				PK: 7, AssetPK: 1, AssetUUID: nullString("A-1"), UUID: nullString("F-7"), PersonPK: 1, PersonUUID: nullString("P-2"), FullName: nullString(personNFD),
+				AgeType: nullInt(2), EyeMakeupType: nullInt(1), EyeState: nullInt(3), FacialHairType: nullInt(4), GenderType: nullInt(5),
+				GlassesType: nullInt(6), HairColorType: nullInt(7), HasSmile: nullInt(1), InTrash: nullInt(0), LipMakeupType: nullInt(8),
+				Manual: nullInt(0), SmileType: nullInt(9), SourceHeight: nullInt(3000), SourceWidth: nullInt(4000),
+				CenterX: nullFloat(0.25), CenterY: nullFloat(0.5), Quality: nullFloat(0.75), Roll: nullFloat(0.125), Size: nullFloat(0.2),
+			},
+			{PK: 8, AssetPK: 1, AssetUUID: nullString("A-1"), PersonPK: 2, PersonUUID: nullString("P-1"), HasSmile: nullInt(0), InTrash: nullInt(0), Manual: nullInt(1)},
+			{PK: 9, AssetPK: 99, AssetUUID: nullString("A-9"), PersonPK: 1, PersonUUID: nullString("P-2"), Quality: nullFloat(0.75)},
+			{PK: 10, AssetPK: 3, AssetUUID: nullString("A-1"), PersonPK: 1, PersonUUID: nullString("P-2"), Quality: nullFloat(0.9)},
+		},
+	}
+	c, err := load(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := loadPersons(in, c)
+	face7 := personinfo.FaceInfo{
+		PK: 7, UUID: "F-7", Name: personNFC, AssetUUID: "A-1", PersonUUID: "P-2",
+		CenterX: 0.25, CenterY: 0.5, Size: 0.2, Quality: 0.75, SourceWidth: 4000, SourceHeight: 3000,
+		HasSmile: true, Manual: false, InTrash: false,
+		AgeType: 2, EyeMakeupType: 1, EyeState: 3, FacialHairType: 4, GenderType: 5, GlassesType: 6, HairColorType: 7, LipMakeupType: 8, SmileType: 9,
+		Roll: 0.125,
+	}
+	// A person without a name has the name "" on a face, which sorts first (_photosdb_process_faceinfo.py:283; photoinfo.py:622).
+	face8 := personinfo.FaceInfo{PK: 8, AssetUUID: "A-1", PersonUUID: "P-1", Manual: true}
+	if want := map[string][]personinfo.FaceInfo{"A-1": {face8, face7}}; !reflect.DeepEqual(d.facesOf, want) {
+		t.Errorf("facesOf:\n%+v\nwant:\n%+v", d.facesOf, want)
+	}
+	var faces []int64
+	for _, f := range d.personFaces[1] {
+		faces = append(faces, f.PK)
+	}
+	// The faces of assets outside the catalog are faces of the person too (_photosdb_process_faceinfo.py:228-230, 326-329).
+	if want := []int64{10, 7, 9}; !slices.Equal(faces, want) {
+		t.Errorf("faces of P-2 %v, want %v: by quality, descending, then Z_PK", faces, want)
+	}
+	if want := map[int64][]string{1: {"A-1"}, 2: {"A-1"}}; !reflect.DeepEqual(d.personPhotos, want) {
+		t.Errorf("personPhotos = %v, want %v", d.personPhotos, want)
+	}
+}
+
+// Upstream keys the photos and the faces of a person by ZPERSON.Z_PK
+// (personinfo.py:58-81); the methods take the ZPERSONUUID of Person.
+func TestFaces(t *testing.T) {
+	t.Parallel()
+
+	face := func(pk, person int64, asset string, name sql.NullString, quality float64) sqlread.Face {
+		assetPK := map[string]int64{"A-1": 1, "A-2": 2, "A-3": 3}[asset]
+		return sqlread.Face{PK: pk, AssetPK: assetPK, AssetUUID: nullString(asset), PersonPK: person, FullName: name, Quality: nullFloat(quality)}
+	}
+	pks := func(faces []personinfo.FaceInfo) []int64 {
+		var out []int64
+		for _, f := range faces {
+			out = append(out, f.PK)
+		}
+		return out
+	}
+	uuids := func(photos []*photoInfo) []string {
+		var out []string
+		for _, p := range photos {
+			out = append(out, p.UUID)
+		}
+		return out
+	}
+
+	t.Run("order", func(t *testing.T) {
+		t.Parallel()
+		zed, alex := nullString("Zed Example"), nullString("Alex Example")
+		db := personDB(t, tables{
+			assets: []sqlread.Asset{baseAsset(1, "A-1"), baseAsset(2, "A-2"), baseAsset(3, "A-3")},
+			persons: []sqlread.Person{
+				{PK: 1, UUID: nullString("P-1"), FullName: zed}, {PK: 2, UUID: nullString("P-2")},
+				{PK: 3, UUID: nullString("P-3"), FullName: alex}, {PK: 4, UUID: nullString("P-4")},
+			},
+			faces: []sqlread.Face{
+				face(1, 1, "A-1", zed, 0.5), face(2, 2, "A-1", sql.NullString{}, 0.5), face(3, 3, "A-1", alex, 0.5),
+				face(4, 2, "A-1", sql.NullString{}, 0.5), face(5, 1, "A-3", zed, 0.9), face(6, 1, "A-2", zed, 0.5),
+				face(7, 1, "A-3", zed, 0.25), face(8, 1, "A-2", zed, 0.5),
+			},
+		})
+		a1 := db.byUUID["A-1"]
+		if got, want := pks(db.FaceInfoOf(a1)), []int64{2, 4, 3, 1}; !slices.Equal(got, want) {
+			t.Errorf("FaceInfoOf = %v, want %v: by name, then Z_PK", got, want)
+		}
+		if got := db.FaceInfoOf(db.byUUID["A-2"]); len(got) != 2 || got[0].PK != 6 {
+			t.Errorf("FaceInfoOf(A-2) has %d faces; want 6 and 8", len(got))
+		}
+		if got, want := pks(db.PersonFaces("P-1")), []int64{5, 1, 6, 8, 7}; !slices.Equal(got, want) {
+			t.Errorf("PersonFaces = %v, want %v: by quality, descending, then Z_PK", got, want)
+		}
+		if got, want := uuids(db.PersonPhotos("P-1")), []string{"A-1", "A-2", "A-3"}; !slices.Equal(got, want) {
+			t.Errorf("PersonPhotos = %v, want %v: each photo once, by UUID", got, want)
+		}
+		for name, n := range map[string]int{
+			"FaceInfoOf of a photo without a face":   len(db.FaceInfoOf(&photoInfo{UUID: "A-0"})),
+			"PersonFaces of a person without a face": len(db.PersonFaces("P-4")), "PersonPhotos of a person without a face": len(db.PersonPhotos("P-4")),
+			"PersonFaces of an unknown UUID": len(db.PersonFaces("P-0")), "PersonPhotos of an unknown UUID": len(db.PersonPhotos("P-0")),
+		} {
+			if n != 0 {
+				t.Errorf("%s: %d, want 0", name, n)
+			}
+		}
+		faces, personFaces, photos := db.FaceInfoOf(a1), db.PersonFaces("P-1"), db.PersonPhotos("P-1")
+		faces[0].PK, personFaces[0].PK, photos[0] = 99, 99, nil
+		if db.FaceInfoOf(a1)[0].PK == 99 || db.PersonFaces("P-1")[0].PK == 99 || db.PersonPhotos("P-1")[0] == nil {
+			t.Error("FaceInfoOf, PersonFaces or PersonPhotos shares its slice")
+		}
+	})
+
+	// Two rows of one ZPERSONUUID: the UUID stands for the row of Person, the
+	// highest Z_PK.
+	t.Run("repeated UUID", func(t *testing.T) {
+		t.Parallel()
+		db := personDB(t, tables{
+			assets: []sqlread.Asset{baseAsset(1, "A-1"), baseAsset(2, "A-2")},
+			persons: []sqlread.Person{
+				{PK: 1, UUID: nullString("P-D"), FullName: nullString("First Example")},
+				{PK: 2, UUID: nullString("P-D"), FullName: nullString("Second Example")},
+			},
+			faces: []sqlread.Face{face(1, 1, "A-1", nullString("First Example"), 0.5), face(2, 2, "A-2", nullString("Second Example"), 0.5)},
+		})
+		if got := uuids(db.PersonPhotos("P-D")); !slices.Equal(got, []string{"A-2"}) {
+			t.Errorf("PersonPhotos = %v, want [A-2]: the photos of the row with the highest Z_PK", got)
+		}
+		if got := pks(db.PersonFaces("P-D")); !slices.Equal(got, []int64{2}) {
+			t.Errorf("PersonFaces = %v, want [2]", got)
+		}
+	})
+
+	// Go sorts up to 12 elements by insertion, which is stable: 13 faces show the Z_PK order of equal qualities.
+	t.Run("equal qualities", func(t *testing.T) {
+		t.Parallel()
+		var faces []sqlread.Face
+		for pk := int64(1); pk <= 13; pk++ {
+			faces = append(faces, face(pk, 1, "A-1", sql.NullString{}, float64(pk%2)))
+		}
+		db := personDB(t, tables{
+			assets:  []sqlread.Asset{baseAsset(1, "A-1")},
+			persons: []sqlread.Person{{PK: 1, UUID: nullString("P-1")}},
+			faces:   faces,
+		})
+		if got, want := pks(db.PersonFaces("P-1")), []int64{1, 3, 5, 7, 9, 11, 13, 2, 4, 6, 8, 10, 12}; !slices.Equal(got, want) {
+			t.Errorf("PersonFaces = %v, want %v", got, want)
+		}
+		if got, want := pks(db.FaceInfoOf(db.byUUID["A-1"])), []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}; !slices.Equal(got, want) {
+			t.Errorf("FaceInfoOf = %v, want %v", got, want)
+		}
+	})
 }
 
 func TestPersonInfoOf(t *testing.T) {
@@ -267,6 +439,23 @@ func TestLoadPersonInfoLibraries(t *testing.T) {
 					}
 				}
 				withFaces, found := checkPersonInfoOf(t, db)
+				onPhoto := map[personinfo.PersonInfo]bool{}
+				for _, p := range db.Photos() {
+					for _, pi := range db.PersonInfoOf(p) {
+						onPhoto[pi] = true
+					}
+				}
+				var personFaces int
+				for uuid, person := range db.personByUUID {
+					faces := db.PersonFaces(uuid)
+					personFaces += len(faces)
+					if !slices.IsSortedFunc(faces, func(a, b personinfo.FaceInfo) int { return cmp.Compare(b.Quality, a.Quality) }) {
+						t.Error("the faces of a person are not by quality, descending")
+					}
+					if photos := len(db.PersonPhotos(uuid)); (photos > 0) != onPhoto[person] {
+						t.Errorf("a person has %d photos in PersonPhotos; is in PersonInfoOf of a photo: %v", photos, onPhoto[person])
+					}
+				}
 				for _, c := range []struct {
 					name  string
 					got   int
@@ -281,13 +470,17 @@ func TestLoadPersonInfoLibraries(t *testing.T) {
 						"JOIN ZASSET a ON a.Z_PK = kf." + s.FaceAssetColumn + withAttributes},
 					{"faces", found, "SELECT COUNT(*) FROM ZDETECTEDFACE f JOIN ZASSET a ON a.Z_PK = f." + s.FaceAssetColumn +
 						" JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn + withAttributes},
+					// Assets without attributes included; a repeated ZPERSONUUID is the row with the highest Z_PK, as Person.
+					{"faces of persons", personFaces, "SELECT COUNT(*) FROM ZDETECTEDFACE f JOIN ZASSET a ON a.Z_PK = f." + s.FaceAssetColumn +
+						" JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn +
+						" WHERE p.Z_PK = (SELECT MAX(q.Z_PK) FROM ZPERSON q WHERE q.ZPERSONUUID IS p.ZPERSONUUID)"},
 				} {
 					if want := count(t, ro, c.query); c.got != want {
 						t.Errorf("%s: %d, want %d", c.name, c.got, want)
 					}
 				}
-				t.Logf("%d persons: %d named, %d with a key photo, %d favorites, %d featured less; %d faces on %d photos",
-					len(db.PersonInfo()), named, keyed, favorite, featureLess, found, withFaces)
+				t.Logf("%d persons: %d named, %d with a key photo, %d favorites, %d featured less; %d faces on %d photos, %d faces of persons",
+					len(db.PersonInfo()), named, keyed, favorite, featureLess, found, withFaces, personFaces)
 				mu.Lock()
 				defer mu.Unlock()
 				people += len(db.PersonInfo())

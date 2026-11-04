@@ -1,15 +1,18 @@
 package golden
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
 	"reflect"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/personinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 )
@@ -71,6 +74,7 @@ func buildRules() map[string]rule {
 			}),
 		commentsRule("likes", false, func(e *env) map[string][]photoinfo.LikeInfo { return e.likes },
 			func(l photoinfo.LikeInfo) map[string]any { return commentElem(l.Datetime, l.User, l.IsMine, nil) }),
+		personInfoRule(),
 		burstPhotosRule(),
 		stringList("persons", func(p *photoinfo.PhotoInfo) []string { return p.Persons }),
 		stringList("keywords", func(p *photoinfo.PhotoInfo) []string { return p.Keywords }),
@@ -466,6 +470,72 @@ func commentElem(date *time.Time, user string, mine bool, text *string) map[stri
 		elem["text"] = *text
 	}
 	return elem
+}
+
+// The asdict of PersonInfo (personinfo.py:110-123). json() sorts no list of
+// objects, and upstream sorts the persons of a photo by name only, equal names
+// in the order of SQLite (photoinfo.py:605-611): both sides are sorted by name,
+// then uuid, and a person stays once per face.
+func personInfoRule() rule {
+	const key = "person_info"
+	return rule{
+		key:         key,
+		needsAlbums: true,
+		ref: func(o Object) (any, error) {
+			items, err := decode[[]json.RawMessage](o, key, false, "a list of objects")
+			if err != nil {
+				return nil, err
+			}
+			persons := make([]personinfo.PersonInfo, len(items))
+			for i, it := range items {
+				if persons[i], err = decodePerson(it, fmt.Sprintf("%s[%d]", key, i)); err != nil {
+					return nil, err
+				}
+			}
+			return personElems(persons), nil
+		},
+		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) { return personElems(e.persons[p.UUID]), nil },
+	}
+}
+
+func decodePerson(raw json.RawMessage, path string) (personinfo.PersonInfo, error) {
+	var m map[string]json.RawMessage
+	if json.Unmarshal(raw, &m) != nil {
+		return personinfo.PersonInfo{}, shape(path, "an object")
+	}
+	const str, integer = "a string or null", "an integer or null"
+	uuid, uuidErr := decodeAt[string](m, "uuid", path+".uuid", false, "a string")
+	name, nameErr := decodeAt[string](m, "name", path+".name", false, "a string")
+	display, displayErr := decodeAt[string](m, "displayname", path+".displayname", true, str)
+	keyFace, keyFaceErr := decodeAt[int64](m, "keyface", path+".keyface", true, integer)
+	faceCount, faceCountErr := decodeAt[int](m, "facecount", path+".facecount", true, integer)
+	keyPhoto, keyPhotoErr := decodeAt[string](m, "keyphoto", path+".keyphoto", true, str)
+	favorite, favoriteErr := decodeAt[bool](m, "favorite", path+".favorite", false, "a boolean")
+	sortOrder, sortOrderErr := decodeAt[int](m, "sort_order", path+".sort_order", true, integer)
+	featureLess, featureLessErr := decodeAt[bool](m, "feature_less", path+".feature_less", false, "a boolean")
+	if err := errors.Join(uuidErr, nameErr, displayErr, keyFaceErr, faceCountErr, keyPhotoErr, favoriteErr, sortOrderErr, featureLessErr); err != nil {
+		return personinfo.PersonInfo{}, err
+	}
+	return personinfo.PersonInfo{
+		UUID: uuid, Name: name, DisplayName: display, KeyFace: keyFace, FaceCount: faceCount,
+		KeyPhotoUUID: keyPhoto, Favorite: favorite, SortOrder: sortOrder, FeatureLess: featureLess,
+	}, nil
+}
+
+// The result is never nil: it is written as [], not null. The list of Library
+// is not sorted in place: Compare leaves its input as it is.
+func personElems(persons []personinfo.PersonInfo) []any {
+	sorted := slices.SortedStableFunc(slices.Values(persons), func(a, b personinfo.PersonInfo) int {
+		return cmp.Or(strings.Compare(a.Name, b.Name), strings.Compare(a.UUID, b.UUID))
+	})
+	out := make([]any, len(sorted))
+	for i, p := range sorted {
+		out[i] = map[string]any{
+			"uuid": p.UUID, "name": p.Name, "displayname": p.DisplayName, "keyface": p.KeyFace, "facecount": p.FaceCount,
+			"keyphoto": p.KeyPhotoUUID, "favorite": p.Favorite, "sort_order": p.SortOrder, "feature_less": p.FeatureLess,
+		}
+	}
+	return out
 }
 
 // The frames are found among all photos of the library, selected or not,

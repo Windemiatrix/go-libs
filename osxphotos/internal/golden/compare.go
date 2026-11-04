@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/personinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/query"
 )
@@ -33,6 +34,8 @@ type Library struct {
 	Projects []*albuminfo.AlbumInfo             // every project, trashed ones included: the projects of PhotoInfo.ProjectUUIDs (photosdb.DB.Project); may be nil without AlbumKeys
 	Comments map[string][]photoinfo.CommentInfo // by photo UUID: photosdb.DB.Comments; a photo without an entry has none; may be nil without AlbumKeys
 	Likes    map[string][]photoinfo.LikeInfo    // by photo UUID: photosdb.DB.Likes; as Comments
+
+	Persons map[string][]personinfo.PersonInfo // by photo UUID: photosdb.DB.PersonInfoOf; as Comments
 }
 
 // Diff is one difference between the reference and Go.
@@ -65,6 +68,7 @@ type env struct {
 	burstAlbums   map[string][]string
 	comments      map[string][]photoinfo.CommentInfo
 	likes         map[string][]photoinfo.LikeInfo
+	persons       map[string][]personinfo.PersonInfo
 }
 
 var (
@@ -83,6 +87,7 @@ func newEnv(lib Library) (*env, error) {
 		burstAlbums:   lib.BurstAlbums,
 		comments:      lib.Comments,
 		likes:         lib.Likes,
+		persons:       lib.Persons,
 	}
 	for _, set := range []struct {
 		albums []*albuminfo.AlbumInfo
@@ -381,12 +386,13 @@ func (r *Report) Summary() string {
 
 // WriteDetails writes one line per difference and per stale record, with
 // UUIDs and values; a value of persons is written as its number of names, the
-// owner of a photo or of an album and the user of a comment or a like as
-// "<name>", the text of a comment as "<text>", a value of exif_info or place
-// that is not null or "" as "<value>", the keys and the lengths of the lists
-// kept, and a value of album_info, burst_album_info, project_info,
-// comments or likes that is not a list of objects, or of exif_info or place
-// that is not an object, as "<unparsed>".
+// owner of a photo or of an album, the user of a comment or a like and the
+// name and the display name of a person of person_info as "<name>", the text
+// of a comment as "<text>", a value of exif_info or place that is not null or
+// "" as "<value>", the keys and the lengths of the lists kept, and a value of
+// album_info, burst_album_info, project_info, comments, likes or person_info
+// that is not a list of objects, or of exif_info or place that is not an
+// object, as "<unparsed>".
 func (r *Report) WriteDetails(w io.Writer) error {
 	for _, d := range r.Diffs {
 		if _, err := fmt.Fprintf(w, "%s %s want=%s got=%s\n", d.Field, d.UUID, redact(d.Field, d.Want), redact(d.Field, d.Got)); err != nil {
@@ -406,7 +412,7 @@ func (r *Report) WriteDetails(w io.Writer) error {
 // personal data, and the details go to the test log.
 var redacted = map[string]map[string]string{
 	"album_info": {"owner": "<name>"}, "burst_album_info": {"owner": "<name>"}, "project_info": {"owner": "<name>"},
-	"comments": {"user": "<name>", "text": "<text>"}, "likes": {"user": "<name>"},
+	"comments": {"user": "<name>", "text": "<text>"}, "likes": {"user": "<name>"}, "person_info": {"name": "<name>", "displayname": "<name>"},
 }
 
 func redact(field, value string) string {

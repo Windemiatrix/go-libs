@@ -55,6 +55,7 @@ original_orientation
 original_width
 owner
 panorama
+person_info
 persons
 place
 portrait

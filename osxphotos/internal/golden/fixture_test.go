@@ -13,6 +13,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/exifinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
+	"github.com/Windemiatrix/go-libs/osxphotos/personinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 )
@@ -37,6 +38,9 @@ const (
 
 	projectP       = "00000000-0000-0000-0000-0000000000a6"
 	projectTrashed = "00000000-0000-0000-0000-0000000000a8"
+
+	personA       = "00000000-0000-0000-0000-0000000000d5"
+	personUnknown = "00000000-0000-0000-0000-0000000000d6"
 )
 
 func ptr[T any](v T) *T { return &v }
@@ -133,8 +137,18 @@ func fixtureLib() Library {
 			{Datetime: ptr(utc(2020, 7, 2, 0, 0, 0, 500000000).In(ist)), Text: "Comment 2"},
 		}},
 		Likes: map[string][]photoinfo.LikeInfo{selectedFrame: {{Datetime: ptr(utc(2020, 7, 3, 0, 0, 0, 0)), User: "Person A"}}},
+		// Not in the order of the reference: the rule sorts both sides.
+		Persons: map[string][]personinfo.PersonInfo{selectedFrame: {
+			{UUID: personUnknown, Name: "_UNKNOWN_"},
+			{UUID: personA, Name: "Person A", DisplayName: "Pat", KeyFace: 11, FaceCount: 3, KeyPhotoUUID: selectedFrame, Favorite: true, SortOrder: 2, FeatureLess: true},
+		}},
 	}
 }
+
+const refPersonInfo = `[{"displayname": "Pat", "facecount": 3, "favorite": true, "feature_less": true, "keyface": 11, "keyphoto": "` + selectedFrame +
+	`", "name": "Person A", "sort_order": 2, "uuid": "` + personA + `"}, ` +
+	`{"displayname": null, "facecount": null, "favorite": false, "feature_less": false, "keyface": null, "keyphoto": null, ` +
+	`"name": "_UNKNOWN_", "sort_order": null, "uuid": "` + personUnknown + `"}]`
 
 const (
 	refComments = `[{"datetime": "2020-07-01T00:00:00+00:00", "ismine": true, "text": "Comment 1", "user": "Person A"}, ` +
@@ -243,6 +257,7 @@ func refSelectedFrame() map[string]string {
 		"original_orientation": "1",
 		"original_width":       "4032",
 		"owner":                `"Photo Owner"`,
+		"person_info":          refPersonInfo,
 		"persons":              `["Person A", "_UNKNOWN_"]`,
 		"place":                refPlace,
 		"raw_original":         "false",
@@ -291,7 +306,7 @@ func refEmptyPhoto() map[string]string {
 		"ismissing": "false", "ismovie": "false", "isphoto": "true", "israw": "false", "isreference": "false",
 		"keywords": "[]", "latitude": "null", "live_photo": "false", "location": "[null, null]", "longitude": "null",
 		"orientation": "null", "original_filename": `"IMG_0003.JPG"`, "original_filesize": "null",
-		"original_height": "null", "original_orientation": "null", "original_width": "null", "persons": "[]",
+		"original_height": "null", "original_orientation": "null", "original_width": "null", "person_info": "[]", "persons": "[]",
 		"raw_original": "false", "saved_to_library": "false", "screenshot": "false", "shared": "false",
 		"shared_library": "false", "syndicated": "false", "title": "null", "tzoffset": "null",
 		"screen_recording": "false", "slow_mo": "false", "time_lapse": "false", "uti_edited": "null",
