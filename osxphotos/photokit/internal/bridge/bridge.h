@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-enum { PK_OK, PK_EXCEPTION, PK_TIMEOUT, PK_NO_RESOURCE };
+enum { PK_OK, PK_EXCEPTION, PK_TIMEOUT, PK_NO_RESOURCE, PK_NOT_FOUND };
 
 // message is NULL unless code is PK_EXCEPTION; the caller frees it.
 typedef struct {
@@ -54,3 +54,21 @@ void pk_free_resources(pk_resource *resources, int count);
 // stalled iCloud download may never end.
 pk_result pk_request_resource(const char *local_id, int64_t type, uintptr_t handle, int32_t *request_id);
 void pk_cancel_resource(int32_t request_id);
+
+// A path or the name is "" when not given, and photo is "" for a video; the
+// date, seconds since 1970, and the coordinates hold only with their has_ field.
+typedef struct {
+	const char *photo, *video, *paired_video, *alternate_photo, *original_filename;
+	bool has_creation_date, has_location, favorite, hidden;
+	double creation_date, latitude, longitude;
+} pk_import_request;
+
+// Creates the asset of r in its n_albums albums, LocalIdentifiers or UUIDs in
+// one form per album, in one performChanges, and waits up to timeout_ms for its
+// completion (0 does not wait); r and albums are not read after the return. An
+// album not found, not UTF-8, or that cannot take an asset is PK_NOT_FOUND and
+// changes nothing; an exception in a change that PhotoKit commits is PK_TIMEOUT.
+// A failed change sets *ns_domain, "" when the NSError has none, and *ns_code;
+// otherwise *identifier is the LocalIdentifier. The caller passes both strings
+// NULL and frees them.
+pk_result pk_import(const pk_import_request *r, const char *const *albums, int64_t n_albums, int64_t timeout_ms, char **identifier, int64_t *ns_code, char **ns_domain);
