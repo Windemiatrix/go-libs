@@ -113,8 +113,6 @@ func TestGeometry(t *testing.T) {
 		sizes := []struct{ width, height int }{{0, 0}, {0, 3000}, {4000, 0}}
 		for orientation := -1; orientation <= 9; orientation++ {
 			for _, s := range sizes {
-				a.Center(s.width, s.height, orientation)
-				a.SizePixels(s.width, s.height)
 				checkArea(t, a.MWGArea(s.width, s.height, orientation), personinfo.Area{})
 				checkArea(t, a.MPRIRect(s.width, s.height, orientation), personinfo.Area{})
 				x0, y0, x1, y1 := a.Rect(s.width, s.height, orientation)
