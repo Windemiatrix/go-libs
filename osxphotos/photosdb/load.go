@@ -89,6 +89,8 @@ type tables struct {
 	comments     []sqlread.Comment
 	exif         []sqlread.Exif
 	places       []sqlread.ReverseLocation
+	persons      []sqlread.Person
+	feedback     []sqlread.Feedback
 
 	collectionShares []sqlread.Album // CollectionShare rows of ZSHARE: their PK is a ZSHARE.Z_PK
 	shareMembers     []sqlread.Member
@@ -404,16 +406,11 @@ func groupKeywords(rows []sqlread.Keyword) map[int64][]string {
 	return out
 }
 
-// Upstream names a person without a name "_UNKNOWN_" and lists a name once
-// per face (photosdb.py:1792-1796, 1858-1864; photoinfo.py:597-603).
+// Upstream lists a name once per face (photosdb.py:1858-1864; photoinfo.py:597-603).
 func groupFaces(rows []sqlread.Face) map[int64][]string {
 	names := map[int64][]string{}
 	for _, f := range rows {
-		name := nfc(f.FullName.String)
-		if name == "" {
-			name = photoinfo.UnknownPerson
-		}
-		names[f.AssetPK] = append(names[f.AssetPK], name)
+		names[f.AssetPK] = append(names[f.AssetPK], nameOrUnknown(f.FullName))
 	}
 	for _, g := range names {
 		slices.Sort(g)

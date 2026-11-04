@@ -121,6 +121,7 @@ func Open(ctx context.Context, path string, o Options) (db *DB, err error) {
 	imports, importInfo := loadImports(t.albums, c.photos)
 	momentShares, libraryShares := loadShares(t.shares, t.assets)
 	comments, likes := loadComments(t.comments)
+	persons, personByUUID, personsOf := loadPersons(t, c)
 	return &DB{
 		info: Info{
 			LibraryPath:   library,
@@ -156,6 +157,10 @@ func Open(ctx context.Context, path string, o Options) (db *DB, err error) {
 		likes:         likes,
 		commented:     uuidSet(comments),
 		liked:         uuidSet(likes),
+
+		persons:      persons,
+		personByUUID: personByUUID,
+		personsOf:    personsOf,
 	}, nil
 }
 
@@ -258,6 +263,12 @@ func readTables(ctx context.Context, src *sqlread.DB, s schema.Schema) (t tables
 		return tables{}, err
 	}
 	if t.places, err = src.ReverseLocations(ctx); err != nil {
+		return tables{}, err
+	}
+	if t.persons, err = src.Persons(ctx, s); err != nil {
+		return tables{}, err
+	}
+	if t.feedback, err = src.UserFeedback(ctx); err != nil {
 		return tables{}, err
 	}
 	// groupMembers and membershipOrder sort; nothing relies on the order of members.
