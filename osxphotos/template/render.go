@@ -192,7 +192,7 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 		f.Default != nil && (name == "media_type" || name == "photo_or_video"), name == "id" && f.Subfield != "":
 		return nil, false, unsupported(ErrUnsupportedConstruct, name)
 	case stem == "created" || stem == "modified" || stem == "today":
-		vals, err := s.date(name, stem, part)
+		vals, err := s.date(name, stem, part, def)
 		return vals, true, err
 	case punctuation[name] != "":
 		return []string{punctuation[name]}, true, nil
