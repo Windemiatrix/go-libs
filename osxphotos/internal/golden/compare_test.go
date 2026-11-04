@@ -295,21 +295,23 @@ func photoMutations() []mutation {
 		{"Persons with a repeat", func(l *Library) {
 			l.Persons[selectedFrame] = append(l.Persons[selectedFrame], l.Persons[selectedFrame][1])
 		}, "person_info"},
-		{"PersonInfo UUID", person(1, func(x *personinfo.PersonInfo) { x.UUID = personUnknown }), "person_info"},
-		{"PersonInfo Name", person(1, func(x *personinfo.PersonInfo) { x.Name = "Person B" }), "person_info"},
-		{"PersonInfo Name of the unknown person empty", person(0, func(x *personinfo.PersonInfo) { x.Name = "" }), "person_info"},
-		{"PersonInfo DisplayName", person(1, func(x *personinfo.PersonInfo) { x.DisplayName = "" }), "person_info"},
-		{"PersonInfo KeyFace", person(1, func(x *personinfo.PersonInfo) { x.KeyFace++ }), "person_info"},
-		{"PersonInfo FaceCount", person(1, func(x *personinfo.PersonInfo) { x.FaceCount++ }), "person_info"},
-		{"PersonInfo KeyPhotoUUID", person(1, func(x *personinfo.PersonInfo) { x.KeyPhotoUUID = "" }), "person_info"},
-		{"PersonInfo Favorite", person(1, func(x *personinfo.PersonInfo) { x.Favorite = false }), "person_info"},
-		{"PersonInfo SortOrder", person(1, func(x *personinfo.PersonInfo) { x.SortOrder++ }), "person_info"},
-		{"PersonInfo FeatureLess", person(1, func(x *personinfo.PersonInfo) { x.FeatureLess = false }), "person_info"},
-		{"PersonInfo FeatureLess of the unknown person", person(0, func(x *personinfo.PersonInfo) { x.FeatureLess = true }), "person_info"},
+		// Upstream gives the persons of a photo by name (photoinfo.py:605-611); the rule does not sort them.
+		{"Persons in another order", func(l *Library) { p := l.Persons[selectedFrame]; p[0], p[1] = p[1], p[0] }, "person_info"},
+		{"PersonInfo UUID", person(0, func(x *personinfo.PersonInfo) { x.UUID = personUnknown }), "person_info"},
+		{"PersonInfo Name", person(0, func(x *personinfo.PersonInfo) { x.Name = "Person B" }), "person_info"},
+		{"PersonInfo Name of the unknown person empty", person(1, func(x *personinfo.PersonInfo) { x.Name = "" }), "person_info"},
+		{"PersonInfo DisplayName", person(0, func(x *personinfo.PersonInfo) { x.DisplayName = "" }), "person_info"},
+		{"PersonInfo KeyFace", person(0, func(x *personinfo.PersonInfo) { x.KeyFace++ }), "person_info"},
+		{"PersonInfo FaceCount", person(0, func(x *personinfo.PersonInfo) { x.FaceCount++ }), "person_info"},
+		{"PersonInfo KeyPhotoUUID", person(0, func(x *personinfo.PersonInfo) { x.KeyPhotoUUID = "" }), "person_info"},
+		{"PersonInfo Favorite", person(0, func(x *personinfo.PersonInfo) { x.Favorite = false }), "person_info"},
+		{"PersonInfo SortOrder", person(0, func(x *personinfo.PersonInfo) { x.SortOrder++ }), "person_info"},
+		{"PersonInfo FeatureLess", person(0, func(x *personinfo.PersonInfo) { x.FeatureLess = false }), "person_info"},
+		{"PersonInfo FeatureLess of the unknown person", person(1, func(x *personinfo.PersonInfo) { x.FeatureLess = true }), "person_info"},
 	}
 }
 
-// i indexes Library.Persons of selectedFrame: 0 is the unknown person, 1 Person A.
+// i indexes Library.Persons of selectedFrame: 0 is Person A, 1 the unknown person.
 func person(i int, f func(x *personinfo.PersonInfo)) func(l *Library) {
 	return func(l *Library) { f(&l.Persons[selectedFrame][i]) }
 }
@@ -506,7 +508,7 @@ func TestWriteDetailsPersons(t *testing.T) {
 func TestWriteDetailsPersonInfo(t *testing.T) {
 	t.Parallel()
 	lib := fixtureLib()
-	lib.Persons[selectedFrame][1].Name, lib.Persons[selectedFrame][1].DisplayName = "SECRET-NAME", "SECRET-DISPLAY"
+	lib.Persons[selectedFrame][0].Name, lib.Persons[selectedFrame][0].DisplayName = "SECRET-NAME", "SECRET-DISPLAY"
 	stale := Divergence{Library: "lib", UUID: emptyPhoto, Field: "person_info", Want: []byte(`[{"name":"SECRET-STALE","displayname":""}]`), Reason: "r", Upstream: "a.py:1"}
 	unparsed := Divergence{Library: "lib", UUID: selectedFrame, Field: "person_info", Want: []byte(`{"name":"SECRET-OBJECT"}`), Reason: "r", Upstream: "a.py:1"}
 	rep := compare(t, fixtureRef(), lib, stale, unparsed)
@@ -715,7 +717,6 @@ func TestCompareEquivalent(t *testing.T) {
 			c := &l.Comments[selectedFrame][0]
 			c.Datetime = ptr(c.Datetime.In(time.FixedZone("X", -7*3600)))
 		}, ""},
-		{"persons in another order", func(l *Library) { p := l.Persons[selectedFrame]; p[0], p[1] = p[1], p[0] }, ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

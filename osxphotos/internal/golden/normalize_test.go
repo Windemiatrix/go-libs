@@ -262,12 +262,15 @@ func TestNormalize(t *testing.T) {
 		{name: "persons name", key: "persons", raw: `["A"]`, want: `["A"]`},
 		{name: "persons null", key: "persons", raw: `null`, wantErr: "persons: want a list of strings"},
 
-		{name: "person_info by name, then uuid, nulls as zeros", key: "person_info",
-			raw: `[` + personJSON(`"U-2"`, `"_UNKNOWN_"`, personNulls) + `, ` + personJSON(`"U-1"`, `"_UNKNOWN_"`, personValues) + `, ` +
-				personJSON(`"U-3"`, `"A"`, personNulls) + `, ` + personJSON(`"U-1"`, `"_UNKNOWN_"`, personValues) + `]`,
+		{name: "person_info of equal names by uuid, nulls as zeros", key: "person_info",
+			raw: `[` + personJSON(`"U-3"`, `"A"`, personNulls) + `, ` + personJSON(`"U-2"`, `"_UNKNOWN_"`, personNulls) + `, ` +
+				personJSON(`"U-1"`, `"_UNKNOWN_"`, personValues) + `, ` + personJSON(`"U-1"`, `"_UNKNOWN_"`, personValues) + `]`,
 			want: `[` + wantPerson("U-3", "A") + `,{"displayname":"D","facecount":2,"favorite":true,"feature_less":true,"keyface":7,"keyphoto":"K",` +
 				`"name":"_UNKNOWN_","sort_order":1,"uuid":"U-1"},{"displayname":"D","facecount":2,"favorite":true,"feature_less":true,"keyface":7,` +
 				`"keyphoto":"K","name":"_UNKNOWN_","sort_order":1,"uuid":"U-1"},` + wantPerson("U-2", "_UNKNOWN_") + `]`},
+		{name: "person_info of other names in the order of the reference", key: "person_info",
+			raw:  `[` + personJSON(`"U-2"`, `"_UNKNOWN_"`, personNulls) + `, ` + personJSON(`"U-1"`, `"A"`, personNulls) + `]`,
+			want: `[` + wantPerson("U-2", "_UNKNOWN_") + `,` + wantPerson("U-1", "A") + `]`},
 		{name: "person_info empty", key: "person_info", raw: `[]`, want: `[]`},
 		{name: "person_info null", key: "person_info", raw: `null`, wantErr: "person_info: want a list of objects"},
 		{name: "person_info of strings", key: "person_info", raw: `["SECRET-P"]`, wantErr: "person_info[0]: want an object"},

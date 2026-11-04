@@ -114,10 +114,10 @@ func TestLoadPersonInfo(t *testing.T) {
 }
 
 // The expected values are literals: the faces of
-// _photosdb_process_faceinfo.py:186-331 from built rows. HasSmile, Manual and
-// InTrash differ in some face for every pair, so that a swap of two flags
-// fails. The A-9 face is of an asset outside the catalog, the face 10 of an
-// asset without attributes that shares the ZUUID of A-1.
+// _photosdb_process_faceinfo.py:186-331 from built rows. HasSmile, InTrash and
+// Manual are each set in a face of their own, so that a swap of two flags or a
+// constant false fails. The A-9 face is of an asset outside the catalog, the
+// face 10 of an asset without attributes that shares the ZUUID of A-1.
 func TestLoadFaceInfo(t *testing.T) {
 	t.Parallel()
 
@@ -134,9 +134,10 @@ func TestLoadFaceInfo(t *testing.T) {
 				Manual: nullInt(0), SmileType: nullInt(9), SourceHeight: nullInt(3000), SourceWidth: nullInt(4000),
 				CenterX: nullFloat(0.25), CenterY: nullFloat(0.5), Quality: nullFloat(0.75), Roll: nullFloat(0.125), Size: nullFloat(0.2),
 			},
-			{PK: 8, AssetPK: 1, AssetUUID: nullString("A-1"), PersonPK: 2, PersonUUID: nullString("P-1"), HasSmile: nullInt(0), InTrash: nullInt(0), Manual: nullInt(1)},
+			{PK: 8, AssetPK: 1, AssetUUID: nullString("A-1"), PersonPK: 2, PersonUUID: nullString("P-1"), HasSmile: nullInt(0), InTrash: nullInt(1), Manual: nullInt(0)},
 			{PK: 9, AssetPK: 99, AssetUUID: nullString("A-9"), PersonPK: 1, PersonUUID: nullString("P-2"), Quality: nullFloat(0.75)},
 			{PK: 10, AssetPK: 3, AssetUUID: nullString("A-1"), PersonPK: 1, PersonUUID: nullString("P-2"), Quality: nullFloat(0.9)},
+			{PK: 11, AssetPK: 1, AssetUUID: nullString("A-1"), PersonPK: 2, PersonUUID: nullString("P-1"), HasSmile: nullInt(0), InTrash: nullInt(0), Manual: nullInt(1)},
 		},
 	}
 	c, err := load(in)
@@ -152,8 +153,9 @@ func TestLoadFaceInfo(t *testing.T) {
 		Roll: 0.125,
 	}
 	// A person without a name has the name "" on a face, which sorts first (_photosdb_process_faceinfo.py:283; photoinfo.py:622).
-	face8 := personinfo.FaceInfo{PK: 8, AssetUUID: "A-1", PersonUUID: "P-1", Manual: true}
-	if want := map[string][]personinfo.FaceInfo{"A-1": {face8, face7}}; !reflect.DeepEqual(d.facesOf, want) {
+	face8 := personinfo.FaceInfo{PK: 8, AssetUUID: "A-1", PersonUUID: "P-1", InTrash: true}
+	face11 := personinfo.FaceInfo{PK: 11, AssetUUID: "A-1", PersonUUID: "P-1", Manual: true}
+	if want := map[string][]personinfo.FaceInfo{"A-1": {face8, face11, face7}}; !reflect.DeepEqual(d.facesOf, want) {
 		t.Errorf("facesOf:\n%+v\nwant:\n%+v", d.facesOf, want)
 	}
 	var faces []int64
@@ -164,8 +166,9 @@ func TestLoadFaceInfo(t *testing.T) {
 	if want := []int64{10, 7, 9}; !slices.Equal(faces, want) {
 		t.Errorf("faces of P-2 %v, want %v: by quality, descending, then Z_PK", faces, want)
 	}
-	if want := map[int64][]string{1: {"A-1"}, 2: {"A-1"}}; !reflect.DeepEqual(d.personPhotos, want) {
-		t.Errorf("personPhotos = %v, want %v", d.personPhotos, want)
+	a1 := c.byUUID["A-1"]
+	if want := map[int64][]*photoInfo{1: {a1}, 2: {a1, a1}}; !reflect.DeepEqual(d.personPhotos, want) {
+		t.Errorf("personPhotos has %d photos of P-2 and %d of P-1, want A-1 once and twice: a photo per face", len(d.personPhotos[1]), len(d.personPhotos[2]))
 	}
 }
 
@@ -212,14 +215,14 @@ func TestFaces(t *testing.T) {
 		if got, want := pks(db.FaceInfoOf(a1)), []int64{2, 4, 3, 1}; !slices.Equal(got, want) {
 			t.Errorf("FaceInfoOf = %v, want %v: by name, then Z_PK", got, want)
 		}
-		if got := db.FaceInfoOf(db.byUUID["A-2"]); len(got) != 2 || got[0].PK != 6 {
-			t.Errorf("FaceInfoOf(A-2) has %d faces; want 6 and 8", len(got))
+		if got, want := pks(db.FaceInfoOf(db.byUUID["A-2"])), []int64{6, 8}; !slices.Equal(got, want) {
+			t.Errorf("FaceInfoOf(A-2) = %v, want %v", got, want)
 		}
 		if got, want := pks(db.PersonFaces("P-1")), []int64{5, 1, 6, 8, 7}; !slices.Equal(got, want) {
 			t.Errorf("PersonFaces = %v, want %v: by quality, descending, then Z_PK", got, want)
 		}
-		if got, want := uuids(db.PersonPhotos("P-1")), []string{"A-1", "A-2", "A-3"}; !slices.Equal(got, want) {
-			t.Errorf("PersonPhotos = %v, want %v: each photo once, by UUID", got, want)
+		if got, want := uuids(db.PersonPhotos("P-1")), []string{"A-1", "A-3", "A-2", "A-3", "A-2"}; !slices.Equal(got, want) {
+			t.Errorf("PersonPhotos = %v, want %v: a photo per face, in the Z_PK order of the faces", got, want)
 		}
 		for name, n := range map[string]int{
 			"FaceInfoOf of a photo without a face":   len(db.FaceInfoOf(&photoInfo{UUID: "A-0"})),
@@ -257,22 +260,18 @@ func TestFaces(t *testing.T) {
 		}
 	})
 
-	// Go sorts up to 12 elements by insertion, which is stable: 13 faces show the Z_PK order of equal qualities.
-	t.Run("equal qualities", func(t *testing.T) {
+	// The rows come out of Z_PK order, so that equal keys fall to the Z_PK and not to the order of the rows.
+	t.Run("equal keys", func(t *testing.T) {
 		t.Parallel()
-		var faces []sqlread.Face
-		for pk := int64(1); pk <= 13; pk++ {
-			faces = append(faces, face(pk, 1, "A-1", sql.NullString{}, float64(pk%2)))
-		}
 		db := personDB(t, tables{
 			assets:  []sqlread.Asset{baseAsset(1, "A-1")},
 			persons: []sqlread.Person{{PK: 1, UUID: nullString("P-1")}},
-			faces:   faces,
+			faces:   []sqlread.Face{face(3, 1, "A-1", sql.NullString{}, 0.5), face(1, 1, "A-1", sql.NullString{}, 0.5), face(2, 1, "A-1", sql.NullString{}, 0.5)},
 		})
-		if got, want := pks(db.PersonFaces("P-1")), []int64{1, 3, 5, 7, 9, 11, 13, 2, 4, 6, 8, 10, 12}; !slices.Equal(got, want) {
+		if got, want := pks(db.PersonFaces("P-1")), []int64{1, 2, 3}; !slices.Equal(got, want) {
 			t.Errorf("PersonFaces = %v, want %v", got, want)
 		}
-		if got, want := pks(db.FaceInfoOf(db.byUUID["A-1"])), []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}; !slices.Equal(got, want) {
+		if got, want := pks(db.FaceInfoOf(db.byUUID["A-1"])), []int64{1, 2, 3}; !slices.Equal(got, want) {
 			t.Errorf("FaceInfoOf = %v, want %v", got, want)
 		}
 	})
@@ -445,14 +444,16 @@ func TestLoadPersonInfoLibraries(t *testing.T) {
 						onPhoto[pi] = true
 					}
 				}
-				var personFaces int
+				var personFaces, photosOfPersons int
 				for uuid, person := range db.personByUUID {
 					faces := db.PersonFaces(uuid)
 					personFaces += len(faces)
 					if !slices.IsSortedFunc(faces, func(a, b personinfo.FaceInfo) int { return cmp.Compare(b.Quality, a.Quality) }) {
 						t.Error("the faces of a person are not by quality, descending")
 					}
-					if photos := len(db.PersonPhotos(uuid)); (photos > 0) != onPhoto[person] {
+					photos := len(db.PersonPhotos(uuid))
+					photosOfPersons += photos
+					if (photos > 0) != onPhoto[person] {
 						t.Errorf("a person has %d photos in PersonPhotos; is in PersonInfoOf of a photo: %v", photos, onPhoto[person])
 					}
 				}
@@ -474,13 +475,17 @@ func TestLoadPersonInfoLibraries(t *testing.T) {
 					{"faces of persons", personFaces, "SELECT COUNT(*) FROM ZDETECTEDFACE f JOIN ZASSET a ON a.Z_PK = f." + s.FaceAssetColumn +
 						" JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn +
 						" WHERE p.Z_PK = (SELECT MAX(q.Z_PK) FROM ZPERSON q WHERE q.ZPERSONUUID IS p.ZPERSONUUID)"},
+					// A photo per face, as upstream; a repeated ZPERSONUUID as above.
+					{"photos of persons", photosOfPersons, "SELECT COUNT(*) FROM ZDETECTEDFACE f JOIN ZASSET a ON a.Z_PK = f." + s.FaceAssetColumn +
+						" JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn + withAttributes +
+						" AND p.Z_PK = (SELECT MAX(q.Z_PK) FROM ZPERSON q WHERE q.ZPERSONUUID IS p.ZPERSONUUID)"},
 				} {
 					if want := count(t, ro, c.query); c.got != want {
 						t.Errorf("%s: %d, want %d", c.name, c.got, want)
 					}
 				}
-				t.Logf("%d persons: %d named, %d with a key photo, %d favorites, %d featured less; %d faces on %d photos, %d faces of persons",
-					len(db.PersonInfo()), named, keyed, favorite, featureLess, found, withFaces, personFaces)
+				t.Logf("%d persons: %d named, %d with a key photo, %d favorites, %d featured less; %d faces on %d photos, %d faces of persons, %d photos of persons",
+					len(db.PersonInfo()), named, keyed, favorite, featureLess, found, withFaces, personFaces, photosOfPersons)
 				mu.Lock()
 				defer mu.Unlock()
 				people += len(db.PersonInfo())

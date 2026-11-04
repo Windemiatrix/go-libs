@@ -75,6 +75,7 @@ func TestLoadRealData(t *testing.T) {
 			if ref.Library != name || len(ref.Query) == 0 {
 				t.Fatalf("Library = %q with %d objects in query.json", ref.Library, len(ref.Query))
 			}
+			withPersons := 0
 			for _, obj := range slices.Concat(ref.Query, ref.Deleted) {
 				if len(obj) != len(fields) {
 					t.Fatalf("an object has %d keys, want the %d of fields.txt", len(obj), len(fields))
@@ -84,7 +85,16 @@ func TestLoadRealData(t *testing.T) {
 						t.Fatalf("key %s is not in fields.txt", k)
 					}
 				}
+				var persons []json.RawMessage
+				if json.Unmarshal(obj["person_info"], &persons) == nil && len(persons) > 0 {
+					withPersons++
+				}
 			}
+			// Test-13.0.0 has persons with faces: without them the comparison of person_info is vacuous.
+			if name == "Test-13.0.0" && withPersons == 0 {
+				t.Error("no object of Test-13.0.0 has person_info")
+			}
+			t.Logf("%d objects with person_info", withPersons)
 		})
 	}
 }

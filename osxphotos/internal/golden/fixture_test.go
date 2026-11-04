@@ -137,10 +137,10 @@ func fixtureLib() Library {
 			{Datetime: ptr(utc(2020, 7, 2, 0, 0, 0, 500000000).In(ist)), Text: "Comment 2"},
 		}},
 		Likes: map[string][]photoinfo.LikeInfo{selectedFrame: {{Datetime: ptr(utc(2020, 7, 3, 0, 0, 0, 0)), User: "Person A"}}},
-		// Not in the order of the reference: the rule sorts both sides.
+		// By name, as PersonInfoOf gives them: the rule compares in order.
 		Persons: map[string][]personinfo.PersonInfo{selectedFrame: {
-			{UUID: personUnknown, Name: "_UNKNOWN_"},
 			{UUID: personA, Name: "Person A", DisplayName: "Pat", KeyFace: 11, FaceCount: 3, KeyPhotoUUID: selectedFrame, Favorite: true, SortOrder: 2, FeatureLess: true},
+			{UUID: personUnknown, Name: "_UNKNOWN_"},
 		}},
 	}
 }

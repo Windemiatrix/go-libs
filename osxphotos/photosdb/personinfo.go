@@ -43,17 +43,13 @@ func (db *DB) FaceInfoOf(p *photoinfo.PhotoInfo) []personinfo.FaceInfo {
 	return slices.Clone(db.facesOf[p.UUID])
 }
 
-// PersonPhotos returns the photos with a face of the person of uuid, each
-// once, in UUID order (osxphotos PersonInfo.photos, personinfo.py:58-65); of a
-// repeated ZPERSONUUID, those of the row that Person returns. The slice is new
-// on every call and nil for a person without a photo or an unknown uuid; its
-// values are shared: do not modify them.
+// PersonPhotos returns the photos with a face of the person of uuid, a photo
+// once per face, in the Z_PK order of the faces (osxphotos PersonInfo.photos,
+// personinfo.py:58-65); of a repeated ZPERSONUUID, those of the row that
+// Person returns. The slice is new on every call and nil for a person without
+// a photo or an unknown uuid; its values are shared: do not modify them.
 func (db *DB) PersonPhotos(uuid string) []*photoinfo.PhotoInfo {
-	var out []*photoinfo.PhotoInfo
-	for _, id := range db.personPhotos[db.personPK[uuid]] {
-		out = append(out, db.byUUID[id])
-	}
-	return out
+	return slices.Clone(db.personPhotos[db.personPK[uuid]])
 }
 
 // PersonFaces returns the faces of the person of uuid, those on an asset
@@ -66,15 +62,15 @@ func (db *DB) PersonFaces(uuid string) []personinfo.FaceInfo {
 }
 
 type personData struct {
-	persons      []personinfo.PersonInfo            // every ZPERSON row, Z_PK order
-	personByUUID map[string]personinfo.PersonInfo   // the row with the highest Z_PK for a repeated ZPERSONUUID
-	personPK     map[string]int64                   // the Z_PK of the row of personByUUID
-	personsOf    map[string][]personinfo.PersonInfo // by photo UUID, a person per face, in the order of PersonInfoOf
-	facesOf      map[string][]personinfo.FaceInfo   // by photo UUID, in the order of FaceInfoOf
+	persons      []personinfo.PersonInfo
+	personByUUID map[string]personinfo.PersonInfo // the row with the highest Z_PK for a repeated ZPERSONUUID
+	personPK     map[string]int64                 // the Z_PK of the row of personByUUID; an unknown UUID gives 0, a Z_PK Core Data never assigns
+	personsOf    map[string][]personinfo.PersonInfo
+	facesOf      map[string][]personinfo.FaceInfo
 
 	// By ZPERSON.Z_PK, as upstream keys them (_dbfaces_pk, _db_faceinfo_person).
-	personPhotos map[int64][]string              // photo UUIDs, sorted, without repeats
-	personFaces  map[int64][]personinfo.FaceInfo // in the order of PersonFaces
+	personPhotos map[int64][]*photoinfo.PhotoInfo // the photo of each face, in the Z_PK order of the faces
+	personFaces  map[int64][]personinfo.FaceInfo
 }
 
 // Upstream names a person without a name "_UNKNOWN_" (photosdb.py:1792-1796).
@@ -105,7 +101,7 @@ func loadPersons(t tables, c *catalog) personData {
 		personPK:     make(map[string]int64, len(t.persons)),
 		personsOf:    map[string][]personinfo.PersonInfo{},
 		facesOf:      map[string][]personinfo.FaceInfo{},
-		personPhotos: map[int64][]string{},
+		personPhotos: map[int64][]*photoinfo.PhotoInfo{},
 		personFaces:  map[int64][]personinfo.FaceInfo{},
 	}
 	byPK := make(map[int64]personinfo.PersonInfo, len(t.persons))
@@ -129,23 +125,24 @@ func loadPersons(t tables, c *catalog) personData {
 		if a, ok := c.byUUID[f.AssetUUID.String]; ok && a.PK == f.AssetPK {
 			d.personsOf[a.UUID] = append(d.personsOf[a.UUID], byPK[f.PersonPK])
 			d.facesOf[a.UUID] = append(d.facesOf[a.UUID], face)
-			d.personPhotos[f.PersonPK] = append(d.personPhotos[f.PersonPK], a.UUID)
+			d.personPhotos[f.PersonPK] = append(d.personPhotos[f.PersonPK], a)
 		}
 	}
-	// The faces come by Z_PK, so a stable sort keeps it for equal keys.
+	// A PersonInfo holds no Z_PK of its face: the stable sort keeps the Z_PK order of t.faces for equal keys.
 	for _, g := range d.personsOf {
 		slices.SortStableFunc(g, func(a, b personinfo.PersonInfo) int {
 			return cmp.Or(strings.Compare(a.Name, b.Name), strings.Compare(a.UUID, b.UUID))
 		})
 	}
 	for _, g := range d.facesOf {
-		slices.SortStableFunc(g, func(a, b personinfo.FaceInfo) int { return strings.Compare(a.Name, b.Name) })
+		slices.SortFunc(g, func(a, b personinfo.FaceInfo) int {
+			return cmp.Or(strings.Compare(a.Name, b.Name), cmp.Compare(a.PK, b.PK))
+		})
 	}
 	for _, g := range d.personFaces {
-		slices.SortStableFunc(g, func(a, b personinfo.FaceInfo) int { return cmp.Compare(b.Quality, a.Quality) })
-	}
-	for pk, g := range d.personPhotos {
-		d.personPhotos[pk] = sortedSet(g)
+		slices.SortFunc(g, func(a, b personinfo.FaceInfo) int {
+			return cmp.Or(cmp.Compare(b.Quality, a.Quality), cmp.Compare(a.PK, b.PK))
+		})
 	}
 	return d
 }

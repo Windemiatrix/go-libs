@@ -1,7 +1,6 @@
 package golden
 
 import (
-	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -474,8 +473,8 @@ func commentElem(date *time.Time, user string, mine bool, text *string) map[stri
 
 // The asdict of PersonInfo (personinfo.py:110-123). json() sorts no list of
 // objects, and upstream sorts the persons of a photo by name only, equal names
-// in the order of SQLite (photoinfo.py:605-611): both sides are sorted by name,
-// then uuid, and a person stays once per face.
+// in the order of SQLite (photoinfo.py:605-611): both sides are compared in
+// order, persons of equal name sorted by uuid, and a person stays once per face.
 func personInfoRule() rule {
 	const key = "person_info"
 	return rule{
@@ -525,9 +524,15 @@ func decodePerson(raw json.RawMessage, path string) (personinfo.PersonInfo, erro
 // The result is never nil: it is written as [], not null. The list of Library
 // is not sorted in place: Compare leaves its input as it is.
 func personElems(persons []personinfo.PersonInfo) []any {
-	sorted := slices.SortedStableFunc(slices.Values(persons), func(a, b personinfo.PersonInfo) int {
-		return cmp.Or(strings.Compare(a.Name, b.Name), strings.Compare(a.UUID, b.UUID))
-	})
+	sorted := slices.Clone(persons)
+	for i := 0; i < len(sorted); {
+		j := i + 1
+		for j < len(sorted) && sorted[j].Name == sorted[i].Name {
+			j++
+		}
+		slices.SortStableFunc(sorted[i:j], func(a, b personinfo.PersonInfo) int { return strings.Compare(a.UUID, b.UUID) })
+		i = j
+	}
 	out := make([]any, len(sorted))
 	for i, p := range sorted {
 		out[i] = map[string]any{
