@@ -19,6 +19,9 @@ var (
 	// ErrCanceled is delivered by Done after Cancel, whatever PhotoKit reports
 	// then.
 	ErrCanceled = errors.New("photokit: the request was canceled")
+	// ErrNoAlbum is returned by Import when an album of the record is not
+	// found; nothing was changed.
+	ErrNoAlbum = errors.New("photokit: no such album")
 )
 
 // Bridge is what photokit needs from PhotoKit. A status is a
@@ -41,6 +44,25 @@ type Bridge interface {
 	// networkAccessAllowed for the first resource of type typ of the asset id;
 	// no such asset or resource is ErrNoResource.
 	RequestResource(id string, typ int, sink ResourceSink) (Request, error)
+	// Import runs one performChanges that creates the asset of r and adds it to
+	// its albums, and blocks until the completion handler, or up to timeout,
+	// then returns context.DeadlineExceeded while the change goes on. It
+	// returns the LocalIdentifier of the created asset; a failed change is a
+	// *PhotoKitError.
+	Import(r ImportRecord, timeout time.Duration) (string, error)
+}
+
+// ImportRecord is an ImportRequest of photokit for the bridge: a path or the
+// name is "" when not given, the date is seconds since 1970 and the
+// coordinates are degrees, each held only with its Has flag.
+type ImportRecord struct {
+	Photo, Video, PairedVideo, AlternatePhoto, OriginalFilename string
+	HasCreationDate                                             bool
+	CreationDate                                                float64
+	HasLocation                                                 bool
+	Latitude, Longitude                                         float64
+	Favorite, Hidden                                            bool
+	Albums                                                      []string
 }
 
 // ResourceSink receives a resource on a queue of PhotoKit. Write gets the

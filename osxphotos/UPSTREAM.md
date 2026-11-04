@@ -132,7 +132,13 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `photoinfo.PhotoInfo.LibraryScopeShareState`
 - `photoinfo.PhotoInfo.Resources`
 - `photoinfo.Resource`
+- `photokit.ErrImport`
+- `photokit.ErrImportFile`
+- `photokit.ErrOutcomeUnknown`
+- `photokit.ErrUserCanceled`
 - `photokit.ExportOptions.Progress`
+- `photokit.ImportRequest`
+- `photokit.Library.Import()`
 - `photosdb.Info.LibraryUUID`
 - `photosdb.Info.SkippedAssets`
 
@@ -262,6 +268,12 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `photoinfo.PhotoInfo.LibraryScopeShareState`
 - `photoinfo.PhotoInfo.Resources`
 - `photoinfo.Resource`
+- `photokit.ErrImport`
+- `photokit.ErrImportFile`
+- `photokit.ErrOutcomeUnknown`
+- `photokit.ErrUserCanceled`
 - `photokit.ExportOptions.Progress`
+- `photokit.ImportRequest`
+- `photokit.Library.Import()`
 - `photosdb.Info.LibraryUUID`
 - `photosdb.Info.SkippedAssets`

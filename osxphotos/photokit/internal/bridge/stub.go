@@ -22,3 +22,5 @@ func (*stub) FetchBurst(string, bool) ([]AssetRecord, error) { return nil, ErrNo
 func (*stub) AssetResources(string) ([]ResourceRecord, error) { return nil, ErrNotSupported }
 
 func (*stub) RequestResource(string, int, ResourceSink) (Request, error) { return nil, ErrNotSupported }
+
+func (*stub) Import(ImportRecord, time.Duration) (string, error) { return "", ErrNotSupported }
