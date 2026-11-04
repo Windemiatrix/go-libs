@@ -22,22 +22,24 @@ var (
 )
 
 // Bridge is what photokit needs from PhotoKit. A status is a
-// PHAuthorizationStatus value for read-write access.
+// PHAuthorizationStatus value for read-write access. No method finds a hidden
+// asset: upstream fetches with the default PHFetchOptions
+// (photokit.py:1234-1237, 1281-1285).
 type Bridge interface {
 	AuthorizationStatus() (int, error)
 	// RequestAuthorization blocks up to timeout, then returns
 	// context.DeadlineExceeded.
 	RequestAuthorization(timeout time.Duration) (int, error)
-	// FetchAssets and FetchBurst find hidden assets too and return them in
-	// the order of PhotoKit; none found is not an error. FetchBurst returns
-	// every frame with all, otherwise the selected ones and the key photo.
+	// FetchAssets and FetchBurst return the assets in the order of PhotoKit;
+	// none found is not an error. FetchBurst returns every frame with all,
+	// otherwise the selected ones and the key photo.
 	FetchAssets(ids []string) ([]AssetRecord, error)
 	FetchBurst(burstID string, all bool) ([]AssetRecord, error)
-	// AssetResources finds a hidden asset too; an unknown id gives none, not an error.
+	// AssetResources of an unknown id gives none, not an error.
 	AssetResources(id string) ([]ResourceRecord, error)
 	// RequestResource starts requestDataForAssetResource with
-	// networkAccessAllowed for the first resource of type typ of the asset id,
-	// a hidden one too; no such asset or resource is ErrNoResource.
+	// networkAccessAllowed for the first resource of type typ of the asset id;
+	// no such asset or resource is ErrNoResource.
 	RequestResource(id string, typ int, sink ResourceSink) (Request, error)
 }
 

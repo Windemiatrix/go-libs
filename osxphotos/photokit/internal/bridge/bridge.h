@@ -27,9 +27,9 @@ typedef struct {
 	double creation_date, modification_date, latitude, longitude, duration;
 } pk_asset;
 
-// Both find hidden assets too. *out holds *count assets in the order of
-// PhotoKit, or is NULL with *count 0 on an error or when none is found;
-// pk_free_assets frees it in every case.
+// Neither finds a hidden asset, as upstream (photokit.py:1234-1237, 1281-1285).
+// *out holds *count assets in the order of PhotoKit, or is NULL with *count 0
+// on an error or when none is found; pk_free_assets frees it in every case.
 pk_result pk_fetch_assets(const char *const *ids, int64_t n, pk_asset **out, int *count);
 pk_result pk_fetch_burst(const char *burst_id, bool include_all, pk_asset **out, int *count);
 void pk_free_assets(pk_asset *assets, int count);
@@ -40,15 +40,15 @@ typedef struct {
 	int resource_type;
 } pk_resource;
 
-// Finds a hidden asset too. *out holds the *count resources of the asset
-// local_id in the order of PhotoKit, or is NULL with *count 0 on an error or
-// when there is no such asset; pk_free_resources frees it in every case.
+// *out holds the *count resources of the asset local_id in the order of
+// PhotoKit, or is NULL with *count 0 on an error or when there is no such
+// asset or it is hidden; pk_free_resources frees it in every case.
 pk_result pk_asset_resources(const char *local_id, pk_resource **out, int *count);
 void pk_free_resources(pk_resource *resources, int count);
 
 // Starts requestDataForAssetResource for the first resource of the type of
-// the asset local_id, a hidden one too, and sets *request_id; no such asset or
-// resource is PK_NO_RESOURCE and starts nothing. Once started, the request
+// the asset local_id and sets *request_id; no such asset, a hidden asset or no
+// such resource is PK_NO_RESOURCE and starts nothing. Once started, the request
 // calls pk_go_write, pk_go_progress and, at most once, pk_go_done with handle,
 // in an order PhotoKit does not promise; Go ignores a call after pk_go_done. A
 // stalled iCloud download may never end.

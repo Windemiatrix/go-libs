@@ -139,20 +139,13 @@ static void pk_fill_asset(PHAsset *asset, pk_asset *out) {
 	out->hidden = asset.hidden;
 }
 
-// Hidden assets too, unlike upstream (photokit.py:1234, 1281): photosdb lists them.
-static PHFetchOptions *pk_fetch_options(void) {
-	PHFetchOptions *options = [[PHFetchOptions alloc] init];
-	options.includeHiddenAssets = YES;
-	return options;
-}
-
 static pk_result pk_fetch(PHFetchResult<PHAsset *> *(^fetch)(PHFetchOptions *), pk_asset **out, int *count) {
 	pk_result r = {PK_OK, NULL};
 	*out = NULL;
 	*count = 0;
 	@autoreleasepool {
 		@try {
-			PHFetchResult<PHAsset *> *assets = fetch(pk_fetch_options());
+			PHFetchResult<PHAsset *> *assets = fetch([[PHFetchOptions alloc] init]);
 			if (assets.count > 0) {
 				*out = calloc(assets.count, sizeof(pk_asset));
 				if (*out == NULL) {
@@ -208,7 +201,7 @@ static NSArray<PHAssetResource *> *pk_resources(const char *local_id) {
 	// A string that is not UTF-8 names no asset, and @[nil] would raise.
 	NSString *identifier = [NSString stringWithUTF8String:local_id];
 	NSArray<NSString *> *identifiers = identifier != nil ? @[ identifier ] : @[];
-	PHAsset *asset = [PHAsset fetchAssetsWithLocalIdentifiers:identifiers options:pk_fetch_options()].firstObject;
+	PHAsset *asset = [PHAsset fetchAssetsWithLocalIdentifiers:identifiers options:nil].firstObject;
 	return asset != nil ? [PHAssetResource assetResourcesForAsset:asset] : nil;
 }
 

@@ -63,7 +63,6 @@ var (
 		PixelWidth:      1920,
 		PixelHeight:     1080,
 		Duration:        3 * time.Second,
-		Hidden:          true,
 	}
 	wantSlowMo = Asset{
 		LocalIdentifier: slowMoID + "/L0/001",
@@ -75,7 +74,6 @@ var (
 		PixelWidth:      1920,
 		PixelHeight:     1080,
 		Duration:        3 * time.Second,
-		Hidden:          true,
 	}
 
 	frame     = bridge.AssetRecord{LocalIdentifier: frameID + "/L0/001", MediaType: 1, BurstIdentifier: burstID}
@@ -175,6 +173,14 @@ func TestAssetHalfLocation(t *testing.T) {
 		if a, err := asset(r); err != nil || a.Location != nil {
 			t.Errorf("asset(%+v) = location %+v, %v; want no location", r, a.Location, err)
 		}
+	}
+}
+
+// Fetch finds no hidden asset (photokit.py:1234-1237), yet upstream reads
+// isHidden all the same (461-464).
+func TestAssetHidden(t *testing.T) {
+	if a, err := asset(bridge.AssetRecord{MediaType: 1, Hidden: true}); err != nil || !a.Hidden {
+		t.Errorf("asset(hidden) = Hidden %t, %v; want true", a.Hidden, err)
 	}
 }
 

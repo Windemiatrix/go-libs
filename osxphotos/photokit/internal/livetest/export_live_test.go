@@ -35,11 +35,8 @@ const originalSubtype = 1
 
 func TestLiveExport(t *testing.T) {
 	lib := openLibrary(t)
-	photos := untrashedMarkerPhotos(t)
+	photos := visibleMarkerPhotos(t)
 	x := &exporter{lib: lib, dir: t.TempDir(), taken: map[string]bool{}, exported: map[string]*photoinfo.PhotoInfo{}}
-	// A subtest of hidden photos would export them a second time: the subtests of
-	// originals count them instead.
-	hidden := func(p *photoinfo.PhotoInfo) bool { return p.Hidden }
 
 	t.Run("local original", func(t *testing.T) {
 		local := filter(photos, func(p *photoinfo.PhotoInfo) bool { return p.Path != "" && !p.IsMissing })
@@ -52,7 +49,6 @@ func TestLiveExport(t *testing.T) {
 				differ++
 			}
 		}
-		t.Logf("%d local originals exported, %d of them hidden", len(local), count(local, hidden))
 		if differ > 0 {
 			t.Errorf("%d of %d exported originals differ from their file in the library", differ, len(local))
 		}
@@ -77,7 +73,6 @@ func TestLiveExport(t *testing.T) {
 				silent++
 			}
 		}
-		t.Logf("%d originals only in iCloud exported, %d of them hidden", len(cloud), count(cloud, hidden))
 		if empty > 0 || short > 0 || silent > 0 {
 			t.Errorf("of %d originals only in iCloud, %d exported empty, %d not of the size of the original, %d without a call of Progress", len(cloud), empty, short, silent)
 		}
@@ -154,7 +149,7 @@ func TestLiveExport(t *testing.T) {
 	})
 
 	// An expired deadline ends Export in Resources, before the bridge
-	// (fetch.go:35-37); the shortest of these may too, so a count above 0 does
+	// (fetch.go:36-38); the shortest of these may too, so a count above 0 does
 	// not prove that a cancel reached PhotoKit.
 	t.Run("deadline", func(t *testing.T) {
 		p := slices.MaxFunc(photos, func(a, b *photoinfo.PhotoInfo) int { return cmp.Compare(a.OriginalFilesize, b.OriginalFilesize) })
