@@ -61,8 +61,9 @@ func FuzzParse(f *testing.F) {
 }
 
 // Whatever Parse takes, Render neither panics nor fails with an error of its
-// own, keeps its bounds and gives the same result twice. A string of the
-// template may be repeated in every result, hence len(s) in the bound.
+// own, keeps its bounds, gives no "/" with Filename and gives the same result
+// twice. A string of the template may be repeated in every result, hence
+// len(s) in the bound.
 func FuzzRender(f *testing.F) {
 	data, err := os.ReadFile(filepath.Join(testlib.RepoDir(f, "golden"), "templates.txt"))
 	if err != nil {
@@ -94,16 +95,21 @@ func FuzzRender(f *testing.F) {
 		"{counter( 1 , , 2 )}", "{counter(1,2,3,4)}", "{counter(x)}", "{counter(3,1)}", "{counter(1)}{counter(2)}",
 		"{counter:~^99(1)}", "{counter:999999999}", "{counter:.2d}", "{counter(9223372036854775807)}{counter(9223372036854775807)}",
 		"{counter(-1,,9223372036854775807)}{counter(-1,,9223372036854775807)}",
+		"{media_type,a=b=c;x}", "{media_type,}", "{photo_or_video,=}", "{media_type,video=}", "{folder_album}/{title}/{keyword}",
 	} {
 		f.Add(in)
 	}
 	unicodePhoto := examplePhoto()
 	unicodePhoto["title"] = strs("h\U000000e9llo")
 	unicodePhoto["keyword"] = strs("h\U000000e9llo", "stra\U000000dfe", "\U00000130", "a/b:c", "", "1.5", "-inf", "Holidays",
-		"..", "//", "/")
+		"..", "//", "/", "e\U00000301/")
+	unicodePhoto["media_type"] = strs("video")
+	unicodePhoto["photo_or_video"] = strs("video")
+	unicodePhoto["folder_album"] = Value{Albums: []AlbumRef{{Folders: []string{"a/b", ""}, Title: "c\U00000301/"}, {Title: ""}}}
 	renderErrors := []error{ErrUnsupportedField, ErrUnsupportedConstruct, ErrTooManyValues, ErrRender}
 	today := time.Date(2001, 2, 3, 4, 5, 6, 0, time.UTC)
-	opts := []RenderOptions{{Today: today}, {Today: today, ExportDir: "//e x/", Filepath: "/a b/./it's.tar.gz/../c.", Quote: true}}
+	opts := []RenderOptions{{Today: today}, {Today: today, ExportDir: "//e x/", Filepath: "/a b/./it's.tar.gz/../c.", Quote: true},
+		{Today: today, Filename: true, Strip: true}, {Today: today, Dirname: true, ExportDir: "/e", Filepath: "/f/g.h"}}
 	f.Fuzz(func(t *testing.T, s string) {
 		tmpl, err := Parse(s)
 		if err != nil {
@@ -123,6 +129,8 @@ func FuzzRender(f *testing.F) {
 					t.Fatalf("Render(%q): %v names a value", s, err)
 				case len(got) > DefaultMaxResults || size > maxRenderBytes+len(s)*DefaultMaxResults:
 					t.Fatalf("Render(%q) = %d strings of %d bytes", s, len(got), size)
+				case o.Filename && slices.ContainsFunc(got, func(v string) bool { return strings.Contains(v, "/") }):
+					t.Fatalf("Render(%q) with Filename = %.200q, holds a /", s, got)
 				}
 				again, unmatchedAgain, errAgain := NewRenderer().Render(tmpl, p, o)
 				if !slices.Equal(got, again) || !slices.Equal(unmatched, unmatchedAgain) || fmt.Sprint(err) != fmt.Sprint(errAgain) {
