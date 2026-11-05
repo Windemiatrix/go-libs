@@ -35,6 +35,7 @@ type Asset struct {
 	Owner                                      sql.NullString  // the full name of the person of CloudOwnerHashedID, as Album.Owner (photoinfo.py:1441-1459); NULL when not found
 	OwnerComponents                            [][]byte        // as Album.OwnerComponents, for CloudOwnerHashedID
 	MomentShare                                sql.NullInt64   // ZMOMENTSHARE
+	MomentPK                                   sql.NullInt64   // ZMOMENT (photosdb.py:2049, 2280)
 	SpatialType                                sql.NullInt64   // ZSPATIALTYPE; NULL when ZASSET has no such column
 
 	HasAttributes                         bool           // the ZADDITIONALASSETATTRIBUTES row exists
@@ -80,6 +81,7 @@ func assetSelect(s schema.Schema) []column {
 		{"u", "ZUNMANAGEDADJUSTMENT", "ZADJUSTMENTFORMATIDENTIFIER"},
 		{"m", "ZCLOUDMASTER", "Z_PK"}, {"m", "ZCLOUDMASTER", "ZCLOUDLOCALSTATE"}, {"m", "ZCLOUDMASTER", "ZCLOUDMASTERGUID"},
 		{"i", "ZGENERICALBUM", "ZUUID"},
+		a("ZMOMENT"),
 	}
 }
 
@@ -144,7 +146,7 @@ ORDER BY a.ZUUID, a.Z_PK`
 			&r.HDRType, &r.DepthType, &r.VisibilityState, &r.CloudOwnerHashedID, &r.MomentShare,
 			&r.CameraCaptureDevice, &r.TZName, &r.ImportedByName, &r.ImportedByBundleID,
 			&r.AdjustmentFormat,
-			&mastPK, &r.CloudLocalState, &r.CloudMasterGUID, &r.ImportUUID, &r.SpatialType); err != nil {
+			&mastPK, &r.CloudLocalState, &r.CloudMasterGUID, &r.ImportUUID, &r.MomentPK, &r.SpatialType); err != nil {
 			return err
 		}
 		r.HasAttributes, r.HasMaster = attrPK.Valid, mastPK.Valid
