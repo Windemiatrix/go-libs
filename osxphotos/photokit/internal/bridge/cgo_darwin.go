@@ -150,6 +150,15 @@ func (*cgoBridge) Import(r ImportRecord, timeout time.Duration) (string, error) 
 	return changeResult(domain != nil, C.GoString(domain), int64(code), C.GoString(id))
 }
 
+// The collection methods answer as without the bridge until bridge.m has them.
+func (*cgoBridge) Collections() ([]CollectionRecord, error) { return nil, ErrNotSupported }
+func (*cgoBridge) CreateCollection(string, string, bool, time.Duration) (string, error) {
+	return "", ErrNotSupported
+}
+func (*cgoBridge) RenameCollection(string, string, time.Duration) error    { return ErrNotSupported }
+func (*cgoBridge) DeleteCollections([]string, time.Duration) error         { return ErrNotSupported }
+func (*cgoBridge) AlbumAssets(string, []string, bool, time.Duration) error { return ErrNotSupported }
+
 type cgoRequest struct {
 	id               C.int32_t
 	sink             ResourceSink

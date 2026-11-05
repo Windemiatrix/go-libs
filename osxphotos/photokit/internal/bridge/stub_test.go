@@ -31,4 +31,19 @@ func TestStubNotSupported(t *testing.T) {
 	if got, err := b.Import(ImportRecord{Photo: "/IMG_0001.JPG"}, time.Minute); got != "" || !errors.Is(err, ErrNotSupported) {
 		t.Errorf("Import = %q, %v; want ErrNotSupported", got, err)
 	}
+	if got, err := b.Collections(); got != nil || !errors.Is(err, ErrNotSupported) {
+		t.Errorf("Collections = %v, %v; want ErrNotSupported", got, err)
+	}
+	if got, err := b.CreateCollection("Trips", "", true, time.Minute); got != "" || !errors.Is(err, ErrNotSupported) {
+		t.Errorf("CreateCollection = %q, %v; want ErrNotSupported", got, err)
+	}
+	if err := b.RenameCollection("id", "Trips", time.Minute); !errors.Is(err, ErrNotSupported) {
+		t.Errorf("RenameCollection: err = %v, want ErrNotSupported", err)
+	}
+	if err := b.DeleteCollections([]string{"id"}, time.Minute); !errors.Is(err, ErrNotSupported) {
+		t.Errorf("DeleteCollections: err = %v, want ErrNotSupported", err)
+	}
+	if err := b.AlbumAssets("id", []string{"id"}, true, time.Minute); !errors.Is(err, ErrNotSupported) {
+		t.Errorf("AlbumAssets: err = %v, want ErrNotSupported", err)
+	}
 }
