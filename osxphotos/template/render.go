@@ -26,7 +26,7 @@ func (r *Renderer) Render(t *Template, p Photo, o RenderOptions) (values, unmatc
 	o.PathSep = cmp.Or(o.PathSep, "/")
 	o.MaxResults = cmp.Or(o.MaxResults, DefaultMaxResults)
 	o.Today = cmp.Or(o.Today, time.Now()) // once for every {today}, as self.today (phototemplate.py:910-912)
-	s := &rendering{p: p, o: o, variables: map[string][]string{}, bytesLeft: maxRenderBytes}
+	s := &rendering{r: r, p: p, o: o, variables: map[string][]string{}, bytesLeft: maxRenderBytes}
 	if values, err = s.statement(t); err != nil {
 		return nil, nil, err
 	}
@@ -34,6 +34,7 @@ func (r *Renderer) Render(t *Template, p Photo, o RenderOptions) (values, unmatc
 }
 
 type rendering struct {
+	r         *Renderer
 	p         Photo
 	o         RenderOptions
 	unmatched []string
@@ -200,6 +201,9 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 		}
 		out, err := s.formatValue(*v.Int, f.Subfield)
 		return []string{out}, true, inField(err, f)
+	case stem == "counter":
+		out, err := s.counterValue(f)
+		return []string{out}, true, err
 	case stem == "created" || stem == "modified" || stem == "today":
 		vals, err := s.date(name, stem, part, def)
 		return vals, true, err
