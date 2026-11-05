@@ -273,7 +273,7 @@ func TestRenderErrors(t *testing.T) {
 		{"{media_type}", missing, ErrUnsupportedField, "media_type"},
 		{"{folder_album}", missing, ErrUnsupportedField, "folder_album"},
 		{"x{keyword,{title}}", missing, ErrUnsupportedField, "title"},
-		{"{id:05d}", missing, ErrUnsupportedConstruct, "id"},
+		{"{id:05d}", missing, ErrUnsupportedField, "id"},
 		// variables (phototemplate.py:643-656, 793-837)
 		{"{%a}", missing, ErrRender, `"a"`},
 		{"{var:a,x}{%b}", missing, ErrRender, `"b"`},
