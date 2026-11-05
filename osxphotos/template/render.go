@@ -190,6 +190,9 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 		return nil, false, nil
 	case later[stem], f.Default != nil && (name == "media_type" || name == "photo_or_video"):
 		return nil, false, unsupported(ErrUnsupportedConstruct, name)
+	case name == "format":
+		vals, err := s.format(f, def)
+		return vals, true, err
 	case name == "id" && f.Subfield != "": // format_str_value of the primary key (977-978)
 		v, ok := s.p.Field(name)
 		if !ok || v.Int == nil {
