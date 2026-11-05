@@ -27,6 +27,7 @@ type RenderOptions struct {
 	Quote         bool      // {export_dir}, {filepath} and their properties through shlex.quote (384, 1641, 1652), before the filters and [find,replace], which act on the quoted string and may break it (663-683)
 	Today         time.Time // {today}; the zero time is time.Now() at the start of a Render (910-912)
 	MaxResults    int       // the most strings of one statement; 0 is DefaultMaxResults
+	DestPath      string    // the destination path of the photo (397): album_seq finds its album by the last element of it, folder_album_seq by the folders and the title at its end (979-992, 1665-1681); "" gives them no value
 }
 
 // Renderer renders templates and may be used from several goroutines at once.

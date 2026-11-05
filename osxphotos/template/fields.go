@@ -6,8 +6,8 @@ import "strings"
 // line (phototemplate.py:859-874, 924-925, 1383-1384).
 var never = set("exiftool function detected_text osxphotos_cmd_line")
 
-// Fields of upstream, by the name before the first ".", not rendered yet.
-var later = set("album_seq folder_album_seq")
+// _UNKNOWN_PERSON (_constants.py:337).
+const unknownPerson = "_UNKNOWN_"
 
 // PUNCTUATION (phototemplate.py:345-363).
 var punctuation = map[string]string{

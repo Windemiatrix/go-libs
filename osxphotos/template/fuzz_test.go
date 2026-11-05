@@ -96,6 +96,8 @@ func FuzzRender(f *testing.F) {
 		"{counter:~^99(1)}", "{counter:999999999}", "{counter:.2d}", "{counter(9223372036854775807)}{counter(9223372036854775807)}",
 		"{counter(-1,,9223372036854775807)}{counter(-1,,9223372036854775807)}",
 		"{media_type,a=b=c;x}", "{media_type,}", "{photo_or_video,=}", "{media_type,video=}", "{folder_album}/{title}/{keyword}",
+		"{album_seq}", "{folder_album_seq(2):03d}", "{folder_album_seq:03d(2)}", "{album_seq(x)}", "{album_seq(9223372036854775807)}",
+		"{shortuuid}", "{name}{original_name}{burst}", "{person}",
 	} {
 		f.Add(in)
 	}
@@ -106,10 +108,15 @@ func FuzzRender(f *testing.F) {
 	unicodePhoto["media_type"] = strs("video")
 	unicodePhoto["photo_or_video"] = strs("video")
 	unicodePhoto["folder_album"] = Value{Albums: []AlbumRef{{Folders: []string{"a/b", ""}, Title: "c\U00000301/"}, {Title: ""}}}
+	unicodePhoto["album_seq"] = Value{Albums: []AlbumRef{{Folders: []string{"a/b"}, Title: "Holidays", Index: 3}, {Title: "", Index: -1}}}
+	unicodePhoto["uuid"] = strs("Holidays")
+	unicodePhoto["name"] = strs(".tar.gz")
+	unicodePhoto["person"] = strs("_UNKNOWN_", "h\U000000e9llo")
 	renderErrors := []error{ErrUnsupportedField, ErrUnsupportedConstruct, ErrTooManyValues, ErrRender}
 	today := time.Date(2001, 2, 3, 4, 5, 6, 0, time.UTC)
 	opts := []RenderOptions{{Today: today}, {Today: today, ExportDir: "//e x/", Filepath: "/a b/./it's.tar.gz/../c.", Quote: true},
-		{Today: today, Filename: true, Strip: true}, {Today: today, Dirname: true, ExportDir: "/e", Filepath: "/f/g.h"}}
+		{Today: today, Filename: true, Strip: true}, {Today: today, Dirname: true, ExportDir: "/e", Filepath: "/f/g.h"},
+		{Today: today, DestPath: "/out/a:b/Holidays"}}
 	f.Fuzz(func(t *testing.T, s string) {
 		tmpl, err := Parse(s)
 		if err != nil {
