@@ -158,6 +158,7 @@ func Open(ctx context.Context, path string, o Options) (db *DB, err error) {
 		liked:         uuidSet(likes),
 
 		personData: loadPersons(t, c),
+		momentData: loadMoments(t, c),
 	}, nil
 }
 
@@ -266,6 +267,9 @@ func readTables(ctx context.Context, src *sqlread.DB, s schema.Schema) (t tables
 		return tables{}, err
 	}
 	if t.feedback, err = src.UserFeedback(ctx); err != nil {
+		return tables{}, err
+	}
+	if t.moments, err = src.Moments(ctx); err != nil {
 		return tables{}, err
 	}
 	// groupMembers and membershipOrder sort; nothing relies on the order of members.
