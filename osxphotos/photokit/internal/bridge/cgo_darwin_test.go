@@ -102,6 +102,32 @@ func TestImportBeforeChange(t *testing.T) {
 	}
 }
 
+// Every call stops before performChanges whatever the order of the checks, so
+// a broken check fails here without changing the library.
+func TestCollectionChangesBeforeChange(t *testing.T) {
+	const exception = "photokit: Objective-C exception: NSInvalidArgumentException"
+	b := New()
+	titleID, titleErr := b.CreateCollection("\xff", "\xff", true, time.Second)
+	parentID, parentErr := b.CreateCollection("Trips", "\xff", false, time.Second)
+	if titleID != "" || parentID != "" {
+		t.Errorf("CreateCollection = %q and %q, want no identifier", titleID, parentID)
+	}
+	for _, tt := range []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"title and parent not UTF-8", titleErr, exception},
+		{"parent not UTF-8", parentErr, ErrNoAlbum.Error()},
+		{"new title and collection not UTF-8", b.RenameCollection("\xff", "\xff", time.Second), exception},
+		{"collection not UTF-8", b.RenameCollection("\xff", "Trips", time.Second), ErrNoAlbum.Error()},
+	} {
+		if tt.err == nil || tt.err.Error() != tt.want || (tt.want == ErrNoAlbum.Error() && !errors.Is(tt.err, ErrNoAlbum)) {
+			t.Errorf("%s: error %v, want %q", tt.name, tt.err, tt.want)
+		}
+	}
+}
+
 // The handle is far above those RequestResource gives; a call after the
 // completion must not panic, as the Value of a deleted cgo.Handle does.
 func TestRequestHandlers(t *testing.T) {
@@ -142,6 +168,9 @@ func TestCodeError(t *testing.T) {
 	}
 	if err := codeError(4, ""); !errors.Is(err, ErrNoAlbum) {
 		t.Errorf("codeError(4) = %v, want ErrNoAlbum", err)
+	}
+	if err := codeError(5, ""); !errors.Is(err, ErrNoAsset) {
+		t.Errorf("codeError(5) = %v, want ErrNoAsset", err)
 	}
 	for _, tt := range []struct{ name, message, want string }{
 		{"valid", "IMG_0001.HEIC caf\U000000e9", "photokit: Objective-C exception: IMG_0001.HEIC caf\U000000e9"},
