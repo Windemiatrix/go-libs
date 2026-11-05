@@ -188,9 +188,15 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 	case !upstreamField(name, stem): // ahead of later: upstream puts format.x in unmatched (849-883)
 		s.unmatched = append(s.unmatched, name)
 		return nil, false, nil
-	case later[stem],
-		f.Default != nil && (name == "media_type" || name == "photo_or_video"), name == "id" && f.Subfield != "":
+	case later[stem], f.Default != nil && (name == "media_type" || name == "photo_or_video"):
 		return nil, false, unsupported(ErrUnsupportedConstruct, name)
+	case name == "id" && f.Subfield != "": // format_str_value of the primary key (977-978)
+		v, ok := s.p.Field(name)
+		if !ok || v.Int == nil {
+			return nil, false, unsupported(ErrUnsupportedField, name)
+		}
+		out, err := s.formatValue(*v.Int, f.Subfield)
+		return []string{out}, true, inField(err, f)
 	case stem == "created" || stem == "modified" || stem == "today":
 		vals, err := s.date(name, stem, part, def)
 		return vals, true, err
