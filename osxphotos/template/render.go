@@ -194,11 +194,9 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 	name := f.Name
 	stem, part, _ := strings.Cut(name, ".")
 	switch {
-	case !upstreamField(name, stem): // ahead of later: upstream puts format.x in unmatched (849-883)
+	case !upstreamField(name, stem): // upstream puts format.x in unmatched (849-883)
 		s.unmatched = append(s.unmatched, name)
 		return nil, false, nil
-	case later[stem]:
-		return nil, false, unsupported(ErrUnsupportedConstruct, name)
 	case name == "media_type" || name == "photo_or_video":
 		vals, err := s.mediaType(name, def)
 		return vals, true, err
@@ -215,6 +213,9 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 	case stem == "counter":
 		out, err := s.counterValue(f)
 		return []string{out}, true, err
+	case stem == "album_seq" || stem == "folder_album_seq":
+		vals, err := s.albumSeq(f, stem)
+		return vals, true, err
 	case stem == "created" || stem == "modified" || stem == "today":
 		vals, err := s.date(name, stem, part, def)
 		return vals, true, err
@@ -239,11 +240,32 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 		out := slices.DeleteFunc(slices.Clone(def), func(v string) bool { return v == "" })
 		return out, true, s.each(out, shellQuote)
 	}
-	v, ok := s.p.Field(name)
+	asked := name
+	if name == "shortuuid" {
+		asked = "uuid"
+	}
+	v, ok := s.p.Field(asked)
 	if !ok {
-		return nil, false, unsupported(ErrUnsupportedField, name)
+		return nil, false, unsupported(ErrUnsupportedField, asked)
 	}
 	vals := slices.Clone(v.Strings)
+	var err error
+	switch name {
+	case "name", "original_name", "burst": // pathlib.Path(...).stem, and None for "" (phototemplate.py:931-933, 997, 1012)
+		err = s.each(vals, func(v string) string { return s.pathProperty(v, []string{"stem"}) })
+		vals = slices.DeleteFunc(vals, func(v string) bool { return v == "" })
+	case "shortuuid": // 975-976
+		for i := range vals {
+			if vals[i], err = shortUUID(vals[i]); err != nil {
+				break
+			}
+		}
+	case "person": // 1277-1278
+		vals = slices.DeleteFunc(vals, func(v string) bool { return v == unknownPerson })
+	}
+	if err != nil {
+		return nil, false, err
+	}
 	if v.Int != nil {
 		vals = append(vals, strconv.FormatInt(*v.Int, 10))
 	}
@@ -255,7 +277,7 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 	for i, a := range v.Albums {
 		parts := append(slices.Clone(a.Folders), a.Title)
 		if s.o.Dirname { // without a check of Filename (phototemplate.py:1299, 1309)
-			if err := s.each(parts, sanitizePathpart); err != nil {
+			if err = s.each(parts, sanitizePathpart); err != nil {
 				return nil, false, err
 			}
 		}

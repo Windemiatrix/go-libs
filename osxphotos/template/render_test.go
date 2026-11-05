@@ -47,7 +47,7 @@ func examplePhoto() fakePhoto {
 		"person":        {},
 		"favorite":      strs("favorite"),
 		"hdr":           strs("hdr"),
-		"original_name": strs("IMG_0001"),
+		"original_name": strs("IMG_0001.HEIC"),
 		"folder_album":  {Albums: []AlbumRef{{Folders: []string{"Folder1"}, Title: "Album1"}}},
 		"id":            {Int: &id},
 		"photo.title":   strs("My Photo Title"),
@@ -207,6 +207,35 @@ func TestRenderEmptyIsNil(t *testing.T) {
 	}
 }
 
+// pathlib.Path(...).stem of Python 3.12 (phototemplate.py:931-933, 997) and
+// persons without _UNKNOWN_PERSON (1275-1278).
+func TestRenderNameStems(t *testing.T) {
+	t.Parallel()
+	p := fakePhoto{"name": strs("IMG_0001.HEIC"), "original_name": strs("archive.tar.gz"), "burst": strs("IMG_0002.JPG"),
+		"person": strs("Pat Example", "_UNKNOWN_")}
+	name := func(v string) fakePhoto { return fakePhoto{"name": strs(v)} }
+	o := RenderOptions{}
+	one := func(s string) []string { return []string{s} }
+	checkRender(t, []renderCase{
+		{"name", "{name}", p, o, one("IMG_0001"), nil},
+		{"original_name", "{original_name}", p, o, one("archive.tar"), nil},
+		{"burst", "{burst}", p, o, one("IMG_0002"), nil},
+		{"burst bool", "{burst?B-{burst},NB}", p, o, one("B-IMG_0002"), nil},
+		{"no burst", "{burst?B-{burst},NB}", fakePhoto{"burst": {}}, o, one("NB"), nil},
+		{"leading dot", "{name}", name(".bashrc"), o, one(".bashrc"), nil},
+		{"trailing dot", "{name}", name("a."), o, one("a."), nil},
+		{"no suffix", "{name}", name("noext"), o, one("noext"), nil},
+		{"the last part of a path", "{name}", name("dir/IMG_0003.JPG"), o, one("IMG_0003"), nil},
+		{"dot", "{name}", name("."), o, one("_"), nil},
+		{"no name", "{name}", fakePhoto{"name": {}}, o, one("_"), nil},
+		// sanitize_dirname of the stem (1005-1009); without Filename, SanitizeFilename of the result does not hide it
+		{"dirname", "{name}", name("e\U00000301.jpg"), RenderOptions{Dirname: true}, one("\U000000e9"), nil},
+		{"person", "{person}", p, o, one("Pat Example"), nil},
+		{"only the unknown person", "{person}", fakePhoto{"person": strs("_UNKNOWN_")}, o, one("_"), nil},
+		{"unknown person in a condition", "{person contains _UNKNOWN_?Y,N}", p, o, one("N"), nil},
+	})
+}
+
 // The slices of a Photo belong to its implementation and may have spare
 // capacity: without slices.Clone of v.Strings in values, [o,0] and & write
 // "f00" and "My Photo Title" into keywords; without slices.Clone of
@@ -315,8 +344,12 @@ func TestRenderErrors(t *testing.T) {
 		{"{today.nope}", missing, ErrRender, "today.nope"},
 		{"{created.}", missing, ErrRender, "created."},
 		{"{today.}", missing, ErrRender, "today."},
-		{"{album_seq}", missing, ErrUnsupportedConstruct, "album_seq"},
-		{"{folder_album_seq(1)}", missing, ErrUnsupportedConstruct, "folder_album_seq"},
+		{"{name}", missing, ErrUnsupportedField, "name"},
+		{"{original_name}", missing, ErrUnsupportedField, "original_name"},
+		{"{burst?B,NB}", missing, ErrUnsupportedField, "burst"},
+		{"{person}", missing, ErrUnsupportedField, "person"},
+		{"{name.x}", examplePhoto(), ErrUnsupportedField, "name.x"},
+		{"{shortuuid}", missing, ErrUnsupportedField, ": uuid"},
 		{"{media_type,video=v}", missing, ErrUnsupportedField, "media_type"},
 		{"{photo_or_video,photo=p}", missing, ErrUnsupportedField, "photo_or_video"},
 		// _get_pathlib_value (phototemplate.py:1643-1649)
@@ -346,8 +379,12 @@ func TestRenderErrors(t *testing.T) {
 // A keyword or a path is personal data, so an error names the operator or the field and not the value.
 func TestRenderErrorHidesValues(t *testing.T) {
 	t.Parallel()
-	o := RenderOptions{Filepath: "/Holidays/x.jpg", ExportDir: "/Holidays"}
+	o := RenderOptions{Filepath: "/Holidays/x.jpg", ExportDir: "/Holidays", DestPath: "/Holidays"}
+	albums := Value{Albums: []AlbumRef{{Title: "Holidays"}}}
 	for in, keyword := range map[string]string{
+		"{album_seq(x)}":                        "Holidays",
+		"{folder_album_seq(x)}":                 "Holidays",
+		"{shortuuid}":                           "Holidays",
 		"{keyword < 9?Y,N}":                     "Holidays",
 		"{var:k,{keyword}}{keyword[o,%k]}":      "%Holidays",
 		"{var:k,{keyword}}{keyword|join(%k)}":   "%Holidays",
@@ -364,7 +401,8 @@ func TestRenderErrorHidesValues(t *testing.T) {
 		"{var:r,{keyword}}{format:float:%r,1}":  "\U000000e9",
 		"{var:r,{keyword}}{format:str:%r,x}":    "\U000000e9",
 	} {
-		_, _, err := render(t, in, with(conditionPhoto(), "keyword", strs(keyword)), o)
+		p := with(with(with(conditionPhoto(), "keyword", strs(keyword)), "uuid", strs(keyword)), "album_seq", albums)
+		_, _, err := render(t, in, p, o)
 		if msg := fmt.Sprint(err); !errors.Is(err, ErrRender) || strings.Contains(msg, "Holidays") || strings.Contains(msg, keyword) {
 			t.Errorf("Render(%q) = %v; want ErrRender without the keyword", in, err)
 		}
@@ -620,7 +658,7 @@ func TestRenderDates(t *testing.T) {
 	today := RenderOptions{Today: time.Date(2001, 1, 1, 0, 0, 0, 0, zone)}
 	p := func(modified *time.Time) fakePhoto {
 		return fakePhoto{"created": {Time: &created}, "modified": {Time: modified}, "edited": strs("edited"),
-			"original_name": strs("IMG_0001"), "title": strs("My Photo Title")}
+			"original_name": strs("IMG_0001.HEIC"), "title": strs("My Photo Title")}
 	}
 	o := RenderOptions{}
 	one := func(s string) []string { return []string{s} }
