@@ -91,6 +91,19 @@
     "original_width": 1526,
     "owner": null,
     "panorama": false,
+    "person_info": [
+      {
+        "displayname": "Maria",
+        "facecount": 0,
+        "favorite": false,
+        "feature_less": false,
+        "keyface": null,
+        "keyphoto": null,
+        "name": "Maria",
+        "sort_order": 6,
+        "uuid": "2823DC11-D1E7-45BC-ACEB-9833A4A6A6B3"
+      }
+    ],
     "persons": [
       "Maria"
     ],
@@ -210,6 +223,7 @@
     "original_width": 4032,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {
       "address": {

@@ -121,6 +121,7 @@
     "original_width": 720,
     "owner": "Rhet Turnbull",
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -238,6 +239,7 @@
     "original_width": 720,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -389,6 +391,19 @@
     "original_width": 6000,
     "owner": null,
     "panorama": false,
+    "person_info": [
+      {
+        "displayname": null,
+        "facecount": 1,
+        "favorite": false,
+        "feature_less": false,
+        "keyface": 3,
+        "keyphoto": "2E850900-E0E1-4792-99C3-2E9302982FC9",
+        "name": "_UNKNOWN_",
+        "sort_order": -1,
+        "uuid": "6FB38887-2B13-4797-9D60-373885C44148"
+      }
+    ],
     "persons": [
       "_UNKNOWN_"
     ],
@@ -534,6 +549,7 @@
     "original_width": 2049,
     "owner": "Rhet Turnbull",
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -684,6 +700,7 @@
     "original_width": 1537,
     "owner": "Rhet Turnbull",
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": true,
@@ -803,6 +820,7 @@
     "original_width": 1537,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": true,
@@ -965,6 +983,7 @@
     "original_width": 2049,
     "owner": "Rhet Turnbull",
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -1115,6 +1134,7 @@
     "original_width": 2049,
     "owner": "Rhet Turnbull",
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -1232,6 +1252,7 @@
     "original_width": 4032,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {
       "address": {
@@ -1433,6 +1454,7 @@
     "original_width": 1537,
     "owner": "Wallace Rutherford",
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -1544,6 +1566,7 @@
     "original_width": 3264,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -1655,6 +1678,7 @@
     "original_width": 3264,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -1766,6 +1790,7 @@
     "original_width": 3264,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -1877,6 +1902,7 @@
     "original_width": 6032,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -1988,6 +2014,7 @@
     "original_width": 1080,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -2099,6 +2126,19 @@
     "original_width": 1280,
     "owner": null,
     "panorama": false,
+    "person_info": [
+      {
+        "displayname": null,
+        "facecount": 2,
+        "favorite": false,
+        "feature_less": false,
+        "keyface": 2,
+        "keyphoto": "AB9D5F55-05AF-4036-8884-0FA6000F332B",
+        "name": "_UNKNOWN_",
+        "sort_order": -1,
+        "uuid": "E4105866-F5AE-45C9-B297-4A910B6A7486"
+      }
+    ],
     "persons": [
       "_UNKNOWN_"
     ],
@@ -2212,6 +2252,7 @@
     "original_width": 1920,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -2329,6 +2370,7 @@
     "original_width": 1280,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -2440,6 +2482,7 @@
     "original_width": 1280,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {
       "address": {
@@ -2619,6 +2662,7 @@
     "original_width": 2048,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -2769,6 +2813,7 @@
     "original_width": 2049,
     "owner": "Wallace Rutherford",
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -2880,6 +2925,7 @@
     "original_width": 2448,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {
       "address": {
@@ -3049,6 +3095,7 @@
     "original_width": 3264,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {
       "address": {
@@ -3218,6 +3265,7 @@
     "original_width": 3264,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {
       "address": {
@@ -3387,6 +3435,7 @@
     "original_width": 3264,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {
       "address": {
@@ -3556,6 +3605,7 @@
     "original_width": 3264,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {
       "address": {
@@ -3725,6 +3775,7 @@
     "original_width": 3264,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {
       "address": {
@@ -3894,6 +3945,7 @@
     "original_width": 1920,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {
       "address": {
@@ -4070,6 +4122,7 @@
     "original_width": 1280,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -4213,6 +4266,7 @@
     "original_width": 1280,
     "owner": "Rhet Turnbull",
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -4362,6 +4416,7 @@
     "original_width": 701,
     "owner": "Rhet Turnbull",
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": true,
@@ -4481,6 +4536,19 @@
     "original_width": 701,
     "owner": null,
     "panorama": false,
+    "person_info": [
+      {
+        "displayname": null,
+        "facecount": 2,
+        "favorite": false,
+        "feature_less": false,
+        "keyface": 2,
+        "keyphoto": "AB9D5F55-05AF-4036-8884-0FA6000F332B",
+        "name": "_UNKNOWN_",
+        "sort_order": -1,
+        "uuid": "E4105866-F5AE-45C9-B297-4A910B6A7486"
+      }
+    ],
     "persons": [
       "_UNKNOWN_"
     ],
