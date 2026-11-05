@@ -91,6 +91,7 @@ type tables struct {
 	places       []sqlread.ReverseLocation
 	persons      []sqlread.Person
 	feedback     []sqlread.Feedback
+	moments      []sqlread.Moment
 
 	collectionShares []sqlread.Album // CollectionShare rows of ZSHARE: their PK is a ZSHARE.Z_PK
 	shareMembers     []sqlread.Member
@@ -100,6 +101,8 @@ type catalog struct {
 	photos  []*photoinfo.PhotoInfo // ZUUID order
 	byUUID  map[string]*photoinfo.PhotoInfo
 	skipped int // assets without ZADDITIONALASSETATTRIBUTES
+
+	momentOf map[string]int64 // ZASSET.ZMOMENT by photo UUID, also for a Z_PK without a ZMOMENT row (photosdb.py:2280)
 }
 
 // osxphotos normalizes the text of the database to NFC (unicode.py:12, 76-92).
@@ -144,7 +147,7 @@ func load(t tables) (*catalog, error) {
 		places[r.AssetPK] = r.Data
 	}
 
-	c := &catalog{byUUID: make(map[string]*photoinfo.PhotoInfo, len(t.assets))}
+	c := &catalog{byUUID: make(map[string]*photoinfo.PhotoInfo, len(t.assets)), momentOf: map[string]int64{}}
 	var noUUID, dupUUID int
 	for _, a := range t.assets {
 		if !a.HasAttributes {
@@ -160,6 +163,9 @@ func load(t tables) (*catalog, error) {
 			continue
 		}
 		p := photo(a, resources[a.PK])
+		if a.MomentPK.Valid {
+			c.momentOf[p.UUID] = a.MomentPK.Int64
+		}
 		id := a.CloudOwnerHashedID.String
 		if _, ok := owners[id]; !ok {
 			owners[id] = personName(a.Owner, a.OwnerComponents)
@@ -333,7 +339,7 @@ func photo(a sqlread.Asset, res []sqlread.Resource) *photoinfo.PhotoInfo {
 	p.BurstSelected = p.BurstPickType&photoinfo.BurstPickSelected != 0
 	p.BurstKey = p.BurstPickType&photoinfo.BurstPickKey != 0
 	p.BurstDefaultPick = p.BurstPickType&photoinfo.BurstPickDefault != 0
-	if !(a.Latitude.Valid && a.Latitude.Float64 == noCoordinate && a.Longitude.Valid && a.Longitude.Float64 == noCoordinate) {
+	if !noLocation(a.Latitude, a.Longitude) {
 		p.Latitude, p.Longitude = optionalFloat(a.Latitude), optionalFloat(a.Longitude)
 	}
 
@@ -464,4 +470,10 @@ func optionalFloat(v sql.NullFloat64) *float64 {
 	}
 	f := v.Float64
 	return &f
+}
+
+// Photos writes -180 in both columns for "no location" (photosdb.py:2174-2181,
+// 2749-2758); one of them alone stays a number.
+func noLocation(lat, lon sql.NullFloat64) bool {
+	return lat.Valid && lat.Float64 == noCoordinate && lon.Valid && lon.Float64 == noCoordinate
 }

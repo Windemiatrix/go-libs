@@ -37,6 +37,7 @@ type DB struct {
 	liked        map[string]bool                         // the keys of likes, for query.Catalog
 
 	personData
+	momentData
 }
 
 // Close releases the DB. It releases nothing today: the copy of the
