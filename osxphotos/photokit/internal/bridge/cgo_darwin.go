@@ -3,11 +3,12 @@
 package bridge
 
 // -Werror is not here: a warning of a newer clang would break go build for
-// every user of the library. CI adds it through CGO_CFLAGS.
+// every user of the library. CI adds it through CGO_CFLAGS. CoreLocation holds
+// the CLLocation of an imported asset, which Photos declares but does not link.
 
 /*
 #cgo CFLAGS: -Wall -Wextra -fobjc-arc
-#cgo LDFLAGS: -framework Photos -framework Foundation
+#cgo LDFLAGS: -framework Photos -framework Foundation -framework CoreLocation
 #include <stdlib.h>
 #include "bridge.h"
 */
@@ -18,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -116,8 +118,37 @@ func (*cgoBridge) RequestResource(id string, typ int, sink ResourceSink) (Reques
 	return r, nil
 }
 
-// The PhotoKit side of the import is not built yet.
-func (*cgoBridge) Import(ImportRecord, time.Duration) (string, error) { return "", ErrNotSupported }
+func (*cgoBridge) Import(r ImportRecord, timeout time.Duration) (string, error) {
+	// C would cut an album at a NUL and add the asset to another one.
+	if strings.ContainsRune(strings.Join(r.Albums, ""), 0) {
+		return "", ErrNoAlbum
+	}
+	strs := make([]*C.char, 0, 5+len(r.Albums))
+	for _, s := range append([]string{r.Photo, r.Video, r.PairedVideo, r.AlternatePhoto, r.OriginalFilename}, r.Albums...) {
+		c := C.CString(s)
+		defer C.free(unsafe.Pointer(c)) //nolint:gosec // G103: the C.CString buffers of this call are freed here
+		strs = append(strs, c)
+	}
+	req := C.pk_import_request{
+		photo: strs[0], video: strs[1], paired_video: strs[2], alternate_photo: strs[3], original_filename: strs[4],
+		has_creation_date: C.bool(r.HasCreationDate), creation_date: C.double(r.CreationDate),
+		has_location: C.bool(r.HasLocation), latitude: C.double(r.Latitude), longitude: C.double(r.Longitude),
+		favorite: C.bool(r.Favorite), hidden: C.bool(r.Hidden),
+	}
+	var albums **C.char
+	if len(r.Albums) > 0 {
+		albums = &strs[5]
+	}
+	var id, domain *C.char
+	var code C.int64_t
+	err := check(C.pk_import(&req, albums, C.int64_t(len(r.Albums)), C.int64_t(timeoutMS(timeout)), &id, &code, &domain))
+	defer C.free(unsafe.Pointer(id))     //nolint:gosec // G103: the strdup buffer of bridge.m is freed here
+	defer C.free(unsafe.Pointer(domain)) //nolint:gosec // G103: the strdup buffer of bridge.m is freed here
+	if err != nil {
+		return "", err
+	}
+	return changeResult(domain != nil, C.GoString(domain), int64(code), C.GoString(id))
+}
 
 type cgoRequest struct {
 	id               C.int32_t
@@ -172,7 +203,7 @@ func pk_go_done(h C.uintptr_t, code C.int64_t, domain *C.char) {
 	r.(*cgoRequest).finish(domain != nil, C.GoString(domain), int64(code))
 }
 
-// write and finish take Go values, so that a test can reach them without PhotoKit.
+// write, finish and changeResult take Go values, so that a test can reach them without PhotoKit.
 
 func (r *cgoRequest) write(p []byte) {
 	if !r.failed.Load() && r.sink.Write(p) != nil {
@@ -181,17 +212,27 @@ func (r *cgoRequest) write(p []byte) {
 }
 
 func (r *cgoRequest) finish(failed bool, domain string, code int64) {
-	var err error
-	switch {
-	case r.canceled.Load():
+	err := nsError(failed, domain, code)
+	if r.canceled.Load() {
 		err = ErrCanceled
-	case failed:
-		// Done delivers nothing but a *PhotoKitError for an NSError, so a
-		// domain that is not UTF-8 is dropped, not the error.
-		d, _ := cString(domain)
-		err = &PhotoKitError{Domain: d, Code: code}
 	}
 	r.done <- err
+}
+
+func changeResult(failed bool, domain string, code int64, id string) (string, error) {
+	if err := nsError(failed, domain, code); err != nil {
+		return "", err
+	}
+	return cString(id)
+}
+
+// Done and Import give an NSError only as a *PhotoKitError, so a domain that is not UTF-8 is dropped, not the error.
+func nsError(failed bool, domain string, code int64) error {
+	if !failed {
+		return nil
+	}
+	d, _ := cString(domain)
+	return &PhotoKitError{Domain: d, Code: code}
 }
 
 func records(r C.pk_result, out *C.pk_asset, count C.int) ([]AssetRecord, error) {
@@ -267,6 +308,8 @@ func codeError(code int, message string) error {
 		return context.DeadlineExceeded
 	case C.PK_NO_RESOURCE:
 		return ErrNoResource
+	case C.PK_NOT_FOUND:
+		return ErrNoAlbum
 	}
 	reason, err := cString(message)
 	if err != nil {

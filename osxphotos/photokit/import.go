@@ -18,8 +18,8 @@ import (
 // AlternatePhoto the RAW of a RAW+JPEG pair. Every path is an absolute path of
 // a regular file, which Photos copies. OriginalFilename names the original in
 // Photos ("" keeps the name of the file). A zero CreationDate leaves the date
-// to Photos, a nil Location leaves none. Albums are the UUIDs, or the
-// LocalIdentifiers, of the albums the asset is added to in the same change.
+// to Photos, a nil Location leaves none. Albums, a UUID or a LocalIdentifier
+// per album, are those the asset is added to in the same change.
 // extension: not in osxphotos
 type ImportRequest struct {
 	Photo, Video, PairedVideo, AlternatePhoto string
@@ -31,9 +31,9 @@ type ImportRequest struct {
 }
 
 // Import creates one asset from r in one change of PhotoKit and returns its
-// LocalIdentifier, as Fetch gives it. A plain import shows no dialog. r is
-// checked before PhotoKit is called: a bad file is ErrImportFile and an album
-// that the library does not have is ErrNotFound. A failure of PhotoKit is
+// LocalIdentifier, as Fetch gives it. A plain import shows no dialog. Before
+// the change, a bad file is ErrImportFile and an album that the library does
+// not have, or that cannot take an asset, ErrNotFound. A failure of PhotoKit is
 // ErrImport, a refusal of the user ErrUserCanceled. A ctx done before the call
 // is ctx.Err(), and nothing was changed; a ctx done before the outcome is
 // ErrOutcomeUnknown with ctx.Err(), and the request goes on in PhotoKit, as a

@@ -3,6 +3,7 @@ package sqlread
 import (
 	"context"
 	"database/sql"
+	"math"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -101,6 +102,14 @@ var readers = []struct {
 		r, err := d.ReverseLocations(ctx)
 		return len(r), err
 	}},
+	{"Persons", func(ctx context.Context, d *DB, s schema.Schema) (int, error) {
+		r, err := d.Persons(ctx, s)
+		return len(r), err
+	}},
+	{"UserFeedback", func(ctx context.Context, d *DB, _ schema.Schema) (int, error) {
+		r, err := d.UserFeedback(ctx)
+		return len(r), err
+	}},
 }
 
 func contains(list []string, s string) bool {
@@ -188,8 +197,9 @@ func TestColumnsIncludeJoins(t *testing.T) {
 		"ZINTERNALRESOURCE":          {"ZASSET", "ZDATASTORESUBTYPE", "ZRESOURCETYPE", "ZFINGERPRINT"},
 		"Z_1KEYWORDS":                {"Z_1ASSETATTRIBUTES", "Z_52KEYWORDS"},
 		"ZKEYWORD":                   {"Z_PK", "ZTITLE"},
-		"ZDETECTEDFACE":              {"ZASSETFORFACE", "ZPERSONFORFACE"},
-		"ZPERSON":                    {"Z_PK", "ZFULLNAME"},
+		"ZDETECTEDFACE":              {"Z_PK", "ZUUID", "ZASSETFORFACE", "ZPERSONFORFACE", "ZAGETYPE", "ZEYEMAKEUPTYPE", "ZEYESSTATE", "ZFACIALHAIRTYPE", "ZGENDERTYPE", "ZGLASSESTYPE", "ZHAIRCOLORTYPE", "ZHASSMILE", "ZISINTRASH", "ZLIPMAKEUPTYPE", "ZMANUAL", "ZSMILETYPE", "ZSOURCEHEIGHT", "ZSOURCEWIDTH", "ZCENTERX", "ZCENTERY", "ZQUALITY", "ZROLL", "ZSIZE"},
+		"ZPERSON":                    {"Z_PK", "ZPERSONUUID", "ZFULLNAME", "ZDISPLAYNAME", "ZFACECOUNT", "ZKEYFACE", "ZTYPE", "ZMANUALORDER"},
+		"ZUSERFEEDBACK":              {"Z_PK", "ZPERSON", "ZTYPE"},
 		"Z_33ASSETS":                 {"Z_33ALBUMS", "Z_3ASSETS", "Z_FOK_3ASSETS"},
 		"ZGENERICALBUM": {"Z_PK", "ZUUID", "ZKIND", "ZCUSTOMSORTKEY", "ZCUSTOMSORTASCENDING", "Z_FOK_PARENTFOLDER",
 			"ZCLOUDOWNERHASHEDPERSONID", "ZCLOUDOWNERFIRSTNAME", "ZCLOUDOWNERLASTNAME", "ZCLOUDOWNERFULLNAME"},
@@ -498,6 +508,10 @@ func TestReaderValueType(t *testing.T) {
 		// reference/006_shared-album.sql gives the synthetic library a CollectionShare.
 		{"collection share sort key", "UPDATE ZSHARE SET ZCUSTOMSORTKEY = 'SECRET-K' " +
 			"WHERE Z_ENT = (SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CollectionShare')", readers[8].run},
+		// An INSERT, so that the row exists whether the library has persons or not.
+		// ZTYPE, not ZFACECOUNT: a trigger of ZPERSON rewrites ZFACECOUNT on insert.
+		{"person type", "INSERT INTO ZPERSON (Z_PK, ZTYPE) VALUES (999999, 'SECRET-C')", readers[14].run},
+		{"feedback person", "INSERT INTO ZUSERFEEDBACK (Z_PK, ZPERSON) VALUES (999999, 'SECRET-U')", readers[15].run},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -657,7 +671,7 @@ func sortTitles(titles []sql.NullString) {
 
 func personFaceCounts(t *testing.T, ro *sql.DB, s schema.Schema, faces []Face) (unnamed int) {
 	t.Helper()
-	join := " FROM ZDETECTEDFACE f JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn + " WHERE f." + s.FaceAssetColumn + " IS NOT NULL"
+	join := " FROM ZDETECTEDFACE f JOIN ZASSET a ON a.Z_PK = f." + s.FaceAssetColumn + " JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn
 	for _, f := range faces {
 		if !f.FullName.Valid {
 			unnamed++
@@ -666,7 +680,7 @@ func personFaceCounts(t *testing.T, ro *sql.DB, s schema.Schema, faces []Face) (
 	if want := count(t, ro, "SELECT COUNT(*)"+join); int64(len(faces)) != want {
 		t.Errorf("Faces: %d rows, want %d", len(faces), want)
 	}
-	if want := count(t, ro, "SELECT COUNT(*)"+join+" AND p.ZFULLNAME IS NULL"); int64(unnamed) != want {
+	if want := count(t, ro, "SELECT COUNT(*)"+join+" WHERE p.ZFULLNAME IS NULL"); int64(unnamed) != want {
 		t.Errorf("Faces: %d with a NULL ZFULLNAME, want %d", unnamed, want)
 	}
 	t.Logf("Faces: %d, %d with a NULL ZFULLNAME", len(faces), unnamed)
@@ -891,6 +905,286 @@ func TestReverseLocationRows(t *testing.T) {
 	})
 }
 
+func realSum(t *testing.T, db *sql.DB, query string) float64 {
+	t.Helper()
+	var v float64
+	if err := db.QueryRowContext(t.Context(), query).Scan(&v); err != nil {
+		t.Fatalf("%s: %v", query, err)
+	}
+	return v
+}
+
+// As quote() of SQLite, so that NULL and ” differ.
+func sqlQuote(v sql.NullString) string {
+	if !v.Valid {
+		return "NULL"
+	}
+	return "'" + strings.ReplaceAll(v.String, "'", "''") + "'"
+}
+
+// Some integer and real columns of persons and faces may be 0 in every test
+// library, and a swap of two such columns in a Scan changes no sum: this copy
+// of Test-13.0.0 gives each column a value of its own.
+func withValues(t *testing.T) testDB {
+	t.Helper()
+	s := schemaByID(t, librarySchemas["Test-13.0.0"])
+	path := filepath.Join(testlib.OpenPristine(t, "Test-13.0.0"), "database", "Photos.sqlite")
+	w := openWriter(t, path)
+	exec(t, w,
+		"UPDATE ZPERSON SET ZFACECOUNT = 3, ZTYPE = 5, ZMANUALORDER = 7 WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZPERSON)",
+		"UPDATE ZDETECTEDFACE SET ZAGETYPE = 2, ZEYEMAKEUPTYPE = 3, ZEYESSTATE = 4, ZFACIALHAIRTYPE = 5, ZGENDERTYPE = 6, ZGLASSESTYPE = 7, "+
+			"ZHAIRCOLORTYPE = 8, ZHASSMILE = 9, ZISINTRASH = 10, ZLIPMAKEUPTYPE = 11, ZMANUAL = 12, ZSMILETYPE = 13, ZSOURCEHEIGHT = 14, "+
+			"ZSOURCEWIDTH = 15, ZCENTERX = 0.125, ZCENTERY = 0.25, ZQUALITY = 0.375, ZROLL = 0.5, ZSIZE = 0.625 "+
+			"WHERE Z_PK = (SELECT MIN(f.Z_PK) FROM ZDETECTEDFACE f JOIN ZASSET a ON a.Z_PK = f."+s.FaceAssetColumn+
+			" JOIN ZPERSON p ON p.Z_PK = f."+s.FacePersonColumn+")",
+	)
+	if count(t, w, "SELECT COUNT(*) FROM ZPERSON WHERE ZFACECOUNT = 3 AND ZTYPE = 5 AND ZMANUALORDER = 7") != 1 ||
+		count(t, w, "SELECT COUNT(*) FROM ZDETECTEDFACE WHERE ZAGETYPE = 2 AND ZSMILETYPE = 13 AND ZSIZE = 0.625") != 1 {
+		t.Fatal("withValues: an UPDATE changed no row of Test-13.0.0")
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return testDB{"Test-13.0.0 with values", path, s}
+}
+
+// The oracle is the database. A swap of two columns in the Scan changes a sum
+// weighted by Z_PK or the text of a row; withValues makes the sums differ.
+func TestPersonRows(t *testing.T) {
+	t.Parallel()
+
+	ints := []string{"ZFACECOUNT", "ZKEYFACE", "ZTYPE", "ZMANUALORDER"}
+	var people, keyed atomic.Int64
+	t.Run("libraries", func(t *testing.T) {
+		for _, lib := range append(libraryDBs(t), withValues(t)) {
+			t.Run(lib.name, func(t *testing.T) {
+				t.Parallel()
+				ro := openRO(t, lib.path)
+				d := openDB(t, lib.path)
+				rows, err := d.Persons(t.Context(), lib.schema)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if want := count(t, ro, "SELECT COUNT(*) FROM ZPERSON"); int64(len(rows)) != want {
+					t.Errorf("Persons: %d rows, want %d", len(rows), want)
+				}
+				var withKey int64
+				var sums [4]int64
+				texts := make([]string, len(rows))
+				for i, r := range rows {
+					if i > 0 && rows[i-1].PK >= r.PK {
+						t.Errorf("Persons: row %d out of Z_PK order", i+1)
+					}
+					if r.KeyAssetUUID.Valid {
+						withKey++
+					}
+					for k, v := range []sql.NullInt64{r.FaceCount, r.KeyFace, r.Type, r.ManualOrder} {
+						sums[k] += v.Int64 * r.PK
+					}
+					texts[i] = strconv.FormatInt(r.PK, 10) + "|" + sqlQuote(r.UUID) + "|" + sqlQuote(r.FullName) + "|" +
+						sqlQuote(r.DisplayName) + "|" + sqlQuote(r.KeyAssetUUID)
+				}
+				for i, col := range ints {
+					if want := count(t, ro, "SELECT CAST(COALESCE(SUM("+col+" * Z_PK), 0) AS INTEGER) FROM ZPERSON"); sums[i] != want {
+						t.Errorf("Persons: sum of %s * Z_PK %d, want %d", col, sums[i], want)
+					}
+				}
+				wantTexts := testlib.Rows(t, ro, "SELECT p.Z_PK || '|' || quote(p.ZPERSONUUID) || '|' || quote(p.ZFULLNAME) || '|' || "+
+					"quote(p.ZDISPLAYNAME) || '|' || quote(a.ZUUID) FROM ZPERSON p LEFT JOIN ZDETECTEDFACE kf ON kf.Z_PK = p.ZKEYFACE "+
+					"LEFT JOIN ZASSET a ON a.Z_PK = kf."+lib.schema.FaceAssetColumn+" ORDER BY p.Z_PK")
+				if !slices.Equal(texts, wantTexts) {
+					t.Errorf("Persons: %d rows, the %d rows of the query differ in a text column", len(texts), len(wantTexts))
+				}
+				if want := count(t, ro, "SELECT COUNT(a.ZUUID) FROM ZPERSON p JOIN ZDETECTEDFACE kf ON kf.Z_PK = p.ZKEYFACE "+
+					"JOIN ZASSET a ON a.Z_PK = kf."+lib.schema.FaceAssetColumn); withKey != want {
+					t.Errorf("Persons: %d with the asset of the key face, want %d", withKey, want)
+				}
+
+				feedback, err := d.UserFeedback(t.Context())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if want := count(t, ro, "SELECT COUNT(*) FROM ZUSERFEEDBACK WHERE ZPERSON IS NOT NULL"); int64(len(feedback)) != want {
+					t.Errorf("UserFeedback: %d rows, want %d", len(feedback), want)
+				}
+				var typeSum, personSum int64
+				for i, f := range feedback {
+					if i > 0 && (feedback[i-1].PersonPK > f.PersonPK || (feedback[i-1].PersonPK == f.PersonPK && feedback[i-1].PK >= f.PK)) {
+						t.Errorf("UserFeedback: row %d out of (ZPERSON, Z_PK) order", i+1)
+					}
+					typeSum += f.Type.Int64 * f.PK
+					personSum += f.PersonPK * f.PK
+				}
+				const from = " FROM ZUSERFEEDBACK WHERE ZPERSON IS NOT NULL"
+				if want := count(t, ro, "SELECT CAST(COALESCE(SUM(ZTYPE * Z_PK), 0) AS INTEGER)"+from); typeSum != want {
+					t.Errorf("UserFeedback: sum of ZTYPE * Z_PK %d, want %d", typeSum, want)
+				}
+				if want := count(t, ro, "SELECT CAST(COALESCE(SUM(ZPERSON * Z_PK), 0) AS INTEGER)"+from); personSum != want {
+					t.Errorf("UserFeedback: sum of ZPERSON * Z_PK %d, want %d", personSum, want)
+				}
+				t.Logf("Persons: %d, %d with the asset of the key face; UserFeedback: %d", len(rows), withKey, len(feedback))
+				people.Add(int64(len(rows)))
+				keyed.Add(withKey)
+			})
+		}
+	})
+	if people.Load() == 0 || keyed.Load() == 0 {
+		t.Errorf("%d persons, %d with a key face in all libraries; want some of both: the test is vacuous", people.Load(), keyed.Load())
+	}
+
+	// The libraries need not hold a person with two ZUSERFEEDBACK rows, so the
+	// rows are written.
+	t.Run("feedback", func(t *testing.T) {
+		t.Parallel()
+		path := filepath.Join(testlib.OpenPristine(t, "Test-13.0.0"), "database", "Photos.sqlite")
+		w := openWriter(t, path)
+		a, b := count(t, w, "SELECT MIN(Z_PK) FROM ZPERSON"), count(t, w, "SELECT MAX(Z_PK) FROM ZPERSON")
+		if a == b {
+			t.Fatal("Test-13.0.0 has fewer than two persons: the case is vacuous")
+		}
+		pa, pb := strconv.FormatInt(a, 10), strconv.FormatInt(b, 10)
+		exec(t, w,
+			"DELETE FROM ZUSERFEEDBACK",
+			"INSERT INTO ZUSERFEEDBACK (Z_PK, ZPERSON, ZTYPE) VALUES (1, "+pb+", NULL), (2, "+pa+", 0), (3, "+pa+", 1), (4, NULL, 1)",
+		)
+		if err := w.Close(); err != nil {
+			t.Fatal(err)
+		}
+		got, err := openDB(t, path).UserFeedback(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := []Feedback{
+			{PK: 2, PersonPK: a, Type: sql.NullInt64{Int64: 0, Valid: true}},
+			{PK: 3, PersonPK: a, Type: sql.NullInt64{Int64: 1, Valid: true}},
+			{PK: 1, PersonPK: b},
+		}
+		if !slices.Equal(got, want) {
+			t.Errorf("UserFeedback = %+v, want %+v", got, want)
+		}
+	})
+}
+
+func TestFaceRows(t *testing.T) {
+	t.Parallel()
+
+	var total atomic.Int64
+	t.Run("libraries", func(t *testing.T) {
+		for _, lib := range append(libraryDBs(t), withValues(t)) {
+			t.Run(lib.name, func(t *testing.T) {
+				t.Parallel()
+				ro := openRO(t, lib.path)
+				s := lib.schema
+				faces, err := openDB(t, lib.path).Faces(t.Context(), s)
+				if err != nil {
+					t.Fatal(err)
+				}
+				from := " FROM ZDETECTEDFACE f JOIN ZASSET a ON a.Z_PK = f." + s.FaceAssetColumn + " JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn
+				if want := count(t, ro, "SELECT COUNT(*)"+from); int64(len(faces)) != want {
+					t.Errorf("Faces: %d rows, want %d", len(faces), want)
+				}
+				dangling := count(t, ro, "SELECT COUNT(*) FROM ZDETECTEDFACE f JOIN ZPERSON p ON p.Z_PK = f."+s.FacePersonColumn+
+					" WHERE f."+s.FaceAssetColumn+" IS NOT NULL") - int64(len(faces))
+				t.Logf("Faces: %d, %d more with an asset without a ZASSET row", len(faces), dangling)
+
+				ints := []struct {
+					col string
+					get func(Face) int64
+				}{
+					{"f." + s.FaceAssetColumn, func(f Face) int64 { return f.AssetPK }},
+					{"f." + s.FacePersonColumn, func(f Face) int64 { return f.PersonPK }},
+					{"f.ZAGETYPE", func(f Face) int64 { return f.AgeType.Int64 }},
+					{"f.ZEYEMAKEUPTYPE", func(f Face) int64 { return f.EyeMakeupType.Int64 }},
+					{"f.ZEYESSTATE", func(f Face) int64 { return f.EyeState.Int64 }},
+					{"f.ZFACIALHAIRTYPE", func(f Face) int64 { return f.FacialHairType.Int64 }},
+					{"f.ZGENDERTYPE", func(f Face) int64 { return f.GenderType.Int64 }},
+					{"f.ZGLASSESTYPE", func(f Face) int64 { return f.GlassesType.Int64 }},
+					{"f.ZHAIRCOLORTYPE", func(f Face) int64 { return f.HairColorType.Int64 }},
+					{"f.ZHASSMILE", func(f Face) int64 { return f.HasSmile.Int64 }},
+					{"f.ZISINTRASH", func(f Face) int64 { return f.InTrash.Int64 }},
+					{"f.ZLIPMAKEUPTYPE", func(f Face) int64 { return f.LipMakeupType.Int64 }},
+					{"f.ZMANUAL", func(f Face) int64 { return f.Manual.Int64 }},
+					{"f.ZSMILETYPE", func(f Face) int64 { return f.SmileType.Int64 }},
+					{"f.ZSOURCEHEIGHT", func(f Face) int64 { return f.SourceHeight.Int64 }},
+					{"f.ZSOURCEWIDTH", func(f Face) int64 { return f.SourceWidth.Int64 }},
+				}
+				reals := []struct {
+					col string
+					get func(Face) float64
+				}{
+					{"f.ZCENTERX", func(f Face) float64 { return f.CenterX.Float64 }},
+					{"f.ZCENTERY", func(f Face) float64 { return f.CenterY.Float64 }},
+					{"f.ZQUALITY", func(f Face) float64 { return f.Quality.Float64 }},
+					{"f.ZROLL", func(f Face) float64 { return f.Roll.Float64 }},
+					{"f.ZSIZE", func(f Face) float64 { return f.Size.Float64 }},
+				}
+				intSums, realSums := make([]int64, len(ints)), make([]float64, len(reals))
+				texts := make([]string, len(faces))
+				for i, f := range faces {
+					if i > 0 && faces[i-1].PK >= f.PK {
+						t.Errorf("Faces: row %d out of Z_PK order", i+1)
+					}
+					for k, c := range ints {
+						intSums[k] += c.get(f) * f.PK
+					}
+					for k, c := range reals {
+						realSums[k] += c.get(f) * float64(f.PK)
+					}
+					texts[i] = strconv.FormatInt(f.PK, 10) + "|" + sqlQuote(f.UUID) + "|" + sqlQuote(f.AssetUUID) + "|" +
+						sqlQuote(f.PersonUUID) + "|" + sqlQuote(f.FullName)
+				}
+				for k, c := range ints {
+					if want := count(t, ro, "SELECT CAST(COALESCE(SUM("+c.col+" * f.Z_PK), 0) AS INTEGER)"+from); intSums[k] != want {
+						t.Errorf("Faces: sum of %s * Z_PK %d, want %d", c.col, intSums[k], want)
+					}
+				}
+				for k, c := range reals {
+					want := realSum(t, ro, "SELECT COALESCE(SUM("+c.col+" * f.Z_PK), 0.0)"+from)
+					if math.Abs(realSums[k]-want) > 1e-6*(1+math.Abs(want)) {
+						t.Errorf("Faces: sum of %s * Z_PK %v, want %v", c.col, realSums[k], want)
+					}
+				}
+				wantTexts := testlib.Rows(t, ro, "SELECT f.Z_PK || '|' || quote(f.ZUUID) || '|' || quote(a.ZUUID) || '|' || "+
+					"quote(p.ZPERSONUUID) || '|' || quote(p.ZFULLNAME)"+from+" ORDER BY f.Z_PK")
+				if !slices.Equal(texts, wantTexts) {
+					t.Errorf("Faces: %d rows, the %d rows of the query differ in a text column", len(texts), len(wantTexts))
+				}
+				total.Add(int64(len(faces)))
+			})
+		}
+	})
+	if total.Load() == 0 {
+		t.Error("no library has a face with an asset and a person: the test is vacuous")
+	}
+}
+
+// Upstream joins ZASSET (_photosdb_process_faceinfo.py:228-230): a face whose
+// asset has no row is no face of an asset.
+func TestFaceRowsWithoutAsset(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(testlib.Open(t, "Test-13.0.0"), "database", "Photos.sqlite")
+	s := schemaByID(t, "photos8")
+	w := openWriter(t, path)
+	from := " FROM ZDETECTEDFACE f JOIN ZASSET a ON a.Z_PK = f." + s.FaceAssetColumn + " JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn
+	total := count(t, w, "SELECT COUNT(*)"+from)
+	if total == 0 {
+		t.Fatal("Test-13.0.0 has no face of a person with an asset: the case is vacuous")
+	}
+	exec(t, w, "UPDATE ZDETECTEDFACE SET "+s.FaceAssetColumn+" = 999999999 WHERE Z_PK = (SELECT MIN(f.Z_PK)"+from+")")
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	faces, err := openDB(t, path).Faces(t.Context(), s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if int64(len(faces)) != total-1 {
+		t.Errorf("Faces: %d rows, want %d: the face whose asset has no row is left out", len(faces), total-1)
+	}
+	personFaceCounts(t, openRO(t, path), s, faces)
+}
+
 func TestReadersEmpty(t *testing.T) {
 	t.Parallel()
 
@@ -901,6 +1195,8 @@ func TestReadersEmpty(t *testing.T) {
 		"DELETE FROM Z_1KEYWORDS",
 		"DELETE FROM ZKEYWORD",
 		"DELETE FROM ZDETECTEDFACE",
+		"DELETE FROM ZPERSON",
+		"DELETE FROM ZUSERFEEDBACK",
 		"DELETE FROM ZINTERNALRESOURCE",
 		"DELETE FROM ZEXTENDEDATTRIBUTES",
 		"DELETE FROM ZADDITIONALASSETATTRIBUTES",
