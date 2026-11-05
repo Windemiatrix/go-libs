@@ -36,6 +36,12 @@ import (
 // Import keeps the record and the timeout for LastImport and, when HoldImport
 // is not nil, waits for it to be closed or the timeout to pass, as Hold does;
 // then it returns ImportID and ImportErr.
+//
+// Collections returns CollectionRecords and CollectionsErr. The four changes
+// of collections log their arguments, keep the timeout for LastTimeout, and
+// the slice of DeleteCollections or AlbumAssets as given for LastIDs, and
+// wait for HoldChange as Import does for HoldImport; then they return
+// ChangeErr, and CreateCollection CreatedID when ChangeErr is nil.
 type Bridge struct {
 	Status, RequestStatus int
 	StatusErr, RequestErr error
@@ -52,12 +58,18 @@ type Bridge struct {
 	ImportID              string
 	ImportErr             error
 	HoldImport            chan struct{}
+	CollectionRecords     []bridge.CollectionRecord
+	CollectionsErr        error
+	CreatedID             string
+	ChangeErr             error
+	HoldChange            chan struct{}
 
 	mu          sync.Mutex
 	calls       []string
 	sink        bridge.ResourceSink
 	lastImport  bridge.ImportRecord
 	lastTimeout time.Duration
+	lastIDs     []string
 }
 
 var _ bridge.Bridge = (*Bridge)(nil)
@@ -165,6 +177,68 @@ func (b *Bridge) LastImport() (bridge.ImportRecord, time.Duration) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.lastImport, b.lastTimeout
+}
+
+// Collections implements bridge.Bridge.
+func (b *Bridge) Collections() ([]bridge.CollectionRecord, error) {
+	b.log("Collections")
+	return b.CollectionRecords, b.CollectionsErr
+}
+
+// CreateCollection implements bridge.Bridge.
+func (b *Bridge) CreateCollection(title, parent string, folder bool, timeout time.Duration) (string, error) {
+	if err := b.change(fmt.Sprintf("CreateCollection %s %s folder=%t", title, parent, folder), nil, timeout); err != nil {
+		return "", err
+	}
+	return b.CreatedID, nil
+}
+
+// RenameCollection implements bridge.Bridge.
+func (b *Bridge) RenameCollection(id, title string, timeout time.Duration) error {
+	return b.change(fmt.Sprintf("RenameCollection %s %s", id, title), nil, timeout)
+}
+
+// DeleteCollections implements bridge.Bridge.
+func (b *Bridge) DeleteCollections(ids []string, timeout time.Duration) error {
+	return b.change(fmt.Sprintf("DeleteCollections %d", len(ids)), ids, timeout)
+}
+
+// AlbumAssets implements bridge.Bridge.
+func (b *Bridge) AlbumAssets(album string, assets []string, add bool, timeout time.Duration) error {
+	return b.change(fmt.Sprintf("AlbumAssets %s %d add=%t", album, len(assets), add), assets, timeout)
+}
+
+// LastTimeout returns the timeout of the latest Import or change of a
+// collection, 0 before one.
+func (b *Bridge) LastTimeout() time.Duration {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.lastTimeout
+}
+
+// LastIDs returns what the slice given to the latest change of collections
+// holds now: the ids of DeleteCollections, the assets of AlbumAssets, nil for
+// the others and before one.
+func (b *Bridge) LastIDs() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return slices.Clone(b.lastIDs)
+}
+
+// ids is kept as given, not copied, so that LastIDs shows a caller that
+// changed the slice it passed.
+func (b *Bridge) change(call string, ids []string, timeout time.Duration) error {
+	b.mu.Lock()
+	b.calls, b.lastIDs, b.lastTimeout = append(b.calls, call), ids, timeout
+	b.mu.Unlock()
+	if b.HoldChange != nil {
+		select {
+		case <-b.HoldChange:
+		case <-time.After(timeout):
+			return context.DeadlineExceeded
+		}
+	}
+	return b.ChangeErr
 }
 
 type request struct {
