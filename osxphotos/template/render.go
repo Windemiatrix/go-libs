@@ -18,8 +18,9 @@ import (
 // {exiftool}, {function}, {detected_text}, {osxphotos_cmd_line} and the filter function:,
 // give an error that wraps ErrUnsupportedField and names the field; a part of the language not
 // ported yet, ErrUnsupportedConstruct; more than o.MaxResults strings, or more than
-// 16 MiB of strings built, ErrTooManyValues; a SyntaxError or ValueError of upstream, or
-// variables that do not settle, ErrRender. The variables of {var} live for one Render.
+// 16 MiB of strings built, ErrTooManyValues; a SyntaxError or ValueError of upstream,
+// variables that do not settle, or a kind of media_type or photo_or_video that p gives
+// outside the table of upstream, ErrRender. The variables of {var} live for one Render.
 func (r *Renderer) Render(t *Template, p Photo, o RenderOptions) (values, unmatched []string, err error) {
 	o.NoneStr = cmp.Or(o.NoneStr, "_")
 	o.InplaceSep = cmp.Or(o.InplaceSep, ",")
@@ -48,6 +49,11 @@ func (s *rendering) statement(t *Template) ([]string, error) {
 	for _, seg := range t.Segments {
 		var err error
 		if results, err = s.segment(seg, results); err != nil {
+			return nil, err
+		}
+	}
+	if s.o.Filename {
+		if err := s.each(results, func(v string) string { return SanitizeFilename(v, slashReplacement) }); err != nil {
 			return nil, err
 		}
 	}
@@ -131,7 +137,9 @@ func (s *rendering) field(f *Field) ([]string, bool, error) {
 		def = slices.DeleteFunc(def, func(v string) bool { return v == "" }) // phototemplate.py:654
 		s.variables[f.Subfield] = def
 	default:
-		vals, ok, err = s.values(f, def)
+		if vals, ok, err = s.values(f, def); err == nil {
+			err = s.sanitize(f.Name, vals)
+		}
 	}
 	if err != nil || !ok {
 		return nil, ok, err
@@ -189,8 +197,11 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 	case !upstreamField(name, stem): // ahead of later: upstream puts format.x in unmatched (849-883)
 		s.unmatched = append(s.unmatched, name)
 		return nil, false, nil
-	case later[stem], f.Default != nil && (name == "media_type" || name == "photo_or_video"):
+	case later[stem]:
 		return nil, false, unsupported(ErrUnsupportedConstruct, name)
+	case name == "media_type" || name == "photo_or_video":
+		vals, err := s.mediaType(name, def)
+		return vals, true, err
 	case name == "format":
 		vals, err := s.format(f, def)
 		return vals, true, err
@@ -242,7 +253,13 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 	}
 	albums := make([]string, len(v.Albums))
 	for i, a := range v.Albums {
-		albums[i] = strings.Join(append(slices.Clone(a.Folders), a.Title), sep)
+		parts := append(slices.Clone(a.Folders), a.Title)
+		if s.o.Dirname { // without a check of Filename (phototemplate.py:1299, 1309)
+			if err := s.each(parts, sanitizePathpart); err != nil {
+				return nil, false, err
+			}
+		}
+		albums[i] = strings.Join(parts, sep)
 	}
 	slices.Sort(albums)
 	return append(vals, albums...), true, nil

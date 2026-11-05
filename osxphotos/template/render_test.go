@@ -317,8 +317,8 @@ func TestRenderErrors(t *testing.T) {
 		{"{today.}", missing, ErrRender, "today."},
 		{"{album_seq}", missing, ErrUnsupportedConstruct, "album_seq"},
 		{"{folder_album_seq(1)}", missing, ErrUnsupportedConstruct, "folder_album_seq"},
-		{"{media_type,video=v}", missing, ErrUnsupportedConstruct, "media_type"},
-		{"{photo_or_video,photo=p}", missing, ErrUnsupportedConstruct, "photo_or_video"},
+		{"{media_type,video=v}", missing, ErrUnsupportedField, "media_type"},
+		{"{photo_or_video,photo=p}", missing, ErrUnsupportedField, "photo_or_video"},
 		// _get_pathlib_value (phototemplate.py:1643-1649)
 		{"{export_dir.parents}", missing, ErrRender, "export_dir.parents"},
 		{"{filepath.stem.x}", missing, ErrRender, "filepath.stem.x"},
@@ -670,6 +670,108 @@ func TestRenderTodayNow(t *testing.T) {
 	got, _, err := render(t, "{today}/{today.sec}", fakePhoto{}, RenderOptions{})
 	if err != nil || len(got) != 1 || strings.HasPrefix(got[0], "0001-") || !regexp.MustCompile(`^\d{4}-\d\d-\d\d/\d\d$`).MatchString(got[0]) {
 		t.Errorf("Render({today}/{today.sec}) = %q, %v; want one string of the form 2006-01-02/05, not of the zero time", got, err)
+	}
+}
+
+func sanitizePhoto() fakePhoto {
+	created := time.Date(2020, 2, 4, 19, 7, 38, 0, time.UTC)
+	return fakePhoto{
+		"title":        strs("a/b"),
+		"descr":        {},
+		"keyword":      strs("x/y", "z"),
+		"folder_album": {Albums: []AlbumRef{{Folders: []string{"f/g", "h"}, Title: "t/u"}}},
+		"created":      {Time: &created},
+	}
+}
+
+func TestRenderSanitize(t *testing.T) {
+	t.Parallel()
+	p, o := sanitizePhoto, RenderOptions{}
+	fn, dn, both := RenderOptions{Filename: true}, RenderOptions{Dirname: true}, RenderOptions{Filename: true, Dirname: true}
+	one := func(s string) []string { return []string{s} }
+	x := func(n int) string { return strings.Repeat("x", n) }
+	long := func(title string) fakePhoto { return with(p(), "title", strs(title)) }
+	longAlbum := with(p(), "folder_album", Value{Albums: []AlbumRef{{Folders: []string{"f"}, Title: strings.Repeat("s", 250) + ".jpg"}}})
+	project := with(p(), "folder_album_project", p()["folder_album"])
+	twoAlbums := with(p(), "folder_album", Value{Albums: []AlbumRef{{Title: "a/b"}, {Title: "a0"}}})
+	const path = "/export/IMG_0001.HEIC"
+	checkRender(t, []renderCase{
+		{"no options", "{title}/{keyword}", p(), o, []string{"a/b/x/y", "a/b/z"}, nil},
+		{"field filename", "{title}", p(), fn, one("a:b"), nil},
+		{"field dirname", "{title}", p(), dn, one("a:b"), nil},
+		// the values through sanitize_pathpart, the string through sanitize_filename (phototemplate.py:529-532, 1388-1390)
+		{"statement filename", "{title}/{keyword}", p(), fn, []string{"a:b:x:y", "a:b:z"}, nil},
+		{"statement dirname", "{title}/{keyword}", p(), dn, []string{"a:b/x:y", "a:b/z"}, nil},
+		{"date filename", "{created.year}/{title}", p(), fn, one("2020:a:b"), nil},
+		// each part before the join (1299-1304)
+		{"folder_album dirname", "{folder_album}", p(), dn, one("f:g/h/t:u"), nil},
+		{"folder_album sep dirname", "{folder_album(>)}", p(), dn, one("f:g>h>t:u"), nil},
+		{"folder_album filename", "{folder_album}", p(), fn, one("f:g:h:t:u"), nil},
+		{"folder_album no options", "{folder_album}", p(), o, one("f/g/h/t/u"), nil},
+		{"folder_album_project dirname", "{folder_album_project}", project, dn, one("f:g/h/t:u"), nil},
+		{"folder_album_project filename", "{folder_album_project}", project, fn, one("f:g:h:t:u"), nil},
+		// sorted after the parts with Dirname, before the values with Filename (1313, 1388-1393)
+		{"folder_album order dirname", "{folder_album}", twoAlbums, dn, []string{"a0", "a:b"}, nil},
+		{"folder_album order filename", "{folder_album}", twoAlbums, fn, []string{"a:b", "a0"}, nil},
+		{"folder_album order both", "{folder_album}", twoAlbums, both, []string{"a0", "a:b"}, nil},
+		// the value of a variable comes from a statement, sanitized with Filename only (643-647)
+		{"variable filename", "{var:a,x/y}{%a}", p(), fn, one("x:y"), nil},
+		{"variable dirname", "{var:a,x/y}{%a}", p(), dn, one("x/y"), nil},
+		// the nested statement of the value, not only the top one (515-539, 581-632)
+		{"nested filename", "{var:a,x/y}{%a[:,-]}", p(), fn, one("x-y"), nil},
+		// values before [find,replace], the condition and the default (658-683, 768-772)
+		{"find and replace filename", "{title[:,-]}", p(), fn, one("a-b"), nil},
+		{"find and replace dirname", "{title[:,-]}", p(), dn, one("a-b"), nil},
+		{"default filename", "{descr,a/b}", p(), fn, one("a:b"), nil},
+		{"default dirname", "{descr,a/b}", p(), dn, one("a/b"), nil},
+		{"condition filename", "{title contains a/b?Y,N}", p(), fn, one("Y"), nil},
+		{"condition dirname", "{title contains a/b?Y,N}", p(), dn, one("N"), nil},
+		{"condition no options", "{title contains a/b?Y,N}", p(), o, one("Y"), nil},
+		{"none str dirname", "{descr}", p(), RenderOptions{Dirname: true, NoneStr: "n/a"}, one("n/a"), nil},
+		{"none str filename", "{descr}", p(), RenderOptions{Filename: true, NoneStr: "n/a"}, one("n:a"), nil},
+		// pathlib fields too (1039-1042)
+		{"filepath filename", "{filepath}", p(), RenderOptions{Filename: true, Filepath: path}, one(":export:IMG_0001.HEIC"), nil},
+		{"export_dir dirname", "{export_dir}", p(), RenderOptions{Dirname: true, ExportDir: "/export"}, one(":export"), nil},
+		// if self.filename ... elif self.dirname (1006-1008, 1389-1391)
+		{"both", "{title}/{keyword}", p(), both, []string{"a:b:x:y", "a:b:z"}, nil},
+		{"both folder_album", "{folder_album}", p(), both, one("f:g:h:t:u"), nil},
+		// sanitize_pathpart cuts the joined path to 255 first, then sanitize_filename the stem
+		{"both long folder_album", "{folder_album}", longAlbum, both, one("f:" + strings.Repeat("s", 235) + ".jp"), nil},
+		{"strip filename", "{title}", long(" a/b "), RenderOptions{Filename: true, Strip: true}, one("a:b"), nil},
+		// sanitize_filename before strip (529-537)
+		{"strip after filename", "{title}", long(" " + x(240)), RenderOptions{Filename: true, Strip: true}, one(x(239)), nil},
+		{"long filename", "{title}", long(x(300)), fn, one(x(240)), nil},
+		{"long dirname", "{title}", long(x(300)), dn, one(x(255)), nil},
+		{"long no options", "{title}", long(x(300)), o, one(x(300)), nil},
+	})
+}
+
+// SanitizeFilename may build 3 times the bytes it is given: NFC splits U+1D160
+// into three code points, and a stem whose extension runs out stays whole
+// (path_utils.py:60-64). Here 4 MiB become 12 MiB.
+func TestRenderSanitizeByteBudget(t *testing.T) {
+	t.Parallel()
+	in := strings.Repeat("\U0001D160", 1<<20) + "." + strings.Repeat("x", 240)
+	for _, tt := range []struct {
+		opts RenderOptions
+		want error
+	}{{RenderOptions{}, nil}, {RenderOptions{Filename: true}, ErrTooManyValues}} {
+		if _, _, err := render(t, in, fakePhoto{}, tt.opts); !errors.Is(err, tt.want) {
+			t.Errorf("Render of %d bytes with Filename %v = %v, want %v", len(in), tt.opts.Filename, err, tt.want)
+		}
+	}
+}
+
+// Render cannot see this charge: the segment after values fails on the same budget.
+func TestValuesFolderAlbumBudget(t *testing.T) {
+	t.Parallel()
+	p := fakePhoto{"folder_album": {Albums: []AlbumRef{{Folders: []string{"f"}, Title: "t"}}}}
+	for left, want := range map[int]error{1: ErrTooManyValues, 2: nil} {
+		s := &rendering{p: p, o: RenderOptions{Dirname: true, PathSep: "/"}, bytesLeft: left}
+		got, _, err := s.values(&Field{Name: "folder_album"}, nil)
+		if !errors.Is(err, want) || want == nil && !slices.Equal(got, []string{"f/t"}) {
+			t.Errorf("values(folder_album) with %d bytes left = %q, %v; want %v", left, got, err, want)
+		}
 	}
 }
 
