@@ -24,3 +24,15 @@ func (*stub) AssetResources(string) ([]ResourceRecord, error) { return nil, ErrN
 func (*stub) RequestResource(string, int, ResourceSink) (Request, error) { return nil, ErrNotSupported }
 
 func (*stub) Import(ImportRecord, time.Duration) (string, error) { return "", ErrNotSupported }
+
+func (*stub) Collections() ([]CollectionRecord, error) { return nil, ErrNotSupported }
+
+func (*stub) CreateCollection(string, string, bool, time.Duration) (string, error) {
+	return "", ErrNotSupported
+}
+
+func (*stub) RenameCollection(string, string, time.Duration) error { return ErrNotSupported }
+
+func (*stub) DeleteCollections([]string, time.Duration) error { return ErrNotSupported }
+
+func (*stub) AlbumAssets(string, []string, bool, time.Duration) error { return ErrNotSupported }

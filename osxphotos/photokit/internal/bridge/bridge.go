@@ -19,9 +19,11 @@ var (
 	// ErrCanceled is delivered by Done after Cancel, whatever PhotoKit reports
 	// then.
 	ErrCanceled = errors.New("photokit: the request was canceled")
-	// ErrNoAlbum is returned by Import when an album of the record is not
-	// found or cannot take an asset; nothing was changed.
+	// ErrNoAlbum is returned by Import and the collection methods when an album
+	// or a collection is not found or cannot take the change; nothing was changed.
 	ErrNoAlbum = errors.New("photokit: no such album")
+	// ErrNoAsset is returned by AlbumAssets for an asset not found; nothing was changed.
+	ErrNoAsset = errors.New("photokit: no such asset")
 )
 
 // Bridge is what photokit needs from PhotoKit. A status is a
@@ -50,6 +52,21 @@ type Bridge interface {
 	// exception in a change that PhotoKit commits. It returns the LocalIdentifier
 	// of the created asset; a failed change is a *PhotoKitError.
 	Import(r ImportRecord, timeout time.Duration) (string, error)
+	// Collections returns the user folders and albums, parents first, in the order of PhotoKit; none with an error.
+	Collections() ([]CollectionRecord, error)
+	// CreateCollection, which returns the LocalIdentifier of the collection,
+	// RenameCollection, DeleteCollections and AlbumAssets run one performChanges
+	// each and wait and fail as Import does.
+	CreateCollection(title, parent string, folder bool, timeout time.Duration) (string, error)
+	RenameCollection(id, title string, timeout time.Duration) error
+	DeleteCollections(ids []string, timeout time.Duration) error
+	AlbumAssets(album string, assets []string, add bool, timeout time.Duration) error
+}
+
+// CollectionRecord is a Collection of photokit for the bridge.
+type CollectionRecord struct {
+	LocalIdentifier, Title, Parent string
+	IsFolder                       bool
 }
 
 // ImportRecord is an ImportRequest of photokit for the bridge: a path or the
