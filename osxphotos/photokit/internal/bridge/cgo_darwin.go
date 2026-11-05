@@ -54,12 +54,8 @@ func (*cgoBridge) FetchAssets(ids []string) ([]AssetRecord, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	cids := make([]*C.char, 0, len(ids))
-	for _, id := range ids {
-		cid := C.CString(id)
-		defer C.free(unsafe.Pointer(cid)) //nolint:gosec // G103: the C.CString buffers of this call are freed here
-		cids = append(cids, cid)
-	}
+	cids, free := cStrings(ids)
+	defer free()
 	var out *C.pk_asset
 	var count C.int
 	r := C.pk_fetch_assets(&cids[0], C.int64_t(len(cids)), &out, &count)
@@ -123,12 +119,8 @@ func (*cgoBridge) Import(r ImportRecord, timeout time.Duration) (string, error) 
 	if strings.ContainsRune(strings.Join(r.Albums, ""), 0) {
 		return "", ErrNoAlbum
 	}
-	strs := make([]*C.char, 0, 5+len(r.Albums))
-	for _, s := range append([]string{r.Photo, r.Video, r.PairedVideo, r.AlternatePhoto, r.OriginalFilename}, r.Albums...) {
-		c := C.CString(s)
-		defer C.free(unsafe.Pointer(c)) //nolint:gosec // G103: the C.CString buffers of this call are freed here
-		strs = append(strs, c)
-	}
+	strs, free := cStrings(append([]string{r.Photo, r.Video, r.PairedVideo, r.AlternatePhoto, r.OriginalFilename}, r.Albums...))
+	defer free()
 	req := C.pk_import_request{
 		photo: strs[0], video: strs[1], paired_video: strs[2], alternate_photo: strs[3], original_filename: strs[4],
 		has_creation_date: C.bool(r.HasCreationDate), creation_date: C.double(r.CreationDate),
@@ -201,9 +193,43 @@ func (*cgoBridge) RenameCollection(id, title string, timeout time.Duration) erro
 	return cmp.Or(err, nsError(domain != nil, C.GoString(domain), int64(code)))
 }
 
-// The two below answer as without the bridge until bridge.m has them.
-func (*cgoBridge) DeleteCollections([]string, time.Duration) error         { return ErrNotSupported }
-func (*cgoBridge) AlbumAssets(string, []string, bool, time.Duration) error { return ErrNotSupported }
+func (*cgoBridge) DeleteCollections(ids []string, timeout time.Duration) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	cids, free := cStrings(ids)
+	defer free()
+	var domain *C.char
+	var code C.int64_t
+	err := check(C.pk_delete_collections(&cids[0], C.int64_t(len(cids)), C.int64_t(timeoutMS(timeout)), &code, &domain))
+	defer C.free(unsafe.Pointer(domain)) //nolint:gosec // G103: the strdup buffer of bridge.m is freed here
+	return cmp.Or(err, nsError(domain != nil, C.GoString(domain), int64(code)))
+}
+
+func (*cgoBridge) AlbumAssets(album string, assets []string, add bool, timeout time.Duration) error {
+	if len(assets) == 0 {
+		return nil
+	}
+	strs, free := cStrings(append([]string{album}, assets...))
+	defer free()
+	var domain *C.char
+	var code C.int64_t
+	err := check(C.pk_album_assets(strs[0], &strs[1], C.int64_t(len(assets)), C.bool(add), C.int64_t(timeoutMS(timeout)), &code, &domain))
+	defer C.free(unsafe.Pointer(domain)) //nolint:gosec // G103: the strdup buffer of bridge.m is freed here
+	return cmp.Or(err, nsError(domain != nil, C.GoString(domain), int64(code)))
+}
+
+func cStrings(ss []string) ([]*C.char, func()) {
+	cs := make([]*C.char, len(ss))
+	for i, s := range ss {
+		cs[i] = C.CString(s)
+	}
+	return cs, func() {
+		for _, c := range cs {
+			C.free(unsafe.Pointer(c)) //nolint:gosec // G103: the C.CString buffers of cStrings are freed here
+		}
+	}
+}
 
 type cgoRequest struct {
 	id               C.int32_t

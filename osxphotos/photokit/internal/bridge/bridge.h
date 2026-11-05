@@ -91,5 +91,11 @@ void pk_free_collections(pk_collection *collections, int count);
 // found, not UTF-8 or cannot take the change is PK_NOT_FOUND and changes
 // nothing; a title that is not UTF-8 is PK_EXCEPTION. *ns_code, *ns_domain and
 // the *identifier of the created collection are as for pk_import.
+// pk_delete_collections deletes all of the n ids, each once, or none. A folder
+// as the album of pk_album_assets is PK_NOT_FOUND; an asset that is not found,
+// not UTF-8 or hidden is PK_NO_ASSET and changes nothing. An asset that is not
+// UTF-8 is reported before the album is looked up.
 pk_result pk_create_collection(const char *title, const char *parent, bool folder, int64_t timeout_ms, char **identifier, int64_t *ns_code, char **ns_domain);
 pk_result pk_rename_collection(const char *local_id, const char *title, int64_t timeout_ms, int64_t *ns_code, char **ns_domain);
+pk_result pk_delete_collections(const char *const *ids, int64_t n, int64_t timeout_ms, int64_t *ns_code, char **ns_domain);
+pk_result pk_album_assets(const char *album, const char *const *assets, int64_t n, bool add, int64_t timeout_ms, int64_t *ns_code, char **ns_domain);

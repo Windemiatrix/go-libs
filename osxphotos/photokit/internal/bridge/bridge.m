@@ -370,6 +370,19 @@ static pk_result pk_perform_changes(void (^changes)(OSXPhotosChangeRequest *), i
 	return r;
 }
 
+// A string that is not UTF-8 names no object: nil, so that the caller fails
+// rather than act on the others. Each identifier is kept once, since PhotoKit
+// finds an object once however often it is named and the callers compare counts.
+static NSArray<NSString *> *pk_identifiers(const char *const *ids, int64_t n) {
+	NSMutableOrderedSet<NSString *> *out = [NSMutableOrderedSet orderedSetWithCapacity:(NSUInteger)n];
+	for (int64_t i = 0; i < n; i++) {
+		NSString *s = [NSString stringWithUTF8String:ids[i]];
+		if (s == nil) return nil;
+		[out addObject:s];
+	}
+	return out.array;
+}
+
 // extension: not in osxphotos, which imports through AppleScript. Every value
 // of r and albums is copied before performChanges: on its timeout this returns,
 // Go frees the strings, and the change block may not have run yet.
@@ -394,14 +407,9 @@ pk_result pk_import(const pk_import_request *r, const char *const *albums, int64
 			NSDate *date = r->has_creation_date ? [NSDate dateWithTimeIntervalSince1970:r->creation_date] : nil;
 			CLLocation *location = r->has_location ? [[CLLocation alloc] initWithLatitude:r->latitude longitude:r->longitude] : nil;
 			BOOL favorite = r->favorite, hidden = r->hidden;
-			// A string that is not UTF-8 names no album.
-			NSMutableSet<NSString *> *ids = [NSMutableSet setWithCapacity:(NSUInteger)n_albums];
-			for (int64_t i = 0; i < n_albums; i++) {
-				NSString *s = [NSString stringWithUTF8String:albums[i]];
-				if (s == nil) return result;
-				[ids addObject:s];
-			}
-			PHFetchResult<PHAssetCollection *> *collections = [PHAssetCollection fetchAssetCollectionsWithLocalIdentifiers:ids.allObjects options:nil];
+			NSArray<NSString *> *ids = pk_identifiers(albums, n_albums);
+			if (ids == nil) return result;
+			PHFetchResult<PHAssetCollection *> *collections = [PHAssetCollection fetchAssetCollectionsWithLocalIdentifiers:ids options:nil];
 			// A smart or shared album takes no asset, which would be created outside it.
 			BOOL editable = collections.count == ids.count;
 			for (PHAssetCollection *album in collections) {
@@ -554,6 +562,66 @@ pk_result pk_rename_collection(const char *local_id, const char *title, int64_t 
 				if (listChange == nil && albumChange == nil) [NSException raise:NSInternalInconsistencyException format:@"collection"];
 				listChange.title = name;
 				albumChange.title = name;
+			}, timeout_ms, NULL, ns_code, ns_domain);
+		} @catch (NSException *e) {
+			result = pk_exception_name(e);
+		}
+	}
+	return result;
+}
+
+// extension: not in osxphotos, as pk_create_collection. Every collection is
+// checked before the change, so that it deletes all or none. PhotoKit does not
+// say what a deletion of one object twice does, and two forms of an identifier
+// name one collection.
+pk_result pk_delete_collections(const char *const *ids, int64_t n, int64_t timeout_ms, int64_t *ns_code, char **ns_domain) {
+	pk_result result = {PK_NOT_FOUND, NULL};
+	@autoreleasepool {
+		@try {
+			NSMutableArray<PHCollection *> *lists = [NSMutableArray array], *albums = [NSMutableArray array];
+			NSMutableSet<NSString *> *seen = [NSMutableSet set];
+			for (int64_t i = 0; i < n; i++) {
+				PHCollection *c = pk_collection_of(ids[i]);
+				if (![c canPerformEditOperation:PHCollectionEditOperationDelete]) return result;
+				if ([seen containsObject:c.localIdentifier]) continue;
+				[seen addObject:c.localIdentifier];
+				[([c isKindOfClass:PHCollectionList.class] ? lists : albums) addObject:c];
+			}
+			result = pk_perform_changes(^(__unused OSXPhotosChangeRequest *request) {
+				if (albums.count > 0) [PHAssetCollectionChangeRequest deleteAssetCollections:albums];
+				if (lists.count > 0) [PHCollectionListChangeRequest deleteCollectionLists:lists];
+			}, timeout_ms, NULL, ns_code, ns_domain);
+		} @catch (NSException *e) {
+			result = pk_exception_name(e);
+		}
+	}
+	return result;
+}
+
+// extension: not in osxphotos, as pk_create_collection. The assets are read
+// before the album, so that the CI tests reach an identifier that is not UTF-8
+// without a fetch of PhotoKit.
+pk_result pk_album_assets(const char *album, const char *const *assets, int64_t n, bool add, int64_t timeout_ms, int64_t *ns_code, char **ns_domain) {
+	pk_result result = {PK_NOT_FOUND, NULL};
+	@autoreleasepool {
+		@try {
+			NSArray<NSString *> *ids = pk_identifiers(assets, n);
+			if (ids == nil) return (pk_result){PK_NO_ASSET, NULL};
+			PHCollection *c = pk_collection_of(album);
+			// A folder holds no asset, and a smart or a shared album takes no change.
+			if (![c isKindOfClass:PHAssetCollection.class] || ![c canPerformEditOperation:(add ? PHCollectionEditOperationAddContent : PHCollectionEditOperationRemoveContent)]) return result;
+			// The default options leave a hidden asset out, as for pk_fetch_assets.
+			PHFetchResult<PHAsset *> *found = [PHAsset fetchAssetsWithLocalIdentifiers:ids options:nil];
+			if (found.count != ids.count) return (pk_result){PK_NO_ASSET, NULL};
+			result = pk_perform_changes(^(__unused OSXPhotosChangeRequest *request) {
+				PHAssetCollectionChangeRequest *change = [PHAssetCollectionChangeRequest changeRequestForAssetCollection:(PHAssetCollection *)c];
+				// Without a request the change would succeed and change nothing.
+				if (change == nil) [NSException raise:NSInternalInconsistencyException format:@"album"];
+				if (add) {
+					[change addAssets:found];
+				} else {
+					[change removeAssets:found];
+				}
 			}, timeout_ms, NULL, ns_code, ns_domain);
 		} @catch (NSException *e) {
 			result = pk_exception_name(e);
