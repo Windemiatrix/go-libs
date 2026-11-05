@@ -150,12 +150,58 @@ func (*cgoBridge) Import(r ImportRecord, timeout time.Duration) (string, error) 
 	return changeResult(domain != nil, C.GoString(domain), int64(code), C.GoString(id))
 }
 
-// The collection methods answer as without the bridge until bridge.m has them.
-func (*cgoBridge) Collections() ([]CollectionRecord, error) { return nil, ErrNotSupported }
-func (*cgoBridge) CreateCollection(string, string, bool, time.Duration) (string, error) {
-	return "", ErrNotSupported
+func (*cgoBridge) Collections() ([]CollectionRecord, error) {
+	var out *C.pk_collection
+	var count C.int
+	r := C.pk_collections(&out, &count)
+	defer C.pk_free_collections(out, count)
+	if err := check(r); err != nil {
+		return nil, err
+	}
+	if count <= 0 {
+		return nil, nil
+	}
+	collections := unsafe.Slice(out, count) //nolint:gosec // G103: count is the length of the array bridge.m allocated
+	recs := make([]CollectionRecord, len(collections))
+	for i, c := range collections {
+		id, idErr := cString(C.GoString(c.local_identifier))
+		title, titleErr := cString(C.GoString(c.title))
+		parent, parentErr := cString(C.GoString(c.parent))
+		if err := cmp.Or(idErr, titleErr, parentErr); err != nil {
+			return nil, err
+		}
+		recs[i] = CollectionRecord{LocalIdentifier: id, Title: title, Parent: parent, IsFolder: bool(c.is_folder)}
+	}
+	return recs, nil
 }
-func (*cgoBridge) RenameCollection(string, string, time.Duration) error    { return ErrNotSupported }
+
+func (*cgoBridge) CreateCollection(title, parent string, folder bool, timeout time.Duration) (string, error) {
+	ctitle, cparent := C.CString(title), C.CString(parent)
+	defer C.free(unsafe.Pointer(ctitle))  //nolint:gosec // G103: the C.CString buffer of this call is freed here
+	defer C.free(unsafe.Pointer(cparent)) //nolint:gosec // G103: the C.CString buffer of this call is freed here
+	var id, domain *C.char
+	var code C.int64_t
+	err := check(C.pk_create_collection(ctitle, cparent, C.bool(folder), C.int64_t(timeoutMS(timeout)), &id, &code, &domain))
+	defer C.free(unsafe.Pointer(id))     //nolint:gosec // G103: the strdup buffer of bridge.m is freed here
+	defer C.free(unsafe.Pointer(domain)) //nolint:gosec // G103: the strdup buffer of bridge.m is freed here
+	if err != nil {
+		return "", err
+	}
+	return changeResult(domain != nil, C.GoString(domain), int64(code), C.GoString(id))
+}
+
+func (*cgoBridge) RenameCollection(id, title string, timeout time.Duration) error {
+	cid, ctitle := C.CString(id), C.CString(title)
+	defer C.free(unsafe.Pointer(cid))    //nolint:gosec // G103: the C.CString buffer of this call is freed here
+	defer C.free(unsafe.Pointer(ctitle)) //nolint:gosec // G103: the C.CString buffer of this call is freed here
+	var domain *C.char
+	var code C.int64_t
+	err := check(C.pk_rename_collection(cid, ctitle, C.int64_t(timeoutMS(timeout)), &code, &domain))
+	defer C.free(unsafe.Pointer(domain)) //nolint:gosec // G103: the strdup buffer of bridge.m is freed here
+	return cmp.Or(err, nsError(domain != nil, C.GoString(domain), int64(code)))
+}
+
+// The two below answer as without the bridge until bridge.m has them.
 func (*cgoBridge) DeleteCollections([]string, time.Duration) error         { return ErrNotSupported }
 func (*cgoBridge) AlbumAssets(string, []string, bool, time.Duration) error { return ErrNotSupported }
 
@@ -235,7 +281,7 @@ func changeResult(failed bool, domain string, code int64, id string) (string, er
 	return cString(id)
 }
 
-// Done and Import give an NSError only as a *PhotoKitError, so a domain that is not UTF-8 is dropped, not the error.
+// Done and the changes give an NSError only as a *PhotoKitError, so a domain that is not UTF-8 is dropped, not the error.
 func nsError(failed bool, domain string, code int64) error {
 	if !failed {
 		return nil
@@ -319,6 +365,8 @@ func codeError(code int, message string) error {
 		return ErrNoResource
 	case C.PK_NOT_FOUND:
 		return ErrNoAlbum
+	case C.PK_NO_ASSET:
+		return ErrNoAsset
 	}
 	reason, err := cString(message)
 	if err != nil {

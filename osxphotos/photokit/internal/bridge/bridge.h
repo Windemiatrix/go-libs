@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-enum { PK_OK, PK_EXCEPTION, PK_TIMEOUT, PK_NO_RESOURCE, PK_NOT_FOUND };
+enum { PK_OK, PK_EXCEPTION, PK_TIMEOUT, PK_NO_RESOURCE, PK_NOT_FOUND, PK_NO_ASSET };
 
 // message is NULL unless code is PK_EXCEPTION; the caller frees it.
 typedef struct {
@@ -72,3 +72,24 @@ typedef struct {
 // otherwise *identifier is the LocalIdentifier. The caller passes both strings
 // NULL and frees them.
 pk_result pk_import(const pk_import_request *r, const char *const *albums, int64_t n_albums, int64_t timeout_ms, char **identifier, int64_t *ns_code, char **ns_domain);
+
+// The title is NULL when PhotoKit gives none, the parent "" at the top level.
+typedef struct {
+	char *local_identifier, *title, *parent;
+	bool is_folder;
+} pk_collection;
+
+// *out holds the *count user folders and albums, a folder before what it holds,
+// in the order of PhotoKit, or is NULL with *count 0 on an error or when there
+// are none; pk_free_collections frees it in every case. Smart folders and smart
+// albums are left out.
+pk_result pk_collections(pk_collection **out, int *count);
+void pk_free_collections(pk_collection *collections, int count);
+
+// Each runs one performChanges and waits as pk_import does, and reads no string
+// after the return. A collection, or a parent ("" is the top level), that is not
+// found, not UTF-8 or cannot take the change is PK_NOT_FOUND and changes
+// nothing; a title that is not UTF-8 is PK_EXCEPTION. *ns_code, *ns_domain and
+// the *identifier of the created collection are as for pk_import.
+pk_result pk_create_collection(const char *title, const char *parent, bool folder, int64_t timeout_ms, char **identifier, int64_t *ns_code, char **ns_domain);
+pk_result pk_rename_collection(const char *local_id, const char *title, int64_t timeout_ms, int64_t *ns_code, char **ns_domain);

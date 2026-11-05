@@ -324,7 +324,9 @@ void pk_cancel_resource(int32_t request_id) {
 // and the message reaches the error of Go: a change gives the name only.
 static pk_result pk_exception_name(NSException *e) { return (pk_result){PK_EXCEPTION, pk_strdup(e.name)}; }
 
-// changes sets request.identifier. PhotoKit commits what it requested before an exception: the outcome is then unknown.
+// A change that creates an object sets request.identifier; the others pass
+// identifier NULL. PhotoKit commits what it requested before an exception: the
+// outcome is then unknown.
 static pk_result pk_perform_changes(void (^changes)(OSXPhotosChangeRequest *), int64_t timeout_ms, char **identifier, int64_t *ns_code, char **ns_domain) {
 	pk_result r = {PK_OK, NULL};
 	@autoreleasepool {
@@ -358,7 +360,7 @@ static pk_result pk_perform_changes(void (^changes)(OSXPhotosChangeRequest *), i
 				// A nil error or a code of 0 must still fail; the description may name a file.
 				*ns_code = request.error.code;
 				*ns_domain = strdup(request.error.domain.UTF8String ?: "");
-			} else {
+			} else if (identifier != NULL) {
 				*identifier = pk_strdup(request.identifier);
 			}
 		} @catch (NSException *e) {
@@ -436,6 +438,123 @@ pk_result pk_import(const pk_import_request *r, const char *const *albums, int64
 					if (hidden) asset.hidden = YES;
 				}, timeout_ms, identifier, ns_code, ns_domain);
 			}
+		} @catch (NSException *e) {
+			result = pk_exception_name(e);
+		}
+	}
+	return result;
+}
+
+// Collection is a folder or an album: a smart folder or a smart album, which
+// takes no change, is left out wherever PhotoKit lists one.
+static void pk_add_collections(PHFetchResult<PHCollection *> *fetch, NSString *parent, NSMutableArray<PHCollection *> *all, NSMutableArray<NSString *> *parents) {
+	for (PHCollection *c in fetch) {
+		PHCollectionList *list = [c isKindOfClass:PHCollectionList.class] ? (PHCollectionList *)c : nil;
+		BOOL user = list ? list.collectionListType == PHCollectionListTypeFolder : ((PHAssetCollection *)c).assetCollectionType == PHAssetCollectionTypeAlbum;
+		if (!user) continue;
+		[all addObject:c];
+		[parents addObject:parent];
+		if (list) pk_add_collections([PHCollection fetchCollectionsInCollectionList:list options:nil], list.localIdentifier, all, parents);
+	}
+}
+
+// extension: not in osxphotos, which reads albums from the database.
+pk_result pk_collections(pk_collection **out, int *count) {
+	pk_result r = {PK_OK, NULL};
+	*out = NULL;
+	*count = 0;
+	@autoreleasepool {
+		@try {
+			NSMutableArray<PHCollection *> *all = [NSMutableArray array];
+			NSMutableArray<NSString *> *parents = [NSMutableArray array];
+			pk_add_collections([PHCollection fetchTopLevelUserCollectionsWithOptions:nil], @"", all, parents);
+			if (all.count > INT32_MAX) [NSException raise:NSGenericException format:@"too many collections"];
+			if (all.count > 0) {
+				*out = calloc(all.count, sizeof(pk_collection));
+				if (*out == NULL) [NSException raise:NSGenericException format:@"no memory for collections"];
+				*count = (int)all.count;
+				for (int i = 0; i < *count; i++) {
+					(*out)[i].local_identifier = pk_strdup(all[i].localIdentifier);
+					(*out)[i].title = pk_strdup(all[i].localizedTitle);
+					(*out)[i].parent = pk_strdup(parents[i]);
+					(*out)[i].is_folder = [all[i] isKindOfClass:PHCollectionList.class];
+				}
+			}
+		} @catch (NSException *e) {
+			// calloc zeroed the collections not yet filled, so all of them are freed.
+			pk_free_collections(*out, *count);
+			*out = NULL;
+			*count = 0;
+			// The reason may name a collection.
+			r = pk_exception_name(e);
+		}
+	}
+	return r;
+}
+
+void pk_free_collections(pk_collection *collections, int count) {
+	for (int i = 0; i < count; i++) {
+		free(collections[i].local_identifier);
+		free(collections[i].title);
+		free(collections[i].parent);
+	}
+	free(collections);
+}
+
+// A string that is not UTF-8 names no collection, and @[nil] would raise.
+static PHCollection *pk_collection_of(const char *local_id) {
+	NSString *identifier = [NSString stringWithUTF8String:local_id];
+	if (identifier == nil) return nil;
+	PHCollection *list = [PHCollectionList fetchCollectionListsWithLocalIdentifiers:@[ identifier ] options:nil].firstObject;
+	return list ?: [PHAssetCollection fetchAssetCollectionsWithLocalIdentifiers:@[ identifier ] options:nil].firstObject;
+}
+
+// extension: not in osxphotos, which changes albums through AppleScript. As in
+// pk_import, every string becomes an object before performChanges.
+pk_result pk_create_collection(const char *title, const char *parent, bool folder, int64_t timeout_ms, char **identifier, int64_t *ns_code, char **ns_domain) {
+	pk_result result = {PK_NOT_FOUND, NULL};
+	@autoreleasepool {
+		@try {
+			NSString *name = [NSString stringWithUTF8String:title];
+			if (name == nil) [NSException raise:NSInvalidArgumentException format:@"title"];
+			PHCollectionList *list = *parent ? (PHCollectionList *)pk_collection_of(parent) : nil;
+			// An album takes no collection.
+			if (*parent && (![list isKindOfClass:PHCollectionList.class] || ![list canPerformEditOperation:PHCollectionEditOperationAddContent])) return result;
+			result = pk_perform_changes(^(OSXPhotosChangeRequest *request) {
+				PHCollectionListChangeRequest *add = list ? [PHCollectionListChangeRequest changeRequestForCollectionList:list] : nil;
+				// Before the collection is requested, which would otherwise be left at the top level.
+				if (list && add == nil) [NSException raise:NSInternalInconsistencyException format:@"parent"];
+				PHObjectPlaceholder *placeholder = folder ? [PHCollectionListChangeRequest creationRequestForCollectionListWithTitle:name].placeholderForCreatedCollectionList
+				                                          : [PHAssetCollectionChangeRequest creationRequestForAssetCollectionWithTitle:name].placeholderForCreatedAssetCollection;
+				request.identifier = placeholder.localIdentifier;
+				[add addChildCollections:@[ placeholder ]];
+			}, timeout_ms, identifier, ns_code, ns_domain);
+		} @catch (NSException *e) {
+			result = pk_exception_name(e);
+		}
+	}
+	return result;
+}
+
+// extension: not in osxphotos, as pk_create_collection.
+pk_result pk_rename_collection(const char *local_id, const char *title, int64_t timeout_ms, int64_t *ns_code, char **ns_domain) {
+	pk_result result = {PK_NOT_FOUND, NULL};
+	@autoreleasepool {
+		@try {
+			NSString *name = [NSString stringWithUTF8String:title];
+			if (name == nil) [NSException raise:NSInvalidArgumentException format:@"title"];
+			PHCollection *c = pk_collection_of(local_id);
+			// A smart album or a smart folder cannot be renamed.
+			if (![c canPerformEditOperation:PHCollectionEditOperationRename]) return result;
+			BOOL folder = [c isKindOfClass:PHCollectionList.class];
+			result = pk_perform_changes(^(__unused OSXPhotosChangeRequest *request) {
+				PHCollectionListChangeRequest *listChange = folder ? [PHCollectionListChangeRequest changeRequestForCollectionList:(PHCollectionList *)c] : nil;
+				PHAssetCollectionChangeRequest *albumChange = folder ? nil : [PHAssetCollectionChangeRequest changeRequestForAssetCollection:(PHAssetCollection *)c];
+				// Without a request the change would succeed and rename nothing.
+				if (listChange == nil && albumChange == nil) [NSException raise:NSInternalInconsistencyException format:@"collection"];
+				listChange.title = name;
+				albumChange.title = name;
+			}, timeout_ms, NULL, ns_code, ns_domain);
 		} @catch (NSException *e) {
 			result = pk_exception_name(e);
 		}
