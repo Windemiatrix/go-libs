@@ -2,7 +2,6 @@ package photosdb
 
 import (
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
-	"github.com/Windemiatrix/go-libs/osxphotos/personinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/query"
 )
@@ -37,9 +36,7 @@ type DB struct {
 	commented    map[string]bool                         // the keys of comments, for query.Catalog
 	liked        map[string]bool                         // the keys of likes, for query.Catalog
 
-	persons      []personinfo.PersonInfo            // every ZPERSON row, Z_PK order
-	personByUUID map[string]personinfo.PersonInfo   // the row with the highest Z_PK for a repeated ZPERSONUUID
-	personsOf    map[string][]personinfo.PersonInfo // by photo UUID, a person per face, in the order of PersonInfoOf
+	personData
 }
 
 // Close releases the DB. It releases nothing today: the copy of the

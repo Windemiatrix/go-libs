@@ -89,6 +89,7 @@
     "original_width": 4032,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -307,6 +308,19 @@
     "original_width": 2754,
     "owner": null,
     "panorama": false,
+    "person_info": [
+      {
+        "displayname": null,
+        "facecount": 0,
+        "favorite": false,
+        "feature_less": false,
+        "keyface": null,
+        "keyphoto": null,
+        "name": "_UNKNOWN_",
+        "sort_order": -1,
+        "uuid": "21E94328-88DF-4C80-9867-BB217F4315DB"
+      }
+    ],
     "persons": [
       "_UNKNOWN_"
     ],
@@ -540,6 +554,30 @@
     "original_width": 2048,
     "owner": null,
     "panorama": false,
+    "person_info": [
+      {
+        "displayname": null,
+        "facecount": 1,
+        "favorite": false,
+        "feature_less": false,
+        "keyface": 3,
+        "keyphoto": "FC37DBA6-CF22-4E3E-AB70-755587454608",
+        "name": "_UNKNOWN_",
+        "sort_order": -1,
+        "uuid": "D6E18579-E72C-414F-B79C-77BD05BE59E9"
+      },
+      {
+        "displayname": null,
+        "facecount": 1,
+        "favorite": false,
+        "feature_less": false,
+        "keyface": 7,
+        "keyphoto": "FC37DBA6-CF22-4E3E-AB70-755587454608",
+        "name": "_UNKNOWN_",
+        "sort_order": -1,
+        "uuid": "5474C899-5050-4012-9B78-CD7923A4F75C"
+      }
+    ],
     "persons": [
       "_UNKNOWN_",
       "_UNKNOWN_"
@@ -721,6 +759,19 @@
     "original_width": 1365,
     "owner": null,
     "panorama": false,
+    "person_info": [
+      {
+        "displayname": null,
+        "facecount": 1,
+        "favorite": false,
+        "feature_less": false,
+        "keyface": 6,
+        "keyphoto": "25D96C78-DDE8-4E88-AB29-2F0BD5830F0E",
+        "name": "_UNKNOWN_",
+        "sort_order": -1,
+        "uuid": "35394142-ECCD-4460-8DF7-7A1CA23F4582"
+      }
+    ],
     "persons": [
       "_UNKNOWN_"
     ],
@@ -874,6 +925,41 @@
     "original_width": 1365,
     "owner": null,
     "panorama": false,
+    "person_info": [
+      {
+        "displayname": null,
+        "facecount": 1,
+        "favorite": false,
+        "feature_less": false,
+        "keyface": 8,
+        "keyphoto": "17BC6605-3A6D-472E-B257-1E5B37684F16",
+        "name": "_UNKNOWN_",
+        "sort_order": -1,
+        "uuid": "2258B93A-4A2A-4A22-A621-7E9C5DA42C18"
+      },
+      {
+        "displayname": null,
+        "facecount": 1,
+        "favorite": false,
+        "feature_less": false,
+        "keyface": 4,
+        "keyphoto": "17BC6605-3A6D-472E-B257-1E5B37684F16",
+        "name": "_UNKNOWN_",
+        "sort_order": -1,
+        "uuid": "C79F5D80-5856-4EAC-B2EC-B81703D4D917"
+      },
+      {
+        "displayname": null,
+        "facecount": 1,
+        "favorite": false,
+        "feature_less": false,
+        "keyface": 2,
+        "keyphoto": "17BC6605-3A6D-472E-B257-1E5B37684F16",
+        "name": "_UNKNOWN_",
+        "sort_order": -1,
+        "uuid": "010A4EFD-C627-4F97-837C-1CB82EA940DE"
+      }
+    ],
     "persons": [
       "_UNKNOWN_",
       "_UNKNOWN_",
@@ -1002,6 +1088,7 @@
     "original_width": 2047,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {
       "address": {
@@ -1179,6 +1266,7 @@
     "original_width": 2047,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {
       "address": {
@@ -1425,6 +1513,19 @@
     "original_width": 2048,
     "owner": null,
     "panorama": false,
+    "person_info": [
+      {
+        "displayname": null,
+        "facecount": 1,
+        "favorite": false,
+        "feature_less": false,
+        "keyface": 1,
+        "keyphoto": "DE2FCB28-0078-4A78-BDF6-2B53F8ACF9B7",
+        "name": "_UNKNOWN_",
+        "sort_order": -1,
+        "uuid": "1982BAD1-CEFC-4541-BCF8-1A4AAEC87DCF"
+      }
+    ],
     "persons": [
       "_UNKNOWN_"
     ],
@@ -1547,6 +1648,7 @@
     "original_width": 2047,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -1706,6 +1808,7 @@
     "original_width": 6000,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -1865,6 +1968,7 @@
     "original_width": 4416,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -2024,6 +2128,7 @@
     "original_width": 4416,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -2141,6 +2246,7 @@
     "original_width": 3024,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,

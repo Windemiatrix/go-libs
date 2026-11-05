@@ -100,6 +100,22 @@ const (
 
 func placeWith(old, value string) string { return strings.Replace(refPlace, old, value, 1) }
 
+// The keys of a person but uuid and name, as osxphotos writes them (personinfo.py:110-123).
+const (
+	personNulls  = `"displayname": null, "facecount": null, "favorite": false, "feature_less": false, "keyface": null, "keyphoto": null, "sort_order": null`
+	personValues = `"displayname": "D", "facecount": 2, "favorite": true, "feature_less": true, "keyface": 7, "keyphoto": "K", "sort_order": 1`
+)
+
+// uuid and name are JSON values.
+func personJSON(uuid, name, rest string) string {
+	return `{"uuid": ` + uuid + `, "name": ` + name + `, ` + rest + `}`
+}
+
+func wantPerson(uuid, name string) string {
+	return `{"displayname":"","facecount":0,"favorite":false,"feature_less":false,"keyface":0,"keyphoto":"","name":"` + name +
+		`","sort_order":0,"uuid":"` + uuid + `"}`
+}
+
 func TestParseMoment(t *testing.T) {
 	t.Parallel()
 	valid := []struct{ in, want string }{
@@ -245,6 +261,35 @@ func TestNormalize(t *testing.T) {
 		{name: "persons empty name", key: "persons", raw: `[""]`, want: `[""]`},
 		{name: "persons name", key: "persons", raw: `["A"]`, want: `["A"]`},
 		{name: "persons null", key: "persons", raw: `null`, wantErr: "persons: want a list of strings"},
+
+		{name: "person_info of equal names by uuid, nulls as zeros", key: "person_info",
+			raw: `[` + personJSON(`"U-3"`, `"A"`, personNulls) + `, ` + personJSON(`"U-2"`, `"_UNKNOWN_"`, personNulls) + `, ` +
+				personJSON(`"U-1"`, `"_UNKNOWN_"`, personValues) + `, ` + personJSON(`"U-1"`, `"_UNKNOWN_"`, personValues) + `]`,
+			want: `[` + wantPerson("U-3", "A") + `,{"displayname":"D","facecount":2,"favorite":true,"feature_less":true,"keyface":7,"keyphoto":"K",` +
+				`"name":"_UNKNOWN_","sort_order":1,"uuid":"U-1"},{"displayname":"D","facecount":2,"favorite":true,"feature_less":true,"keyface":7,` +
+				`"keyphoto":"K","name":"_UNKNOWN_","sort_order":1,"uuid":"U-1"},` + wantPerson("U-2", "_UNKNOWN_") + `]`},
+		{name: "person_info of other names in the order of the reference", key: "person_info",
+			raw:  `[` + personJSON(`"U-2"`, `"_UNKNOWN_"`, personNulls) + `, ` + personJSON(`"U-1"`, `"A"`, personNulls) + `]`,
+			want: `[` + wantPerson("U-2", "_UNKNOWN_") + `,` + wantPerson("U-1", "A") + `]`},
+		{name: "person_info empty", key: "person_info", raw: `[]`, want: `[]`},
+		{name: "person_info null", key: "person_info", raw: `null`, wantErr: "person_info: want a list of objects"},
+		{name: "person_info of strings", key: "person_info", raw: `["SECRET-P"]`, wantErr: "person_info[0]: want an object"},
+		{name: "person_info null element", key: "person_info", raw: `[null]`, wantErr: "person_info[0].uuid: want a value (the key is missing)"},
+		{name: "person_info name null", key: "person_info", raw: `[` + personJSON(`"U"`, `null`, personNulls) + `]`, wantErr: "person_info[0].name: want a string"},
+		{name: "person_info name number", key: "person_info", raw: `[` + personJSON(`"U"`, `424242`, personNulls) + `]`, wantErr: "person_info[0].name: want a string"},
+		{name: "person_info uuid null", key: "person_info", raw: `[` + personJSON(`null`, `"A"`, personNulls) + `]`, wantErr: "person_info[0].uuid: want a string"},
+		{name: "person_info favorite null", key: "person_info", raw: `[` + personJSON(`"U"`, `"A"`, strings.Replace(personNulls, `"favorite": false`, `"favorite": null`, 1)) + `]`,
+			wantErr: "person_info[0].favorite: want a boolean"},
+		{name: "person_info feature_less null", key: "person_info",
+			raw:     `[` + personJSON(`"U"`, `"A"`, strings.Replace(personNulls, `"feature_less": false`, `"feature_less": null`, 1)) + `]`,
+			wantErr: "person_info[0].feature_less: want a boolean"},
+		{name: "person_info keyface as a float", key: "person_info", raw: `[` + personJSON(`"U"`, `"A"`, strings.Replace(personNulls, `"keyface": null`, `"keyface": 7.0`, 1)) + `]`,
+			wantErr: "person_info[0].keyface: want an integer or null"},
+		{name: "person_info displayname number", key: "person_info",
+			raw:     `[` + personJSON(`"U"`, `"A"`, strings.Replace(personNulls, `"displayname": null`, `"displayname": 424242`, 1)) + `]`,
+			wantErr: "person_info[0].displayname: want a string or null"},
+		{name: "person_info without keyphoto", key: "person_info", raw: `[` + personJSON(`"U"`, `"A"`, strings.Replace(personNulls, `"keyphoto": null, `, ``, 1)) + `]`,
+			wantErr: "person_info[0].keyphoto: want a value (the key is missing)"},
 
 		{name: "hdr null", key: "hdr", raw: `null`, wantErr: "hdr: want a boolean"},
 		{name: "visible", key: "visible", raw: `false`, want: `false`},
@@ -434,7 +479,7 @@ func TestNormalizeGoSide(t *testing.T) {
 			"location": `[null,null]`, "keywords": `[]`, "burst_photos": `[]`, "title": `""`, "width": `0`,
 			"persons": `[]`, "burst_default_pick": `false`,
 			"adjustment_type": `null`, "imported_by": `["",""]`, "spatial": `0`, "tzname": `""`, "visible": `false`,
-			"import_info": `{}`, "project_info": `[]`, "comments": `[]`, "likes": `[]`,
+			"import_info": `{}`, "project_info": `[]`, "comments": `[]`, "likes": `[]`, "person_info": `[]`,
 			"owner": `""`, "exif_info": zeroExif, "place": `{}`,
 		}
 		for key, w := range want {

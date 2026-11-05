@@ -121,7 +121,6 @@ func Open(ctx context.Context, path string, o Options) (db *DB, err error) {
 	imports, importInfo := loadImports(t.albums, c.photos)
 	momentShares, libraryShares := loadShares(t.shares, t.assets)
 	comments, likes := loadComments(t.comments)
-	persons, personByUUID, personsOf := loadPersons(t, c)
 	return &DB{
 		info: Info{
 			LibraryPath:   library,
@@ -158,9 +157,7 @@ func Open(ctx context.Context, path string, o Options) (db *DB, err error) {
 		commented:     uuidSet(comments),
 		liked:         uuidSet(likes),
 
-		persons:      persons,
-		personByUUID: personByUUID,
-		personsOf:    personsOf,
+		personData: loadPersons(t, c),
 	}, nil
 }
 

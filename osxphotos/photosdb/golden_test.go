@@ -11,6 +11,7 @@ import (
 
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/golden"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
+	"github.com/Windemiatrix/go-libs/osxphotos/personinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/query"
 )
 
@@ -63,12 +64,14 @@ func compareGolden(t *testing.T, db *DB, ref *golden.Reference, divs []golden.Di
 	t.Helper()
 	photos := db.Photos()
 	burstAlbums := map[string][]string{}
+	persons := map[string][]personinfo.PersonInfo{}
 	for _, p := range photos {
 		burstAlbums[p.UUID] = lookupUUIDs(db.BurstAlbumInfoOf(p))
+		persons[p.UUID] = db.PersonInfoOf(p)
 	}
 	rep, err := golden.Compare(ref, golden.Library{
 		Photos: photos, Albums: db.albums, SharedAlbums: db.sharedAlbums, BurstAlbums: burstAlbums, Imports: db.imports, Projects: db.projects,
-		Comments: db.comments, Likes: db.likes,
+		Comments: db.comments, Likes: db.likes, Persons: persons,
 	},
 		slices.Concat(golden.PhotoKeys(), golden.AlbumKeys()), divs)
 	if err != nil {

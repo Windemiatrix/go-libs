@@ -33,8 +33,8 @@ func TestReadFields(t *testing.T) {
 	t.Run("the file of the repository", func(t *testing.T) {
 		t.Parallel()
 		keys := fieldsTxt(t)
-		if len(keys) != 80 || keys[0] != "adjustment_type" || keys[len(keys)-1] != "width" {
-			t.Errorf("got %d keys from %q to %q, want 80 from adjustment_type to width", len(keys), keys[0], keys[len(keys)-1])
+		if len(keys) != 81 || keys[0] != "adjustment_type" || keys[len(keys)-1] != "width" {
+			t.Errorf("got %d keys from %q to %q, want 81 from adjustment_type to width", len(keys), keys[0], keys[len(keys)-1])
 		}
 	})
 	t.Run("comments and empty lines are skipped, the order is kept", func(t *testing.T) {
@@ -75,6 +75,7 @@ func TestLoadRealData(t *testing.T) {
 			if ref.Library != name || len(ref.Query) == 0 {
 				t.Fatalf("Library = %q with %d objects in query.json", ref.Library, len(ref.Query))
 			}
+			withPersons := 0
 			for _, obj := range slices.Concat(ref.Query, ref.Deleted) {
 				if len(obj) != len(fields) {
 					t.Fatalf("an object has %d keys, want the %d of fields.txt", len(obj), len(fields))
@@ -84,7 +85,16 @@ func TestLoadRealData(t *testing.T) {
 						t.Fatalf("key %s is not in fields.txt", k)
 					}
 				}
+				var persons []json.RawMessage
+				if json.Unmarshal(obj["person_info"], &persons) == nil && len(persons) > 0 {
+					withPersons++
+				}
 			}
+			// Test-13.0.0 has persons with faces: without them the comparison of person_info is vacuous.
+			if name == "Test-13.0.0" && withPersons == 0 {
+				t.Error("no object of Test-13.0.0 has person_info")
+			}
+			t.Logf("%d objects with person_info", withPersons)
 		})
 	}
 }

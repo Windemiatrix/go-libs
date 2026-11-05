@@ -89,6 +89,7 @@
     "original_width": 4032,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -307,6 +308,7 @@
     "original_width": 2754,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {
       "address": {
@@ -538,6 +540,30 @@
     "original_width": 2048,
     "owner": null,
     "panorama": false,
+    "person_info": [
+      {
+        "displayname": "Katie",
+        "facecount": 3,
+        "favorite": false,
+        "feature_less": true,
+        "keyface": 2,
+        "keyphoto": "F12384F6-CD17-4151-ACBA-AE0E3688539E",
+        "name": "Katie",
+        "sort_order": 3,
+        "uuid": "0FFCE0A2-BE93-4661-A783-957BE54072E4"
+      },
+      {
+        "displayname": "Suzy",
+        "facecount": 2,
+        "favorite": false,
+        "feature_less": false,
+        "keyface": 1,
+        "keyphoto": "F12384F6-CD17-4151-ACBA-AE0E3688539E",
+        "name": "Suzy",
+        "sort_order": 2,
+        "uuid": "041D13F6-DA1A-41FC-BF84-E0AA253224EF"
+      }
+    ],
     "persons": [
       "Katie",
       "Suzy"
@@ -660,6 +686,7 @@
     "original_width": 1991,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -838,6 +865,19 @@
     "original_width": 1365,
     "owner": null,
     "panorama": false,
+    "person_info": [
+      {
+        "displayname": "Katie",
+        "facecount": 3,
+        "favorite": false,
+        "feature_less": true,
+        "keyface": 2,
+        "keyphoto": "F12384F6-CD17-4151-ACBA-AE0E3688539E",
+        "name": "Katie",
+        "sort_order": 3,
+        "uuid": "0FFCE0A2-BE93-4661-A783-957BE54072E4"
+      }
+    ],
     "persons": [
       "Katie"
     ],
@@ -991,6 +1031,30 @@
     "original_width": 1365,
     "owner": null,
     "panorama": false,
+    "person_info": [
+      {
+        "displayname": "Katie",
+        "facecount": 3,
+        "favorite": false,
+        "feature_less": true,
+        "keyface": 2,
+        "keyphoto": "F12384F6-CD17-4151-ACBA-AE0E3688539E",
+        "name": "Katie",
+        "sort_order": 3,
+        "uuid": "0FFCE0A2-BE93-4661-A783-957BE54072E4"
+      },
+      {
+        "displayname": "Suzy",
+        "facecount": 2,
+        "favorite": false,
+        "feature_less": false,
+        "keyface": 1,
+        "keyphoto": "F12384F6-CD17-4151-ACBA-AE0E3688539E",
+        "name": "Suzy",
+        "sort_order": 2,
+        "uuid": "041D13F6-DA1A-41FC-BF84-E0AA253224EF"
+      }
+    ],
     "persons": [
       "Katie",
       "Suzy"
@@ -1118,6 +1182,7 @@
     "original_width": 2047,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {
       "address": {
@@ -1364,6 +1429,19 @@
     "original_width": 2048,
     "owner": null,
     "panorama": false,
+    "person_info": [
+      {
+        "displayname": "Maria",
+        "facecount": 1,
+        "favorite": true,
+        "feature_less": false,
+        "keyface": 5,
+        "keyphoto": "E9BC5C36-7CD1-40A1-A72B-8B8FAC227D51",
+        "name": "Maria",
+        "sort_order": 1,
+        "uuid": "3DDC8F83-FDAB-4943-AE53-19428BEEED9D"
+      }
+    ],
     "persons": [
       "Maria"
     ],
@@ -1486,6 +1564,7 @@
     "original_width": 2047,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -1645,6 +1724,7 @@
     "original_width": 6000,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -1804,6 +1884,7 @@
     "original_width": 4416,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -1963,6 +2044,7 @@
     "original_width": 4416,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -2122,6 +2204,7 @@
     "original_width": 4416,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
@@ -2239,6 +2322,7 @@
     "original_width": 3024,
     "owner": null,
     "panorama": false,
+    "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
