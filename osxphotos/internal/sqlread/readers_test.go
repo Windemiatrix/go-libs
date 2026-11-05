@@ -110,6 +110,10 @@ var readers = []struct {
 		r, err := d.UserFeedback(ctx)
 		return len(r), err
 	}},
+	{"Moments", func(ctx context.Context, d *DB, _ schema.Schema) (int, error) {
+		r, err := d.Moments(ctx)
+		return len(r), err
+	}},
 }
 
 func contains(list []string, s string) bool {
@@ -188,7 +192,7 @@ func TestColumnsIncludeJoins(t *testing.T) {
 
 	c := Columns(schemaByID(t, "photos11_1"))
 	want := map[string][]string{
-		"ZASSET":                     {"ZMASTER", "ZCLOUDASSETGUID", "ZADJUSTMENTSSTATE", "ZHDRTYPE", "ZDEPTHTYPE", "ZVISIBILITYSTATE", "ZCLOUDOWNERHASHEDPERSONID", "ZMOMENTSHARE", "ZIMPORTSESSION"},
+		"ZASSET":                     {"ZMASTER", "ZCLOUDASSETGUID", "ZADJUSTMENTSSTATE", "ZHDRTYPE", "ZDEPTHTYPE", "ZVISIBILITYSTATE", "ZCLOUDOWNERHASHEDPERSONID", "ZMOMENTSHARE", "ZIMPORTSESSION", "ZMOMENT"},
 		"ZADDITIONALASSETATTRIBUTES": {"ZASSET", "ZASSETDESCRIPTION", "ZORIGINALSTABLEHASH", "ZCAMERACAPTUREDEVICE", "ZTIMEZONENAME", "ZIMPORTEDBYDISPLAYNAME", "ZIMPORTEDBYBUNDLEIDENTIFIER", "ZUNMANAGEDADJUSTMENT", "ZREVERSELOCATIONDATA"},
 		"ZUNMANAGEDADJUSTMENT":       {"Z_PK", "ZADJUSTMENTFORMATIDENTIFIER"},
 		"ZASSETDESCRIPTION":          {"Z_PK", "ZLONGDESCRIPTION"},
@@ -201,6 +205,7 @@ func TestColumnsIncludeJoins(t *testing.T) {
 		"ZPERSON":                    {"Z_PK", "ZPERSONUUID", "ZFULLNAME", "ZDISPLAYNAME", "ZFACECOUNT", "ZKEYFACE", "ZTYPE", "ZMANUALORDER"},
 		"ZUSERFEEDBACK":              {"Z_PK", "ZPERSON", "ZTYPE"},
 		"Z_33ASSETS":                 {"Z_33ALBUMS", "Z_3ASSETS", "Z_FOK_3ASSETS"},
+		"ZMOMENT":                    {"Z_PK", "ZTIMEZONEOFFSET", "ZAPPROXIMATELATITUDE", "ZAPPROXIMATELONGITUDE", "ZSTARTDATE", "ZENDDATE", "ZREPRESENTATIVEDATE", "ZMODIFICATIONDATE", "ZTITLE", "ZSUBTITLE"},
 		"ZGENERICALBUM": {"Z_PK", "ZUUID", "ZKIND", "ZCUSTOMSORTKEY", "ZCUSTOMSORTASCENDING", "Z_FOK_PARENTFOLDER",
 			"ZCLOUDOWNERHASHEDPERSONID", "ZCLOUDOWNERFIRSTNAME", "ZCLOUDOWNERLASTNAME", "ZCLOUDOWNERFULLNAME"},
 		"ZCLOUDSHAREDALBUMINVITATIONRECORD": {"ZINVITEEHASHEDPERSONID", "ZINVITEEFIRSTNAME", "ZINVITEELASTNAME", "ZINVITEEFULLNAME"},
@@ -512,6 +517,8 @@ func TestReaderValueType(t *testing.T) {
 		// ZTYPE, not ZFACECOUNT: a trigger of ZPERSON rewrites ZFACECOUNT on insert.
 		{"person type", "INSERT INTO ZPERSON (Z_PK, ZTYPE) VALUES (999999, 'SECRET-C')", readers[14].run},
 		{"feedback person", "INSERT INTO ZUSERFEEDBACK (Z_PK, ZPERSON) VALUES (999999, 'SECRET-U')", readers[15].run},
+		{"moment start", "INSERT INTO ZMOMENT (Z_PK, ZSTARTDATE) VALUES (999999, 'SECRET-D')", readers[16].run},
+		{"moment timezone", "INSERT INTO ZMOMENT (Z_PK, ZTIMEZONEOFFSET) VALUES (999997, 'SECRET-Z')", readers[16].run},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1185,6 +1192,156 @@ func TestFaceRowsWithoutAsset(t *testing.T) {
 	personFaceCounts(t, openRO(t, path), s, faces)
 }
 
+// The oracle is the database: a swap of two columns in the Scan changes a sum
+// weighted by Z_PK or the text of a row.
+func TestMomentRows(t *testing.T) {
+	t.Parallel()
+
+	ints := []struct {
+		col string
+		get func(Moment) int64
+	}{
+		{"m.Z_PK", func(m Moment) int64 { return m.PK }},
+		{"m.ZTIMEZONEOFFSET", func(m Moment) int64 { return m.TZOffset.Int64 }},
+	}
+	reals := []struct {
+		col string
+		get func(Moment) float64
+	}{
+		{"m.ZAPPROXIMATELATITUDE", func(m Moment) float64 { return m.Latitude.Float64 }},
+		{"m.ZAPPROXIMATELONGITUDE", func(m Moment) float64 { return m.Longitude.Float64 }},
+		{"m.ZSTARTDATE", func(m Moment) float64 { return m.Start.Float64 }},
+		{"m.ZENDDATE", func(m Moment) float64 { return m.End.Float64 }},
+		{"m.ZREPRESENTATIVEDATE", func(m Moment) float64 { return m.Representative.Float64 }},
+		{"m.ZMODIFICATIONDATE", func(m Moment) float64 { return m.Modified.Float64 }},
+	}
+	var moments, assigned atomic.Int64
+	t.Run("libraries", func(t *testing.T) {
+		for _, lib := range libraryDBs(t) {
+			t.Run(lib.name, func(t *testing.T) {
+				t.Parallel()
+				ro := openRO(t, lib.path)
+				d := openDB(t, lib.path)
+				rows, err := d.Moments(t.Context())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if want := count(t, ro, "SELECT COUNT(*) FROM ZMOMENT"); int64(len(rows)) != want {
+					t.Errorf("Moments: %d rows, want %d", len(rows), want)
+				}
+				intSums, realSums := make([]int64, len(ints)), make([]float64, len(reals))
+				texts := make([]string, len(rows))
+				for i, m := range rows {
+					if i > 0 && rows[i-1].PK >= m.PK {
+						t.Errorf("Moments: row %d out of Z_PK order", i+1)
+					}
+					for k, c := range ints {
+						intSums[k] += c.get(m) * m.PK
+					}
+					for k, c := range reals {
+						realSums[k] += c.get(m) * float64(m.PK)
+					}
+					texts[i] = strconv.FormatInt(m.PK, 10) + "|" + sqlQuote(m.Title) + "|" + sqlQuote(m.Subtitle)
+				}
+				for k, c := range ints {
+					if want := count(t, ro, "SELECT CAST(COALESCE(SUM("+c.col+" * m.Z_PK), 0) AS INTEGER) FROM ZMOMENT m"); intSums[k] != want {
+						t.Errorf("Moments: sum of %s * Z_PK %d, want %d", c.col, intSums[k], want)
+					}
+				}
+				for k, c := range reals {
+					want := realSum(t, ro, "SELECT COALESCE(SUM("+c.col+" * m.Z_PK), 0.0) FROM ZMOMENT m")
+					if math.Abs(realSums[k]-want) > 1e-6*(1+math.Abs(want)) {
+						t.Errorf("Moments: sum of %s * Z_PK %v, want %v", c.col, realSums[k], want)
+					}
+				}
+				wantTexts := testlib.Rows(t, ro, "SELECT m.Z_PK || '|' || quote(m.ZTITLE) || '|' || quote(m.ZSUBTITLE) FROM ZMOMENT m ORDER BY m.Z_PK")
+				if !slices.Equal(texts, wantTexts) {
+					t.Errorf("Moments: %d rows, the %d rows of the query differ in a text column", len(texts), len(wantTexts))
+				}
+
+				assets, err := d.Assets(t.Context(), lib.schema)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var inMoment, momentSum int64
+				for _, a := range assets {
+					if a.MomentPK.Valid {
+						inMoment++
+						momentSum += a.MomentPK.Int64 * a.PK
+					}
+				}
+				if want := count(t, ro, "SELECT COUNT(*) FROM ZASSET WHERE ZMOMENT IS NOT NULL"); inMoment != want {
+					t.Errorf("Assets: %d with a moment, want %d", inMoment, want)
+				}
+				if want := count(t, ro, "SELECT CAST(COALESCE(SUM(ZMOMENT * Z_PK), 0) AS INTEGER) FROM ZASSET"); momentSum != want {
+					t.Errorf("Assets: sum of ZMOMENT * Z_PK %d, want %d", momentSum, want)
+				}
+				t.Logf("Moments: %d, %d assets in a moment", len(rows), inMoment)
+				moments.Add(int64(len(rows)))
+				assigned.Add(inMoment)
+			})
+		}
+	})
+	if moments.Load() == 0 || assigned.Load() == 0 {
+		t.Errorf("%d moments, %d assets in a moment in all libraries; want some of both: the test is vacuous", moments.Load(), assigned.Load())
+	}
+}
+
+// A column of its own value in each position: a swap of two columns in the
+// Scan shows, which the libraries may not (latitude and longitude are often
+// both -180).
+func TestMomentRowValues(t *testing.T) {
+	t.Parallel()
+
+	path := syntheticDB(t)
+	w := openWriter(t, path)
+	exec(t, w,
+		"INSERT INTO ZMOMENT (Z_PK, ZTIMEZONEOFFSET, ZAPPROXIMATELATITUDE, ZAPPROXIMATELONGITUDE, ZSTARTDATE, ZENDDATE, "+
+			"ZREPRESENTATIVEDATE, ZMODIFICATIONDATE, ZTITLE, ZSUBTITLE) "+
+			"VALUES (999998, 3600, 1.5, 2.5, 10.25, 20.5, 30.75, 40, 'Beach Day', 'Summer')",
+		"INSERT INTO ZMOMENT (Z_PK) VALUES (999999)",
+		"UPDATE ZASSET SET ZMOMENT = 999998 WHERE Z_PK = 3",
+	)
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	d := openDB(t, path)
+
+	rows, err := d.Moments(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := func(v float64) sql.NullFloat64 { return sql.NullFloat64{Float64: v, Valid: true} }
+	s := func(v string) sql.NullString { return sql.NullString{String: v, Valid: true} }
+	want := []Moment{
+		{
+			PK: 999998, TZOffset: sql.NullInt64{Int64: 3600, Valid: true}, Latitude: f(1.5), Longitude: f(2.5),
+			Start: f(10.25), End: f(20.5), Representative: f(30.75), Modified: f(40), Title: s("Beach Day"), Subtitle: s("Summer"),
+		},
+		{PK: 999999},
+	}
+	if len(rows) < len(want) || !slices.Equal(rows[len(rows)-len(want):], want) {
+		t.Errorf("Moments: the last %d of %d rows differ from the inserted ones", len(want), len(rows))
+	}
+
+	assets, err := d.Assets(t.Context(), schemaByID(t, "photos11_1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, a := range assets {
+		if a.PK == 3 {
+			found = true
+			if want := (sql.NullInt64{Int64: 999998, Valid: true}); a.MomentPK != want {
+				t.Errorf("MomentPK %v, want %v", a.MomentPK, want)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no asset with Z_PK 3")
+	}
+}
+
 func TestReadersEmpty(t *testing.T) {
 	t.Parallel()
 
@@ -1201,6 +1358,7 @@ func TestReadersEmpty(t *testing.T) {
 		"DELETE FROM ZEXTENDEDATTRIBUTES",
 		"DELETE FROM ZADDITIONALASSETATTRIBUTES",
 		"DELETE FROM ZASSET",
+		"DELETE FROM ZMOMENT",
 		"DELETE FROM ZGENERICALBUM",
 		"DELETE FROM ZSHARE",
 	)

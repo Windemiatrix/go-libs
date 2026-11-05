@@ -37,6 +37,7 @@ Only what is ported so far.
 | `exifinfo.py` | `exifinfo`, `photosdb` |
 | `placeinfo.py` | `placeinfo`, `photosdb` |
 | `personinfo.py` | `personinfo`, `photosdb` |
+| `momentinfo.py` | `momentinfo`, `photosdb` |
 | `photoinfo.py` | `photoinfo`, `photosdb` |
 | `shareinfo.py` | `photoinfo`, `photosdb`, `internal/sqlread` |
 | `shareparticipant.py` | `photoinfo`, `photosdb`, `internal/sqlread` |
@@ -183,6 +184,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 | `exifinfo.py` | `exifinfo`, `photosdb` |
 | `placeinfo.py` | `placeinfo`, `photosdb` |
 | `personinfo.py` | `personinfo`, `photosdb` |
+| `momentinfo.py` | `momentinfo`, `photosdb` |
 | `photoinfo.py` | `photoinfo`, `photosdb` |
 | `shareinfo.py` | `photoinfo`, `photosdb`, `internal/sqlread` |
 | `shareparticipant.py` | `photoinfo`, `photosdb`, `internal/sqlread` |

@@ -80,14 +80,21 @@ type Reference struct {
 // Errors name the file, the element number and the key, never a UUID or a
 // value.
 func Load(dir, library string) (*Reference, error) {
-	if library == "" || library == "." || library == ".." || strings.ContainsAny(library, `/\`) {
-		return nil, errors.New("golden: the library must be one directory name")
+	if err := checkLibrary(library); err != nil {
+		return nil, err
 	}
 	fields, err := ReadFields(filepath.Join(dir, fieldsFile))
 	if err != nil {
 		return nil, err
 	}
 	return LoadFiles(library, filepath.Join(dir, library, queryFile), filepath.Join(dir, library, deletedFile), fields)
+}
+
+func checkLibrary(library string) error {
+	if library == "" || library == "." || library == ".." || strings.ContainsAny(library, `/\`) {
+		return errors.New("golden: the library must be one directory name")
+	}
+	return nil
 }
 
 // LoadFiles reads the two files from explicit paths (diff-local) and keeps
