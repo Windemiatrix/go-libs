@@ -90,6 +90,10 @@ func FuzzRender(f *testing.F) {
 		"{var:f,{keyword}}{format:float:%f,{keyword}}", "{format:int:010_d,{keyword}}", "{format:float:#.3,{keyword}}",
 		"{var:f,0=+#30_x}{format:int:%f,{keyword}}", "{format:str:~^99.1,{title}}", "{var:f,{openbrace}0{closebrace}}{format:int:%f,1}",
 		"{id:~^99}", "{id:#_b}",
+		"{counter}{counter.a}{counter.}", "{counter:05d(1)}{counter:05d(1)}", "{counter(1,3)}-{keyword}", "{counter(,,2)}",
+		"{counter( 1 , , 2 )}", "{counter(1,2,3,4)}", "{counter(x)}", "{counter(3,1)}", "{counter(1)}{counter(2)}",
+		"{counter:~^99(1)}", "{counter:999999999}", "{counter:.2d}", "{counter(9223372036854775807)}{counter(9223372036854775807)}",
+		"{counter(-1,,9223372036854775807)}{counter(-1,,9223372036854775807)}",
 	} {
 		f.Add(in)
 	}

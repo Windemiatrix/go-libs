@@ -1,6 +1,9 @@
 package template
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 // DefaultMaxResults bounds the product of multi-valued fields
 // (phototemplate.py:774-783), whose values come from the library: a template
@@ -25,9 +28,14 @@ type RenderOptions struct {
 }
 
 // Renderer renders templates and may be used from several goroutines at once.
-// It is the place of the state that outlives one render, the counters of
-// {counter} (template_counter.py:28), once they are ported.
-type Renderer struct{}
+// The zero Renderer is ready to use; NewRenderer returns one. It holds the
+// counters of {counter} (template_counter.py:28): one Renderer is what one
+// process of upstream is, so {counter} grows from photo to photo for as long
+// as the Renderer lives.
+type Renderer struct {
+	mu       sync.Mutex
+	counters map[string]*counter
+}
 
 // NewRenderer returns a Renderer.
 func NewRenderer() *Renderer { return &Renderer{} }

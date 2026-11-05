@@ -315,8 +315,6 @@ func TestRenderErrors(t *testing.T) {
 		{"{today.nope}", missing, ErrRender, "today.nope"},
 		{"{created.}", missing, ErrRender, "created."},
 		{"{today.}", missing, ErrRender, "today."},
-		{"{counter}", missing, ErrUnsupportedConstruct, "counter"},
-		{"{counter.a}", missing, ErrUnsupportedConstruct, "counter.a"},
 		{"{album_seq}", missing, ErrUnsupportedConstruct, "album_seq"},
 		{"{folder_album_seq(1)}", missing, ErrUnsupportedConstruct, "folder_album_seq"},
 		{"{media_type,video=v}", missing, ErrUnsupportedConstruct, "media_type"},
