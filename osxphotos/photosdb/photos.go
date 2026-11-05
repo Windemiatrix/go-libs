@@ -4,6 +4,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/query"
+	"github.com/Windemiatrix/go-libs/osxphotos/template"
 )
 
 // DB is a Photos library read into memory.
@@ -35,6 +36,8 @@ type DB struct {
 	likes        map[string][]photoinfo.LikeInfo         // by photo UUID, oldest first
 	commented    map[string]bool                         // the keys of comments, for query.Catalog
 	liked        map[string]bool                         // the keys of likes, for query.Catalog
+
+	renderer template.Renderer // of RenderTemplate: one Renderer is one process of osxphotos, whose {counter} grows from photo to photo
 
 	personData
 	momentData
