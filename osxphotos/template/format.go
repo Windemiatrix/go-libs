@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -19,6 +20,42 @@ type formatSpec struct {
 
 var errSpec = fmt.Errorf("%w: invalid format specification", ErrRender)
 
+// format is get_format_values (phototemplate.py:1397-1420).
+func (s *rendering) format(f *Field, def []string) ([]string, error) {
+	typ, spec, ok := strings.Cut(f.Subfield, ":")
+	if !ok || typ != "int" && typ != "float" && typ != "str" { // SyntaxError (1405-1411)
+		return nil, fmt.Errorf("%w: format takes {format:TYPE:FORMAT,values}, TYPE int, float or str", ErrRender)
+	}
+	spec, err := s.expand(spec, "format string")
+	if err == nil && strings.ContainsAny(spec, "{}") { // str.format reads the braces as its own syntax, a field or a literal (1661-1662)
+		err = errSpec
+	}
+	if err != nil {
+		return nil, inField(err, f)
+	}
+	out := make([]string, len(def))
+	for i, v := range def {
+		x, ok := pyFloat(v)
+		switch {
+		case typ == "str":
+			out[i], err = s.formatValue(v, spec)
+		// int(float(v)) (1414): ValueError of NaN, OverflowError of an infinity, and an int of Python is not bounded by int64
+		case !ok || typ == "int" && (math.IsNaN(x) || x < -(1<<63) || x >= 1<<63):
+			err = fmt.Errorf("%w: format:%s of a value that is not a number of that type", ErrRender, typ)
+		case typ == "int":
+			out[i], err = s.formatValue(int64(x), spec)
+		default:
+			out[i], err = s.formatValue(x, spec)
+		}
+		if err != nil {
+			return nil, inField(err, f)
+		}
+	}
+	return out, nil
+}
+
+// inField names the format as the template writes it: the expanded format may
+// hold the value of a variable, such as a title.
 func inField(err error, f *Field) error {
 	if err != nil {
 		err = fmt.Errorf("%w in {%s:%s}", err, f.Name, f.Subfield)
@@ -26,18 +63,28 @@ func inField(err error, f *Field) error {
 	return err
 }
 
-// formatValue is format_str_value (phototemplate.py:1657-1662) of an int64:
-// format(v, spec) of Python, str(v) for "". A width beyond the bytes left to the
-// render is errTooLong before anything is built, since the template sets it and
-// upstream has no bound.
-func (s *rendering) formatValue(v int64, spec string) (string, error) {
+// formatValue is format_str_value (phototemplate.py:1657-1662): format(v, spec)
+// of Python, str(v) for "". v is an int64, a float64 or a string; the caller
+// converts any other integer to int64. A width, or the precision of a number,
+// beyond the bytes left to the render is errTooLong before anything is built,
+// since the template sets them and upstream has no bound.
+func (s *rendering) formatValue(v any, spec string) (string, error) {
 	sp, err := parseSpec(spec)
+	_, isStr := v.(string)
 	if err != nil {
 		return "", err
-	} else if sp.width > s.bytesLeft/len(sp.fill) {
+	} else if sp.width > s.bytesLeft/len(sp.fill) || !isStr && sp.precision > s.bytesLeft { // a precision only cuts a string
 		return "", errTooLong
 	}
-	out, err := formatInt(v, sp)
+	var out string
+	switch v := v.(type) {
+	case int64:
+		out, err = formatInt(v, sp)
+	case float64:
+		out, err = formatFloat(v, sp)
+	default:
+		out, err = formatString(v.(string), sp)
+	}
 	if s.bytesLeft -= len(out); s.bytesLeft < 0 {
 		return "", errTooLong
 	}
@@ -87,7 +134,7 @@ func formatInt(v int64, sp formatSpec) (string, error) {
 	base := 10
 	switch {
 	case strings.ContainsAny("eEfFgG%", sp.typ):
-		return "", unsupported(ErrUnsupportedConstruct, "format code of a float for an integer")
+		return formatFloat(float64(v), sp)
 	case sp.typ != "" && !strings.ContainsAny("dboxXcn", sp.typ):
 		return "", fmt.Errorf("%w: unknown format code of an integer", ErrRender)
 	case sp.precision >= 0 || sp.z:
@@ -108,12 +155,70 @@ func formatInt(v int64, sp formatSpec) (string, error) {
 	if sp.typ == "X" {
 		digits = strings.ToUpper(digits)
 	}
-	return number(v < 0, prefix, digits, sp), nil
+	return number(v < 0, prefix, digits, "", sp), nil
+}
+
+// formatFloat is format_float_internal of CPython.
+func formatFloat(f float64, sp formatSpec) (string, error) {
+	switch {
+	case sp.typ != "" && !strings.ContainsAny("eEfFgGn%", sp.typ):
+		return "", fmt.Errorf("%w: unknown format code of a float", ErrRender)
+	case sp.typ == "n" || sp.z: // z, the coercion of -0.0, is of Python 3.11, and osxphotos runs on 3.10 too
+		return "", unsupported(ErrUnsupportedConstruct, "format code n or z")
+	}
+	neg, p := math.Signbit(f) && !math.IsNaN(f), sp.precision // Python prints no sign of a NaN
+	if p < 0 {
+		p = 6
+	}
+	if f = math.Abs(f); sp.typ == "%" {
+		f *= 100
+	}
+	var s string
+	switch t := strings.ToLower(sp.typ); {
+	case math.IsInf(f, 0) || math.IsNaN(f) || t == "" && sp.precision < 0:
+		s = pyFloatRepr(f)
+	case t == "e":
+		s = strconv.FormatFloat(f, 'e', p, 64)
+	case t == "f" || t == "%":
+		s = strconv.FormatFloat(f, 'f', p, 64)
+	case t == "g":
+		s = pyG(f, max(p, 1), max(p, 1), sp.alt)
+	default: // a fixed number whose ".0" would exceed the precision takes the exponent
+		if s = pyG(f, max(p, 1), max(p, 1)-1, sp.alt); !strings.ContainsAny(s, ".e") {
+			s += ".0"
+		}
+	}
+	if sp.alt && !strings.ContainsAny(s, ".in") {
+		i := strings.IndexByte(s+"e", 'e')
+		s = s[:i] + "." + s[i:]
+	}
+	if sp.typ == "%" {
+		s += "%"
+	}
+	if strings.ContainsAny("EFG", sp.typ) {
+		s = strings.ToUpper(s)
+	}
+	i := len(s) - len(strings.TrimLeft(s, "0123456789"))
+	return number(neg, "", s[:i], s[i:], sp), nil
+}
+
+// pyG is the code 'g' of format_float_short of CPython (Python/pystrtod.c).
+func pyG(f float64, p, limit int, alt bool) string {
+	mant, exp, _ := strings.Cut(strconv.FormatFloat(f, 'e', p-1, 64), "e")
+	if e, _ := strconv.Atoi(exp); -4 <= e && e < limit {
+		mant, exp = strconv.FormatFloat(f, 'f', p-1-e, 64), ""
+	} else {
+		exp = "e" + exp
+	}
+	if !alt && strings.Contains(mant, ".") {
+		mant = strings.TrimRight(strings.TrimRight(mant, "0"), ".")
+	}
+	return mant + exp
 }
 
 // number is fill_number of CPython: with the fill "0" and "=" the padding is
 // zeros grouped with the digits, as in format(1234567, "010_d"), 01_234_567.
-func number(neg bool, prefix, digits string, sp formatSpec) string {
+func number(neg bool, prefix, digits, tail string, sp formatSpec) string {
 	sign := strings.TrimPrefix(sp.sign, "-")
 	if neg {
 		sign = "-"
@@ -121,14 +226,14 @@ func number(neg bool, prefix, digits string, sp formatSpec) string {
 	if sp.align == "" && sp.zero {
 		sp.align = "="
 	}
-	if sp.grouping != "" {
+	if sp.grouping != "" && digits != "" { // inf has no digits to group
 		minWidth := 0
 		if sp.fill == "0" && sp.align == "=" {
-			minWidth = sp.width - len(sign+prefix)
+			minWidth = sp.width - len(sign+prefix+tail)
 		}
 		digits = group(digits, sp, minWidth)
 	}
-	return pad(sign+prefix, digits, sp, cmp.Or(sp.align, ">"))
+	return pad(sign+prefix, digits+tail, sp, cmp.Or(sp.align, ">"))
 }
 
 // group is _PyUnicode_InsertThousandsGrouping of CPython: the zeros up to
@@ -164,4 +269,22 @@ func pad(head, body string, sp formatSpec, align string) string {
 		head, n = head+strings.Repeat(sp.fill, n), 0
 	}
 	return strings.Repeat(sp.fill, left) + head + body + strings.Repeat(sp.fill, n-left)
+}
+
+// formatString is format_string_internal of CPython; the precision counts code points.
+func formatString(v string, sp formatSpec) (string, error) {
+	switch {
+	case sp.typ != "" && sp.typ != "s":
+		return "", fmt.Errorf("%w: unknown format code of a string", ErrRender)
+	case sp.sign != "" || sp.z || sp.alt || sp.align == "=" || sp.grouping != "":
+		return "", fmt.Errorf("%w: sign, z, #, = or grouping of a string", ErrRender)
+	}
+	for i := range v {
+		if sp.precision == 0 {
+			v = v[:i]
+			break
+		}
+		sp.precision--
+	}
+	return pad("", v, sp, cmp.Or(sp.align, "<")), nil
 }

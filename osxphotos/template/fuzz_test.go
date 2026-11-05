@@ -86,6 +86,9 @@ func FuzzRender(f *testing.F) {
 		"{keyword|int|float}", "{var:i,inf;nan;-0;1e400}{%i|split(;)|float|int}", "{var:n,> 1}{keyword|filter(%n)|sort}",
 		"{var:a,x}{%a|split(;)|appends(%a)|shell_quote|upper|titlecase}", "{title|path.parent.name}",
 		"{keyword|path:x.parent|path}", "{filepath.parent.stem|path.name.suffix}", "{export_dir.parts}", "{keyword|path.parents}",
+		"{format:str:999999999,x}", "{var:w,>999999999}{format:int:%w,1}", "{format:float:.999999999f,1}",
+		"{var:f,{keyword}}{format:float:%f,{keyword}}", "{format:int:010_d,{keyword}}", "{format:float:#.3,{keyword}}",
+		"{var:f,0=+#30_x}{format:int:%f,{keyword}}", "{format:str:~^99.1,{title}}", "{var:f,{openbrace}0{closebrace}}{format:int:%f,1}",
 		"{id:~^99}", "{id:#_b}",
 	} {
 		f.Add(in)

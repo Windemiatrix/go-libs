@@ -315,7 +315,6 @@ func TestRenderErrors(t *testing.T) {
 		{"{today.nope}", missing, ErrRender, "today.nope"},
 		{"{created.}", missing, ErrRender, "created."},
 		{"{today.}", missing, ErrRender, "today."},
-		{"{format:int:05d,42}", missing, ErrUnsupportedConstruct, "format"},
 		{"{counter}", missing, ErrUnsupportedConstruct, "counter"},
 		{"{counter.a}", missing, ErrUnsupportedConstruct, "counter.a"},
 		{"{album_seq}", missing, ErrUnsupportedConstruct, "album_seq"},
@@ -361,6 +360,11 @@ func TestRenderErrorHidesValues(t *testing.T) {
 		"{keyword|path.parents}":                "Holidays",
 		"{filepath.parents}":                    "Holidays",
 		"{export_dir.parents}":                  "Holidays",
+		"{format:int:d,{keyword}}":              "Holidays",
+		"{var:k,{keyword}}{format:int:%k,1}":    "Holidays",
+		"{var:r,{keyword}}{format:int:%r,1}":    "\U000000e9",
+		"{var:r,{keyword}}{format:float:%r,1}":  "\U000000e9",
+		"{var:r,{keyword}}{format:str:%r,x}":    "\U000000e9",
 	} {
 		_, _, err := render(t, in, with(conditionPhoto(), "keyword", strs(keyword)), o)
 		if msg := fmt.Sprint(err); !errors.Is(err, ErrRender) || strings.Contains(msg, "Holidays") || strings.Contains(msg, keyword) {
