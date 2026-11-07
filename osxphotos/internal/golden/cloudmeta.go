@@ -11,31 +11,29 @@ import (
 
 const cloudKey = "cloud_metadata"
 
-// Numbers stay literals until refNumber reads them: a plain decode would round
-// an integer above 2^53.
-type cloudObject map[string]any
-
-func (c *cloudObject) UnmarshalJSON(b []byte) error {
-	dec := json.NewDecoder(bytes.NewReader(b))
-	dec.UseNumber()
-	return dec.Decode((*map[string]any)(c))
-}
-
-// json() writes the property list of a photo as it is, {} for a photo without
-// one and for one that does not decode (photoinfo.py:1739-1760, 2222). The Go
-// side is the decoded property list, whose integers are int64 or uint64: both
-// sides are compared by value, so a real that is a whole number equals the
-// integer of that value.
+// json() writes the property list of a photo through its default
+// (photoinfo.py:2222, 2269-2288), {} for a photo without one and for one that
+// does not decode (photoinfo.py:1739-1760). The Go side is the decoded property
+// list, whose integers are int64 or uint64: both sides are compared by value,
+// so a real that is a whole number equals the integer of that value.
 func cloudMetadataRule() rule {
 	return rule{
 		key:         cloudKey,
 		needsAlbums: true,
 		ref: func(o Object) (any, error) {
-			obj, err := decode[cloudObject](o, cloudKey, false, "an object")
-			if err != nil {
-				return nil, err
+			raw, ok := o[cloudKey]
+			if !ok {
+				return nil, shape(cloudKey, "a value (the key is missing)")
 			}
-			return cloudTree(map[string]any(obj), refNumber)
+			// Numbers stay literals until refNumber reads them: a plain decode
+			// would round an integer above 2^53.
+			dec := json.NewDecoder(bytes.NewReader(raw))
+			dec.UseNumber()
+			var v any
+			if dec.Decode(&v) != nil {
+				return nil, shape(cloudKey, "a JSON value")
+			}
+			return cloudTree(v, refNumber)
 		},
 		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
 			return cloudTree(e.cloudMeta[p.UUID], goLeaf)
@@ -43,8 +41,7 @@ func cloudMetadataRule() rule {
 	}
 }
 
-// cloudTree copies v with leaf applied to everything but dictionaries and
-// lists, so that neither side is changed.
+// A copy: Compare leaves its input as it is.
 func cloudTree(v any, leaf func(any) (any, error)) (any, error) {
 	switch x := v.(type) {
 	case map[string]any:
@@ -87,22 +84,23 @@ func refNumber(v any) (any, error) {
 	return f, nil
 }
 
-// json.dumps of upstream cannot write bytes, so the reference has none. A real
-// of four bytes is a double for Python. A date of a property list is a naive
-// UTC datetime there, written by isoformat() with six digits of fraction when
-// the microseconds are not 0.
+// json() hands json.dumps a default that returns None for anything but a date
+// (photoinfo.py:2269-2271), so bytes and a UID are null. A real of four bytes
+// is a double for Python. A date of a property list is a naive UTC datetime
+// rounded to the microsecond (timedelta rounds), written by isoformat() with
+// six digits of fraction when the microseconds are not 0.
 func goLeaf(v any) (any, error) {
 	switch x := v.(type) {
-	case []byte:
-		return nil, shape(cloudKey, "values that json.dumps writes")
+	case string, bool, int64, uint64, float64:
+		return v, nil
 	case float32:
 		return float64(x), nil
 	case time.Time:
-		x = x.UTC()
-		if x.Nanosecond() >= int(time.Microsecond) {
+		x = x.UTC().Round(time.Microsecond)
+		if x.Nanosecond() != 0 {
 			return x.Format("2006-01-02T15:04:05.000000"), nil
 		}
 		return x.Format("2006-01-02T15:04:05"), nil
 	}
-	return v, nil
+	return nil, nil
 }

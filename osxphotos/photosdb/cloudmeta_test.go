@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"maps"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -80,7 +81,9 @@ func TestCloudMetadataOf(t *testing.T) {
 		{"a root that is a string", []byte(cloudPlistHeader + "<string>a</string></plist>"), nil},
 		{"text that is not a property list", []byte("not a property list"), nil},
 		{"empty data", []byte{}, nil},
-		{"data over 1 MiB", []byte(strings.Repeat(" ", maxPlistSize) + cloudXML(cloudMetaEntries)), nil},
+		// The padding is inside the document, so that only the size can refuse it.
+		{"data of 1 MiB", []byte(cloudXML(cloudMetaEntries + strings.Repeat(" ", maxPlistSize-len(cloudXML(cloudMetaEntries))))), cloudMetaWant()},
+		{"data over 1 MiB", []byte(cloudXML(cloudMetaEntries + strings.Repeat(" ", maxPlistSize))), nil},
 	}
 	for _, tt := range tests {
 		db := &DB{cloudMeta: map[string][]byte{"A-1": tt.data}}
@@ -121,25 +124,30 @@ func TestCloudMetadataDamaged(t *testing.T) {
 		t.Fatal(err)
 	}
 	photos := before.Photos()
-	if len(photos) < 5 {
-		t.Fatalf("the synthetic library has %d photos, want 5 or more: the case is vacuous", len(photos))
+	if len(photos) < 6 {
+		t.Fatalf("the synthetic library has %d photos, want 6 or more: the case is vacuous", len(photos))
 	}
 	pk := func(i int) string { return strconv.FormatInt(photos[i].PK, 10) }
 	const insert = "INSERT INTO ZCLOUDMASTERMEDIAMETADATA (Z_PK, ZCLOUDMASTER, ZDATA) VALUES "
 	text := func(v string) string { return "'" + cloudXML("<key>k</key><string>"+v+"</string>") + "'" }
 	change(t, lib,
-		"INSERT INTO ZCLOUDMASTER (Z_PK) VALUES (900001), (900002), (900003), (900004), (900009)",
+		"INSERT INTO ZCLOUDMASTER (Z_PK) VALUES (900001), (900002), (900003), (900004), (900005), (900009)",
 		"UPDATE ZASSET SET ZMASTER = 900001 WHERE Z_PK = "+pk(0),
 		"UPDATE ZASSET SET ZMASTER = 900002 WHERE Z_PK = "+pk(1),
 		"UPDATE ZASSET SET ZMASTER = 900003 WHERE Z_PK = "+pk(2),
 		"UPDATE ZASSET SET ZMASTER = 900004 WHERE Z_PK = "+pk(3),
+		"UPDATE ZASSET SET ZMASTER = 900005 WHERE Z_PK = "+pk(4),
 		insert+"(900010, 900001, "+text("first")+")",
 		// The row with the higher Z_PK is written first.
 		insert+"(900012, 900002, "+text("new")+")",
 		insert+"(900011, 900002, "+text("old")+")",
+		insert+"(900008, 900003, "+text("older")+")",
 		insert+"(900013, 900003, zeroblob(1048577))",
+		insert+"(900007, 900004, "+text("older")+")",
 		insert+"(900014, 900004, NULL)",
-		// A master that no asset has.
+		// plistlib.loads of an integer raises inside suppress(Exception): upstream gives {} (photoinfo.py:1757-1759).
+		insert+"(900015, 900005, 424242)",
+		// A LEFT JOIN would hand Scan a NULL asset for the master that no asset has.
 		insert+"(900019, 900009, "+text("orphan")+")",
 	)
 
@@ -161,17 +169,18 @@ func TestCloudMetadataDamaged(t *testing.T) {
 	}{
 		{"one row", metadata(0), map[string]any{"k": "first"}},
 		{"two rows of one master: the highest Z_PK decides", metadata(1), map[string]any{"k": "new"}},
-		{"a value over 1 MiB", metadata(2), nil},
-		{"a NULL value", metadata(3), nil},
+		{"a value over 1 MiB after an older one: the last row decides", metadata(2), nil},
+		{"a NULL value after an older one: the older one decides", metadata(3), map[string]any{"k": "older"}},
+		{"an integer value", metadata(4), nil},
 	} {
 		if !sameCloudMetadata(c.got, c.want) {
 			t.Errorf("%s: %d keys, want %d", c.name, len(c.got), len(c.want))
 		}
 	}
 
-	// The photos the rows were not written for keep theirs; the master without an asset gives no entry.
-	want, changed := 2, 0
-	for _, p := range photos[4:] {
+	// The 6 bytes of the integer are kept: the data is decoded on demand.
+	want, changed := 4, 0
+	for _, p := range photos[5:] {
 		old, had := before.cloudMeta[p.UUID]
 		if had {
 			want++
@@ -181,7 +190,7 @@ func TestCloudMetadataDamaged(t *testing.T) {
 		}
 	}
 	if len(after.cloudMeta) != want || changed != 0 {
-		t.Errorf("%d photos with data, want %d; %d of the %d other photos changed their data", len(after.cloudMeta), want, changed, len(photos)-4)
+		t.Errorf("%d photos with data, want %d; %d of the %d other photos changed their data", len(after.cloudMeta), want, changed, len(photos)-5)
 	}
 }
 
@@ -197,7 +206,7 @@ func TestCloudMetadataLibraries(t *testing.T) {
 		" AND EXISTS (SELECT 1 FROM ZADDITIONALASSETATTRIBUTES x WHERE x.ZASSET = a.Z_PK)" +
 		" AND md.Z_PK = (SELECT MAX(md2.Z_PK) FROM ZCLOUDMASTERMEDIAMETADATA md2 WHERE md2.ZCLOUDMASTER = md.ZCLOUDMASTER AND md2.ZDATA IS NOT NULL)"
 
-	var decoded atomic.Int64
+	var decoded, nulls, dates atomic.Int64
 	t.Run("libraries", func(t *testing.T) {
 		for _, lib := range goldenLibraries(t) {
 			t.Run(lib.name, func(t *testing.T) {
@@ -214,24 +223,60 @@ func TestCloudMetadataLibraries(t *testing.T) {
 				for _, data := range db.cloudMeta {
 					size += len(data)
 				}
-				nonEmpty, keys := 0, 0
+				nonEmpty, keys, withNulls, withDates := 0, 0, 0, 0
 				for _, p := range db.Photos() {
 					if m := db.CloudMetadataOf(p); len(m) > 0 {
 						if nonEmpty == 0 {
 							keys = len(m)
 						}
 						nonEmpty++
+						hasNull, hasDate := cloudKinds(m)
+						if hasNull {
+							withNulls++
+						}
+						if hasDate {
+							withDates++
+						}
 					}
 				}
 				if len(db.cloudMeta) != wantRows || size != wantBytes {
 					t.Errorf("%d photos with data and %d bytes; the database has %d and %d", len(db.cloudMeta), size, wantRows, wantBytes)
 				}
-				t.Logf("Photos %v: %d photos with data, %d bytes, %d non-empty maps, %d keys in the first", db.info.PhotosVersion, len(db.cloudMeta), size, nonEmpty, keys)
+				// Measured: the only library with data.
+				if lib.name == "Test-Cloud-13.1" && (len(db.cloudMeta) < 23 || size < 45046) {
+					t.Errorf("%d photos with data and %d bytes, want 23 and 45046 or more", len(db.cloudMeta), size)
+				}
+				t.Logf("Photos %v: %d photos with data, %d bytes, %d non-empty maps, %d keys in the first, %d maps with bytes or a UID, %d with a date",
+					db.info.PhotosVersion, len(db.cloudMeta), size, nonEmpty, keys, withNulls, withDates)
 				decoded.Add(int64(nonEmpty))
+				nulls.Add(int64(withNulls))
+				dates.Add(int64(withDates))
 			})
 		}
 	})
 	if decoded.Load() == 0 {
-		t.Log("no non-empty map in any library: the module has no reference")
+		t.Error("no non-empty map in any library: the test is vacuous")
 	}
+	t.Logf("all libraries: %d maps with bytes or a UID (null in the reference), %d with a date", nulls.Load(), dates.Load())
+}
+
+// The values that json() writes as null, and the dates, are where the golden
+// rule models upstream instead of copying it.
+func cloudKinds(v any) (nulls, dates bool) {
+	var children []any
+	switch x := v.(type) {
+	case []byte, plist.UID:
+		return true, false
+	case time.Time:
+		return false, true
+	case map[string]any:
+		children = slices.Collect(maps.Values(x))
+	case []any:
+		children = x
+	}
+	for _, c := range children {
+		n, d := cloudKinds(c)
+		nulls, dates = nulls || n, dates || d
+	}
+	return nulls, dates
 }
