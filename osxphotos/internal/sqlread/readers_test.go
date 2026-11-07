@@ -114,6 +114,10 @@ var readers = []struct {
 		r, err := d.Moments(ctx)
 		return len(r), err
 	}},
+	{"Scores", func(ctx context.Context, d *DB, s schema.Schema) (int, error) {
+		r, err := d.Scores(ctx, s)
+		return len(r), err
+	}},
 }
 
 func contains(list []string, s string) bool {
@@ -192,7 +196,8 @@ func TestColumnsIncludeJoins(t *testing.T) {
 
 	c := Columns(schemaByID(t, "photos11_1"))
 	want := map[string][]string{
-		"ZASSET":                     {"ZMASTER", "ZCLOUDASSETGUID", "ZADJUSTMENTSSTATE", "ZHDRTYPE", "ZDEPTHTYPE", "ZVISIBILITYSTATE", "ZCLOUDOWNERHASHEDPERSONID", "ZMOMENTSHARE", "ZIMPORTSESSION", "ZMOMENT"},
+		"ZASSET":                     {"ZMASTER", "ZCLOUDASSETGUID", "ZADJUSTMENTSSTATE", "ZHDRTYPE", "ZDEPTHTYPE", "ZVISIBILITYSTATE", "ZCLOUDOWNERHASHEDPERSONID", "ZMOMENTSHARE", "ZIMPORTSESSION", "ZMOMENT", "ZOVERALLAESTHETICSCORE", "ZCURATIONSCORE", "ZPROMOTIONSCORE", "ZHIGHLIGHTVISIBILITYSCORE"},
+		"ZCOMPUTEDASSETATTRIBUTES":   {"Z_PK", "ZASSET", "ZFAILURESCORE", "ZLOWLIGHT", "ZPLEASANTREFLECTIONSSCORE", "ZWELLTIMEDSHOTSCORE"},
 		"ZADDITIONALASSETATTRIBUTES": {"ZASSET", "ZASSETDESCRIPTION", "ZORIGINALSTABLEHASH", "ZCAMERACAPTUREDEVICE", "ZTIMEZONENAME", "ZIMPORTEDBYDISPLAYNAME", "ZIMPORTEDBYBUNDLEIDENTIFIER", "ZUNMANAGEDADJUSTMENT", "ZREVERSELOCATIONDATA"},
 		"ZUNMANAGEDADJUSTMENT":       {"Z_PK", "ZADJUSTMENTFORMATIDENTIFIER"},
 		"ZASSETDESCRIPTION":          {"Z_PK", "ZLONGDESCRIPTION"},
@@ -223,6 +228,15 @@ func TestColumnsIncludeJoins(t *testing.T) {
 	// Upstream reads ZSPATIALTYPE only where it exists (photosdb.py:1751-1759).
 	if contains(c["ZASSET"], "ZSPATIALTYPE") {
 		t.Error("Columns requires ZASSET.ZSPATIALTYPE")
+	}
+	// Photos 11 and later have no such columns (_photosdb_process_scoreinfo.py:62-76).
+	for _, col := range []string{"ZBEHAVIORALSCORE", "ZINTERACTIONSCORE"} {
+		if contains(c["ZCOMPUTEDASSETATTRIBUTES"], col) {
+			t.Errorf("Columns requires ZCOMPUTEDASSETATTRIBUTES.%s with Photos 11", col)
+		}
+		if !contains(Columns(schemaByID(t, "photos10"))["ZCOMPUTEDASSETATTRIBUTES"], col) {
+			t.Errorf("Columns has no ZCOMPUTEDASSETATTRIBUTES.%s with Photos 10", col)
+		}
 	}
 	for table, cols := range c {
 		seen := map[string]bool{}
@@ -519,6 +533,7 @@ func TestReaderValueType(t *testing.T) {
 		{"feedback person", "INSERT INTO ZUSERFEEDBACK (Z_PK, ZPERSON) VALUES (999999, 'SECRET-U')", readers[15].run},
 		{"moment start", "INSERT INTO ZMOMENT (Z_PK, ZSTARTDATE) VALUES (999999, 'SECRET-D')", readers[16].run},
 		{"moment timezone", "INSERT INTO ZMOMENT (Z_PK, ZTIMEZONEOFFSET) VALUES (999997, 'SECRET-Z')", readers[16].run},
+		{"score value", "INSERT INTO ZCOMPUTEDASSETATTRIBUTES (Z_PK, ZASSET, ZFAILURESCORE) VALUES (999999, 3, 'SECRET-S')", readers[17].run},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1339,6 +1354,221 @@ func TestMomentRowValues(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("no asset with Z_PK 3")
+	}
+}
+
+// until10: Photos 11 and later have no such column
+// (_photosdb_process_scoreinfo.py:62-76).
+var scoreFields = []struct {
+	col     string
+	until10 bool
+	get     func(Score) sql.NullFloat64
+}{
+	{"a.ZOVERALLAESTHETICSCORE", false, func(r Score) sql.NullFloat64 { return r.Overall }},
+	{"a.ZCURATIONSCORE", false, func(r Score) sql.NullFloat64 { return r.Curation }},
+	{"a.ZPROMOTIONSCORE", false, func(r Score) sql.NullFloat64 { return r.Promotion }},
+	{"a.ZHIGHLIGHTVISIBILITYSCORE", false, func(r Score) sql.NullFloat64 { return r.HighlightVisibility }},
+	{"c.ZBEHAVIORALSCORE", true, func(r Score) sql.NullFloat64 { return r.Behavioral }},
+	{"c.ZFAILURESCORE", false, func(r Score) sql.NullFloat64 { return r.Failure }},
+	{"c.ZHARMONIOUSCOLORSCORE", false, func(r Score) sql.NullFloat64 { return r.HarmoniousColor }},
+	{"c.ZIMMERSIVENESSSCORE", false, func(r Score) sql.NullFloat64 { return r.Immersiveness }},
+	{"c.ZINTERACTIONSCORE", true, func(r Score) sql.NullFloat64 { return r.Interaction }},
+	{"c.ZINTERESTINGSUBJECTSCORE", false, func(r Score) sql.NullFloat64 { return r.InterestingSubject }},
+	{"c.ZINTRUSIVEOBJECTPRESENCESCORE", false, func(r Score) sql.NullFloat64 { return r.IntrusiveObjectPresence }},
+	{"c.ZLIVELYCOLORSCORE", false, func(r Score) sql.NullFloat64 { return r.LivelyColor }},
+	{"c.ZLOWLIGHT", false, func(r Score) sql.NullFloat64 { return r.LowLight }},
+	{"c.ZNOISESCORE", false, func(r Score) sql.NullFloat64 { return r.Noise }},
+	{"c.ZPLEASANTCAMERATILTSCORE", false, func(r Score) sql.NullFloat64 { return r.PleasantCameraTilt }},
+	{"c.ZPLEASANTCOMPOSITIONSCORE", false, func(r Score) sql.NullFloat64 { return r.PleasantComposition }},
+	{"c.ZPLEASANTLIGHTINGSCORE", false, func(r Score) sql.NullFloat64 { return r.PleasantLighting }},
+	{"c.ZPLEASANTPATTERNSCORE", false, func(r Score) sql.NullFloat64 { return r.PleasantPattern }},
+	{"c.ZPLEASANTPERSPECTIVESCORE", false, func(r Score) sql.NullFloat64 { return r.PleasantPerspective }},
+	{"c.ZPLEASANTPOSTPROCESSINGSCORE", false, func(r Score) sql.NullFloat64 { return r.PleasantPostProcessing }},
+	{"c.ZPLEASANTREFLECTIONSSCORE", false, func(r Score) sql.NullFloat64 { return r.PleasantReflection }},
+	{"c.ZPLEASANTSYMMETRYSCORE", false, func(r Score) sql.NullFloat64 { return r.PleasantSymmetry }},
+	{"c.ZSHARPLYFOCUSEDSUBJECTSCORE", false, func(r Score) sql.NullFloat64 { return r.SharplyFocusedSubject }},
+	{"c.ZTASTEFULLYBLURREDSCORE", false, func(r Score) sql.NullFloat64 { return r.TastefullyBlurred }},
+	{"c.ZWELLCHOSENSUBJECTSCORE", false, func(r Score) sql.NullFloat64 { return r.WellChosenSubject }},
+	{"c.ZWELLFRAMEDSUBJECTSCORE", false, func(r Score) sql.NullFloat64 { return r.WellFramedSubject }},
+	{"c.ZWELLTIMEDSHOTSCORE", false, func(r Score) sql.NullFloat64 { return r.WellTimedShot }},
+}
+
+// The oracle is the database: a swap of two columns in the Scan changes a sum
+// weighted by Z_PK.
+func TestScoreRows(t *testing.T) {
+	t.Parallel()
+
+	var rowCount, overall, failure atomic.Int64
+	t.Run("libraries", func(t *testing.T) {
+		for _, lib := range libraryDBs(t) {
+			t.Run(lib.name, func(t *testing.T) {
+				t.Parallel()
+				ro := openRO(t, lib.path)
+				rows, err := openDB(t, lib.path).Scores(t.Context(), lib.schema)
+				if err != nil {
+					t.Fatal(err)
+				}
+				const from = " FROM ZCOMPUTEDASSETATTRIBUTES c JOIN ZASSET a ON a.Z_PK = c.ZASSET"
+				if want := count(t, ro, "SELECT COUNT(*)"+from); int64(len(rows)) != want {
+					t.Errorf("Scores: %d rows, want %d", len(rows), want)
+				}
+				var pkSum, assetSum int64
+				sums, valid := make([]float64, len(scoreFields)), make([]int64, len(scoreFields))
+				for i, r := range rows {
+					if i > 0 && (rows[i-1].AssetPK > r.AssetPK || (rows[i-1].AssetPK == r.AssetPK && rows[i-1].PK >= r.PK)) {
+						t.Errorf("Scores: row %d out of (ZASSET, Z_PK) order", i+1)
+					}
+					pkSum += r.PK
+					assetSum += r.AssetPK * r.PK
+					for k, f := range scoreFields {
+						v := f.get(r)
+						sums[k] += v.Float64 * float64(r.PK)
+						if v.Valid {
+							valid[k]++
+						}
+					}
+				}
+				if want := count(t, ro, "SELECT COALESCE(SUM(c.Z_PK), 0)"+from); pkSum != want {
+					t.Errorf("Scores: sum of Z_PK %d, want %d", pkSum, want)
+				}
+				if want := count(t, ro, "SELECT COALESCE(SUM(c.ZASSET * c.Z_PK), 0)"+from); assetSum != want {
+					t.Errorf("Scores: sum of ZASSET * Z_PK %d, want %d", assetSum, want)
+				}
+				for k, f := range scoreFields {
+					if f.until10 && lib.schema.PhotosVersion > 10 {
+						if valid[k] != 0 {
+							t.Errorf("Scores: %d rows with %s, want none from Photos 11 on", valid[k], f.col)
+						}
+						continue
+					}
+					if want := count(t, ro, "SELECT COUNT("+f.col+")"+from); valid[k] != want {
+						t.Errorf("Scores: %d rows with %s, want %d", valid[k], f.col, want)
+					}
+					want := realSum(t, ro, "SELECT COALESCE(SUM("+f.col+" * c.Z_PK), 0.0)"+from)
+					if math.Abs(sums[k]-want) > 1e-6*(1+math.Abs(want)) {
+						t.Errorf("Scores: sum of %s * Z_PK %v, want %v", f.col, sums[k], want)
+					}
+				}
+				var nOverall, nFailure int64
+				for _, r := range rows {
+					if r.Overall.Float64 != 0 {
+						nOverall++
+					}
+					if r.Failure.Float64 != 0 {
+						nFailure++
+					}
+				}
+				t.Logf("Scores: %d rows, %d with Overall, %d with Failure", len(rows), nOverall, nFailure)
+				rowCount.Add(int64(len(rows)))
+				overall.Add(nOverall)
+				failure.Add(nFailure)
+			})
+		}
+	})
+	if rowCount.Load() == 0 || overall.Load() == 0 || failure.Load() == 0 {
+		t.Errorf("%d rows, %d with Overall, %d with Failure in all libraries; want some of each: the test is vacuous",
+			rowCount.Load(), overall.Load(), failure.Load())
+	}
+}
+
+// Upstream joins ZASSET (_photosdb_process_scoreinfo.py:97-98): a row whose
+// asset has no row, or that has no ZASSET, is no score of an asset. The three
+// rows of assets have a Z_PK against the order of their ZASSET, which the
+// libraries may not have.
+func TestScoreRowsWithoutAsset(t *testing.T) {
+	t.Parallel()
+
+	const name = "Test-15.4.1"
+	path := filepath.Join(testlib.OpenPristine(t, name), "database", "Photos.sqlite")
+	w := openWriter(t, path)
+	total := count(t, w, "SELECT COUNT(*) FROM ZCOMPUTEDASSETATTRIBUTES c JOIN ZASSET a ON a.Z_PK = c.ZASSET")
+	first := strconv.FormatInt(count(t, w, "SELECT MIN(Z_PK) FROM ZASSET"), 10)
+	last := strconv.FormatInt(count(t, w, "SELECT MAX(Z_PK) FROM ZASSET"), 10)
+	if first == last {
+		t.Fatalf("%s has one asset: the case is vacuous", name)
+	}
+	exec(t, w, "INSERT INTO ZCOMPUTEDASSETATTRIBUTES (Z_PK, ZASSET) VALUES (999990, "+last+"), (999991, "+first+"), (999992, "+first+"), "+
+		"(999993, 999999999), (999994, NULL)")
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := openDB(t, path).Scores(t.Context(), schemaByID(t, librarySchemas[name]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if int64(len(rows)) != total+3 {
+		t.Errorf("Scores: %d rows, want %d: a row without an asset is left out", len(rows), total+3)
+	}
+	for i := 1; i < len(rows); i++ {
+		if a, b := rows[i-1], rows[i]; a.AssetPK > b.AssetPK || (a.AssetPK == b.AssetPK && a.PK >= b.PK) {
+			t.Errorf("Scores: row %d out of (ZASSET, Z_PK) order", i+1)
+		}
+	}
+}
+
+// A value of its own in each column: a swap of two columns in the Scan shows,
+// which the libraries may not (many scores are 0 or equal).
+func TestScoreRowValues(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"Test-15.4.1", "Test-26.1"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			s := schemaByID(t, librarySchemas[name])
+			path := filepath.Join(testlib.OpenPristine(t, name), "database", "Photos.sqlite")
+			w := openWriter(t, path)
+			const from = " FROM ZCOMPUTEDASSETATTRIBUTES c JOIN ZASSET a ON a.Z_PK = c.ZASSET"
+			pk := count(t, w, "SELECT COALESCE(MIN(c.Z_PK), 0)"+from)
+			if pk == 0 {
+				t.Fatalf("%s has no score row: the case is vacuous", name)
+			}
+			asset := count(t, w, "SELECT c.ZASSET"+from+" WHERE c.Z_PK = "+strconv.FormatInt(pk, 10))
+			var ofAsset, ofScore []string
+			for k, f := range scoreFields {
+				if f.until10 && s.PhotosVersion > 10 {
+					continue
+				}
+				set := f.col[2:] + " = " + strconv.FormatFloat(float64(k+1)/100, 'g', -1, 64)
+				if f.col[0] == 'a' {
+					ofAsset = append(ofAsset, set)
+				} else {
+					ofScore = append(ofScore, set)
+				}
+			}
+			exec(t, w,
+				"UPDATE ZASSET SET "+strings.Join(ofAsset, ", ")+" WHERE Z_PK = "+strconv.FormatInt(asset, 10),
+				"UPDATE ZCOMPUTEDASSETATTRIBUTES SET "+strings.Join(ofScore, ", ")+" WHERE Z_PK = "+strconv.FormatInt(pk, 10),
+			)
+			if err := w.Close(); err != nil {
+				t.Fatal(err)
+			}
+			rows, err := openDB(t, path).Scores(t.Context(), s)
+			if err != nil {
+				t.Fatal(err)
+			}
+			found := false
+			for _, r := range rows {
+				if r.PK != pk {
+					continue
+				}
+				found = true
+				if r.AssetPK != asset {
+					t.Errorf("AssetPK %d, want %d", r.AssetPK, asset)
+				}
+				for k, f := range scoreFields {
+					want := sql.NullFloat64{Float64: float64(k+1) / 100, Valid: true}
+					if f.until10 && s.PhotosVersion > 10 {
+						want = sql.NullFloat64{}
+					}
+					if got := f.get(r); got != want {
+						t.Errorf("%s = %v, want %v", f.col, got, want)
+					}
+				}
+			}
+			if !found {
+				t.Errorf("no row with Z_PK %d", pk)
+			}
+		})
 	}
 }
 
