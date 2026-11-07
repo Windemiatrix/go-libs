@@ -1,9 +1,11 @@
 package query
 
 import (
+	"regexp"
 	"time"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/template"
 )
 
 // Options is osxphotos QueryOptions (photoquery.py:47-241), field by field;
@@ -19,7 +21,7 @@ type Options struct {
 	FromDate, ToDate       time.Time // from_date (Date at or after), to_date (Date before); the zero time is not set
 	Deleted, DeletedOnly   bool      // deleted: the trash too; deleted_only: only the trash (photoquery.py:426-445)
 
-	IgnoreCase          bool // ignore_case, for Keyword, Person, Title, Description, Place, Name, Album, Folder
+	IgnoreCase          bool // ignore_case, for Keyword, Person, Title, Description, Place, Name, Album, Folder, Regex
 	Keyword             []string
 	NoKeyword           bool
 	Person              []string // a name of Persons, "_UNKNOWN_" included (photoquery.py:467-470)
@@ -64,13 +66,14 @@ type Options struct {
 	SharedMoment, NotSharedMoment       bool
 	SharedLibrary, NotSharedLibrary     bool
 
-	Year                       []int          // year: Date.Year() in the zone of Date (photoquery.py:682-683)
-	FromTime, ToTime           *time.Duration // from_time, to_time: the time of day of Date since midnight, in its zone; nil is not set, as midnight is a value (photoquery.py:676-680)
-	AddedAfter, AddedBefore    time.Time      // added_after (DateAdded after), added_before (DateAdded before); strict, the zero time is not set (photoquery.py:822-832)
-	AddedInLast                time.Duration  // added_in_last: DateAdded after now minus it; 0 is not set (photoquery.py:834-837)
-	MinSize, MaxSize           int64          // min_size, max_size: OriginalFilesize at least, at most, in bytes; 0 is not set (photoquery.py:722-730)
-	Duplicate                  bool           // duplicate: the photos that have Duplicates, and those duplicates from the whole catalog; only the later filters (photoquery.py:773-857) and Deleted, DeletedOnly apply to them (photoquery.py:754-771)
-	BurstPhotos, MissingBursts bool           // burst_photos: add the other frames of the bursts of the result; missing_bursts: the frames that are IsMissing too (photoquery.py:863-883)
+	Year                       []int           // year: Date.Year() in the zone of Date (photoquery.py:682-683)
+	FromTime, ToTime           *time.Duration  // from_time, to_time: the time of day of Date since midnight, in its zone; nil is not set, as midnight is a value (photoquery.py:676-680)
+	AddedAfter, AddedBefore    time.Time       // added_after (DateAdded after), added_before (DateAdded before); strict, the zero time is not set (photoquery.py:822-832)
+	AddedInLast                time.Duration   // added_in_last: DateAdded after now minus it; 0 is not set (photoquery.py:834-837)
+	MinSize, MaxSize           int64           // min_size, max_size: OriginalFilesize at least, at most, in bytes; 0 is not set (photoquery.py:722-730)
+	Regex                      []RegexTemplate // regex: a photo passes when a pair matches one of the values its Template renders through Catalog.Photo, with every missing value rendered as ""; a photo that a Template does not render does not pass (photoquery.py:732-744)
+	Duplicate                  bool            // duplicate: the photos that have Duplicates, and those duplicates from the whole catalog; only the later filters (photoquery.py:773-857) and Deleted, DeletedOnly apply to them (photoquery.py:754-771)
+	BurstPhotos, MissingBursts bool            // burst_photos: add the other frames of the bursts of the result; missing_bursts: the frames that are IsMissing too (photoquery.py:863-883)
 
 	// function: run in order on the result of the filters
 	// (photoquery.py:859-861). The first gets the filtered photos in the order
@@ -82,4 +85,16 @@ type Options struct {
 	Function []func([]*photoinfo.PhotoInfo) []*photoinfo.PhotoInfo
 
 	NewestFirst bool // newest_first: the order of Sort, reversed (photoquery.py:888-898)
+}
+
+// RegexTemplate is one pair of QueryOptions.regex (photoquery.py:732-744): a
+// photo passes when Regex finds a match in one of the values that Template
+// renders for it. The caller parses both, so Apply reports no error. The
+// patterns are those of regexp (RE2); with IgnoreCase, Apply compiles
+// Regex.String() again with regexp.Compile and the prefix (?i), so a pattern
+// from CompilePOSIX takes the Perl semantics and one that Compile rejects finds
+// nothing. A pair with a nil Regex or Template finds nothing.
+type RegexTemplate struct {
+	Regex    *regexp.Regexp
+	Template *template.Template
 }
