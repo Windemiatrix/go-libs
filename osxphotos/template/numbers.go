@@ -24,7 +24,7 @@ func (s *rendering) numbers(name string, vals []string) ([]string, error) {
 			}
 			v = strconv.FormatFloat(f, 'f', 0, 64)
 		default:
-			v = pyFloatRepr(f)
+			v = FloatString(f)
 		}
 		if s.bytesLeft -= len(v); s.bytesLeft < 0 {
 			return nil, errTooLong
@@ -34,8 +34,11 @@ func (s *rendering) numbers(name string, vals []string) ([]string, error) {
 	return out, nil
 }
 
-// str(float) of Python (phototemplate.py:1739), whose exponent bounds and ".0" no format of strconv has.
-func pyFloatRepr(f float64) string {
+// FloatString formats f as str() of a Python float, the way the filter float
+// renders a value (phototemplate.py:1736-1740): the shortest digits that read
+// back as f, an exponent below 1e-4 and from 1e16, ".0" after a whole number,
+// "inf", "-inf" and "nan".
+func FloatString(f float64) string {
 	if math.IsInf(f, 0) || math.IsNaN(f) { // Go has "+Inf", "-Inf" and "NaN"
 		return strings.ToLower(strings.TrimPrefix(strconv.FormatFloat(f, 'g', -1, 64), "+"))
 	}
