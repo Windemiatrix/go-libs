@@ -9,6 +9,7 @@ import (
 
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/template"
 )
 
@@ -18,12 +19,14 @@ import (
 // of PhotoInfo by its upstream name (1346-1382): a float as str() of Python, a
 // date as isoformat() in the zone of the value, so DateAdded, DateModified and
 // DateTrashed in UTC, and a DateAdded the database does not have as
-// 1970-01-01T00:00:00+00:00. A name the port does not give yet, such as
-// place.X, exif.X, searchinfo.X, label, label_normalized, photo.labels or
-// photo.score.X, gives false, and so does photo.X of an object, a method or a
-// property upstream does not have, where upstream renders str() of the object
-// or fails (1360-1363, 1377-1382). The Photo is valid as long as db is; the
-// caller may change the values it gives.
+// 1970-01-01T00:00:00+00:00; photo.score.X, photo.exif_info.X and
+// photo.place.X give the scalars of those objects. place.X, photo.place.X
+// whatever X is, and exif.X give no value for a photo without a place or EXIF
+// data, as upstream None (957-966, 1358-1359, 1779-1780). A name the port does not give yet, such as searchinfo.X, label,
+// label_normalized or photo.labels, gives false, and so does photo.X of an
+// object, a method or a property upstream does not have, where upstream
+// renders str() of the object or fails (1360-1363, 1377-1382). The Photo is
+// valid as long as db is; the caller may change the values it gives.
 func (db *DB) Fields(p *photoinfo.PhotoInfo) template.Photo { return photoFields{db, p} }
 
 // RenderTemplate renders t for p with one Renderer of the library, as
@@ -45,6 +48,9 @@ func (f photoFields) Field(name string) (template.Value, bool) {
 	db, p := f.db, f.p
 	if property, ok := strings.CutPrefix(name, "photo."); ok {
 		return photoProperty(db, p, property)
+	}
+	if field, ok := strings.CutPrefix(name, "place."); ok {
+		return placeField(p, field)
 	}
 	switch name {
 	case "name":
@@ -86,6 +92,8 @@ func (f photoFields) Field(name string) (template.Value, bool) {
 		return singleValue(p.ImportedByName), true
 	case "imported_by.id":
 		return singleValue(p.ImportedByBundleID), true
+	case "exif.camera_make", "exif.camera_model", "exif.lens_model": // 961-966
+		return nestedProperty(p, "exif_info", strings.TrimPrefix(name, "exif."))
 	case "moment": // 971-972
 		m, _ := db.MomentInfoOf(p)
 		return singleValue(m.Title), true
@@ -133,6 +141,9 @@ func (f photoFields) Field(name string) (template.Value, bool) {
 
 // {photo.X}: phototemplate.py:1346-1382.
 func photoProperty(db *DB, p *photoinfo.PhotoInfo, name string) (template.Value, bool) {
+	if object, property, ok := strings.Cut(name, "."); ok {
+		return nestedProperty(p, object, property)
+	}
 	flags := map[string]bool{
 		"burst": p.Burst, "burst_default_pick": p.BurstDefaultPick, "burst_key": p.BurstKey, "burst_selected": p.BurstSelected,
 		"external_edit": p.ExternalEdit, "favorite": p.Favorite, "has_raw": p.HasRAW, "hasadjustments": p.HasAdjustments,
@@ -185,6 +196,74 @@ func photoProperty(db *DB, p *photoinfo.PhotoInfo, name string) (template.Value,
 		return noneDropped(p.ImportedByName, p.ImportedByBundleID), true
 	}
 	return template.Value{}, false
+}
+
+// scoreinfo.py:14-40, exifinfo.py:18-39, placeinfo.py:583-601. Without a place
+// the chain of getattr stops at None, whatever follows
+// (phototemplate.py:1358-1359).
+func nestedProperty(p *photoinfo.PhotoInfo, object, name string) (template.Value, bool) {
+	var values map[string]string
+	switch object {
+	case "score":
+		s, f := p.Score, template.FloatString
+		values = map[string]string{
+			"overall": f(s.Overall), "curation": f(s.Curation), "promotion": f(s.Promotion),
+			"highlight_visibility": f(s.HighlightVisibility), "behavioral": f(s.Behavioral), "failure": f(s.Failure),
+			"harmonious_color": f(s.HarmoniousColor), "immersiveness": f(s.Immersiveness), "interaction": f(s.Interaction),
+			"interesting_subject": f(s.InterestingSubject), "intrusive_object_presence": f(s.IntrusiveObjectPresence),
+			"lively_color": f(s.LivelyColor), "low_light": f(s.LowLight), "noise": f(s.Noise),
+			"pleasant_camera_tilt": f(s.PleasantCameraTilt), "pleasant_composition": f(s.PleasantComposition),
+			"pleasant_lighting": f(s.PleasantLighting), "pleasant_pattern": f(s.PleasantPattern),
+			"pleasant_perspective": f(s.PleasantPerspective), "pleasant_post_processing": f(s.PleasantPostProcessing),
+			"pleasant_reflection": f(s.PleasantReflection), "pleasant_symmetry": f(s.PleasantSymmetry),
+			"sharply_focused_subject": f(s.SharplyFocusedSubject), "tastefully_blurred": f(s.TastefullyBlurred),
+			"well_chosen_subject": f(s.WellChosenSubject), "well_framed_subject": f(s.WellFramedSubject),
+			"well_timed_shot": f(s.WellTimedShot),
+		}
+	case "exif_info":
+		e := p.ExifInfo
+		whole := func(v *int) string { return formatOrNone(v, strconv.Itoa) }
+		num := func(v *float64) string { return formatOrNone(v, template.FloatString) }
+		values = map[string]string{
+			"iso": whole(e.ISO), "metering_mode": whole(e.MeteringMode), "sample_rate": whole(e.SampleRate),
+			"track_format": whole(e.TrackFormat), "white_balance": whole(e.WhiteBalance), "tzoffset": whole(e.TZOffset),
+			"aperture": num(e.Aperture), "bit_rate": num(e.BitRate), "duration": num(e.Duration),
+			"exposure_bias": num(e.ExposureBias), "focal_length": num(e.FocalLength), "fps": num(e.FPS),
+			"latitude": num(e.Latitude), "longitude": num(e.Longitude), "shutter_speed": num(e.ShutterSpeed),
+			"camera_make": e.CameraMake, "camera_model": e.CameraModel, "codec": e.Codec, "lens_model": e.LensModel,
+			"flash_fired": flagName(e.FlashFired != nil && *e.FlashFired, "flash_fired"), "date": formatOrNone(e.Date, isoformat), "tzname": e.TZName,
+		}
+	case "place":
+		if p.Place == nil {
+			return template.Value{}, true
+		}
+		pl := p.Place
+		values = map[string]string{"name": pl.Name, "country_code": pl.CountryCode, "address_str": pl.AddressStr, "ishome": flagName(pl.IsHome, "ishome")}
+	}
+	s, ok := values[name]
+	return singleValue(s), ok
+}
+
+// get_place_value (phototemplate.py:1772-1819)
+func placeField(p *photoinfo.PhotoInfo, name string) (template.Value, bool) {
+	pl := cmp.Or(p.Place, &placeinfo.PlaceInfo{})
+	s, ok := map[string]string{
+		"name": pl.Name, "country_code": pl.CountryCode, "address": pl.AddressStr,
+		"name.country": firstOf(pl.Names.Country), "name.state_province": firstOf(pl.Names.StateProvince),
+		"name.city": firstOf(pl.Names.City), "name.area_of_interest": firstOf(pl.Names.AreaOfInterest),
+		"address.street": pl.Address.Street, "address.city": pl.Address.City, "address.state_province": pl.Address.StateProvince,
+		"address.postal_code": pl.Address.PostalCode, "address.country": pl.Address.Country,
+		"address.country_code": pl.Address.ISOCountryCode,
+	}[name]
+	return singleValue(s), ok
+}
+
+// phototemplate.py:1790-1803
+func firstOf(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	return names[0]
 }
 
 // nil is None, which gives no value (phototemplate.py:1365-1366), as "" does
@@ -255,11 +334,14 @@ func singleValue(s string) template.Value {
 func multiValue(s []string) template.Value { return template.Value{Strings: slices.Clone(s)} }
 
 // phototemplate.py:942-949
-func flagValue(on bool, name string) template.Value {
+func flagValue(on bool, name string) template.Value { return singleValue(flagName(on, name)) }
+
+// phototemplate.py:1367-1368
+func flagName(on bool, name string) string {
 	if on {
-		return singleValue(name)
+		return name
 	}
-	return template.Value{}
+	return ""
 }
 
 // Upstream keeps a repeated project title (phototemplate.py:1268).
