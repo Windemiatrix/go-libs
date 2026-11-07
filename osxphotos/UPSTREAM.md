@@ -149,6 +149,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `photoinfo.PhotoInfo.LibraryScopeShareState`
 - `photoinfo.PhotoInfo.Resources`
 - `photoinfo.Resource`
+- `photokit.AssetPatch`
 - `photokit.Collection`
 - `photokit.ErrChange`
 - `photokit.ErrImport`
@@ -167,6 +168,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `photokit.Library.Import()`
 - `photokit.Library.RemoveFromAlbum()`
 - `photokit.Library.RenameCollection()`
+- `photokit.Library.Update()`
 - `photosdb.Info.LibraryUUID`
 - `photosdb.Info.SkippedAssets`
 
@@ -313,6 +315,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `photoinfo.PhotoInfo.LibraryScopeShareState`
 - `photoinfo.PhotoInfo.Resources`
 - `photoinfo.Resource`
+- `photokit.AssetPatch`
 - `photokit.Collection`
 - `photokit.ErrChange`
 - `photokit.ErrImport`
@@ -331,5 +334,6 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `photokit.Library.Import()`
 - `photokit.Library.RemoveFromAlbum()`
 - `photokit.Library.RenameCollection()`
+- `photokit.Library.Update()`
 - `photosdb.Info.LibraryUUID`
 - `photosdb.Info.SkippedAssets`

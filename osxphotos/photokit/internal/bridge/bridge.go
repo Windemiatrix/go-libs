@@ -22,8 +22,9 @@ var (
 	// ErrNoAlbum is returned by Import and the collection methods when an album
 	// or a collection is not found or cannot take the change; nothing was changed.
 	ErrNoAlbum = errors.New("photokit: no such album")
-	// ErrNoAsset is returned by AlbumAssets for an asset not found, and by
-	// DeleteAssets for one not found or that cannot be deleted; nothing was changed.
+	// ErrNoAsset is returned by AlbumAssets for an asset not found, by
+	// DeleteAssets for one not found or that cannot be deleted, and by
+	// UpdateAsset for one not found or that cannot be changed; nothing was changed.
 	ErrNoAsset = errors.New("photokit: no such asset")
 )
 
@@ -63,6 +64,24 @@ type Bridge interface {
 	DeleteCollections(ids []string, timeout time.Duration) error
 	AlbumAssets(album string, assets []string, add bool, timeout time.Duration) error
 	DeleteAssets(ids []string, timeout time.Duration) error
+	// UpdateAsset runs one performChanges that changes the asset id as r says
+	// and waits and fails as Import does; an asset that is not found or cannot
+	// be changed is ErrNoAsset and nothing was changed.
+	UpdateAsset(id string, r PatchRecord, timeout time.Duration) error
+}
+
+// PatchRecord is an AssetPatch of photokit for the bridge: each value holds
+// only with its Has flag; the date is seconds since 1970, the coordinates
+// degrees.
+type PatchRecord struct {
+	HasCreationDate     bool
+	CreationDate        float64
+	HasFavorite         bool
+	Favorite            bool
+	HasHidden           bool
+	Hidden              bool
+	HasLocation         bool
+	Latitude, Longitude float64
 }
 
 // CollectionRecord is a Collection of photokit for the bridge.
