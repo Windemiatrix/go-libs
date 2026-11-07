@@ -74,6 +74,7 @@ func buildRules() map[string]rule {
 		commentsRule("likes", false, func(e *env) map[string][]photoinfo.LikeInfo { return e.likes },
 			func(l photoinfo.LikeInfo) map[string]any { return commentElem(l.Datetime, l.User, l.IsMine, nil) }),
 		personInfoRule(),
+		cloudMetadataRule(),
 		burstPhotosRule(),
 		stringList("persons", func(p *photoinfo.PhotoInfo) []string { return p.Persons }),
 		stringList("keywords", func(p *photoinfo.PhotoInfo) []string { return p.Keywords }),

@@ -90,6 +90,7 @@ type tables struct {
 	exif         []sqlread.Exif
 	scores       []sqlread.Score
 	places       []sqlread.ReverseLocation
+	cloudMeta    []sqlread.CloudMetadata
 	persons      []sqlread.Person
 	feedback     []sqlread.Feedback
 	moments      []sqlread.Moment
@@ -103,7 +104,8 @@ type catalog struct {
 	byUUID  map[string]*photoinfo.PhotoInfo
 	skipped int // assets without ZADDITIONALASSETATTRIBUTES
 
-	momentOf map[string]int64 // ZASSET.ZMOMENT by photo UUID, also for a Z_PK without a ZMOMENT row (photosdb.py:2280)
+	momentOf  map[string]int64  // ZASSET.ZMOMENT by photo UUID, also for a Z_PK without a ZMOMENT row (photosdb.py:2280)
+	cloudMeta map[string][]byte // the data of ZCLOUDMASTERMEDIAMETADATA by photo UUID, only a photo with data
 }
 
 // osxphotos normalizes the text of the database to NFC (unicode.py:12, 76-92).
@@ -123,8 +125,10 @@ func nfc(s string) string { return norm.NFC.String(s) }
 // (_photosdb_process_exif.py:56-61). The same holds for ZREVERSELOCATIONDATA,
 // whose rows come by Z_PK, and for ZCOMPUTEDASSETATTRIBUTES, where upstream
 // keeps the last row read as well (_photosdb_process_scoreinfo.py:132-162).
-// The archive of ZREVERSELOCATIONDATA is decoded here, once, where upstream
-// decodes it on the first access to place (photoinfo.py:1327-1361).
+// ZCLOUDMASTERMEDIAMETADATA comes by Z_PK too, where upstream takes the first
+// row SQLite returns (photoinfo.py:1757). The archive of
+// ZREVERSELOCATIONDATA is decoded here, once, where upstream decodes it on the
+// first access to place (photoinfo.py:1327-1361).
 //
 // load never indexes by a value of the database, so no content makes it panic.
 func load(t tables) (*catalog, error) {
@@ -155,8 +159,12 @@ func load(t tables) (*catalog, error) {
 	for _, r := range t.places {
 		places[r.AssetPK] = r.Data
 	}
+	cloudMeta := make(map[int64][]byte, len(t.cloudMeta))
+	for _, r := range t.cloudMeta {
+		cloudMeta[r.AssetPK] = r.Data
+	}
 
-	c := &catalog{byUUID: make(map[string]*photoinfo.PhotoInfo, len(t.assets)), momentOf: map[string]int64{}}
+	c := &catalog{byUUID: make(map[string]*photoinfo.PhotoInfo, len(t.assets)), momentOf: map[string]int64{}, cloudMeta: map[string][]byte{}}
 	var noUUID, dupUUID int
 	for _, a := range t.assets {
 		if !a.HasAttributes {
@@ -185,6 +193,9 @@ func load(t tables) (*catalog, error) {
 		}
 		p.Score = scoreInfo(scores[a.PK])
 		p.Place = placeOf(places[a.PK])
+		if data := cloudMeta[a.PK]; len(data) > 0 {
+			c.cloudMeta[p.UUID] = data
+		}
 		p.DateOriginal = p.Date
 		if d := p.ExifInfo.Date; d != nil {
 			p.DateOriginal = *d

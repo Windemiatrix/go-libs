@@ -157,6 +157,8 @@ func Open(ctx context.Context, path string, o Options) (db *DB, err error) {
 		commented:     uuidSet(comments),
 		liked:         uuidSet(likes),
 
+		cloudMeta: c.cloudMeta,
+
 		personData: loadPersons(t, c),
 		momentData: loadMoments(t, c),
 	}, nil
@@ -264,6 +266,9 @@ func readTables(ctx context.Context, src *sqlread.DB, s schema.Schema) (t tables
 		return tables{}, err
 	}
 	if t.places, err = src.ReverseLocations(ctx); err != nil {
+		return tables{}, err
+	}
+	if t.cloudMeta, err = src.CloudMetadata(ctx); err != nil {
 		return tables{}, err
 	}
 	if t.persons, err = src.Persons(ctx, s); err != nil {
