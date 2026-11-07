@@ -41,6 +41,7 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": null,
+    "cloud_metadata": {},
     "cloud_owner_hashed_id": "01cac7cde8a8767251a2cdd183b8ed490fc6e87825f4a495389e824a41a01ba7",
     "comments": [],
     "date": "2017-01-31T23:03:12+00:00",
@@ -190,6 +191,11 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "ATvoa4jHrGa5y8CMuvH/PH7FrwUE",
+    "cloud_metadata": {
+      "moop": null,
+      "mpvr": 0,
+      "name": "9E9A4293-80E9-4620-AA50-91B96FD01F49.mov"
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2017-02-01T11:15:00-08:00",
@@ -367,6 +373,88 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AR+EBsqiK/ZDwaYWNlhjg+1C8N93",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 240.0,
+      "DPIWidth": 240.0,
+      "Depth": 8,
+      "PixelHeight": 4004,
+      "PixelWidth": 6000,
+      "ProfileName": "Adobe RGB (1998)",
+      "{Exif}": {
+        "ApertureValue": 2.643856,
+        "BodySerialNumber": "8508620",
+        "ColorSpace": 2,
+        "CustomRendered": 0,
+        "DateTimeDigitized": "2019:04:15 17:10:46",
+        "DateTimeOriginal": "2019:04:15 17:10:46",
+        "DigitalZoomRatio": 1.0,
+        "ExifVersion": [
+          2,
+          3
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureMode": 0,
+        "ExposureProgram": 3,
+        "ExposureTime": 0.000625,
+        "FNumber": 2.5,
+        "FileSource": 3,
+        "Flash": 13,
+        "FocalLenIn35mmFilm": 50,
+        "FocalLength": 50.0,
+        "FocalPlaneResolutionUnit": 3,
+        "FocalPlaneXResolution": 2048.4022216796875,
+        "FocalPlaneYResolution": 2048.4022216796875,
+        "ISOSpeedRatings": [
+          160
+        ],
+        "LensModel": "50.0 mm f/1.8",
+        "LensSpecification": [
+          50.0,
+          50.0,
+          1.7999999523162842,
+          1.7999999523162842
+        ],
+        "LightSource": 0,
+        "MaxApertureValue": 1.6,
+        "MeteringMode": 3,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 10.643856,
+        "SubjectDistRange": 0,
+        "SubsecTimeDigitized": "98",
+        "SubsecTimeOriginal": "98",
+        "WhiteBalance": 0
+      },
+      "{IPTC}": {
+        "Caption/Abstract": "",
+        "DateCreated": "20190415",
+        "DigitalCreationDate": "20190415",
+        "DigitalCreationTime": "171046",
+        "TimeCreated": "171046"
+      },
+      "{JFIF}": {
+        "DensityUnit": 1,
+        "JFIFVersion": [
+          1,
+          0,
+          1
+        ],
+        "XDensity": 240,
+        "YDensity": 240
+      },
+      "{TIFF}": {
+        "DateTime": "2019:04:26 13:14:46",
+        "ImageDescription": "",
+        "Make": "NIKON CORPORATION",
+        "Model": "NIKON D810",
+        "ResolutionUnit": 2,
+        "Software": "PortraitPro Studio Max 17",
+        "XResolution": 240.0,
+        "YResolution": 240.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2019-04-15T17:10:46.980000-07:00",
@@ -562,6 +650,7 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": null,
+    "cloud_metadata": {},
     "cloud_owner_hashed_id": "01cac7cde8a8767251a2cdd183b8ed490fc6e87825f4a495389e824a41a01ba7",
     "comments": [],
     "date": "2019-07-15T00:46:01+00:00",
@@ -735,6 +824,7 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": null,
+    "cloud_metadata": {},
     "cloud_owner_hashed_id": "01cac7cde8a8767251a2cdd183b8ed490fc6e87825f4a495389e824a41a01ba7",
     "comments": [
       {
@@ -885,6 +975,148 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AajbmkOeE5jrXARFERC3shcaBahx",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "Orientation": 1,
+      "PixelHeight": 2049,
+      "PixelWidth": 1537,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{ExifAux}": {
+        "Regions": {
+          "HeightAppliedTo": 4032,
+          "RegionList": [
+            {
+              "Height": 0.11900000274181366,
+              "Type": "Focus",
+              "Width": 0.15800000727176666,
+              "X": 0.44700002670288086,
+              "Y": 0.5975000262260437
+            }
+          ],
+          "WidthAppliedTo": 3023
+        }
+      },
+      "{Exif}": {
+        "ApertureValue": 2.970853653853539,
+        "BrightnessValue": 3.0177860696517413,
+        "ColorSpace": 1,
+        "ComponentsConfiguration": [
+          1,
+          2,
+          3,
+          0
+        ],
+        "CustomRendered": 8,
+        "DateTimeDigitized": "2019:08:14 08:13:02",
+        "DateTimeOriginal": "2019:08:14 08:13:02",
+        "ExifVersion": [
+          2,
+          2,
+          1
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureMode": 0,
+        "ExposureProgram": 2,
+        "ExposureTime": 0.03333333333333333,
+        "FNumber": 2.8,
+        "Flash": 16,
+        "FlashPixVersion": [
+          1,
+          0
+        ],
+        "FocalLenIn35mmFilm": 57,
+        "FocalLength": 6.6,
+        "ISOSpeedRatings": [
+          125
+        ],
+        "LensMake": "Apple",
+        "LensModel": "iPhone 8 Plus back dual camera 6.6mm f/2.8",
+        "LensSpecification": [
+          3.990000009536743,
+          6.599999904632568,
+          1.7999999523162842,
+          2.799999952316284
+        ],
+        "MeteringMode": 5,
+        "PixelXDimension": 1537,
+        "PixelYDimension": 2049,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 4.907684296659972,
+        "SubjectArea": [
+          1513,
+          2011,
+          1330,
+          2217
+        ],
+        "SubsecTimeDigitized": "699",
+        "SubsecTimeOriginal": "699",
+        "WhiteBalance": 0
+      },
+      "{IPTC}": {
+        "DateCreated": "20190814",
+        "DigitalCreationDate": "20190814",
+        "DigitalCreationTime": "081302",
+        "TimeCreated": "081302"
+      },
+      "{JFIF}": {
+        "DensityUnit": 0,
+        "JFIFVersion": [
+          1,
+          0,
+          1
+        ],
+        "XDensity": 72,
+        "YDensity": 72
+      },
+      "{MakerApple}": {
+        "1": 10,
+        "14": 0,
+        "2": null,
+        "20": 5,
+        "23": 2048,
+        "25": 104,
+        "29": 0.016228388994932175,
+        "3": {
+          "epoch": 0,
+          "flags": 1,
+          "timescale": 1000000000,
+          "value": 151923358427583
+        },
+        "31": 1,
+        "33": 0.0,
+        "35": [
+          135,
+          536875078
+        ],
+        "37": 0,
+        "38": 0,
+        "39": 0.0,
+        "4": 0,
+        "5": 182,
+        "6": 190,
+        "7": 1,
+        "8": [
+          -0.09222158044576645,
+          -0.9830793142318726,
+          -0.13486622273921967
+        ]
+      },
+      "{TIFF}": {
+        "DateTime": "2019:08:14 05:13:02",
+        "Make": "Apple",
+        "Model": "iPhone 8 Plus",
+        "Orientation": 1,
+        "ResolutionUnit": 2,
+        "Software": "12.4",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2019-08-14T08:13:02.699000-07:00",
@@ -1064,6 +1296,7 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": null,
+    "cloud_metadata": {},
     "cloud_owner_hashed_id": "01cac7cde8a8767251a2cdd183b8ed490fc6e87825f4a495389e824a41a01ba7",
     "comments": [
       {
@@ -1256,6 +1489,7 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": null,
+    "cloud_metadata": {},
     "cloud_owner_hashed_id": "01cac7cde8a8767251a2cdd183b8ed490fc6e87825f4a495389e824a41a01ba7",
     "comments": [
       {
@@ -1406,6 +1640,129 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AassrAHEfFwrix1d31zw6cwttTSg",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "Orientation": 6,
+      "PixelHeight": 3024,
+      "PixelWidth": 4032,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{Exif}": {
+        "ApertureValue": 2.2750070475474535,
+        "BrightnessValue": 3.529237784213445,
+        "ColorSpace": 1,
+        "ComponentsConfiguration": [
+          1,
+          2,
+          3,
+          0
+        ],
+        "DateTimeDigitized": "2019:12:29 19:01:15",
+        "DateTimeOriginal": "2019:12:29 19:01:15",
+        "ExifVersion": [
+          2,
+          2,
+          1
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureMode": 0,
+        "ExposureProgram": 2,
+        "ExposureTime": 0.03333333333333333,
+        "FNumber": 2.2,
+        "Flash": 16,
+        "FlashPixVersion": [
+          1,
+          0
+        ],
+        "FocalLenIn35mmFilm": 29,
+        "FocalLength": 4.15,
+        "ISOSpeedRatings": [
+          32
+        ],
+        "LensMake": "Apple",
+        "LensModel": "iPhone 6s back camera 4.15mm f/2.2",
+        "LensSpecification": [
+          4.150000095367432,
+          4.150000095367432,
+          2.200000047683716,
+          2.200000047683716
+        ],
+        "MeteringMode": 3,
+        "PixelXDimension": 4032,
+        "PixelYDimension": 3024,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 4.906991586887148,
+        "SubjectArea": [
+          1379,
+          1245,
+          753,
+          756
+        ],
+        "SubsecTimeDigitized": "505",
+        "SubsecTimeOriginal": "505",
+        "WhiteBalance": 0
+      },
+      "{GPS}": {
+        "Altitude": 10.557937621051225,
+        "AltitudeRef": 0,
+        "DateStamp": "2019:12:30",
+        "DestBearing": 95.11806480248558,
+        "DestBearingRef": "T",
+        "HPositioningError": 10.0,
+        "ImgDirection": 95.11806480248558,
+        "ImgDirectionRef": "T",
+        "Latitude": 34.008263883333335,
+        "LatitudeRef": "N",
+        "Longitude": 118.49793333333334,
+        "LongitudeRef": "W",
+        "Speed": 0.0,
+        "SpeedRef": "K",
+        "TimeStamp": "03:01:14"
+      },
+      "{MakerApple}": {
+        "1": 10,
+        "14": 4,
+        "17": "C3754624-A05F-474D-9F16-E9C47B5F892D",
+        "2": null,
+        "20": 4,
+        "23": 0,
+        "25": 0,
+        "3": {
+          "epoch": 0,
+          "flags": 1,
+          "timescale": 1000000000,
+          "value": 93067287468541
+        },
+        "31": 0,
+        "37": 0,
+        "38": 0,
+        "39": 0.0,
+        "4": 1,
+        "5": 128,
+        "6": 123,
+        "7": 1,
+        "8": [
+          0.004188660532236099,
+          -0.602253258228302,
+          0.8109871745109558
+        ],
+        "9": 4371
+      },
+      "{TIFF}": {
+        "DateTime": "2019:12:29 19:01:15",
+        "Make": "Apple",
+        "Model": "iPhone 6s",
+        "Orientation": 6,
+        "ResolutionUnit": 2,
+        "Software": "12.4",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2019-12-29T19:01:15.505000-08:00",
@@ -1641,6 +1998,7 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": null,
+    "cloud_metadata": {},
     "cloud_owner_hashed_id": "20d4816ae2cf97606e685eaa167b6aa863ddd258bc33ff84ebb40140cab74622",
     "comments": [],
     "date": "2020-01-05T20:41:41+00:00",
@@ -1784,6 +2142,105 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AbsIsLWeyWDWnpfXV9Txyfdw6rPY",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "Orientation": 6,
+      "PixelHeight": 2448,
+      "PixelWidth": 3264,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{Exif}": {
+        "ApertureValue": 2.5260688216892597,
+        "BrightnessValue": 3.472053872053872,
+        "ColorSpace": 1,
+        "ComponentsConfiguration": [
+          1,
+          2,
+          3,
+          0
+        ],
+        "CustomRendered": 3,
+        "DateTimeDigitized": "2020:01:05 12:41:41",
+        "DateTimeOriginal": "2020:01:05 12:41:41",
+        "ExifVersion": [
+          2,
+          2,
+          1
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureMode": 0,
+        "ExposureProgram": 2,
+        "ExposureTime": 0.03333333333333333,
+        "FNumber": 2.4,
+        "Flash": 16,
+        "FlashPixVersion": [
+          1,
+          0
+        ],
+        "FocalLenIn35mmFilm": 33,
+        "FocalLength": 4.12,
+        "ISOSpeedRatings": [
+          50
+        ],
+        "LensMake": "Apple",
+        "LensModel": "iPhone 5 back camera 4.12mm f/2.4",
+        "LensSpecification": [
+          4.119999885559082,
+          4.119999885559082,
+          2.4000000953674316,
+          2.4000000953674316
+        ],
+        "MeteringMode": 3,
+        "PixelXDimension": 3264,
+        "PixelYDimension": 2448,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 4.9069045771916215,
+        "SubjectArea": [
+          1865,
+          1197,
+          610,
+          612
+        ],
+        "SubsecTimeDigitized": "273",
+        "SubsecTimeOriginal": "273",
+        "WhiteBalance": 0
+      },
+      "{MakerApple}": {
+        "1": 5,
+        "10": 3,
+        "20": 3,
+        "21": "F4090A4B-0A8F-4AC0-BE65-4801B11DD7D1",
+        "3": {
+          "epoch": 0,
+          "flags": 1,
+          "timescale": 1000000000,
+          "value": 774488178791
+        },
+        "4": 1,
+        "5": 135,
+        "6": 128,
+        "7": 1,
+        "8": [
+          -0.02342131733894348,
+          -0.9899242520332336,
+          0.0026241156738251448
+        ]
+      },
+      "{TIFF}": {
+        "DateTime": "2020:01:05 12:41:41",
+        "Make": "Apple",
+        "Model": "iPhone 5",
+        "Orientation": 6,
+        "ResolutionUnit": 2,
+        "Software": "10.3.4",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-05T20:41:41.272587+00:00",
@@ -1925,6 +2382,102 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AV6qPsEIU88bFVPKfEUjoyspg+d+",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "Orientation": 6,
+      "PixelHeight": 2448,
+      "PixelWidth": 3264,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{Exif}": {
+        "ApertureValue": 2.5260688216892597,
+        "BrightnessValue": 0.4856581532416503,
+        "ColorSpace": 1,
+        "ComponentsConfiguration": [
+          1,
+          2,
+          3,
+          0
+        ],
+        "DateTimeDigitized": "2020:01:05 12:46:43",
+        "DateTimeOriginal": "2020:01:05 12:46:43",
+        "ExifVersion": [
+          2,
+          2,
+          1
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureMode": 0,
+        "ExposureProgram": 2,
+        "ExposureTime": 0.0625,
+        "FNumber": 2.4,
+        "Flash": 25,
+        "FlashPixVersion": [
+          1,
+          0
+        ],
+        "FocalLenIn35mmFilm": 33,
+        "FocalLength": 4.12,
+        "ISOSpeedRatings": [
+          320
+        ],
+        "LensMake": "Apple",
+        "LensModel": "iPhone 5 back camera 4.12mm f/2.4",
+        "LensSpecification": [
+          4.119999885559082,
+          4.119999885559082,
+          2.4000000953674316,
+          2.4000000953674316
+        ],
+        "MeteringMode": 3,
+        "PixelXDimension": 3264,
+        "PixelYDimension": 2448,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 3.9658064516129032,
+        "SubjectArea": [
+          1574,
+          1204,
+          610,
+          612
+        ],
+        "SubsecTimeDigitized": "791",
+        "SubsecTimeOriginal": "791",
+        "WhiteBalance": 0
+      },
+      "{MakerApple}": {
+        "1": 5,
+        "20": 2,
+        "3": {
+          "epoch": 0,
+          "flags": 1,
+          "timescale": 1000000000,
+          "value": 823844298958
+        },
+        "4": 0,
+        "5": 180,
+        "6": 189,
+        "7": 1,
+        "8": [
+          0.002163739176467061,
+          -0.9920595288276672,
+          0.13352517783641815
+        ]
+      },
+      "{TIFF}": {
+        "DateTime": "2020:01:05 12:46:43",
+        "Make": "Apple",
+        "Model": "iPhone 5",
+        "Orientation": 6,
+        "ResolutionUnit": 2,
+        "Software": "10.3.4",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-05T20:46:43.791329+00:00",
@@ -2066,6 +2619,102 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AcCQOUNzkaAyzd7Zr1RrjKQvIA15",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "Orientation": 1,
+      "PixelHeight": 2448,
+      "PixelWidth": 3264,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{Exif}": {
+        "ApertureValue": 2.5260688216892597,
+        "BrightnessValue": 11.376840696117805,
+        "ColorSpace": 1,
+        "ComponentsConfiguration": [
+          1,
+          2,
+          3,
+          0
+        ],
+        "DateTimeDigitized": "2020:01:05 13:03:32",
+        "DateTimeOriginal": "2020:01:05 13:03:32",
+        "ExifVersion": [
+          2,
+          2,
+          1
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureMode": 0,
+        "ExposureProgram": 2,
+        "ExposureTime": 0.00022099447513812155,
+        "FNumber": 2.4,
+        "Flash": 24,
+        "FlashPixVersion": [
+          1,
+          0
+        ],
+        "FocalLenIn35mmFilm": 33,
+        "FocalLength": 4.12,
+        "ISOSpeedRatings": [
+          50
+        ],
+        "LensMake": "Apple",
+        "LensModel": "iPhone 5 back camera 4.12mm f/2.4",
+        "LensSpecification": [
+          4.119999885559082,
+          4.119999885559082,
+          2.4000000953674316,
+          2.4000000953674316
+        ],
+        "MeteringMode": 5,
+        "PixelXDimension": 3264,
+        "PixelYDimension": 2448,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 12.143665958952583,
+        "SubjectArea": [
+          1631,
+          1223,
+          1795,
+          1077
+        ],
+        "SubsecTimeDigitized": "996",
+        "SubsecTimeOriginal": "996",
+        "WhiteBalance": 0
+      },
+      "{MakerApple}": {
+        "1": 5,
+        "20": 1,
+        "3": {
+          "epoch": 0,
+          "flags": 1,
+          "timescale": 1000000000,
+          "value": 1206775107541
+        },
+        "4": 1,
+        "5": 212,
+        "6": 195,
+        "7": 1,
+        "8": [
+          -0.9842319488525391,
+          -0.0075047812424600124,
+          -0.011721819639205933
+        ]
+      },
+      "{TIFF}": {
+        "DateTime": "2020:01:05 13:03:32",
+        "Make": "Apple",
+        "Model": "iPhone 5",
+        "Orientation": 1,
+        "ResolutionUnit": 2,
+        "Software": "10.3.4",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-05T21:03:32.995866+00:00",
@@ -2207,6 +2856,76 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AfQRG3qL17w5Xm3m50q9ifanUXgR",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "Orientation": 1,
+      "PixelHeight": 2506,
+      "PixelWidth": 6032,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{Exif}": {
+        "ApertureValue": 2.5260688216892597,
+        "BrightnessValue": 10.58783660010991,
+        "ColorSpace": 1,
+        "ComponentsConfiguration": [
+          1,
+          2,
+          3,
+          0
+        ],
+        "CustomRendered": 6,
+        "DateTimeDigitized": "2020:01:05 13:03:47",
+        "DateTimeOriginal": "2020:01:05 13:03:47",
+        "ExifVersion": [
+          2,
+          2,
+          1
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureTime": 0.0004420866489832007,
+        "FNumber": 2.4,
+        "Flash": 0,
+        "FlashPixVersion": [
+          1,
+          0
+        ],
+        "FocalLenIn35mmFilm": 33,
+        "FocalLength": 4.12,
+        "ISOSpeedRatings": [
+          50
+        ],
+        "LensMake": "Apple",
+        "LensModel": "iPhone 5 back camera 4.12mm f/2.4",
+        "LensSpecification": [
+          4.119999885559082,
+          4.119999885559082,
+          2.4000000953674316,
+          2.4000000953674316
+        ],
+        "MeteringMode": 5,
+        "PixelXDimension": 6032,
+        "PixelYDimension": 2506,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 11.143665958952583,
+        "SubsecTimeDigitized": "501",
+        "SubsecTimeOriginal": "501",
+        "WhiteBalance": 0
+      },
+      "{TIFF}": {
+        "DateTime": "2020:01:05 13:03:47",
+        "Make": "Apple",
+        "Model": "iPhone 5",
+        "Orientation": 1,
+        "ResolutionUnit": 2,
+        "Software": "10.3.4",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-05T13:03:47.501071-08:00",
@@ -2348,6 +3067,11 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AV8Iol9ebAeQBH+xVVCEO3fvSttp",
+    "cloud_metadata": {
+      "moop": null,
+      "mpvr": 0,
+      "name": "9E129453-39AD-4472-A087-28403A0C48D9.mov"
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-05T21:04:23+00:00",
@@ -2489,6 +3213,116 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AQiWRlFyYQmwbX0mUXwqhf+TqR6M",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "Orientation": 6,
+      "PixelHeight": 960,
+      "PixelWidth": 1280,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{ExifAux}": {
+        "Regions": {
+          "HeightAppliedTo": 960,
+          "RegionList": [
+            {
+              "AngleInfoRoll": 270,
+              "AngleInfoYaw": 0,
+              "ConfidenceLevel": 284,
+              "FaceID": 1,
+              "Height": 0.341667,
+              "Timestamp": 2147483647,
+              "Type": "Face",
+              "Width": 0.25625,
+              "X": 0.578125,
+              "Y": 0.533333
+            }
+          ],
+          "WidthAppliedTo": 1280
+        }
+      },
+      "{Exif}": {
+        "ApertureValue": 2.5260688216892597,
+        "BrightnessValue": 10.629254829806808,
+        "ColorSpace": 1,
+        "ComponentsConfiguration": [
+          1,
+          2,
+          3,
+          0
+        ],
+        "DateTimeDigitized": "2020:01:05 13:09:53",
+        "DateTimeOriginal": "2020:01:05 13:09:53",
+        "ExifVersion": [
+          2,
+          2,
+          1
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureMode": 0,
+        "ExposureProgram": 2,
+        "ExposureTime": 0.0006618133686300463,
+        "FNumber": 2.4,
+        "Flash": 32,
+        "FlashPixVersion": [
+          1,
+          0
+        ],
+        "FocalLenIn35mmFilm": 35,
+        "FocalLength": 2.18,
+        "ISOSpeedRatings": [
+          32
+        ],
+        "LensMake": "Apple",
+        "LensModel": "iPhone 5 front camera 2.18mm f/2.4",
+        "LensSpecification": [
+          2.180000066757202,
+          2.180000066757202,
+          2.4000000953674316,
+          2.4000000953674316
+        ],
+        "MeteringMode": 3,
+        "PixelXDimension": 1280,
+        "PixelYDimension": 960,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 10.560880829015543,
+        "SubsecTimeDigitized": "058",
+        "SubsecTimeOriginal": "058",
+        "WhiteBalance": 0
+      },
+      "{MakerApple}": {
+        "1": 5,
+        "20": 1,
+        "3": {
+          "epoch": 0,
+          "flags": 1,
+          "timescale": 1000000000,
+          "value": 1405121751541
+        },
+        "4": 1,
+        "5": 224,
+        "6": 225,
+        "7": 1,
+        "8": [
+          0.0630989819765091,
+          -0.973505437374115,
+          0.2348058968782425
+        ]
+      },
+      "{TIFF}": {
+        "DateTime": "2020:01:05 13:09:53",
+        "Make": "Apple",
+        "Model": "iPhone 5",
+        "Orientation": 6,
+        "ResolutionUnit": 2,
+        "Software": "10.3.4",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-05T13:09:53.057816-08:00",
@@ -2644,6 +3478,11 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AU+VV5YRT3J+qBGTTaQ86GnmrqL/",
+    "cloud_metadata": {
+      "moop": null,
+      "mpvr": 0,
+      "name": "5159B117-58DD-4DA0-B130-623662D9172F.mov"
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-05T21:55:05+00:00",
@@ -2785,6 +3624,11 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AbziKoTbWQXc7ParhDKBuFZhmyKm",
+    "cloud_metadata": {
+      "moop": null,
+      "mpvr": 0,
+      "name": "45099D34-A414-464F-94A2-60D6823679C8.mov"
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-05T14:13:13-08:00",
@@ -2932,6 +3776,113 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AUYcoI67SWhTl3sp47nYN+sQCb0E",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "Orientation": 3,
+      "PixelHeight": 960,
+      "PixelWidth": 1280,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{Exif}": {
+        "ApertureValue": 2.5260688216892597,
+        "BrightnessValue": 8.752818733738074,
+        "ColorSpace": 1,
+        "ComponentsConfiguration": [
+          1,
+          2,
+          3,
+          0
+        ],
+        "DateTimeDigitized": "2020:01:05 15:32:52",
+        "DateTimeOriginal": "2020:01:05 15:32:52",
+        "ExifVersion": [
+          2,
+          2,
+          1
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureMode": 0,
+        "ExposureProgram": 2,
+        "ExposureTime": 0.0025974025974025974,
+        "FNumber": 2.4,
+        "Flash": 32,
+        "FlashPixVersion": [
+          1,
+          0
+        ],
+        "FocalLenIn35mmFilm": 35,
+        "FocalLength": 2.18,
+        "ISOSpeedRatings": [
+          32
+        ],
+        "LensMake": "Apple",
+        "LensModel": "iPhone 5 front camera 2.18mm f/2.4",
+        "LensSpecification": [
+          2.180000066757202,
+          2.180000066757202,
+          2.4000000953674316,
+          2.4000000953674316
+        ],
+        "MeteringMode": 5,
+        "PixelXDimension": 1280,
+        "PixelYDimension": 960,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 8.589494163424124,
+        "SubsecTimeDigitized": "656",
+        "SubsecTimeOriginal": "656",
+        "WhiteBalance": 0
+      },
+      "{GPS}": {
+        "Altitude": 0.6526184538653367,
+        "AltitudeRef": 1,
+        "DateStamp": "2020:01:05",
+        "DestBearing": 61.433014354066984,
+        "DestBearingRef": "T",
+        "HPositioningError": 5.0,
+        "ImgDirection": 241.43301435406698,
+        "ImgDirectionRef": "T",
+        "Latitude": 33.72743666666667,
+        "LatitudeRef": "N",
+        "Longitude": 118.27928833333333,
+        "LongitudeRef": "W",
+        "Speed": 0.0,
+        "SpeedRef": "K",
+        "TimeStamp": "23:32:52"
+      },
+      "{MakerApple}": {
+        "1": 5,
+        "20": 1,
+        "3": {
+          "epoch": 0,
+          "flags": 1,
+          "timescale": 1000000000,
+          "value": 1835662958875
+        },
+        "4": 1,
+        "5": 246,
+        "6": 236,
+        "7": 1,
+        "8": [
+          -0.9340402483940125,
+          -0.08018948882818222,
+          -0.30737146735191345
+        ]
+      },
+      "{TIFF}": {
+        "DateTime": "2020:01:05 15:32:52",
+        "Make": "Apple",
+        "Model": "iPhone 5",
+        "Orientation": 3,
+        "ResolutionUnit": 2,
+        "Software": "10.3.4",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-05T23:32:52.655546+00:00",
@@ -3135,6 +4086,44 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AYcYVRxcGDHwvvcWrEKAL4RrKwZI",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "PixelHeight": 1364,
+      "PixelWidth": 2048,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{Exif}": {
+        "ColorSpace": 1,
+        "DateTimeDigitized": "2020:01:10 21:19:40",
+        "DateTimeOriginal": "2020:01:10 21:19:40",
+        "PixelXDimension": 2048,
+        "PixelYDimension": 1364
+      },
+      "{IPTC}": {
+        "DateCreated": "20200110",
+        "DigitalCreationDate": "20200110",
+        "DigitalCreationTime": "211940",
+        "TimeCreated": "211940"
+      },
+      "{JFIF}": {
+        "DensityUnit": 0,
+        "JFIFVersion": [
+          1,
+          0,
+          1
+        ],
+        "XDensity": 72,
+        "YDensity": 72
+      },
+      "{TIFF}": {
+        "DateTime": "2020:01:10 21:19:40",
+        "Software": "Photos 4.0",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-10T21:19:40-08:00",
@@ -3312,6 +4301,7 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": null,
+    "cloud_metadata": {},
     "cloud_owner_hashed_id": "20d4816ae2cf97606e685eaa167b6aa863ddd258bc33ff84ebb40140cab74622",
     "comments": [
       {
@@ -3462,6 +4452,119 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AYvwiUAoY9z6THlCpUl5sSQ5j/Xo",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "Orientation": 6,
+      "PixelHeight": 2448,
+      "PixelWidth": 2448,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{Exif}": {
+        "ApertureValue": 2.5260688216892597,
+        "BrightnessValue": 4.588288288288289,
+        "ColorSpace": 1,
+        "ComponentsConfiguration": [
+          1,
+          2,
+          3,
+          0
+        ],
+        "DateTimeDigitized": "2020:01:12 13:55:05",
+        "DateTimeOriginal": "2020:01:12 13:55:05",
+        "ExifVersion": [
+          2,
+          2,
+          1
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureMode": 0,
+        "ExposureProgram": 2,
+        "ExposureTime": 0.016666666666666666,
+        "FNumber": 2.4,
+        "Flash": 24,
+        "FlashPixVersion": [
+          1,
+          0
+        ],
+        "FocalLenIn35mmFilm": 44,
+        "FocalLength": 4.12,
+        "ISOSpeedRatings": [
+          50
+        ],
+        "LensMake": "Apple",
+        "LensModel": "iPhone 5 back camera 4.12mm f/2.4",
+        "LensSpecification": [
+          4.119999885559082,
+          4.119999885559082,
+          2.4000000953674316,
+          2.4000000953674316
+        ],
+        "MeteringMode": 5,
+        "PixelXDimension": 2448,
+        "PixelYDimension": 2448,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 5.906947890818858,
+        "SubjectArea": [
+          1223,
+          1223,
+          1795,
+          1077
+        ],
+        "SubsecTimeDigitized": "216",
+        "SubsecTimeOriginal": "216",
+        "WhiteBalance": 0
+      },
+      "{GPS}": {
+        "Altitude": 51.07,
+        "AltitudeRef": 0,
+        "DateStamp": "2020:01:12",
+        "DestBearing": 262.67746113989637,
+        "DestBearingRef": "T",
+        "HPositioningError": 86.67410714285714,
+        "ImgDirection": 262.67746113989637,
+        "ImgDirectionRef": "T",
+        "Latitude": 33.78993833333333,
+        "LatitudeRef": "N",
+        "Longitude": 118.3135,
+        "LongitudeRef": "W",
+        "Speed": 0.0,
+        "SpeedRef": "K",
+        "TimeStamp": "21:55:02"
+      },
+      "{MakerApple}": {
+        "1": 5,
+        "20": 1,
+        "3": {
+          "epoch": 0,
+          "flags": 1,
+          "timescale": 1000000000,
+          "value": 3356737817166
+        },
+        "4": 1,
+        "5": 155,
+        "6": 159,
+        "7": 1,
+        "8": [
+          0.03947577625513077,
+          -0.46862098574638367,
+          -0.8427311182022095
+        ]
+      },
+      "{TIFF}": {
+        "DateTime": "2020:01:12 13:55:05",
+        "Make": "Apple",
+        "Model": "iPhone 5",
+        "Orientation": 6,
+        "ResolutionUnit": 2,
+        "Software": "10.3.4",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-12T21:55:05.216181+00:00",
@@ -3661,6 +4764,119 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AdlDhaxEHKuRoU2rz98o8wc5CQk4",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "Orientation": 6,
+      "PixelHeight": 2448,
+      "PixelWidth": 3264,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{Exif}": {
+        "ApertureValue": 2.5260688216892597,
+        "BrightnessValue": 4.504595588235294,
+        "ColorSpace": 1,
+        "ComponentsConfiguration": [
+          1,
+          2,
+          3,
+          0
+        ],
+        "DateTimeDigitized": "2020:01:12 13:55:08",
+        "DateTimeOriginal": "2020:01:12 13:55:08",
+        "ExifVersion": [
+          2,
+          2,
+          1
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureMode": 0,
+        "ExposureProgram": 2,
+        "ExposureTime": 0.016666666666666666,
+        "FNumber": 2.4,
+        "Flash": 16,
+        "FlashPixVersion": [
+          1,
+          0
+        ],
+        "FocalLenIn35mmFilm": 33,
+        "FocalLength": 4.12,
+        "ISOSpeedRatings": [
+          50
+        ],
+        "LensMake": "Apple",
+        "LensModel": "iPhone 5 back camera 4.12mm f/2.4",
+        "LensSpecification": [
+          4.119999885559082,
+          4.119999885559082,
+          2.4000000953674316,
+          2.4000000953674316
+        ],
+        "MeteringMode": 5,
+        "PixelXDimension": 3264,
+        "PixelYDimension": 2448,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 5.906947890818858,
+        "SubjectArea": [
+          1631,
+          1223,
+          1795,
+          1077
+        ],
+        "SubsecTimeDigitized": "481",
+        "SubsecTimeOriginal": "481",
+        "WhiteBalance": 0
+      },
+      "{GPS}": {
+        "Altitude": 15.910034602076125,
+        "AltitudeRef": 0,
+        "DateStamp": "2020:01:12",
+        "DestBearing": 260.87931034482756,
+        "DestBearingRef": "T",
+        "HPositioningError": 50.0,
+        "ImgDirection": 260.87931034482756,
+        "ImgDirectionRef": "T",
+        "Latitude": 33.79011666666667,
+        "LatitudeRef": "N",
+        "Longitude": 118.31392833333334,
+        "LongitudeRef": "W",
+        "Speed": 0.0,
+        "SpeedRef": "K",
+        "TimeStamp": "21:55:08"
+      },
+      "{MakerApple}": {
+        "1": 5,
+        "20": 1,
+        "3": {
+          "epoch": 0,
+          "flags": 1,
+          "timescale": 1000000000,
+          "value": 3360002706458
+        },
+        "4": 1,
+        "5": 166,
+        "6": 152,
+        "7": 1,
+        "8": [
+          0.033795058727264404,
+          -0.5057739019393921,
+          -0.8188831806182861
+        ]
+      },
+      "{TIFF}": {
+        "DateTime": "2020:01:12 13:55:08",
+        "Make": "Apple",
+        "Model": "iPhone 5",
+        "Orientation": 6,
+        "ResolutionUnit": 2,
+        "Software": "10.3.4",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-12T21:55:08.481098+00:00",
@@ -3860,6 +5076,113 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AcxYpN5vxlckvxu4x9hGAkLA9Tnv",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "Orientation": 6,
+      "PixelHeight": 2448,
+      "PixelWidth": 3264,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{Exif}": {
+        "ApertureValue": 2.5260688216892597,
+        "BrightnessValue": 4.514056224899599,
+        "ColorSpace": 1,
+        "ComponentsConfiguration": [
+          1,
+          2,
+          3,
+          0
+        ],
+        "DateTimeDigitized": "2020:01:12 13:55:08",
+        "DateTimeOriginal": "2020:01:12 13:55:08",
+        "ExifVersion": [
+          2,
+          2,
+          1
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureMode": 0,
+        "ExposureProgram": 2,
+        "ExposureTime": 0.016666666666666666,
+        "FNumber": 2.4,
+        "Flash": 16,
+        "FlashPixVersion": [
+          1,
+          0
+        ],
+        "FocalLenIn35mmFilm": 33,
+        "FocalLength": 4.12,
+        "ISOSpeedRatings": [
+          50
+        ],
+        "LensMake": "Apple",
+        "LensModel": "iPhone 5 back camera 4.12mm f/2.4",
+        "LensSpecification": [
+          4.119999885559082,
+          4.119999885559082,
+          2.4000000953674316,
+          2.4000000953674316
+        ],
+        "MeteringMode": 5,
+        "PixelXDimension": 3264,
+        "PixelYDimension": 2448,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 5.906947890818858,
+        "SubsecTimeDigitized": "736",
+        "SubsecTimeOriginal": "736",
+        "WhiteBalance": 0
+      },
+      "{GPS}": {
+        "Altitude": 15.910034602076125,
+        "AltitudeRef": 0,
+        "DateStamp": "2020:01:12",
+        "DestBearing": 263.30065359477123,
+        "DestBearingRef": "T",
+        "HPositioningError": 50.0,
+        "ImgDirection": 263.30065359477123,
+        "ImgDirectionRef": "T",
+        "Latitude": 33.79011666666667,
+        "LatitudeRef": "N",
+        "Longitude": 118.31392833333334,
+        "LongitudeRef": "W",
+        "Speed": 0.0,
+        "SpeedRef": "K",
+        "TimeStamp": "21:55:08"
+      },
+      "{MakerApple}": {
+        "1": 5,
+        "20": 1,
+        "3": {
+          "epoch": 0,
+          "flags": 1,
+          "timescale": 1000000000,
+          "value": 3360257776250
+        },
+        "4": 1,
+        "5": 165,
+        "6": 153,
+        "7": 1,
+        "8": [
+          0.032268356531858444,
+          -0.5072949528694153,
+          -0.8361698389053345
+        ]
+      },
+      "{TIFF}": {
+        "DateTime": "2020:01:12 13:55:08",
+        "Make": "Apple",
+        "Model": "iPhone 5",
+        "Orientation": 6,
+        "ResolutionUnit": 2,
+        "Software": "10.3.4",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-12T21:55:08.736168+00:00",
@@ -4059,6 +5382,113 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AUnjr69qI5RgmMLnexLpWvjf40mt",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "Orientation": 6,
+      "PixelHeight": 2448,
+      "PixelWidth": 3264,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{Exif}": {
+        "ApertureValue": 2.5260688216892597,
+        "BrightnessValue": 4.504595588235294,
+        "ColorSpace": 1,
+        "ComponentsConfiguration": [
+          1,
+          2,
+          3,
+          0
+        ],
+        "DateTimeDigitized": "2020:01:12 13:55:08",
+        "DateTimeOriginal": "2020:01:12 13:55:08",
+        "ExifVersion": [
+          2,
+          2,
+          1
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureMode": 0,
+        "ExposureProgram": 2,
+        "ExposureTime": 0.016666666666666666,
+        "FNumber": 2.4,
+        "Flash": 16,
+        "FlashPixVersion": [
+          1,
+          0
+        ],
+        "FocalLenIn35mmFilm": 33,
+        "FocalLength": 4.12,
+        "ISOSpeedRatings": [
+          50
+        ],
+        "LensMake": "Apple",
+        "LensModel": "iPhone 5 back camera 4.12mm f/2.4",
+        "LensSpecification": [
+          4.119999885559082,
+          4.119999885559082,
+          2.4000000953674316,
+          2.4000000953674316
+        ],
+        "MeteringMode": 5,
+        "PixelXDimension": 3264,
+        "PixelYDimension": 2448,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 5.906947890818858,
+        "SubsecTimeDigitized": "940",
+        "SubsecTimeOriginal": "940",
+        "WhiteBalance": 0
+      },
+      "{GPS}": {
+        "Altitude": 15.910034602076125,
+        "AltitudeRef": 0,
+        "DateStamp": "2020:01:12",
+        "DestBearing": 263.66776315789474,
+        "DestBearingRef": "T",
+        "HPositioningError": 50.0,
+        "ImgDirection": 263.66776315789474,
+        "ImgDirectionRef": "T",
+        "Latitude": 33.79011666666667,
+        "LatitudeRef": "N",
+        "Longitude": 118.31392833333334,
+        "LongitudeRef": "W",
+        "Speed": 0.0,
+        "SpeedRef": "K",
+        "TimeStamp": "21:55:08"
+      },
+      "{MakerApple}": {
+        "1": 5,
+        "20": 1,
+        "3": {
+          "epoch": 0,
+          "flags": 1,
+          "timescale": 1000000000,
+          "value": 3360461831708
+        },
+        "4": 1,
+        "5": 165,
+        "6": 152,
+        "7": 1,
+        "8": [
+          0.03539396449923515,
+          -0.5133047103881836,
+          -0.82589191198349
+        ]
+      },
+      "{TIFF}": {
+        "DateTime": "2020:01:12 13:55:08",
+        "Make": "Apple",
+        "Model": "iPhone 5",
+        "Orientation": 6,
+        "ResolutionUnit": 2,
+        "Software": "10.3.4",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-12T21:55:08.940223+00:00",
@@ -4258,6 +5688,113 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AeC6qRiwNkAWS6p5z5mYzXFgvr1t",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "Orientation": 6,
+      "PixelHeight": 2448,
+      "PixelWidth": 3264,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{Exif}": {
+        "ApertureValue": 2.5260688216892597,
+        "BrightnessValue": 4.402396053558844,
+        "ColorSpace": 1,
+        "ComponentsConfiguration": [
+          1,
+          2,
+          3,
+          0
+        ],
+        "DateTimeDigitized": "2020:01:12 13:55:09",
+        "DateTimeOriginal": "2020:01:12 13:55:09",
+        "ExifVersion": [
+          2,
+          2,
+          1
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureMode": 0,
+        "ExposureProgram": 2,
+        "ExposureTime": 0.016666666666666666,
+        "FNumber": 2.4,
+        "Flash": 16,
+        "FlashPixVersion": [
+          1,
+          0
+        ],
+        "FocalLenIn35mmFilm": 33,
+        "FocalLength": 4.12,
+        "ISOSpeedRatings": [
+          64
+        ],
+        "LensMake": "Apple",
+        "LensModel": "iPhone 5 back camera 4.12mm f/2.4",
+        "LensSpecification": [
+          4.119999885559082,
+          4.119999885559082,
+          2.4000000953674316,
+          2.4000000953674316
+        ],
+        "MeteringMode": 5,
+        "PixelXDimension": 3264,
+        "PixelYDimension": 2448,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 5.906947890818858,
+        "SubsecTimeDigitized": "144",
+        "SubsecTimeOriginal": "144",
+        "WhiteBalance": 0
+      },
+      "{GPS}": {
+        "Altitude": 15.910034602076125,
+        "AltitudeRef": 0,
+        "DateStamp": "2020:01:12",
+        "DestBearing": 264.10493827160496,
+        "DestBearingRef": "T",
+        "HPositioningError": 50.0,
+        "ImgDirection": 264.10493827160496,
+        "ImgDirectionRef": "T",
+        "Latitude": 33.79011666666667,
+        "LatitudeRef": "N",
+        "Longitude": 118.31392833333334,
+        "LongitudeRef": "W",
+        "Speed": 0.0,
+        "SpeedRef": "K",
+        "TimeStamp": "21:55:08"
+      },
+      "{MakerApple}": {
+        "1": 5,
+        "20": 1,
+        "3": {
+          "epoch": 0,
+          "flags": 1,
+          "timescale": 1000000000,
+          "value": 3360665887458
+        },
+        "4": 0,
+        "5": 164,
+        "6": 148,
+        "7": 1,
+        "8": [
+          0.037052541971206665,
+          -0.5079096555709839,
+          -0.8407862186431885
+        ]
+      },
+      "{TIFF}": {
+        "DateTime": "2020:01:12 13:55:09",
+        "Make": "Apple",
+        "Model": "iPhone 5",
+        "Orientation": 6,
+        "ResolutionUnit": 2,
+        "Software": "10.3.4",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-12T21:55:09.144279+00:00",
@@ -4457,6 +5994,113 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "Af2XABjTrZGvTcD5Il6u5Oq9IaaV",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "Orientation": 6,
+      "PixelHeight": 2448,
+      "PixelWidth": 3264,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{Exif}": {
+        "ApertureValue": 2.5260688216892597,
+        "BrightnessValue": 4.255012028869286,
+        "ColorSpace": 1,
+        "ComponentsConfiguration": [
+          1,
+          2,
+          3,
+          0
+        ],
+        "DateTimeDigitized": "2020:01:12 13:55:09",
+        "DateTimeOriginal": "2020:01:12 13:55:09",
+        "ExifVersion": [
+          2,
+          2,
+          1
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureMode": 0,
+        "ExposureProgram": 2,
+        "ExposureTime": 0.016666666666666666,
+        "FNumber": 2.4,
+        "Flash": 16,
+        "FlashPixVersion": [
+          1,
+          0
+        ],
+        "FocalLenIn35mmFilm": 33,
+        "FocalLength": 4.12,
+        "ISOSpeedRatings": [
+          64
+        ],
+        "LensMake": "Apple",
+        "LensModel": "iPhone 5 back camera 4.12mm f/2.4",
+        "LensSpecification": [
+          4.119999885559082,
+          4.119999885559082,
+          2.4000000953674316,
+          2.4000000953674316
+        ],
+        "MeteringMode": 5,
+        "PixelXDimension": 3264,
+        "PixelYDimension": 2448,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 5.906947890818858,
+        "SubsecTimeDigitized": "297",
+        "SubsecTimeOriginal": "297",
+        "WhiteBalance": 0
+      },
+      "{GPS}": {
+        "Altitude": 15.910034602076125,
+        "AltitudeRef": 0,
+        "DateStamp": "2020:01:12",
+        "DestBearing": 264.3663003663004,
+        "DestBearingRef": "T",
+        "HPositioningError": 50.0,
+        "ImgDirection": 264.3663003663004,
+        "ImgDirectionRef": "T",
+        "Latitude": 33.79011666666667,
+        "LatitudeRef": "N",
+        "Longitude": 118.31392833333334,
+        "LongitudeRef": "W",
+        "Speed": 0.0,
+        "SpeedRef": "K",
+        "TimeStamp": "21:55:08"
+      },
+      "{MakerApple}": {
+        "1": 5,
+        "20": 1,
+        "3": {
+          "epoch": 0,
+          "flags": 1,
+          "timescale": 1000000000,
+          "value": 3360818929166
+        },
+        "4": 0,
+        "5": 160,
+        "6": 146,
+        "7": 1,
+        "8": [
+          0.036000512540340424,
+          -0.5006214380264282,
+          -0.8343774676322937
+        ]
+      },
+      "{TIFF}": {
+        "DateTime": "2020:01:12 13:55:09",
+        "Make": "Apple",
+        "Model": "iPhone 5",
+        "Orientation": 6,
+        "ResolutionUnit": 2,
+        "Software": "10.3.4",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-12T21:55:09.297322+00:00",
@@ -4656,6 +6300,11 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AbaM7GEdJZGS7scRM+q3SU9l5mXp",
+    "cloud_metadata": {
+      "moop": null,
+      "mpvr": 0,
+      "name": "4614086E-C797-4876-B3B9-3057E8D757C9.mov"
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-12T14:16:17-08:00",
@@ -4856,6 +6505,11 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AY2XiJIjqvU3JrngQT5Gyg44fG0U",
+    "cloud_metadata": {
+      "moop": null,
+      "mpvr": 0,
+      "name": "05785B10-AC4D-4104-B5D5-110301D5BF09.mov"
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-01-12T14:16:56-08:00",
@@ -5033,6 +6687,7 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": null,
+    "cloud_metadata": {},
     "cloud_owner_hashed_id": "01cac7cde8a8767251a2cdd183b8ed490fc6e87825f4a495389e824a41a01ba7",
     "comments": [],
     "date": "2020-01-12T22:16:56+00:00",
@@ -5206,6 +6861,7 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": null,
+    "cloud_metadata": {},
     "cloud_owner_hashed_id": "01cac7cde8a8767251a2cdd183b8ed490fc6e87825f4a495389e824a41a01ba7",
     "comments": [],
     "date": "2020-03-08T02:18:11+00:00",
@@ -5355,6 +7011,160 @@
     "burst_photos": [],
     "burst_selected": false,
     "cloud_guid": "AVz9rBg6dj545oO5JYFJqHkczrcc",
+    "cloud_metadata": {
+      "ColorModel": "RGB",
+      "DPIHeight": 72.0,
+      "DPIWidth": 72.0,
+      "Depth": 8,
+      "PixelHeight": 903,
+      "PixelWidth": 701,
+      "ProfileName": "sRGB IEC61966-2.1",
+      "{Exif}": {
+        "ApertureValue": 1.6959938128383605,
+        "BrightnessValue": 0.9476311532239426,
+        "ColorSpace": 1,
+        "ComponentsConfiguration": [
+          1,
+          2,
+          3,
+          0
+        ],
+        "CompositeImage": 2,
+        "CustomRendered": 7,
+        "DateTimeDigitized": "2020:03:07 21:18:11",
+        "DateTimeOriginal": "2020:03:07 21:18:11",
+        "ExifVersion": [
+          2,
+          2,
+          1
+        ],
+        "ExposureBiasValue": 0.0,
+        "ExposureMode": 0,
+        "ExposureProgram": 2,
+        "ExposureTime": 0.02,
+        "FNumber": 1.8,
+        "Flash": 16,
+        "FlashPixVersion": [
+          1,
+          0
+        ],
+        "FocalLenIn35mmFilm": 26,
+        "FocalLength": 4.25,
+        "ISOSpeedRatings": [
+          400
+        ],
+        "LensMake": "Apple",
+        "LensModel": "iPhone 11 back dual wide camera 4.25mm f/1.8",
+        "LensSpecification": [
+          1.5399999618530273,
+          4.25,
+          1.7999999523162842,
+          2.4000000953674316
+        ],
+        "MeteringMode": 5,
+        "OffsetTime": "-05:00",
+        "OffsetTimeDigitized": "-05:00",
+        "OffsetTimeOriginal": "-05:00",
+        "PixelXDimension": 701,
+        "PixelYDimension": 903,
+        "SceneCaptureType": 0,
+        "SceneType": 1,
+        "SensingMethod": 2,
+        "ShutterSpeedValue": 5.647105916259707,
+        "SubjectArea": [
+          1350,
+          1558,
+          332,
+          334
+        ],
+        "SubsecTimeDigitized": "235",
+        "SubsecTimeOriginal": "235",
+        "WhiteBalance": 0
+      },
+      "{GPS}": {
+        "Altitude": 27.29604950023798,
+        "AltitudeRef": 0,
+        "DestBearing": 306.19863861386136,
+        "DestBearingRef": "T",
+        "HPositioningError": 5.209075090349351,
+        "ImgDirection": 306.19863861386136,
+        "ImgDirectionRef": "T",
+        "Latitude": 33.829883333333335,
+        "LatitudeRef": "N",
+        "Longitude": 118.320525,
+        "LongitudeRef": "W",
+        "Speed": 0.604033563962903,
+        "SpeedRef": "K"
+      },
+      "{IPTC}": {
+        "DateCreated": "20200307",
+        "DigitalCreationDate": "20200307",
+        "DigitalCreationTime": "211811",
+        "TimeCreated": "211811"
+      },
+      "{JFIF}": {
+        "DensityUnit": 0,
+        "JFIFVersion": [
+          1,
+          0,
+          1
+        ],
+        "XDensity": 72,
+        "YDensity": 72
+      },
+      "{MakerApple}": {
+        "1": 11,
+        "12": [
+          18.9765625,
+          8.796875
+        ],
+        "13": 32,
+        "14": 0,
+        "15": 2,
+        "16": 1,
+        "2": null,
+        "20": 10,
+        "23": 38934528,
+        "25": 42,
+        "29": 0.013894358649849892,
+        "3": {
+          "epoch": 0,
+          "flags": 1,
+          "timescale": 1000000000,
+          "value": 141613202839000
+        },
+        "31": 1,
+        "32": "EA4F1EA8-5C61-4FCB-9E53-DF8E22E59FFB",
+        "33": 0.5,
+        "35": [
+          79,
+          268435505
+        ],
+        "37": 5262,
+        "38": 3,
+        "39": 31.259309768676758,
+        "4": 1,
+        "40": 2,
+        "43": "5E14C2B2-6914-4ADD-9C0B-1ACFAE22404C",
+        "5": 196,
+        "6": 198,
+        "7": 1,
+        "8": [
+          0.0038760073948651552,
+          -0.9752935171127319,
+          -0.17399682104587555
+        ]
+      },
+      "{TIFF}": {
+        "DateTime": "2020:03:07 21:18:11",
+        "Make": "Apple",
+        "Model": "iPhone 11",
+        "ResolutionUnit": 2,
+        "Software": "13.3.1",
+        "XResolution": 72.0,
+        "YResolution": 72.0
+      }
+    },
     "cloud_owner_hashed_id": null,
     "comments": [],
     "date": "2020-03-07T21:18:11.235000-05:00",

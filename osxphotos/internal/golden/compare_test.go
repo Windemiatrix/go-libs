@@ -33,8 +33,8 @@ func TestCompareNoDifferences(t *testing.T) {
 	if !rep.OK() || len(rep.Diffs) != 0 || len(rep.Explained) != 0 || len(rep.Stale) != 0 {
 		t.Fatalf("report = %+v, want no differences", rep)
 	}
-	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 82 {
-		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 82", rep.Library, rep.Objects, len(rep.Keys))
+	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 83 {
+		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 83", rep.Library, rep.Objects, len(rep.Keys))
 	}
 	if !slices.IsSorted(rep.Keys) {
 		t.Error("Keys are not sorted")
@@ -317,7 +317,24 @@ func photoMutations() []mutation {
 		{"PersonInfo SortOrder", person(0, func(x *personinfo.PersonInfo) { x.SortOrder++ }), "person_info"},
 		{"PersonInfo FeatureLess", person(0, func(x *personinfo.PersonInfo) { x.FeatureLess = false }), "person_info"},
 		{"PersonInfo FeatureLess of the unknown person", person(1, func(x *personinfo.PersonInfo) { x.FeatureLess = true }), "person_info"},
+
+		{"CloudMetadata nil", func(l *Library) { l.CloudMetadata = nil }, "cloud_metadata"},
+		{"CloudMetadata of another photo", func(l *Library) {
+			l.CloudMetadata[emptyPhoto], l.CloudMetadata[selectedFrame] = l.CloudMetadata[selectedFrame], nil
+		}, "cloud_metadata"},
+		{"CloudMetadata string", cloudMeta(func(m map[string]any) { m["mediaType"] = "video" }), "cloud_metadata"},
+		{"CloudMetadata extra key", cloudMeta(func(m map[string]any) { m["extra"] = true }), "cloud_metadata"},
+		{"CloudMetadata missing key", cloudMeta(func(m map[string]any) { delete(m, "flag") }), "cloud_metadata"},
+		{"CloudMetadata integer above 2^53 by one", cloudMeta(func(m map[string]any) { m["big"] = uint64(9007199254740992) }), "cloud_metadata"},
+		{"CloudMetadata real by one ulp", cloudMeta(func(m map[string]any) { m["ratio"] = math.Nextafter(0.5, 1) }), "cloud_metadata"},
+		{"CloudMetadata date by 1us", cloudMeta(func(m map[string]any) { m["when"] = utc(2020, 1, 2, 3, 4, 5, 7000) }), "cloud_metadata"},
+		{"CloudMetadata date without microseconds", cloudMeta(func(m map[string]any) { m["when"] = utc(2020, 1, 2, 3, 4, 5, 0) }), "cloud_metadata"},
+		{"CloudMetadata list swapped", cloudMeta(func(m map[string]any) { m["nested"] = map[string]any{"list": []any{"x", int64(-1)}} }), "cloud_metadata"},
 	}
+}
+
+func cloudMeta(f func(m map[string]any)) func(l *Library) {
+	return func(l *Library) { f(l.CloudMetadata[selectedFrame]) }
 }
 
 // i indexes Library.Persons of selectedFrame: 0 is Person A, 1 the unknown person.
@@ -765,6 +782,13 @@ func TestCompareEquivalent(t *testing.T) {
 			c := &l.Comments[selectedFrame][0]
 			c.Datetime = ptr(c.Datetime.In(time.FixedZone("X", -7*3600)))
 		}, ""},
+		// The reference holds a naive UTC datetime and a double, whatever the Go types are.
+		{"a cloud metadata date in another zone, the same moment", cloudMeta(func(m map[string]any) {
+			m["when"] = utc(2020, 1, 2, 3, 4, 5, 6000).In(time.FixedZone("X", 19800))
+		}), ""},
+		{"a cloud metadata real of four bytes and an integer of another type", cloudMeta(func(m map[string]any) {
+			m["ratio"], m["count"] = float32(0.5), int64(3)
+		}), ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

@@ -152,8 +152,22 @@ func fixtureLib() Library {
 			{UUID: personA, Name: "Person A", DisplayName: "Pat", KeyFace: 11, FaceCount: 3, KeyPhotoUUID: selectedFrame, Favorite: true, SortOrder: 2, FeatureLess: true},
 			{UUID: personUnknown, Name: "_UNKNOWN_"},
 		}},
+		// Types as howett.net/plist decodes them: a non-negative integer is a uint64, a negative one an int64.
+		CloudMetadata: map[string]map[string]any{selectedFrame: {
+			"mediaType": "image",
+			"count":     uint64(3),
+			"big":       uint64(9007199254740993),
+			"ratio":     0.5,
+			"flag":      true,
+			"when":      utc(2020, 1, 2, 3, 4, 5, 6000),
+			"nested":    map[string]any{"list": []any{int64(-1), "x"}},
+		}},
 	}
 }
+
+// The integer above 2^53 and the date with microseconds are what a float64 and a rounded date would change.
+const refCloudMetadata = `{"big": 9007199254740993, "count": 3, "flag": true, "mediaType": "image", "nested": {"list": [-1, "x"]}, ` +
+	`"ratio": 0.5, "when": "2020-01-02T03:04:05.000006"}`
 
 const refPersonInfo = `[{"displayname": "Pat", "facecount": 3, "favorite": true, "feature_less": true, "keyface": 11, "keyphoto": "` + selectedFrame +
 	`", "name": "Person A", "sort_order": 2, "uuid": "` + personA + `"}, ` +
@@ -308,6 +322,7 @@ func refSelectedFrame() map[string]string {
 		"width":                "4032",
 
 		"adjustment_type":       "0",
+		"cloud_metadata":        refCloudMetadata,
 		"cloud_owner_hashed_id": `"OWNER-1"`,
 		"external_edit":         "true",
 		"hdr":                   "true",
@@ -343,7 +358,7 @@ func refEmptyPhoto() map[string]string {
 		"adjustment_type": "null", "cloud_owner_hashed_id": "null", "external_edit": "false", "hdr": "false",
 		"import_info": "{}", "imported_by": "[null, null]", "panorama": "false", "portrait": "false", "project_info": "[]", "selfie": "false",
 		"shared_moment": "false", "spatial": "0", "tzname": "null", "visible": "false",
-		"comments": "[]", "likes": "[]",
+		"comments": "[]", "likes": "[]", "cloud_metadata": "{}",
 		"date_original": `"1970-01-01T00:00:00+00:00"`, "exif_info": refExifNull, "owner": "null", "place": "{}", "score": refScoreZero,
 	}
 }
