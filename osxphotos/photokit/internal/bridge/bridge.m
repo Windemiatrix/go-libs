@@ -629,3 +629,27 @@ pk_result pk_album_assets(const char *album, const char *const *assets, int64_t 
 	}
 	return result;
 }
+
+// extension: not in osxphotos, whose photokit.py does not delete. Every asset
+// is checked before the change, so that it deletes all or none.
+pk_result pk_delete_assets(const char *const *ids, int64_t n, int64_t timeout_ms, int64_t *ns_code, char **ns_domain) {
+	pk_result result = {PK_NO_ASSET, NULL};
+	@autoreleasepool {
+		@try {
+			NSArray<NSString *> *list = pk_identifiers(ids, n);
+			if (list == nil) return result;
+			// The default options leave a hidden asset out, as for pk_fetch_assets.
+			PHFetchResult<PHAsset *> *found = [PHAsset fetchAssetsWithLocalIdentifiers:list options:nil];
+			if (found.count != list.count) return result;
+			for (PHAsset *asset in found) {
+				if (![asset canPerformEditOperation:PHAssetEditOperationDelete]) return result;
+			}
+			result = pk_perform_changes(^(__unused OSXPhotosChangeRequest *request) {
+				[PHAssetChangeRequest deleteAssets:found];
+			}, timeout_ms, NULL, ns_code, ns_domain);
+		} @catch (NSException *e) {
+			result = pk_exception_name(e);
+		}
+	}
+	return result;
+}

@@ -3,4 +3,6 @@
 // files to the library, is an extension: photokit.py does not import. So are
 // Library.Collections and the methods that change folders and albums:
 // osxphotos reads them from the database and changes them through AppleScript.
+// So is Library.Delete, which moves assets to Recently Deleted: photokit.py
+// does not delete.
 package photokit

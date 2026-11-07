@@ -1,0 +1,124 @@
+package photokit
+
+import (
+	"context"
+	"errors"
+	"math"
+	"reflect"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/Windemiatrix/go-libs/osxphotos/photokit/internal/bridge"
+	"github.com/Windemiatrix/go-libs/osxphotos/photokit/internal/bridge/fake"
+)
+
+func TestDelete(t *testing.T) {
+	asset := slowMoID + "/L0/001"
+	b := &fake.Bridge{}
+	assets := []string{liveID, asset}
+	if err := (&Library{b}).Delete(t.Context(), assets); err != nil {
+		t.Fatal(err)
+	}
+	wantCalls(t, b, "DeleteAssets 2")
+	assets[0] = unknownID
+	if got := b.LastIDs(); !reflect.DeepEqual(got, []string{liveID, asset}) {
+		t.Errorf("ids of the bridge = %q after the caller changed its slice, want a copy", got)
+	}
+
+	t.Run("none", func(t *testing.T) {
+		b := &fake.Bridge{ChangeErr: bridge.ErrNoAsset}
+		for _, none := range [][]string{nil, {}} {
+			if err := (&Library{b}).Delete(t.Context(), none); err != nil {
+				t.Errorf("Delete(%q) = %v, want nil", none, err)
+			}
+		}
+		wantCalls(t, b)
+	})
+
+	for _, id := range badIdentifiers {
+		t.Run("id "+strconv.Quote(id), func(t *testing.T) {
+			b := &fake.Bridge{}
+			err := (&Library{b}).Delete(t.Context(), []string{liveID, id})
+			wantCollectionErr(t, err, []error{ErrNotFound}, []error{ErrChange}, ": identifier", liveID, collectionTop)
+			wantCalls(t, b)
+		})
+	}
+
+	for _, tt := range []struct {
+		name      string
+		err       error
+		want, not []error
+		text      string
+	}{
+		{"no asset", bridge.ErrNoAsset, []error{ErrNotFound}, []error{ErrChange, bridge.ErrNoAsset}, ": asset"},
+		{"user canceled", &bridge.PhotoKitError{Domain: "PHPhotosErrorDomain", Code: 3072}, []error{ErrUserCanceled}, []error{ErrChange, ErrNotFound}, ""},
+		{"PhotoKit error", &bridge.PhotoKitError{Domain: "PHPhotosErrorDomain", Code: 3300}, []error{ErrChange}, []error{ErrNotFound, ErrUserCanceled}, "PHPhotosErrorDomain code 3300"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &fake.Bridge{ChangeErr: tt.err}
+			err := (&Library{b}).Delete(t.Context(), []string{liveID, asset})
+			wantCollectionErr(t, err, tt.want, tt.not, tt.text, liveID, asset)
+			wantCalls(t, b, "DeleteAssets 2")
+		})
+	}
+
+	t.Run("timeout of the bridge", func(t *testing.T) {
+		b := &fake.Bridge{}
+		if err := (&Library{b}).Delete(t.Context(), []string{liveID}); err != nil {
+			t.Fatal(err)
+		}
+		if d := b.LastTimeout(); d != time.Duration(math.MaxInt64) {
+			t.Errorf("timeout = %v without a deadline, want math.MaxInt64: 0 would not wait at all", d)
+		}
+		ctx, cancel := context.WithTimeout(t.Context(), time.Hour)
+		defer cancel()
+		if err := (&Library{b}).Delete(ctx, []string{liveID}); err != nil {
+			t.Fatal(err)
+		}
+		if d := b.LastTimeout(); d <= 59*time.Minute || d > time.Hour {
+			t.Errorf("timeout = %v, want the time left to the 1h deadline", d)
+		}
+	})
+
+	t.Run("canceled before the call", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		b := &fake.Bridge{}
+		err := (&Library{b}).Delete(ctx, []string{liveID})
+		if !errors.Is(err, context.Canceled) || errors.Is(err, ErrOutcomeUnknown) {
+			t.Errorf("err = %v, want context.Canceled: nothing was changed", err)
+		}
+		// A bridge call started by mistake logs from its goroutine after the return.
+		time.Sleep(20 * time.Millisecond)
+		wantCalls(t, b)
+	})
+
+	t.Run("deadline before the outcome", func(t *testing.T) {
+		b := &fake.Bridge{HoldChange: make(chan struct{})}
+		t.Cleanup(func() { close(b.HoldChange) })
+		ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+		defer cancel()
+		start := time.Now()
+		err := (&Library{b}).Delete(ctx, []string{liveID})
+		wantCollectionErr(t, err, []error{ErrOutcomeUnknown, context.DeadlineExceeded}, []error{ErrChange}, "", liveID)
+		if d := time.Since(start); d > time.Second {
+			t.Errorf("Delete returned after %v, want it at the deadline", d)
+		}
+	})
+
+	// The bridge would answer at the 2 s deadline: Delete must not wait for it.
+	t.Run("canceled before the outcome", func(t *testing.T) {
+		b := &fake.Bridge{HoldChange: make(chan struct{})}
+		t.Cleanup(func() { close(b.HoldChange) })
+		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+		defer cancel()
+		time.AfterFunc(10*time.Millisecond, cancel)
+		start := time.Now()
+		err := (&Library{b}).Delete(ctx, []string{liveID})
+		wantCollectionErr(t, err, []error{ErrOutcomeUnknown, context.Canceled}, []error{ErrChange}, "", liveID)
+		if d := time.Since(start); d > time.Second {
+			t.Errorf("Delete returned after %v, want it at the cancel", d)
+		}
+	})
+}

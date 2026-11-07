@@ -38,10 +38,10 @@ import (
 // then it returns ImportID and ImportErr.
 //
 // Collections returns CollectionRecords and CollectionsErr. The four changes
-// of collections log their arguments, keep the timeout for LastTimeout, and
-// the slice of DeleteCollections or AlbumAssets as given for LastIDs, and
-// wait for HoldChange as Import does for HoldImport; then they return
-// ChangeErr, and CreateCollection CreatedID when ChangeErr is nil.
+// of collections and DeleteAssets log their arguments, keep the timeout for
+// LastTimeout, and the slice of DeleteCollections, AlbumAssets or DeleteAssets
+// as given for LastIDs, and wait for HoldChange as Import does for HoldImport;
+// then they return ChangeErr, and CreateCollection CreatedID when ChangeErr is nil.
 type Bridge struct {
 	Status, RequestStatus int
 	StatusErr, RequestErr error
@@ -208,17 +208,21 @@ func (b *Bridge) AlbumAssets(album string, assets []string, add bool, timeout ti
 	return b.change(fmt.Sprintf("AlbumAssets %s %d add=%t", album, len(assets), add), assets, timeout)
 }
 
-// LastTimeout returns the timeout of the latest Import or change of a
-// collection, 0 before one.
+// DeleteAssets implements bridge.Bridge.
+func (b *Bridge) DeleteAssets(ids []string, timeout time.Duration) error {
+	return b.change(fmt.Sprintf("DeleteAssets %d", len(ids)), ids, timeout)
+}
+
+// LastTimeout returns the timeout of the latest Import or change, 0 before one.
 func (b *Bridge) LastTimeout() time.Duration {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.lastTimeout
 }
 
-// LastIDs returns what the slice given to the latest change of collections
-// holds now: the ids of DeleteCollections, the assets of AlbumAssets, nil for
-// the others and before one.
+// LastIDs returns what the slice given to the latest change holds now: the ids
+// of DeleteCollections and DeleteAssets, the assets of AlbumAssets, nil for the
+// others and before one.
 func (b *Bridge) LastIDs() []string {
 	b.mu.Lock()
 	defer b.mu.Unlock()

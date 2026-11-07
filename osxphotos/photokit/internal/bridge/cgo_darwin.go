@@ -219,6 +219,19 @@ func (*cgoBridge) AlbumAssets(album string, assets []string, add bool, timeout t
 	return cmp.Or(err, nsError(domain != nil, C.GoString(domain), int64(code)))
 }
 
+func (*cgoBridge) DeleteAssets(ids []string, timeout time.Duration) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	cids, free := cStrings(ids)
+	defer free()
+	var domain *C.char
+	var code C.int64_t
+	err := check(C.pk_delete_assets(&cids[0], C.int64_t(len(cids)), C.int64_t(timeoutMS(timeout)), &code, &domain))
+	defer C.free(unsafe.Pointer(domain)) //nolint:gosec // G103: the strdup buffer of bridge.m is freed here
+	return cmp.Or(err, nsError(domain != nil, C.GoString(domain), int64(code)))
+}
+
 func cStrings(ss []string) ([]*C.char, func()) {
 	cs := make([]*C.char, len(ss))
 	for i, s := range ss {
