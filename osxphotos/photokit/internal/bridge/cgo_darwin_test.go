@@ -87,7 +87,7 @@ func TestChangeResult(t *testing.T) {
 // The call fails before a change is requested, which the tests must not reach.
 func TestImportBeforeChange(t *testing.T) {
 	r := ImportRecord{Photo: "/x/IMG_0001.JPG", Albums: []string{"\xff"}}
-	if id, err := New().Import(r, time.Second); id != "" || !errors.Is(err, ErrNoAlbum) {
+	if id, err := New().Import(r, time.Second); id != "" || !errors.Is(err, ErrNoAlbum) || err.Error() != ErrNoAlbum.Error() {
 		t.Errorf("Import with an album not UTF-8 = %q, %v, want ErrNoAlbum", id, err)
 	}
 }

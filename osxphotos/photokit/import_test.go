@@ -57,6 +57,7 @@ func TestImport(t *testing.T) {
 		{"Live Photo", ImportRequest{Photo: photo, PairedVideo: video}, bridge.ImportRecord{Photo: photo, PairedVideo: video}, "Import IMG_0001.JPG 0 albums"},
 		{"RAW+JPEG", ImportRequest{Photo: photo, AlternatePhoto: raw}, bridge.ImportRecord{Photo: photo, AlternatePhoto: raw}, "Import IMG_0001.JPG 0 albums"},
 		{"original filename", ImportRequest{Photo: photo, OriginalFilename: "IMG_0003.JPG"}, bridge.ImportRecord{Photo: photo, OriginalFilename: "IMG_0003.JPG"}, "Import IMG_0003.JPG 0 albums"},
+		{"UTF-8 original filename", ImportRequest{Photo: photo, OriginalFilename: "IMG_caf\U000000e9.JPG"}, bridge.ImportRecord{Photo: photo, OriginalFilename: "IMG_caf\U000000e9.JPG"}, "Import IMG_caf\U000000e9.JPG 0 albums"},
 		// PhotoKit reads through a link as through the file.
 		{"symbolic link", ImportRequest{Photo: link}, bridge.ImportRecord{Photo: link}, "Import IMG_0002.JPG 0 albums"},
 		{"location 0, 0", ImportRequest{Photo: photo, Location: &Location{}}, bridge.ImportRecord{Photo: photo, HasLocation: true}, "Import IMG_0001.JPG 0 albums"},
@@ -130,8 +131,8 @@ func TestImport(t *testing.T) {
 			if id != "" || !errors.Is(err, ErrImportFile) {
 				t.Fatalf("Import = %q, %v; want ErrImportFile", id, err)
 			}
-			if !strings.HasSuffix(err.Error(), ": "+tt.field) || strings.Contains(err.Error(), filepath.Dir(photo)) {
-				t.Errorf("err = %v, want the field %s and no path", err, tt.field)
+			if got, want := err.Error(), ErrImportFile.Error()+": "+tt.field; got != want {
+				t.Errorf("err = %q, want %q: the field only", got, want)
 			}
 			wantCalls(t, b)
 		})

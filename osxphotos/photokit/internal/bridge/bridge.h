@@ -68,9 +68,10 @@ typedef struct {
 // completion (0 does not wait); r and albums are not read after the return. An
 // album not found, not UTF-8, or that cannot take an asset is PK_NOT_FOUND and
 // changes nothing; an exception in a change that PhotoKit commits is PK_TIMEOUT.
-// A failed change sets *ns_domain, "" when the NSError has none, and *ns_code;
-// otherwise *identifier is the LocalIdentifier. The caller passes both strings
-// NULL and frees them.
+// An original_filename that is not UTF-8 keeps the name of the file, so the
+// caller checks it. A failed change sets *ns_domain, "" when the NSError has
+// none, and *ns_code; otherwise *identifier is the LocalIdentifier. The caller
+// passes both strings NULL and frees them.
 pk_result pk_import(const pk_import_request *r, const char *const *albums, int64_t n_albums, int64_t timeout_ms, char **identifier, int64_t *ns_code, char **ns_domain);
 
 // The title is NULL when PhotoKit gives none, the parent "" at the top level.

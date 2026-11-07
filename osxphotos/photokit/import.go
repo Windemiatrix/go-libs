@@ -8,9 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/photokit/internal/bridge"
 )
@@ -80,8 +78,9 @@ func checkImportFiles(r ImportRequest) error {
 			return fmt.Errorf("%w: %s", ErrImportFile, f.name)
 		}
 	}
-	// C would cut the name at a NUL, and one that is not UTF-8 gives no NSString.
-	if strings.ContainsRune(r.OriginalFilename, 0) || !utf8.ValidString(r.OriginalFilename) {
+	// C would cut the name at a NUL, and one that is not UTF-8 gives no NSString:
+	// Photos would keep the name of the file.
+	if r.OriginalFilename != "" && !isCString(r.OriginalFilename) {
 		return fmt.Errorf("%w: OriginalFilename", ErrImportFile)
 	}
 	return nil
