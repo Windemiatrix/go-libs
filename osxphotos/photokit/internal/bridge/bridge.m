@@ -686,3 +686,74 @@ pk_result pk_update_asset(const char *local_id, const pk_patch *p, int64_t timeo
 	}
 	return result;
 }
+
+// extension: not in osxphotos, whose photokit.py has no cloud identifiers.
+static pk_result pk_identifier_pairs(const char *const *ids, int64_t n, NSArray<NSArray<NSString *> *> *(^map)(NSArray<NSString *> *), pk_identifier_pair **out, int *count) {
+	pk_result r = {PK_OK, NULL};
+	*out = NULL;
+	*count = 0;
+	@autoreleasepool {
+		@try {
+			NSArray<NSString *> *list = pk_identifiers(ids, n);
+			NSArray<NSArray<NSString *> *> *pairs = list.count > 0 ? map(list) : nil;
+			if (pairs.count > INT32_MAX) [NSException raise:NSGenericException format:@"too many identifiers"];
+			if (pairs.count > 0) {
+				*out = calloc(pairs.count, sizeof(pk_identifier_pair));
+				if (*out == NULL) [NSException raise:NSGenericException format:@"no memory for identifiers"];
+				*count = (int)pairs.count;
+				for (int i = 0; i < *count; i++) {
+					(*out)[i].local_identifier = pk_strdup(pairs[i][0]);
+					(*out)[i].cloud_identifier = pk_strdup(pairs[i][1]);
+				}
+			}
+		} @catch (NSException *e) {
+			// calloc zeroed the pairs not yet filled, so all of them are freed.
+			pk_free_identifier_pairs(*out, *count);
+			*out = NULL;
+			*count = 0;
+			r = pk_exception_name(e);
+		}
+	}
+	return r;
+}
+
+// The dictionaries are walked, not looked up by the identifiers given: a key
+// is what PhotoKit made of them. An asset without a cloud identifier has an
+// error in its mapping and is left out; the call does not fail for it.
+pk_result pk_cloud_identifiers(const char *const *ids, int64_t n, pk_identifier_pair **out, int *count) {
+	return pk_identifier_pairs(ids, n, ^NSArray<NSArray<NSString *> *> *(NSArray<NSString *> *list) {
+		// The mapping takes a LocalIdentifier, not the UUID that Fetch takes; the
+		// default options leave a hidden asset out, as for pk_fetch_assets.
+		NSMutableArray<NSString *> *locals = [NSMutableArray array];
+		for (PHAsset *asset in [PHAsset fetchAssetsWithLocalIdentifiers:list options:nil]) [locals addObject:asset.localIdentifier];
+		NSDictionary<NSString *, PHCloudIdentifierMapping *> *mappings = [[PHPhotoLibrary sharedPhotoLibrary] cloudIdentifierMappingsForLocalIdentifiers:locals];
+		NSMutableArray<NSArray<NSString *> *> *pairs = [NSMutableArray array];
+		for (NSString *local in mappings) {
+			NSString *cloud = mappings[local].cloudIdentifier.stringValue;
+			if (mappings[local].error == nil && cloud != nil) [pairs addObject:@[ local, cloud ]];
+		}
+		return pairs;
+	}, out, count);
+}
+
+pk_result pk_local_identifiers(const char *const *cloud_ids, int64_t n, pk_identifier_pair **out, int *count) {
+	return pk_identifier_pairs(cloud_ids, n, ^NSArray<NSArray<NSString *> *> *(NSArray<NSString *> *list) {
+		NSMutableArray<PHCloudIdentifier *> *clouds = [NSMutableArray array];
+		for (NSString *s in list) [clouds addObject:[[PHCloudIdentifier alloc] initWithStringValue:s]];
+		NSDictionary<PHCloudIdentifier *, PHLocalIdentifierMapping *> *mappings = [[PHPhotoLibrary sharedPhotoLibrary] localIdentifierMappingsForCloudIdentifiers:clouds];
+		NSMutableArray<NSArray<NSString *> *> *pairs = [NSMutableArray array];
+		for (PHCloudIdentifier *cloud in mappings) {
+			NSString *local = mappings[cloud].localIdentifier, *s = cloud.stringValue;
+			if (mappings[cloud].error == nil && local != nil && s != nil) [pairs addObject:@[ local, s ]];
+		}
+		return pairs;
+	}, out, count);
+}
+
+void pk_free_identifier_pairs(pk_identifier_pair *pairs, int count) {
+	for (int i = 0; i < count; i++) {
+		free(pairs[i].local_identifier);
+		free(pairs[i].cloud_identifier);
+	}
+	free(pairs);
+}

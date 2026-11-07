@@ -5,5 +5,8 @@
 // osxphotos reads them from the database and changes them through AppleScript.
 // So is Library.Delete, which moves assets to Recently Deleted: photokit.py
 // does not delete. So is Library.Update, which changes the date, the flags and
-// the location of an asset: photokit.py only reads them.
+// the location of an asset: photokit.py only reads them. So are
+// Library.CloudIdentifiers and Library.LocalIdentifiers, which map the
+// LocalIdentifier of an asset to its cloud identifier and back: photokit.py
+// has no cloud identifiers.
 package photokit

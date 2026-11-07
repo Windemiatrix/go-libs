@@ -229,6 +229,20 @@ func TestDuration(t *testing.T) {
 	}
 }
 
+// The calls return before PhotoKit, which the tests must not reach: an
+// identifier that is not UTF-8 names nothing.
+func TestIdentifierPairsNone(t *testing.T) {
+	b := New()
+	for _, ids := range [][]string{nil, {"\xff"}} {
+		if got, err := b.CloudIdentifiers(ids); got != nil || err != nil {
+			t.Errorf("CloudIdentifiers(%q) = %v, %v, want nil, nil", ids, got, err)
+		}
+		if got, err := b.LocalIdentifiers(ids); got != nil || err != nil {
+			t.Errorf("LocalIdentifiers(%q) = %v, %v, want nil, nil", ids, got, err)
+		}
+	}
+}
+
 // The call returns before PhotoKit, which the tests must not reach.
 func TestFetchAssetsNone(t *testing.T) {
 	if got, err := New().FetchAssets(nil); got != nil || err != nil {

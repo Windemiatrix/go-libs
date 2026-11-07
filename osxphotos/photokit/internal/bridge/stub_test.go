@@ -52,4 +52,10 @@ func TestStubNotSupported(t *testing.T) {
 	if err := b.UpdateAsset("id", PatchRecord{HasFavorite: true}, time.Minute); !errors.Is(err, ErrNotSupported) {
 		t.Errorf("UpdateAsset: err = %v, want ErrNotSupported", err)
 	}
+	if got, err := b.CloudIdentifiers([]string{"id"}); got != nil || !errors.Is(err, ErrNotSupported) {
+		t.Errorf("CloudIdentifiers = %v, %v; want ErrNotSupported", got, err)
+	}
+	if got, err := b.LocalIdentifiers([]string{"id"}); got != nil || !errors.Is(err, ErrNotSupported) {
+		t.Errorf("LocalIdentifiers = %v, %v; want ErrNotSupported", got, err)
+	}
 }

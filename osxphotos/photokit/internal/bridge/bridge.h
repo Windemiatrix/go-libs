@@ -121,3 +121,16 @@ typedef struct {
 // or cannot be changed is PK_NO_ASSET and changes nothing. *ns_code and
 // *ns_domain are as for pk_import.
 pk_result pk_update_asset(const char *local_id, const pk_patch *p, int64_t timeout_ms, int64_t *ns_code, char **ns_domain);
+
+typedef struct {
+	char *local_identifier, *cloud_identifier;
+} pk_identifier_pair;
+
+// *out holds the *count pairs of the assets of ids, UUIDs or LocalIdentifiers,
+// that have a cloud identifier, or of the cloud identifiers cloud_ids that the
+// library resolves, or is NULL with *count 0 on an error or when there are
+// none; pk_free_identifier_pairs frees it in every case. pk_cloud_identifiers
+// does not find a hidden asset, as pk_fetch_assets.
+pk_result pk_cloud_identifiers(const char *const *ids, int64_t n, pk_identifier_pair **out, int *count);
+pk_result pk_local_identifiers(const char *const *cloud_ids, int64_t n, pk_identifier_pair **out, int *count);
+void pk_free_identifier_pairs(pk_identifier_pair *pairs, int count);
