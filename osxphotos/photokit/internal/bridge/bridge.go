@@ -22,7 +22,8 @@ var (
 	// ErrNoAlbum is returned by Import and the collection methods when an album
 	// or a collection is not found or cannot take the change; nothing was changed.
 	ErrNoAlbum = errors.New("photokit: no such album")
-	// ErrNoAsset is returned by AlbumAssets for an asset not found; nothing was changed.
+	// ErrNoAsset is returned by AlbumAssets for an asset not found, and by
+	// DeleteAssets for one not found or that cannot be deleted; nothing was changed.
 	ErrNoAsset = errors.New("photokit: no such asset")
 )
 
@@ -55,12 +56,13 @@ type Bridge interface {
 	// Collections returns the user folders and albums, parents first, in the order of PhotoKit; none with an error.
 	Collections() ([]CollectionRecord, error)
 	// CreateCollection, which returns the LocalIdentifier of the collection,
-	// RenameCollection, DeleteCollections and AlbumAssets run one performChanges
-	// each and wait and fail as Import does.
+	// RenameCollection, DeleteCollections, AlbumAssets and DeleteAssets run one
+	// performChanges each and wait and fail as Import does.
 	CreateCollection(title, parent string, folder bool, timeout time.Duration) (string, error)
 	RenameCollection(id, title string, timeout time.Duration) error
 	DeleteCollections(ids []string, timeout time.Duration) error
 	AlbumAssets(album string, assets []string, add bool, timeout time.Duration) error
+	DeleteAssets(ids []string, timeout time.Duration) error
 }
 
 // CollectionRecord is a Collection of photokit for the bridge.

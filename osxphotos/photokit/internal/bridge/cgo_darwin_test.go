@@ -124,6 +124,7 @@ func TestCollectionChangesBeforeChange(t *testing.T) {
 		{"one collection to delete not UTF-8", b.DeleteCollections([]string{"\xff"}, time.Second), ErrNoAlbum.Error()},
 		{"album not UTF-8", b.AlbumAssets("\xff", []string{"x"}, true, time.Second), ErrNoAlbum.Error()},
 		{"asset not UTF-8", b.AlbumAssets("Trips", []string{"\xff"}, false, time.Second), ErrNoAsset.Error()},
+		{"asset to delete not UTF-8", b.DeleteAssets([]string{"\xff"}, time.Second), ErrNoAsset.Error()},
 	} {
 		if tt.err == nil || tt.err.Error() != tt.want || (tt.want == ErrNoAlbum.Error() && !errors.Is(tt.err, ErrNoAlbum)) || (tt.want == ErrNoAsset.Error() && !errors.Is(tt.err, ErrNoAsset)) {
 			t.Errorf("%s: error %v, want %q", tt.name, tt.err, tt.want)
@@ -131,11 +132,14 @@ func TestCollectionChangesBeforeChange(t *testing.T) {
 	}
 }
 
-// Both calls return before PhotoKit, which the tests must not reach.
+// The calls return before PhotoKit, which the tests must not reach.
 func TestCollectionChangesNone(t *testing.T) {
 	b := New()
 	if err := b.DeleteCollections(nil, time.Second); err != nil {
 		t.Errorf("DeleteCollections(nil) = %v, want nil", err)
+	}
+	if err := b.DeleteAssets(nil, time.Second); err != nil {
+		t.Errorf("DeleteAssets(nil) = %v, want nil", err)
 	}
 	if err := b.AlbumAssets("\xff", nil, true, time.Second); err != nil {
 		t.Errorf("AlbumAssets with no asset = %v, want nil", err)

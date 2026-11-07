@@ -159,6 +159,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `photokit.Library.Collections()`
 - `photokit.Library.CreateAlbum()`
 - `photokit.Library.CreateFolder()`
+- `photokit.Library.Delete()`
 - `photokit.Library.DeleteCollections()`
 - `photokit.Library.Import()`
 - `photokit.Library.RemoveFromAlbum()`
@@ -319,6 +320,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 - `photokit.Library.Collections()`
 - `photokit.Library.CreateAlbum()`
 - `photokit.Library.CreateFolder()`
+- `photokit.Library.Delete()`
 - `photokit.Library.DeleteCollections()`
 - `photokit.Library.Import()`
 - `photokit.Library.RemoveFromAlbum()`
