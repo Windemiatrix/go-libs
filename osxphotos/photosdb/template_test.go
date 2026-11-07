@@ -8,8 +8,11 @@ import (
 	"time"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/exifinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/momentinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/scoreinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/template"
 )
 
@@ -133,7 +136,7 @@ func TestFields(t *testing.T) {
 			t.Errorf("Field(%q) of %s = %+v, %v; want %+v, true", tt.name, tt.p.UUID, got, ok, tt.want)
 		}
 	}
-	for _, name := range []string{"place.name", "photo.labels", "exif.camera_make", "searchinfo.season", "label", "label_normalized", "shortuuid", "nosuch"} {
+	for _, name := range []string{"photo.labels", "searchinfo.season", "label", "label_normalized", "shortuuid", "nosuch"} {
 		if got, ok := db.Fields(p1).Field(name); ok {
 			t.Errorf("Field(%q) = %+v, true; want false", name, got)
 		}
@@ -245,8 +248,8 @@ func TestRenderTemplate(t *testing.T) {
 			t.Errorf("RenderTemplate({counter}) = %q, %v; want %q: one Renderer for the DB", got, err, want)
 		}
 	}
-	if got, err := tmplRender(t, db, p1, "{place.name}", o); !errors.Is(err, template.ErrUnsupportedField) {
-		t.Errorf("RenderTemplate({place.name}) = %q, %v; want ErrUnsupportedField", got, err)
+	if got, err := tmplRender(t, db, p1, "{searchinfo.season}", o); !errors.Is(err, template.ErrUnsupportedField) {
+		t.Errorf("RenderTemplate({searchinfo.season}) = %q, %v; want ErrUnsupportedField", got, err)
 	}
 	if got, err := tmplRender(t, db, db.byUUID["P-3"], "{album_seq}", template.RenderOptions{DestPath: "/out/Beach"}); !errors.Is(err, template.ErrRender) {
 		t.Errorf("RenderTemplate({album_seq}) of a photo that is not in Beach = %q, %v; want ErrRender", got, err)
@@ -350,6 +353,164 @@ func TestRenderTemplatePhoto(t *testing.T) {
 	for _, in := range []string{"{photo.labels}", "{photo.nonsense}", "{photo.burst_uuid}", "{photo.date.year}", "{photo.score}", "{photo.place}"} {
 		if got, err := tmplRender(t, db, p, in, o); !errors.Is(err, template.ErrUnsupportedField) {
 			t.Errorf("RenderTemplate(%q) = %q, %v; want ErrUnsupportedField", in, got, err)
+		}
+	}
+}
+
+// Every value differs from the others, so that a name that reads another
+// field shows. The city of the smaller area comes first (placeinfo.New).
+func tmplNestedPhoto() *photoinfo.PhotoInfo {
+	fired, iso, metering, rate, track, balance, offset := true, 100, 5, 44100, 7, 1, -18000
+	aperture, bitRate, duration, bias, focal, fps, lat, lon, shutter := 2.2, 1.5e6, 3.0, -0.5, 4.15, 29.97, 51.5, -0.13, 0.001
+	shot := time.Date(2020, 1, 2, 3, 4, 5, 0, time.FixedZone("", -18000))
+	place := placeinfo.New([]placeinfo.Place{
+		{Type: 1, Name: "Federation", Area: 200}, {Type: 1, Name: "Exampleland", Area: 100},
+		{Type: 2, Name: "Wide Province", Area: 60}, {Type: 2, Name: "North Province", Area: 50},
+		{Type: 4, Name: "Big City", Area: 10}, {Type: 4, Name: "Old Town", Area: 2},
+		{Type: 8, Name: "Whole Park", Area: 5}, {Type: 8, Name: "Central Park", Area: 1},
+	}, "EX", "1 Main St, Big City, NP 12345", true, placeinfo.Address{
+		Street: "1 Main St", City: "Big City", StateProvince: "NP", PostalCode: "12345", Country: "Republic of Exampleland", ISOCountryCode: "XE",
+	})
+	return &photoinfo.PhotoInfo{
+		UUID: "N-1",
+		Score: scoreinfo.ScoreInfo{
+			Overall: 0.51, Curation: 0.02, Promotion: 0.03, HighlightVisibility: 0.04, Behavioral: 0.05, Failure: -0.06,
+			HarmoniousColor: 0.07, Immersiveness: 0.08, Interaction: 0.09, InterestingSubject: 0.1, IntrusiveObjectPresence: 0.11,
+			LivelyColor: 0.12, LowLight: 0.13, Noise: 0.14, PleasantCameraTilt: 0.15, PleasantComposition: 0.16,
+			PleasantLighting: 0.17, PleasantPattern: 0.18, PleasantPerspective: 0.19, PleasantPostProcessing: 0.2,
+			PleasantReflection: 0.21, PleasantSymmetry: 0.22, SharplyFocusedSubject: 0.23, TastefullyBlurred: 0.24,
+			WellChosenSubject: 0.25, WellFramedSubject: 0.26, WellTimedShot: 0.27,
+		},
+		ExifInfo: exifinfo.ExifInfo{
+			FlashFired: &fired, ISO: &iso, MeteringMode: &metering, SampleRate: &rate, TrackFormat: &track, WhiteBalance: &balance,
+			Aperture: &aperture, BitRate: &bitRate, Duration: &duration, ExposureBias: &bias, FocalLength: &focal, FPS: &fps,
+			Latitude: &lat, Longitude: &lon, ShutterSpeed: &shutter,
+			CameraMake: "Example Make", CameraModel: "Example Model 2", Codec: "avc1", LensModel: "Example Lens 4.15mm f/2.2",
+			Date: &shot, TZOffset: &offset, TZName: "America/Chicago",
+		},
+		Place: &place,
+	}
+}
+
+func TestRenderTemplateNested(t *testing.T) {
+	t.Parallel()
+	db := tmplDB()
+	no := false
+	p, bare := tmplNestedPhoto(), &photoinfo.PhotoInfo{UUID: "N-0"}
+	unfired := &photoinfo.PhotoInfo{UUID: "N-2", ExifInfo: exifinfo.ExifInfo{FlashFired: &no}, Place: &placeinfo.PlaceInfo{Name: "Somewhere"}}
+	o := template.RenderOptions{}
+	for _, tt := range []struct {
+		p        *photoinfo.PhotoInfo
+		in, want string
+	}{
+		{p, "{photo.score.overall}", "0.51"}, {p, "{photo.score.curation}", "0.02"}, {p, "{photo.score.promotion}", "0.03"},
+		{p, "{photo.score.highlight_visibility}", "0.04"}, {p, "{photo.score.behavioral}", "0.05"}, {p, "{photo.score.failure}", "-0.06"},
+		{p, "{photo.score.harmonious_color}", "0.07"}, {p, "{photo.score.immersiveness}", "0.08"}, {p, "{photo.score.interaction}", "0.09"},
+		{p, "{photo.score.interesting_subject}", "0.1"}, {p, "{photo.score.intrusive_object_presence}", "0.11"},
+		{p, "{photo.score.lively_color}", "0.12"}, {p, "{photo.score.low_light}", "0.13"}, {p, "{photo.score.noise}", "0.14"},
+		{p, "{photo.score.pleasant_camera_tilt}", "0.15"}, {p, "{photo.score.pleasant_composition}", "0.16"},
+		{p, "{photo.score.pleasant_lighting}", "0.17"}, {p, "{photo.score.pleasant_pattern}", "0.18"},
+		{p, "{photo.score.pleasant_perspective}", "0.19"}, {p, "{photo.score.pleasant_post_processing}", "0.2"},
+		{p, "{photo.score.pleasant_reflection}", "0.21"}, {p, "{photo.score.pleasant_symmetry}", "0.22"},
+		{p, "{photo.score.sharply_focused_subject}", "0.23"}, {p, "{photo.score.tastefully_blurred}", "0.24"},
+		{p, "{photo.score.well_chosen_subject}", "0.25"}, {p, "{photo.score.well_framed_subject}", "0.26"},
+		{p, "{photo.score.well_timed_shot}", "0.27"},
+		{bare, "{photo.score.overall}", "0.0"},
+		{p, "{photo.score.overall > 0.5?Y,N}", "Y"},
+		{p, "{photo.exif_info.flash_fired}", "flash_fired"}, {unfired, "{photo.exif_info.flash_fired}", "_"},
+		{p, "{photo.exif_info.iso}", "100"}, {p, "{photo.exif_info.metering_mode}", "5"}, {p, "{photo.exif_info.sample_rate}", "44100"},
+		{p, "{photo.exif_info.track_format}", "7"}, {p, "{photo.exif_info.white_balance}", "1"},
+		{p, "{photo.exif_info.aperture}", "2.2"}, {p, "{photo.exif_info.bit_rate}", "1500000.0"}, {p, "{photo.exif_info.duration}", "3.0"},
+		{p, "{photo.exif_info.exposure_bias}", "-0.5"}, {p, "{photo.exif_info.focal_length}", "4.15"}, {p, "{photo.exif_info.fps}", "29.97"},
+		{p, "{photo.exif_info.latitude}", "51.5"}, {p, "{photo.exif_info.longitude}", "-0.13"}, {p, "{photo.exif_info.shutter_speed}", "0.001"},
+		{p, "{photo.exif_info.camera_make}", "Example Make"}, {p, "{photo.exif_info.camera_model}", "Example Model 2"},
+		{p, "{photo.exif_info.codec}", "avc1"}, {p, "{photo.exif_info.lens_model}", "Example Lens 4.15mm f/2.2"},
+		{p, "{photo.exif_info.date}", "2020-01-02T03:04:05-05:00"}, {p, "{photo.exif_info.tzoffset}", "-18000"},
+		{p, "{photo.exif_info.tzname}", "America/Chicago"},
+		{p, "{photo.place.name}", "Central Park, Old Town, North Province, Exampleland"}, {p, "{photo.place.country_code}", "EX"},
+		{p, "{photo.place.address_str}", "1 Main St, Big City, NP 12345"}, {p, "{photo.place.ishome}", "ishome"},
+		{unfired, "{photo.place.name}", "Somewhere"}, {unfired, "{photo.place.ishome}", "_"},
+	} {
+		if got, err := tmplRender(t, db, tt.p, tt.in, o); err != nil || !slices.Equal(got, []string{tt.want}) {
+			t.Errorf("RenderTemplate(%q) of %s = %q, %v; want %q", tt.in, tt.p.UUID, got, err, tt.want)
+		}
+	}
+	// Without an EXIF row every value is None (exifinfo.py:42-45); without a place the chain stops at None (phototemplate.py:1358-1359).
+	for _, in := range []string{"{photo.exif_info.flash_fired}", "{photo.exif_info.iso}", "{photo.exif_info.aperture}", "{photo.exif_info.camera_make}",
+		"{photo.exif_info.date}", "{photo.exif_info.tzoffset}", "{photo.exif_info.tzname}",
+		"{photo.place.name}", "{photo.place.country_code}", "{photo.place.address_str}", "{photo.place.ishome}"} {
+		if got, err := tmplRender(t, db, bare, in, o); err != nil || !slices.Equal(got, []string{"_"}) {
+			t.Errorf("RenderTemplate(%q) of a photo without EXIF data and place = %q, %v; want _", in, got, err)
+		}
+	}
+	for _, in := range []string{"{photo.place.names}", "{photo.place.address}", "{photo.place.name.city}", "{photo.place.names.city}",
+		"{photo.place.address.street}", "{photo.place.nonsense}"} {
+		if got, err := tmplRender(t, db, p, in, o); !errors.Is(err, template.ErrUnsupportedField) {
+			t.Errorf("RenderTemplate(%q) = %q, %v; want ErrUnsupportedField", in, got, err)
+		}
+		if got, err := tmplRender(t, db, bare, in, o); err != nil || !slices.Equal(got, []string{"_"}) {
+			t.Errorf("RenderTemplate(%q) of a photo without place = %q, %v; want _", in, got, err)
+		}
+	}
+	for _, in := range []string{"{photo.score.nonsense}", "{photo.exif_info.nonsense}", "{photo.nonsense.overall}"} {
+		for _, q := range []*photoinfo.PhotoInfo{p, bare} {
+			if got, err := tmplRender(t, db, q, in, o); !errors.Is(err, template.ErrUnsupportedField) {
+				t.Errorf("RenderTemplate(%q) of %s = %q, %v; want ErrUnsupportedField", in, q.UUID, got, err)
+			}
+		}
+	}
+}
+
+func TestRenderTemplatePlaceExif(t *testing.T) {
+	t.Parallel()
+	db := tmplDB()
+	p, bare := tmplNestedPhoto(), &photoinfo.PhotoInfo{UUID: "N-0"}
+	nameless := &photoinfo.PhotoInfo{UUID: "N-2", Place: &placeinfo.PlaceInfo{Name: "Somewhere"}}
+	o := template.RenderOptions{}
+	for _, tt := range []struct{ in, want, bare string }{
+		{"{place.name}", "Central Park, Old Town, North Province, Exampleland", "_"},
+		{"{place.country_code}", "EX", "_"},
+		{"{place.name.country}", "Exampleland", "_"},
+		{"{place.name.state_province}", "North Province", "_"},
+		{"{place.name.city}", "Old Town", "_"},
+		{"{place.name.area_of_interest}", "Central Park", "_"},
+		{"{place.address}", "1 Main St, Big City, NP 12345", "_"},
+		{"{place.address.street}", "1 Main St", "_"},
+		{"{place.address.city}", "Big City", "_"},
+		{"{place.address.state_province}", "NP", "_"},
+		{"{place.address.postal_code}", "12345", "_"},
+		{"{place.address.country}", "Republic of Exampleland", "_"},
+		{"{place.address.country_code}", "XE", "_"},
+		{"{place.name?Y,N}", "Y", "N"},
+		{"{exif.camera_make}", "Example Make", "_"},
+		{"{exif.camera_model}", "Example Model 2", "_"},
+		{"{exif.lens_model}", "Example Lens 4.15mm f/2.2", "_"},
+	} {
+		if got, err := tmplRender(t, db, p, tt.in, o); err != nil || !slices.Equal(got, []string{tt.want}) {
+			t.Errorf("RenderTemplate(%q) = %q, %v; want %q", tt.in, got, err, tt.want)
+		}
+		if got, err := tmplRender(t, db, bare, tt.in, o); err != nil || !slices.Equal(got, []string{tt.bare}) {
+			t.Errorf("RenderTemplate(%q) of a photo without place and EXIF data = %q, %v; want %q", tt.in, got, err, tt.bare)
+		}
+	}
+	for _, in := range []string{"{place.name.country}", "{place.name.state_province}", "{place.name.city}", "{place.name.area_of_interest}"} {
+		if got, err := tmplRender(t, db, nameless, in, o); err != nil || !slices.Equal(got, []string{"_"}) {
+			t.Errorf("RenderTemplate(%q) of a place without names = %q, %v; want _", in, got, err)
+		}
+	}
+	// Render never asks for these: upstream has no such field (phototemplate.py:849-883).
+	for _, name := range []string{"place.nonsense", "place.name.nonsense", "place.address.nonsense", "exif.iso"} {
+		tmpl, err := template.Parse("{" + name + "}")
+		if err != nil {
+			t.Fatalf("Parse(%q): %v", name, err)
+		}
+		for _, q := range []*photoinfo.PhotoInfo{p, bare} {
+			if got, ok := db.Fields(q).Field(name); ok {
+				t.Errorf("Field(%q) of %s = %+v, true; want false", name, q.UUID, got)
+			}
+			if values, unmatched, err := db.RenderTemplate(q, tmpl, o); err != nil || values != nil || !slices.Equal(unmatched, []string{name}) {
+				t.Errorf("RenderTemplate({%s}) of %s = %q, unmatched %q, %v; want unmatched", name, q.UUID, values, unmatched, err)
+			}
 		}
 	}
 }

@@ -26,8 +26,6 @@ var excludedIDs = map[string]error{"t287": template.ErrUnsupportedConstruct, "t2
 // ported; a pending id that renders is an error, so the list shrinks with the
 // port and is empty once every field of phototemplate.py is ported.
 var pendingIDs = map[string][]string{
-	"photo.score.X, photo.exif_info.X and photo.place.X": slices.Concat([]string{"t098", "t431"}, idRange(479, 481)),
-	"place.X and exif.X": idRange(484, 500),
 	"searchinfo.X, label, label_normalized, photo.labels and photo.labels_normalized": slices.Concat([]string{"t438", "t439"}, idRange(503, 510)),
 }
 
