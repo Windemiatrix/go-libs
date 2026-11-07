@@ -107,3 +107,17 @@ pk_result pk_album_assets(const char *album, const char *const *assets, int64_t 
 // deleted is PK_NO_ASSET and changes nothing. *ns_code and *ns_domain are as
 // for pk_import.
 pk_result pk_delete_assets(const char *const *ids, int64_t n, int64_t timeout_ms, int64_t *ns_code, char **ns_domain);
+
+// A value holds only with its has_ field; the date is seconds since 1970, the
+// coordinates degrees.
+typedef struct {
+	bool has_creation_date, has_favorite, has_hidden, has_location, favorite, hidden;
+	double creation_date, latitude, longitude;
+} pk_patch;
+
+// Changes the asset local_id, a UUID or a LocalIdentifier, in one
+// performChanges and waits up to timeout_ms as pk_import does; local_id and p
+// are not read after the return. An asset that is not found, not UTF-8, hidden
+// or cannot be changed is PK_NO_ASSET and changes nothing. *ns_code and
+// *ns_domain are as for pk_import.
+pk_result pk_update_asset(const char *local_id, const pk_patch *p, int64_t timeout_ms, int64_t *ns_code, char **ns_domain);
