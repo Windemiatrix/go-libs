@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -18,6 +19,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/query"
+	"github.com/Windemiatrix/go-libs/osxphotos/template"
 )
 
 // A JSON null decodes as the zero value: title and description null are "",
@@ -617,6 +619,125 @@ func TestQueryMissing(t *testing.T) {
 				t.Error("a test library has original files: Missing needs a test of its own")
 			}
 		})
+	}
+}
+
+// The stem that {original_name} renders: pathlib.Path(...).stem
+// (phototemplate.py:931-933).
+func queryStem(name string) string {
+	if i := strings.LastIndex(name, "."); i > 0 && i < len(name)-1 {
+		return name[:i]
+	}
+	return name
+}
+
+type queryRegexCase struct {
+	name, tmpl, pattern string
+	ignoreCase          bool
+	values              func(*photoinfo.PhotoInfo) []string
+}
+
+// queryStemPrefix is the first prefix of four runes of a reference stem that
+// some photos of the library have and others do not: a case that selects every
+// photo cannot tell a filter that never runs. With ignoreCase it takes a stem
+// that has case and returns the prefix in lower case, as a caseless prefix
+// cannot catch an ignored IgnoreCase.
+func queryStemPrefix(refs []queryRef, all []*photoinfo.PhotoInfo, ignoreCase bool) (string, bool) {
+	fold := func(s string) string { return s }
+	if ignoreCase {
+		fold = strings.ToLower
+	}
+	for _, r := range refs {
+		s := []rune(queryStem(r.OriginalFilename))
+		prefix := norm.NFC.String(string(s[:min(4, len(s))]))
+		if prefix == "" || ignoreCase && fold(prefix) == prefix {
+			continue
+		}
+		prefix = fold(prefix)
+		n := 0
+		for _, p := range all {
+			if strings.HasPrefix(fold(queryStem(p.OriginalFilename)), prefix) {
+				n++
+			}
+		}
+		if n > 0 && n < len(all) {
+			return prefix, true
+		}
+	}
+	return "", false
+}
+
+// TestQueryRegexGolden (photoquery.py:732-744). The log holds counts only.
+func TestQueryRegexGolden(t *testing.T) {
+	t.Parallel()
+
+	dir := testlib.RepoDir(t, "golden")
+	var mu sync.Mutex
+	exercised := map[string]bool{}
+	t.Run("libraries", func(t *testing.T) {
+		for _, lib := range goldenLibraries(t) {
+			t.Run(lib.name, func(t *testing.T) {
+				t.Parallel()
+				db, err := Open(t.Context(), lib.path, Options{TempDir: t.TempDir()})
+				if err != nil {
+					t.Fatal(err)
+				}
+				ref, err := golden.Load(dir, lib.name)
+				if err != nil {
+					t.Fatal(err)
+				}
+				refs := queryRefs(t, ref.Query)
+				stem := func(p *photoinfo.PhotoInfo) []string { return []string{queryStem(p.OriginalFilename)} }
+				keywords := func(p *photoinfo.PhotoInfo) []string { return p.Keywords }
+
+				all := db.Query(query.Options{})
+				cases := []queryRegexCase{{"no title", "{title}", "^$", false, func(p *photoinfo.PhotoInfo) []string { return []string{p.Title} }}}
+				if prefix, ok := queryStemPrefix(refs, all, false); ok {
+					cases = append(cases, queryRegexCase{"name", "{original_name}", "^" + regexp.QuoteMeta(prefix), false, stem})
+				}
+				if prefix, ok := queryStemPrefix(refs, all, true); ok {
+					cases = append(cases, queryRegexCase{"name ignore case", "{original_name}", "^" + regexp.QuoteMeta(prefix), true, stem})
+				}
+				if words := queryValues(refs, func(r queryRef) []string { return r.Keywords }); len(words) > 0 {
+					cases = append(cases, queryRegexCase{"keyword", "{keyword}", "^" + regexp.QuoteMeta(norm.NFC.String(words[0])) + "$", false, keywords})
+				}
+
+				counts := map[string]int{}
+				for _, c := range cases {
+					re := regexp.MustCompile(c.pattern)
+					direct := re
+					if c.ignoreCase {
+						direct = regexp.MustCompile("(?i)" + c.pattern)
+					}
+					var want []*photoinfo.PhotoInfo
+					for _, p := range all {
+						if slices.ContainsFunc(c.values(p), direct.MatchString) {
+							want = append(want, p)
+						}
+					}
+					tmpl, err := template.Parse(c.tmpl)
+					if err != nil {
+						t.Fatal(err)
+					}
+					got := db.Query(query.Options{IgnoreCase: c.ignoreCase, Regex: []query.RegexTemplate{{Regex: re, Template: tmpl}}})
+					queryCompare(t, c.name, queryIDs(got, nil), queryIDs(want, nil))
+					counts[c.name] = len(want)
+				}
+				t.Logf("%d photos; photos per case: %v", len(all), counts)
+				mu.Lock()
+				defer mu.Unlock()
+				for name, n := range counts {
+					if n > 0 && n < len(all) {
+						exercised[name] = true
+					}
+				}
+			})
+		}
+	})
+	for _, name := range []string{"no title", "name", "name ignore case", "keyword"} {
+		if !exercised[name] {
+			t.Errorf("case %q: no library expects a proper subset of its photos; the case is vacuous", name)
+		}
 	}
 }
 

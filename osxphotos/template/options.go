@@ -15,6 +15,7 @@ const DefaultMaxResults = 10000
 // or PathSep is its default: "_", "," and "/" (upstream os.path.sep).
 type RenderOptions struct {
 	NoneStr       string // for a field without a value (770-772)
+	NoneEmpty     bool   // a field without a value renders as "", not as NoneStr: RenderOptions(none_str="") of upstream (photoquery.py:734), which the zero NoneStr cannot say
 	ExpandInplace bool   // join the values of a field with InplaceSep, as "+" does (665-667)
 	InplaceSep    string
 	PathSep       string    // in folder_album without "(sep)" (1255)

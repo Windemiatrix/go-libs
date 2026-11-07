@@ -10,12 +10,12 @@ import (
 // Query returns the photos that osxphotos PhotosDB.query(options) returns
 // (photosdb/photosdb.py:3396-3402): query.ApplyCatalog over every photo, user
 // album and shared album of the library, as upstream reads the albums of a
-// photo (photoquery.py:671-674, 948), and the photos of Comments and Likes. The
-// slice is new on every call, but its values are shared by all calls: do not
-// modify them.
+// photo (photoquery.py:671-674, 948), with the photos of Comments and Likes and
+// the fields of a photo that Regex renders (DB.Fields). The slice is new on
+// every call, but its values are shared by all calls: do not modify them.
 func (db *DB) Query(o query.Options) []*photoinfo.PhotoInfo {
 	return query.ApplyCatalog(o, query.Catalog{
-		Photos: db.photos, Albums: slices.Concat(db.albums, db.sharedAlbums), Comments: db.commented, Likes: db.liked,
+		Photos: db.photos, Albums: slices.Concat(db.albums, db.sharedAlbums), Comments: db.commented, Likes: db.liked, Photo: db.Fields,
 	})
 }
 

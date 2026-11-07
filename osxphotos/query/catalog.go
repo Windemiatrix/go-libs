@@ -5,6 +5,7 @@ import (
 
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/template"
 )
 
 // Catalog is what Apply selects from: the photos and albums of a library and
@@ -15,10 +16,14 @@ type Catalog struct {
 	Albums   []*albuminfo.AlbumInfo
 	Comments map[string]bool // uuid of every photo with a comment (DB.Comments)
 	Likes    map[string]bool // uuid of every photo with a like (DB.Likes)
+	// Photo gives the fields of a photo for Regex (DB.Fields); nil selects
+	// nothing with Regex.
+	Photo func(*photoinfo.PhotoInfo) template.Photo
 }
 
 // ApplyCatalog is Apply over c.Photos and c.Albums, with c.Comments and
-// c.Likes for HasComment, NoComment, HasLikes and NoLikes. c is not modified.
+// c.Likes for HasComment, NoComment, HasLikes and NoLikes, and c.Photo for
+// Regex. c is not modified.
 func ApplyCatalog(o Options, c Catalog) []*photoinfo.PhotoInfo {
 	before, after := filters(o, c)
 	var out []*photo
