@@ -44,6 +44,11 @@ import (
 // LastPatch, and wait for HoldChange as Import does for HoldImport; then they
 // return ChangeErr, and CreateCollection CreatedID when ChangeErr is nil.
 // UpdateAsset logs the names of the fields its record sets.
+//
+// CloudIdentifiers and LocalIdentifiers log the number of ids and return
+// PairsErr when it is set; otherwise the Pairs, in their order, whose Local is
+// one of the ids or one of them followed by "/", as FetchAssets finds Assets,
+// or whose Cloud is one of the cloudIDs.
 type Bridge struct {
 	Status, RequestStatus int
 	StatusErr, RequestErr error
@@ -65,6 +70,8 @@ type Bridge struct {
 	CreatedID             string
 	ChangeErr             error
 	HoldChange            chan struct{}
+	Pairs                 []bridge.IdentifierPair
+	PairsErr              error
 
 	mu          sync.Mutex
 	calls       []string
@@ -238,6 +245,28 @@ func (b *Bridge) LastPatch() bridge.PatchRecord {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.lastPatch
+}
+
+// CloudIdentifiers implements bridge.Bridge.
+func (b *Bridge) CloudIdentifiers(ids []string) ([]bridge.IdentifierPair, error) {
+	return b.pairs("CloudIdentifiers", ids, func(p bridge.IdentifierPair, id string) bool {
+		return p.Local == id || strings.HasPrefix(p.Local, id+"/")
+	})
+}
+
+// LocalIdentifiers implements bridge.Bridge.
+func (b *Bridge) LocalIdentifiers(cloudIDs []string) ([]bridge.IdentifierPair, error) {
+	return b.pairs("LocalIdentifiers", cloudIDs, func(p bridge.IdentifierPair, id string) bool { return p.Cloud == id })
+}
+
+func (b *Bridge) pairs(call string, ids []string, named func(bridge.IdentifierPair, string) bool) ([]bridge.IdentifierPair, error) {
+	b.log(fmt.Sprintf("%s %d", call, len(ids)))
+	if b.PairsErr != nil {
+		return nil, b.PairsErr
+	}
+	return slices.DeleteFunc(slices.Clone(b.Pairs), func(p bridge.IdentifierPair) bool {
+		return !slices.ContainsFunc(ids, func(id string) bool { return named(p, id) })
+	}), nil
 }
 
 // LastTimeout returns the timeout of the latest Import or change, 0 before one.

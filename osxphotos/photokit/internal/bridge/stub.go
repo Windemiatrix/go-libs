@@ -40,3 +40,7 @@ func (*stub) AlbumAssets(string, []string, bool, time.Duration) error { return E
 func (*stub) DeleteAssets([]string, time.Duration) error { return ErrNotSupported }
 
 func (*stub) UpdateAsset(string, PatchRecord, time.Duration) error { return ErrNotSupported }
+
+func (*stub) CloudIdentifiers([]string) ([]IdentifierPair, error) { return nil, ErrNotSupported }
+
+func (*stub) LocalIdentifiers([]string) ([]IdentifierPair, error) { return nil, ErrNotSupported }
