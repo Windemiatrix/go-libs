@@ -38,3 +38,5 @@ func (*stub) DeleteCollections([]string, time.Duration) error { return ErrNotSup
 func (*stub) AlbumAssets(string, []string, bool, time.Duration) error { return ErrNotSupported }
 
 func (*stub) DeleteAssets([]string, time.Duration) error { return ErrNotSupported }
+
+func (*stub) UpdateAsset(string, PatchRecord, time.Duration) error { return ErrNotSupported }
