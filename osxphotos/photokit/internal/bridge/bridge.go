@@ -29,7 +29,7 @@ var (
 )
 
 // Bridge is what photokit needs from PhotoKit. A status is a
-// PHAuthorizationStatus value for read-write access. No method finds a hidden
+// PHAuthorizationStatus value for read-write access. No fetch finds a hidden
 // asset: upstream fetches with the default PHFetchOptions
 // (photokit.py:1234-1237, 1281-1285).
 type Bridge interface {
@@ -68,7 +68,15 @@ type Bridge interface {
 	// and waits and fails as Import does; an asset that is not found or cannot
 	// be changed is ErrNoAsset and nothing was changed.
 	UpdateAsset(id string, r PatchRecord, timeout time.Duration) error
+	// CloudIdentifiers returns the pairs of the assets ids that have a cloud
+	// identifier; LocalIdentifiers those of the cloud identifiers cloudIDs the
+	// library resolves. None is not an error.
+	CloudIdentifiers(ids []string) ([]IdentifierPair, error)
+	LocalIdentifiers(cloudIDs []string) ([]IdentifierPair, error)
 }
+
+// IdentifierPair is one asset by its LocalIdentifier and its cloud identifier.
+type IdentifierPair struct{ Local, Cloud string }
 
 // PatchRecord is an AssetPatch of photokit for the bridge: each value holds
 // only with its Has flag; the date is seconds since 1970, the coordinates

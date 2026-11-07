@@ -248,6 +248,43 @@ func (*cgoBridge) UpdateAsset(id string, r PatchRecord, timeout time.Duration) e
 	return cmp.Or(err, nsError(domain != nil, C.GoString(domain), int64(code)))
 }
 
+func (*cgoBridge) CloudIdentifiers(ids []string) ([]IdentifierPair, error) {
+	return pairs(ids, func(cids **C.char, n C.int64_t, out **C.pk_identifier_pair, count *C.int) C.pk_result {
+		return C.pk_cloud_identifiers(cids, n, out, count)
+	})
+}
+
+func (*cgoBridge) LocalIdentifiers(cloudIDs []string) ([]IdentifierPair, error) {
+	return pairs(cloudIDs, func(cids **C.char, n C.int64_t, out **C.pk_identifier_pair, count *C.int) C.pk_result {
+		return C.pk_local_identifiers(cids, n, out, count)
+	})
+}
+
+func pairs(ids []string, call func(**C.char, C.int64_t, **C.pk_identifier_pair, *C.int) C.pk_result) ([]IdentifierPair, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	cids, free := cStrings(ids)
+	defer free()
+	var out *C.pk_identifier_pair
+	var count C.int
+	r := call(&cids[0], C.int64_t(len(cids)), &out, &count)
+	defer C.pk_free_identifier_pairs(out, count)
+	if err := check(r); err != nil {
+		return nil, err
+	}
+	var recs []IdentifierPair
+	for _, p := range unsafe.Slice(out, count) { //nolint:gosec // G103: count is the length of the array bridge.m allocated, 0 with out NULL
+		local, localErr := cString(C.GoString(p.local_identifier))
+		cloud, cloudErr := cString(C.GoString(p.cloud_identifier))
+		if err := cmp.Or(localErr, cloudErr); err != nil {
+			return nil, err
+		}
+		recs = append(recs, IdentifierPair{Local: local, Cloud: cloud})
+	}
+	return recs, nil
+}
+
 func cStrings(ss []string) ([]*C.char, func()) {
 	cs := make([]*C.char, len(ss))
 	for i, s := range ss {
