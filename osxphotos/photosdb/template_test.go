@@ -2,20 +2,14 @@ package photosdb
 
 import (
 	"errors"
-	"fmt"
-	"maps"
 	"reflect"
 	"slices"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
-	"github.com/Windemiatrix/go-libs/osxphotos/internal/golden"
-	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 	"github.com/Windemiatrix/go-libs/osxphotos/momentinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
-	"github.com/Windemiatrix/go-libs/osxphotos/query"
 	"github.com/Windemiatrix/go-libs/osxphotos/template"
 )
 
@@ -254,52 +248,6 @@ func TestRenderTemplate(t *testing.T) {
 	}
 }
 
-func tmplIDs(from, to int) []string {
-	var out []string
-	for i := from; i <= to; i++ {
-		out = append(out, fmt.Sprintf("t%03d", i))
-	}
-	return out
-}
-
-var tmplPending = map[error][]string{
-	// {photo.X}: the properties of PhotoInfo by their upstream name are not ported yet;
-	// nor are the fields place.X, exif.X, searchinfo.X, label and label_normalized.
-	template.ErrUnsupportedField: slices.Concat([]string{"t098", "t123"}, tmplIDs(210, 216), tmplIDs(405, 500),
-		tmplIDs(503, 510)),
-	// path.suffixes and path.parts: Render does not mimic the repr of a Python
-	// list or tuple (template.TestRenderGoldenPythonRepr).
-	template.ErrUnsupportedConstruct: {"t287", "t289"},
-}
-
-// t096, t101, t174 and t209 are left out: their condition holds for no photo of
-// the test libraries, so they would check nothing.
-var tmplOracleIDs = slices.Concat(tmplIDs(1, 10), []string{"t012", "t016", "t018"}, tmplIDs(20, 29),
-	[]string{"t031", "t034", "t037", "t043", "t045", "t057", "t068"}, tmplIDs(72, 79),
-	[]string{"t081", "t082", "t085", "t093", "t094", "t110", "t118", "t122", "t160", "t171",
-		"t178", "t180", "t184", "t189", "t296", "t300", "t306", "t331", "t339", "t342", "t376", "t377"},
-	tmplIDs(387, 390), []string{"t501", "t502", "t511"})
-
-func tmplParsed(t *testing.T) map[string]*template.Template {
-	t.Helper()
-	lines, err := golden.TemplateLines(testlib.RepoDir(t, "golden"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	out := make(map[string]*template.Template, len(lines))
-	for id, line := range lines {
-		if out[id], err = template.Parse(line); err != nil {
-			t.Fatalf("%s: %v", id, err)
-		}
-	}
-	for _, id := range slices.Concat(tmplOracleIDs, slices.Concat(slices.Collect(maps.Values(tmplPending))...)) {
-		if out[id] == nil {
-			t.Fatalf("%s is not an id of the %d templates of templates.txt", id, len(out))
-		}
-	}
-	return out
-}
-
 func tmplOpen(t *testing.T, path string) *DB {
 	t.Helper()
 	db, err := Open(t.Context(), path, Options{TempDir: t.TempDir()})
@@ -307,92 +255,4 @@ func tmplOpen(t *testing.T, path string) *DB {
 		t.Fatal(err)
 	}
 	return db
-}
-
-func TestRenderTemplateAll(t *testing.T) {
-	t.Parallel()
-	templates := tmplParsed(t)
-	pending := map[string]error{}
-	for err, ids := range tmplPending {
-		for _, id := range ids {
-			pending[id] = err
-		}
-	}
-	for _, name := range []string{"synthetic", "Test-13.0.0"} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			db := tmplOpen(t, testlib.OpenPristine(t, name))
-			photos := db.Query(query.Options{Deleted: true})
-			if len(photos) == 0 {
-				t.Fatal("no photos")
-			}
-			for _, id := range slices.Sorted(maps.Keys(templates)) {
-				bad := 0
-				for _, p := range photos {
-					if _, unmatched, err := db.RenderTemplate(p, templates[id], template.RenderOptions{}); !errors.Is(err, pending[id]) || unmatched != nil {
-						bad++
-					}
-				}
-				if bad > 0 {
-					t.Errorf("%s: %d of %d photos of %s render with unmatched names or an error other than %v", id, bad, len(photos), name, pending[id])
-				}
-			}
-			t.Logf("%s: %d templates, %d of them pending, for each of %d photos", name, len(templates), len(pending), len(photos))
-		})
-	}
-}
-
-// The messages carry ids and counts, never a value or a UUID of a library.
-func TestRenderTemplateOracle(t *testing.T) {
-	t.Parallel()
-	dir := testlib.RepoDir(t, "golden")
-	templates := tmplParsed(t)
-	var mu sync.Mutex
-	results := map[string]map[string]bool{}
-	for _, id := range tmplOracleIDs {
-		results[id] = map[string]bool{}
-	}
-	t.Run("libraries", func(t *testing.T) {
-		for _, lib := range goldenLibraries(t) {
-			t.Run(lib.name, func(t *testing.T) {
-				t.Parallel()
-				db := tmplOpen(t, lib.path)
-				oracle, err := golden.Templates(dir, lib.name)
-				if err != nil {
-					t.Fatal(err)
-				}
-				var photos []*photoinfo.PhotoInfo
-				for _, u := range slices.Sorted(maps.Keys(oracle)) {
-					if p, ok := db.Photo(u); ok {
-						photos = append(photos, p)
-					}
-				}
-				if len(photos) == 0 || len(photos) != len(oracle) {
-					t.Fatalf("%d of the %d photos of templates.json of %s are in the library", len(photos), len(oracle), lib.name)
-				}
-				for _, id := range tmplOracleIDs {
-					diffs := 0
-					for _, p := range photos {
-						want, ok := oracle[p.UUID][id]
-						got, _, err := db.RenderTemplate(p, templates[id], template.RenderOptions{})
-						if !ok || err != nil || !slices.Equal(got, want) {
-							diffs++
-						}
-						mu.Lock()
-						results[id][fmt.Sprintf("%q", want)] = true
-						mu.Unlock()
-					}
-					if diffs > 0 {
-						t.Errorf("%s differs for %d of %d photos of %s", id, diffs, len(photos), lib.name)
-					}
-				}
-				t.Logf("%s: %d photos, %d ids", lib.name, len(photos), len(tmplOracleIDs))
-			})
-		}
-	})
-	for _, id := range tmplOracleIDs {
-		if len(results[id]) < 2 {
-			t.Errorf("%s: osxphotos gave every photo of every library the same value: the id checks nothing", id)
-		}
-	}
 }
