@@ -15,7 +15,8 @@ import (
 
 // A-1 is sorted by title, so the index of a photo there is not its place in
 // the membership rows. P-3 is not among the photos of its album A-2, the case
-// where photo_index raises (albuminfo.py:285-287).
+// where photo_index raises (albuminfo.py:285-287). The title of A-4 is None
+// upstream (photoinfo.py:640-643).
 func tmplDB() *DB {
 	day := time.Date(2020, 2, 4, 19, 7, 38, 0, time.UTC)
 	photos := []*photoinfo.PhotoInfo{
@@ -27,9 +28,10 @@ func tmplDB() *DB {
 			IsPhoto: true, HDR: true, HasAdjustments: true, Favorite: true, Date: day,
 			ImportedByName: "Camera", ImportedByBundleID: "com.apple.camera",
 			Keywords: []string{"Beach", "Sea"}, Persons: []string{"Pat Example", photoinfo.UnknownPerson},
-			AlbumUUIDs: []string{"A-1", "A-2"}, ProjectUUIDs: []string{"J-1", "J-2"}},
+			PathDerivatives: []string{"/x/p.jpeg"}, AlbumUUIDs: []string{"A-1", "A-2"}, ProjectUUIDs: []string{"J-1", "J-2"}},
 		{UUID: "P-2", Title: "c", IsPhoto: true, AlbumUUIDs: []string{"A-1"}},
 		{UUID: "P-3", IsPhoto: true, AlbumUUIDs: []string{"A-2"}},
+		{UUID: "P-4", IsPhoto: true, AlbumUUIDs: []string{"A-3", "A-4"}},
 	}
 	byUUID := map[string]*photoinfo.PhotoInfo{}
 	for _, p := range photos {
@@ -42,9 +44,10 @@ func tmplDB() *DB {
 			{UUID: "A-1", Title: "Holidays", FolderNames: []string{"Trips", "2020"}, SortOrder: albuminfo.AlbumSortTitle},
 			{UUID: "A-2", Title: "Beach"},
 			{UUID: "A-3", Title: "Zoo"},
+			{UUID: "A-4"},
 		},
 		projects:    []*albuminfo.AlbumInfo{{UUID: "J-1", Title: "Card"}, {UUID: "J-2", Title: "Card"}},
-		albumPhotos: map[string][]string{"A-1": {"P-1", "P-2", "B-2"}, "A-2": {"P-1"}, "A-3": {"B-1"}, "J-1": {"P-1"}, "J-2": {"P-1"}},
+		albumPhotos: map[string][]string{"A-1": {"P-1", "P-2", "B-2"}, "A-2": {"P-1"}, "A-3": {"B-1", "P-4"}, "A-4": {"P-4"}, "J-1": {"P-1"}, "J-2": {"P-1"}},
 		bursts:      indexBursts(photos),
 		comments:    map[string][]photoinfo.CommentInfo{"P-1": {{User: "Pat Example", Text: "Nice"}, {Text: "Cool"}}},
 		momentData: momentData{
@@ -130,7 +133,7 @@ func TestFields(t *testing.T) {
 			t.Errorf("Field(%q) of %s = %+v, %v; want %+v, true", tt.name, tt.p.UUID, got, ok, tt.want)
 		}
 	}
-	for _, name := range []string{"place.name", "photo.title", "exif.camera_make", "searchinfo.season", "label", "label_normalized", "shortuuid", "nosuch"} {
+	for _, name := range []string{"place.name", "photo.labels", "exif.camera_make", "searchinfo.season", "label", "label_normalized", "shortuuid", "nosuch"} {
 		if got, ok := db.Fields(p1).Field(name); ok {
 			t.Errorf("Field(%q) = %+v, true; want false", name, got)
 		}
@@ -141,7 +144,8 @@ func TestFieldsKeepPhotoValues(t *testing.T) {
 	t.Parallel()
 	db := tmplDB()
 	p1 := db.byUUID["P-1"]
-	for _, name := range []string{"keyword", "person", "album", "folder_album", "album_seq"} {
+	for _, name := range []string{"keyword", "person", "album", "folder_album", "album_seq",
+		"photo.keywords", "photo.persons", "photo.path_derivatives", "photo.albums", "photo.burst_albums"} {
 		v, _ := db.Fields(p1).Field(name)
 		for i := range v.Strings {
 			v.Strings[i] = "changed"
@@ -152,9 +156,10 @@ func TestFieldsKeepPhotoValues(t *testing.T) {
 			}
 		}
 	}
-	if !slices.Equal(p1.Keywords, []string{"Beach", "Sea"}) || p1.Persons[0] != "Pat Example" || !slices.Equal(db.albums[0].FolderNames, []string{"Trips", "2020"}) {
-		t.Errorf("after a change of the values of Fields: keywords %q, persons %q, folders %q; want them untouched",
-			p1.Keywords, p1.Persons, db.albums[0].FolderNames)
+	if !slices.Equal(p1.Keywords, []string{"Beach", "Sea"}) || p1.Persons[0] != "Pat Example" || p1.PathDerivatives[0] != "/x/p.jpeg" ||
+		!slices.Equal(db.albums[0].FolderNames, []string{"Trips", "2020"}) {
+		t.Errorf("after a change of the values of Fields: keywords %q, persons %q, derivatives %q, folders %q; want them untouched",
+			p1.Keywords, p1.Persons, p1.PathDerivatives, db.albums[0].FolderNames)
 	}
 	created, _ := db.Fields(p1).Field("created")
 	*created.Time = time.Time{}
@@ -245,6 +250,107 @@ func TestRenderTemplate(t *testing.T) {
 	}
 	if got, err := tmplRender(t, db, db.byUUID["P-3"], "{album_seq}", template.RenderOptions{DestPath: "/out/Beach"}); !errors.Is(err, template.ErrRender) {
 		t.Errorf("RenderTemplate({album_seq}) of a photo that is not in Beach = %q, %v; want ErrRender", got, err)
+	}
+}
+
+func TestRenderTemplatePhoto(t *testing.T) {
+	t.Parallel()
+	db := tmplDB()
+	p1, b1, p4 := db.byUUID["P-1"], db.byUUID["B-1"], db.byUUID["P-4"]
+	lat, lon, far, sum := 51.5, -3.0, 1e16, 0.1
+	sum += 0.2 // at run time: the constant 0.1+0.2 is 0.3 exactly
+	offset, adjustment, no, yes := 3600, 2, false, true
+	added, trashed := time.Date(2021, 3, 4, 5, 6, 7, 0, time.UTC), time.Date(2022, 5, 6, 7, 8, 9, 0, time.UTC)
+	p := &photoinfo.PhotoInfo{
+		UUID: "X-1", OriginalFilename: "a/b.JPG", Path: "/x/IMG_0001.HEIC", PathDerivatives: []string{"/x/b.jpeg", "/x/a.jpeg"},
+		PathEdited: "/x/e.jpeg", PathLive: "/x/l.mov", PathRaw: "/x/r.dng", PathEditedLive: "/x/el.mov",
+		AdjustmentsPath: "/x/a.plist", OriginalAdjustmentsPath: "/x/a_5.aae", UTIRaw: "com.adobe.raw-image",
+		Height: 1200, Width: 1600, Orientation: 6, OriginalFilesize: 12345, TZOffset: &offset, AdjustmentType: &adjustment,
+		DateAdded: &added, DateTrashed: &trashed,
+		Latitude: &lat, Longitude: &lon, Favorite: true, Live: true, InCloud: &no, ImportedByBundleID: "com.apple.camera",
+		Date: time.Date(2020, 1, 2, 3, 4, 5, 6000, time.FixedZone("", 3600)), DateOriginal: time.Date(2020, 1, 2, 3, 4, 5, 0, time.FixedZone("", 3661)),
+		Keywords: []string{"Beach", "Sea"}, Persons: []string{"Pat Example", photoinfo.UnknownPerson},
+	}
+	// LMT zones of the Americas have negative offsets with seconds, such as -4:56:02.
+	q := &photoinfo.PhotoInfo{Latitude: &far, Longitude: &sum, InCloud: &yes, Date: time.Date(2020, 1, 2, 3, 4, 5, 500000000, time.FixedZone("", -3661))}
+	bare := &photoinfo.PhotoInfo{}
+	o, vals := template.RenderOptions{}, func(s ...string) []string { return s }
+	for _, tt := range []struct {
+		p    *photoinfo.PhotoInfo
+		in   string
+		o    template.RenderOptions
+		want []string
+	}{
+		{p, "{photo.uuid}", o, vals("X-1")},
+		{p, "{photo.original_filename}", o, vals("a/b.JPG")},
+		{p, "{photo.original_filename}", template.RenderOptions{Filename: true}, vals("a:b.JPG")},
+		{p, "{photo.path}", o, vals("/x/IMG_0001.HEIC")},
+		{bare, "{photo.path}", o, vals("_")},
+		{p, "{photo.path_edited}", o, vals("/x/e.jpeg")},
+		{p, "{photo.path_live_photo}", o, vals("/x/l.mov")},
+		{p, "{photo.path_raw}", o, vals("/x/r.dng")},
+		{p, "{photo.path_edited_live_photo}", o, vals("/x/el.mov")},
+		{p, "{photo.adjustments_path}", o, vals("/x/a.plist")},
+		{p, "{photo.original_adjustments_path}", o, vals("/x/a_5.aae")},
+		{p, "{photo.uti_raw}", o, vals("com.adobe.raw-image")},
+		{p, "{photo.orientation}", o, vals("6")},
+		{bare, "{photo.title}", o, vals("_")},
+		{p, "{photo.height}", o, vals("1200")},
+		{p, "{photo.height|float}", o, vals("1200.0")},
+		{p, "{photo.width >= 1000?Y,N}", o, vals("Y")},
+		{p, "{photo.original_filesize}", o, vals("12345")},
+		{p, "{photo.tzoffset}", o, vals("3600")},
+		{bare, "{photo.tzoffset}", o, vals("_")},
+		{p, "{photo.adjustment_type}", o, vals("2")},
+		{bare, "{photo.adjustment_type}", o, vals("_")},
+		{bare, "{photo.rating}", o, vals("0")},
+		{bare, "{photo.spatial}", o, vals("0")},
+		{p, "{photo.latitude}", o, vals("51.5")},
+		{q, "{photo.latitude}", o, vals("1e+16")},
+		{q, "{photo.longitude}", o, vals("0.30000000000000004")},
+		{bare, "{photo.latitude}", o, vals("_")},
+		{p, "{photo.longitude}", o, vals("-3.0")},
+		{p, "{photo.location}", o, vals("51.5", "-3.0")},
+		{q, "{photo.location}", o, vals("1e+16", "0.30000000000000004")},
+		{bare, "{photo.location}", o, vals("_")},
+		{p, "{photo.date}", o, vals("2020-01-02T03:04:05.000006+01:00")},
+		{p, "{photo.date_original}", o, vals("2020-01-02T03:04:05+01:01:01")},
+		{q, "{photo.date}", o, vals("2020-01-02T03:04:05.500000-01:01:01")},
+		{p, "{photo.date_trashed}", o, vals("2022-05-06T07:08:09+00:00")},
+		{p, "{photo.date_added}", o, vals("2021-03-04T05:06:07+00:00")},
+		{bare, "{photo.date_added}", o, vals("1970-01-01T00:00:00+00:00")},
+		{bare, "{photo.date_modified}", o, vals("_")},
+		{p, "{photo.favorite}", o, vals("favorite")},
+		{bare, "{photo.favorite}", o, vals("_")},
+		{p, "{photo.favorite?Y,N}", o, vals("Y")},
+		{p, "{photo.live_photo}", o, vals("live_photo")},
+		{p, "{photo.incloud}", o, vals("_")},
+		{q, "{photo.incloud}", o, vals("incloud")},
+		{bare, "{photo.incloud}", o, vals("_")},
+		{p, "{photo.flagged}", o, vals("_")},
+		{&photoinfo.PhotoInfo{InTrash: true}, "{photo.intrash}", o, vals("intrash")},
+		{&photoinfo.PhotoInfo{Syndicated: true}, "{photo.syndicated}", o, vals("syndicated")},
+		{&photoinfo.PhotoInfo{SavedToLibrary: true}, "{photo.saved_to_library}", o, vals("saved_to_library")},
+		{p, "{photo.keywords}", o, vals("Beach", "Sea")},
+		{p, "{photo.persons}", o, vals("Pat Example", "_UNKNOWN_")},
+		{p, "{photo.path_derivatives}", o, vals("/x/b.jpeg", "/x/a.jpeg")},
+		{p, "{photo.imported_by}", o, vals("com.apple.camera")},
+		{bare, "{photo.imported_by}", o, vals("_")},
+		{p1, "{photo.imported_by}", o, vals("Camera", "com.apple.camera")},
+		{p1, "{photo.albums}", o, vals("Beach", "Holidays")},
+		{b1, "{photo.albums}", o, vals("Zoo")},
+		{b1, "{photo.burst_albums}", o, vals("Holidays", "Zoo")},
+		{p4, "{photo.albums}", o, vals("Zoo")},
+		{p4, "{photo.burst_albums}", o, vals("Zoo")},
+	} {
+		if got, err := tmplRender(t, db, tt.p, tt.in, tt.o); err != nil || !slices.Equal(got, tt.want) {
+			t.Errorf("RenderTemplate(%q) = %q, %v; want %q", tt.in, got, err, tt.want)
+		}
+	}
+	for _, in := range []string{"{photo.labels}", "{photo.nonsense}", "{photo.burst_uuid}", "{photo.date.year}", "{photo.score}", "{photo.place}"} {
+		if got, err := tmplRender(t, db, p, in, o); !errors.Is(err, template.ErrUnsupportedField) {
+			t.Errorf("RenderTemplate(%q) = %q, %v; want ErrUnsupportedField", in, got, err)
+		}
 	}
 }
 
