@@ -89,6 +89,7 @@ func buildRules() map[string]rule {
 		zonedDate("date", func(p *photoinfo.PhotoInfo) time.Time { return p.Date }),
 		zonedDate("date_original", func(p *photoinfo.PhotoInfo) time.Time { return p.DateOriginal }),
 		exifInfoRule(),
+		scoreRule(),
 		placeRule(),
 		moment("date_added", defaultDateTimeLocal, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateAdded }),
 		moment("date_modified", time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateModified }),
@@ -290,6 +291,53 @@ func exifInfoRule() rule {
 				out[k] = v.Field(i).Interface()
 			}
 			out["date"] = zonedOrNil(p.ExifInfo.Date)
+			return out, nil
+		},
+	}
+}
+
+// The keys of score in the order of the fields of scoreinfo.ScoreInfo, which
+// the rule reads by position (scoreinfo.py:14-40).
+var scoreKeys = []string{
+	"overall", "curation", "promotion", "highlight_visibility", "behavioral", "failure", "harmonious_color",
+	"immersiveness", "interaction", "interesting_subject", "intrusive_object_presence", "lively_color", "low_light",
+	"noise", "pleasant_camera_tilt", "pleasant_composition", "pleasant_lighting", "pleasant_pattern",
+	"pleasant_perspective", "pleasant_post_processing", "pleasant_reflection", "pleasant_symmetry",
+	"sharply_focused_subject", "tastefully_blurred", "well_chosen_subject", "well_framed_subject", "well_timed_shot",
+}
+
+// json() writes the object for every photo, zeros for a photo without a row
+// (photoinfo.py:1507-1537, 2128, 2190). A null is 0: upstream keeps a NULL
+// column as None and selects null for behavioral and interaction from Photos
+// 11 on (_photosdb_process_scoreinfo.py:62-76), where the module has 0.
+func scoreRule() rule {
+	const key = "score"
+	return rule{
+		key: key,
+		ref: func(o Object) (any, error) {
+			raw, err := decode[map[string]json.RawMessage](o, key, false, "an object")
+			if err != nil {
+				return nil, err
+			}
+			out := make(map[string]any, len(scoreKeys))
+			for _, k := range scoreKeys {
+				path := key + "." + k
+				m, ok := raw[k]
+				if !ok {
+					return nil, shape(path, "a value (the key is missing)")
+				}
+				if out[k], err = decodeRaw[float64](m, path, true, "a number or null"); err != nil {
+					return nil, err
+				}
+			}
+			return out, nil
+		},
+		got: func(_ *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
+			v := reflect.ValueOf(p.Score)
+			out := make(map[string]any, len(scoreKeys))
+			for i, k := range scoreKeys {
+				out[k] = v.Field(i).Float()
+			}
 			return out, nil
 		},
 	}

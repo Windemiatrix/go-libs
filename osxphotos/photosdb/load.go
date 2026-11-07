@@ -88,6 +88,7 @@ type tables struct {
 	participants []sqlread.Participant
 	comments     []sqlread.Comment
 	exif         []sqlread.Exif
+	scores       []sqlread.Score
 	places       []sqlread.ReverseLocation
 	persons      []sqlread.Person
 	feedback     []sqlread.Feedback
@@ -120,7 +121,9 @@ func nfc(s string) string { return norm.NFC.String(s) }
 // Of two ZEXTENDEDATTRIBUTES rows of an asset the one with the highest Z_PK
 // decides; upstream keeps the last row read, with a warning
 // (_photosdb_process_exif.py:56-61). The same holds for ZREVERSELOCATIONDATA,
-// whose rows come by Z_PK. Its archive is decoded here, once, where upstream
+// whose rows come by Z_PK, and for ZCOMPUTEDASSETATTRIBUTES, where upstream
+// keeps the last row read as well (_photosdb_process_scoreinfo.py:132-162).
+// The archive of ZREVERSELOCATIONDATA is decoded here, once, where upstream
 // decodes it on the first access to place (photoinfo.py:1327-1361).
 //
 // load never indexes by a value of the database, so no content makes it panic.
@@ -140,6 +143,12 @@ func load(t tables) (*catalog, error) {
 	for _, e := range t.exif {
 		if prev, ok := exif[e.AssetPK]; !ok || e.PK > prev.PK {
 			exif[e.AssetPK] = e
+		}
+	}
+	scores := make(map[int64]sqlread.Score, len(t.scores))
+	for _, r := range t.scores {
+		if prev, ok := scores[r.AssetPK]; !ok || r.PK > prev.PK {
+			scores[r.AssetPK] = r
 		}
 	}
 	places := make(map[int64][]byte, len(t.places))
@@ -174,6 +183,7 @@ func load(t tables) (*catalog, error) {
 		if e, ok := exif[a.PK]; ok {
 			p.ExifInfo = exifInfo(e)
 		}
+		p.Score = scoreInfo(scores[a.PK])
 		p.Place = placeOf(places[a.PK])
 		p.DateOriginal = p.Date
 		if d := p.ExifInfo.Date; d != nil {

@@ -62,6 +62,7 @@ portrait
 project_info
 raw_original
 saved_to_library
+score
 screen_recording
 screenshot
 selfie

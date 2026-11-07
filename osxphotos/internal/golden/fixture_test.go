@@ -16,6 +16,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/personinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/scoreinfo"
 )
 
 const (
@@ -86,6 +87,15 @@ func fixtureLib() Library {
 					Latitude: ptr(48.8566), Longitude: ptr(2.3522), ShutterSpeed: ptr(0.008),
 					CameraMake: "Acme", CameraModel: "Acme One", Codec: "hvc1", LensModel: "Acme One 4mm",
 					Date: ptr(utc(2020, 6, 6, 10, 0, 0, 0).In(ist)), TZOffset: ptr(19800), TZName: "Asia/Kolkata",
+				},
+				// Behavioral and Interaction are null in refScore: 0 from Photos 11 on.
+				Score: scoreinfo.ScoreInfo{
+					Overall: 0.01, Curation: 0.02, Promotion: 0.03, HighlightVisibility: 0.04, Failure: 0.06,
+					HarmoniousColor: 0.07, Immersiveness: 0.08, InterestingSubject: 0.1, IntrusiveObjectPresence: 0.11,
+					LivelyColor: 0.12, LowLight: 0.13, Noise: 0.14, PleasantCameraTilt: 0.15, PleasantComposition: 0.16,
+					PleasantLighting: 0.17, PleasantPattern: 0.18, PleasantPerspective: 0.19, PleasantPostProcessing: 0.2,
+					PleasantReflection: 0.21, PleasantSymmetry: 0.22, SharplyFocusedSubject: 0.23, TastefullyBlurred: 0.24,
+					WellChosenSubject: 0.25, WellFramedSubject: 0.26, WellTimedShot: 0.27,
 				},
 				Place: &placeinfo.PlaceInfo{
 					Name: "Example Park, Townsville, Exampleland",
@@ -169,6 +179,24 @@ const (
 		`"latitude": null, "longitude": null, "shutter_speed": null, ` +
 		`"camera_make": null, "camera_model": null, "codec": null, "lens_model": null, ` +
 		`"date": null, "tzoffset": null, "tzname": null}`
+)
+
+const (
+	// The value of every key is its position in ScoreInfo divided by 100, except behavioral and interaction (Photos 11).
+	refScore = `{"overall": 0.01, "curation": 0.02, "promotion": 0.03, "highlight_visibility": 0.04, "behavioral": null, "failure": 0.06, ` +
+		`"harmonious_color": 0.07, "immersiveness": 0.08, "interaction": null, "interesting_subject": 0.1, "intrusive_object_presence": 0.11, ` +
+		`"lively_color": 0.12, "low_light": 0.13, "noise": 0.14, "pleasant_camera_tilt": 0.15, "pleasant_composition": 0.16, ` +
+		`"pleasant_lighting": 0.17, "pleasant_pattern": 0.18, "pleasant_perspective": 0.19, "pleasant_post_processing": 0.2, ` +
+		`"pleasant_reflection": 0.21, "pleasant_symmetry": 0.22, "sharply_focused_subject": 0.23, "tastefully_blurred": 0.24, ` +
+		`"well_chosen_subject": 0.25, "well_framed_subject": 0.26, "well_timed_shot": 0.27}`
+
+	// A photo without a row: upstream writes 0.0 for every score (photoinfo.py:1507-1537).
+	refScoreZero = `{"overall": 0.0, "curation": 0.0, "promotion": 0.0, "highlight_visibility": 0.0, "behavioral": 0.0, "failure": 0.0, ` +
+		`"harmonious_color": 0.0, "immersiveness": 0.0, "interaction": 0.0, "interesting_subject": 0.0, "intrusive_object_presence": 0.0, ` +
+		`"lively_color": 0.0, "low_light": 0.0, "noise": 0.0, "pleasant_camera_tilt": 0.0, "pleasant_composition": 0.0, ` +
+		`"pleasant_lighting": 0.0, "pleasant_pattern": 0.0, "pleasant_perspective": 0.0, "pleasant_post_processing": 0.0, ` +
+		`"pleasant_reflection": 0.0, "pleasant_symmetry": 0.0, "sharply_focused_subject": 0.0, "tastefully_blurred": 0.0, ` +
+		`"well_chosen_subject": 0.0, "well_framed_subject": 0.0, "well_timed_shot": 0.0}`
 )
 
 // The lists of names are in the order of area, not sorted (placeinfo.py:643-653).
@@ -262,6 +290,7 @@ func refSelectedFrame() map[string]string {
 		"place":                refPlace,
 		"raw_original":         "false",
 		"saved_to_library":     "true",
+		"score":                refScore,
 		"screen_recording":     "true",
 		"screenshot":           "true",
 		"shared":               "true",
@@ -315,7 +344,7 @@ func refEmptyPhoto() map[string]string {
 		"import_info": "{}", "imported_by": "[null, null]", "panorama": "false", "portrait": "false", "project_info": "[]", "selfie": "false",
 		"shared_moment": "false", "spatial": "0", "tzname": "null", "visible": "false",
 		"comments": "[]", "likes": "[]",
-		"date_original": `"1970-01-01T00:00:00+00:00"`, "exif_info": refExifNull, "owner": "null", "place": "{}",
+		"date_original": `"1970-01-01T00:00:00+00:00"`, "exif_info": refExifNull, "owner": "null", "place": "{}", "score": refScoreZero,
 	}
 }
 

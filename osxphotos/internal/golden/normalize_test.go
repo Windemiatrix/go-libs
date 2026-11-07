@@ -11,6 +11,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/exifinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/scoreinfo"
 )
 
 // The escape is built, not written, so that the source has no such escape that
@@ -66,6 +67,20 @@ func TestExifKeysFollowFields(t *testing.T) {
 	}
 }
 
+// The rule reads the fields of scoreinfo.ScoreInfo by position.
+func TestScoreKeysFollowFields(t *testing.T) {
+	t.Parallel()
+	typ := reflect.TypeFor[scoreinfo.ScoreInfo]()
+	if typ.NumField() != len(scoreKeys) {
+		t.Fatalf("ScoreInfo has %d fields, scoreKeys %d keys", typ.NumField(), len(scoreKeys))
+	}
+	for i, k := range scoreKeys {
+		if got, want := strings.ToLower(typ.Field(i).Name), strings.ReplaceAll(k, "_", ""); got != want {
+			t.Errorf("field %d is %s, its key %s", i, typ.Field(i).Name, k)
+		}
+	}
+}
+
 // The rule reads the fields of placeinfo.Names and placeinfo.Address by
 // position.
 func TestPlaceKeysFollowFields(t *testing.T) {
@@ -87,6 +102,23 @@ func TestPlaceKeysFollowFields(t *testing.T) {
 		}
 	}
 }
+
+// The keys are sorted, as the encoder of canonical writes them. wantScore is
+// refScore: null is 0.
+const (
+	zeroScore = `{"behavioral":0,"curation":0,"failure":0,"harmonious_color":0,"highlight_visibility":0,"immersiveness":0,"interaction":0,` +
+		`"interesting_subject":0,"intrusive_object_presence":0,"lively_color":0,"low_light":0,"noise":0,"overall":0,"pleasant_camera_tilt":0,` +
+		`"pleasant_composition":0,"pleasant_lighting":0,"pleasant_pattern":0,"pleasant_perspective":0,"pleasant_post_processing":0,` +
+		`"pleasant_reflection":0,"pleasant_symmetry":0,"promotion":0,"sharply_focused_subject":0,"tastefully_blurred":0,` +
+		`"well_chosen_subject":0,"well_framed_subject":0,"well_timed_shot":0}`
+	wantScore = `{"behavioral":0,"curation":0.02,"failure":0.06,"harmonious_color":0.07,"highlight_visibility":0.04,"immersiveness":0.08,"interaction":0,` +
+		`"interesting_subject":0.1,"intrusive_object_presence":0.11,"lively_color":0.12,"low_light":0.13,"noise":0.14,"overall":0.01,` +
+		`"pleasant_camera_tilt":0.15,"pleasant_composition":0.16,"pleasant_lighting":0.17,"pleasant_pattern":0.18,"pleasant_perspective":0.19,` +
+		`"pleasant_post_processing":0.2,"pleasant_reflection":0.21,"pleasant_symmetry":0.22,"promotion":0.03,"sharply_focused_subject":0.23,` +
+		`"tastefully_blurred":0.24,"well_chosen_subject":0.25,"well_framed_subject":0.26,"well_timed_shot":0.27}`
+)
+
+func scoreWith(old, value string) string { return strings.Replace(refScore, old, value, 1) }
 
 const (
 	wantPlaceAddress = `{"city":"Townsville","country":"Exampleland","iso_country_code":"EX","postal_code":"","state_province":"",` +
@@ -363,6 +395,19 @@ func TestNormalize(t *testing.T) {
 		{name: "exif_info date that is not a date", key: "exif_info", raw: strings.Replace(refExif, `"2020-06-06T15:30:00+05:30"`, `"SECRET-DATE"`, 1), wantErr: "exif_info.date: want an ISO 8601 string"},
 		{name: "exif_info date as a number", key: "exif_info", raw: strings.Replace(refExif, `"2020-06-06T15:30:00+05:30"`, `5`, 1), wantErr: "exif_info.date: want an ISO 8601 string or null"},
 
+		{name: "score, null behavioral and interaction are 0", key: "score", raw: refScore, want: wantScore},
+		{name: "score of a photo without a row", key: "score", raw: refScoreZero, want: zeroScore},
+		{name: "score of nulls", key: "score", raw: strings.NewReplacer(`0.0`, `null`).Replace(refScoreZero), want: zeroScore},
+		{name: "score with an integer", key: "score", raw: scoreWith(`"overall": 0.01`, `"overall": 1`), want: strings.Replace(wantScore, `"overall":0.01`, `"overall":1`, 1)},
+		{name: "score with an extra key", key: "score", raw: scoreWith(`"overall": 0.01`, `"overall": 0.01, "extra": "SECRET-X"`), want: wantScore},
+		{name: "score null", key: "score", raw: `null`, wantErr: "score: want an object"},
+		{name: "score list", key: "score", raw: `[]`, wantErr: "score: want an object"},
+		{name: "score empty", key: "score", raw: `{}`, wantErr: "score.overall: want a value (the key is missing)"},
+		{name: "score without well_timed_shot", key: "score", raw: scoreWith(`, "well_timed_shot": 0.27`, ``), wantErr: "score.well_timed_shot: want a value (the key is missing)"},
+		{name: "score overall as a string", key: "score", raw: scoreWith(`"overall": 0.01`, `"overall": "SECRET-S"`), wantErr: "score.overall: want a number or null"},
+		{name: "score failure as a boolean", key: "score", raw: scoreWith(`"failure": 0.06`, `"failure": true`), wantErr: "score.failure: want a number or null"},
+		{name: "score noise out of range", key: "score", raw: scoreWith(`"noise": 0.14`, `"noise": 1e999`), wantErr: "score.noise: want a number or null"},
+
 		{name: "place of a photo without one", key: "place", raw: `{}`, want: `{}`},
 		{name: "place", key: "place", raw: refPlace, want: wantPlace},
 		{name: "place with nulls", key: "place",
@@ -480,12 +525,20 @@ func TestNormalizeGoSide(t *testing.T) {
 			"persons": `[]`, "burst_default_pick": `false`,
 			"adjustment_type": `null`, "imported_by": `["",""]`, "spatial": `0`, "tzname": `""`, "visible": `false`,
 			"import_info": `{}`, "project_info": `[]`, "comments": `[]`, "likes": `[]`, "person_info": `[]`,
-			"owner": `""`, "exif_info": zeroExif, "place": `{}`,
+			"owner": `""`, "exif_info": zeroExif, "place": `{}`, "score": zeroScore,
 		}
 		for key, w := range want {
 			if got := goCanon(t, key, p); got != w {
 				t.Errorf("%s: %s, want %s", key, got, w)
 			}
+		}
+	})
+	t.Run("score is the 27 values of ScoreInfo by key", func(t *testing.T) {
+		t.Parallel()
+		p := &photoinfo.PhotoInfo{Score: scoreinfo.ScoreInfo{Overall: 0.01, Behavioral: 0.05, WellTimedShot: 0.27}}
+		want := strings.NewReplacer(`"overall":0`, `"overall":0.01`, `"behavioral":0`, `"behavioral":0.05`, `"well_timed_shot":0`, `"well_timed_shot":0.27`).Replace(zeroScore)
+		if got := goCanon(t, "score", p); got != want {
+			t.Errorf("got %s, want %s", got, want)
 		}
 	})
 	t.Run("the list of the Go side is not sorted", func(t *testing.T) {
