@@ -5,7 +5,8 @@ import (
 	"math"
 	"slices"
 	"strconv"
-	"sync"
+	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
@@ -98,9 +99,8 @@ func TestLoadScores(t *testing.T) {
 }
 
 // The rows are written into the copy of the synthetic library, so that the
-// case does not depend on its rows: one photo with a NULL column, one without a
-// row but with a score in ZASSET, one with two rows. The rows are chosen by
-// integer keys.
+// case does not depend on the rows it has; they are picked by integer keys, so
+// that no identifier of a library is in the test.
 func TestLoadScoresDamaged(t *testing.T) {
 	t.Parallel()
 
@@ -115,7 +115,6 @@ func TestLoadScoresDamaged(t *testing.T) {
 	}
 	pk := func(i int) string { return strconv.FormatInt(photos[i].PK, 10) }
 	const insert = "INSERT INTO ZCOMPUTEDASSETATTRIBUTES (Z_PK, ZASSET, ZFAILURESCORE, ZNOISESCORE) VALUES "
-	// The four scores of ZASSET are set whatever the library holds.
 	update := func(i int, overall, curation, promotion, highlight string) string {
 		return "UPDATE ZASSET SET ZOVERALLAESTHETICSCORE = " + overall + ", ZCURATIONSCORE = " + curation +
 			", ZPROMOTIONSCORE = " + promotion + ", ZHIGHLIGHTVISIBILITYSCORE = " + highlight + " WHERE Z_PK = " + pk(i)
@@ -123,8 +122,8 @@ func TestLoadScoresDamaged(t *testing.T) {
 	change(t, lib,
 		"DELETE FROM ZCOMPUTEDASSETATTRIBUTES WHERE ZASSET IN ("+pk(0)+", "+pk(1)+", "+pk(2)+")",
 		insert+"(900001, "+pk(0)+", NULL, 0.125)",
-		insert+"(900003, "+pk(2)+", 0.9, NULL)",
 		insert+"(900002, "+pk(2)+", 0.1, NULL)",
+		insert+"(900003, "+pk(2)+", 0.9, NULL)",
 		update(0, "0.5", "0.25", "0.125", "0.0625"),
 		update(1, "0.75", "0.5", "0.25", "0.125"),
 		update(2, "0.375", "0.3125", "0.1875", "0.09375"),
@@ -182,16 +181,21 @@ func TestOpenScoreWrongType(t *testing.T) {
 	pk := strconv.FormatInt(before.Photos()[0].PK, 10)
 	change(t, lib,
 		"DELETE FROM ZCOMPUTEDASSETATTRIBUTES WHERE ZASSET = "+pk,
-		"INSERT INTO ZCOMPUTEDASSETATTRIBUTES (Z_PK, ZASSET, ZFAILURESCORE) VALUES (900001, "+pk+", 'x')",
+		"INSERT INTO ZCOMPUTEDASSETATTRIBUTES (Z_PK, ZASSET, ZFAILURESCORE) VALUES (900001, "+pk+", 'SECRET-S')",
 	)
-	if _, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()}); err == nil {
-		t.Error("Open succeeded with a text in ZCOMPUTEDASSETATTRIBUTES.ZFAILURESCORE, want an error")
+	_, err = Open(t.Context(), lib, Options{TempDir: t.TempDir()})
+	if err == nil || !strings.Contains(err.Error(), "scores: row ") || !strings.Contains(err.Error(), "unexpected value type") {
+		t.Fatalf("Open error %v, want the scores reader to refuse the text in ZFAILURESCORE", err)
+	}
+	if strings.Contains(err.Error(), "SECRET") {
+		t.Errorf("Open error %q holds the value", err)
 	}
 }
 
-// The oracle is the database: the counts and the sums of the same rows by SQL.
-// The row of a photo is the one with the highest Z_PK. The messages hold counts,
-// not the scores of a library.
+// The oracle is the database: the counts and the sums of the same rows by SQL,
+// weighted by the Z_PK of the photo, so that a score given to another photo
+// shows. The row of a photo is the one with the highest Z_PK. The messages hold
+// counts, not the scores of a library.
 func TestLoadScoresLibraries(t *testing.T) {
 	t.Parallel()
 
@@ -209,8 +213,7 @@ func TestLoadScoresLibraries(t *testing.T) {
 		{"well timed shot", "c.ZWELLTIMEDSHOTSCORE", func(s scoreinfo.ScoreInfo) float64 { return s.WellTimedShot }},
 	}
 
-	var mu sync.Mutex
-	var overall, failure int
+	var overall, failure atomic.Int64
 	t.Run("libraries", func(t *testing.T) {
 		for _, lib := range goldenLibraries(t) {
 			t.Run(lib.name, func(t *testing.T) {
@@ -251,30 +254,27 @@ func TestLoadScoresLibraries(t *testing.T) {
 				for _, c := range checks {
 					var wantN int
 					var wantSum float64
-					query := "SELECT COUNT(*), COALESCE(SUM(" + c.expr + "), 0)" + rows + " AND COALESCE(" + c.expr + ", 0) != 0"
+					query := "SELECT COUNT(*), COALESCE(SUM(" + c.expr + " * a.Z_PK), 0)" + rows + " AND COALESCE(" + c.expr + ", 0) != 0"
 					if err := ro.QueryRowContext(t.Context(), query).Scan(&wantN, &wantSum); err != nil {
-						t.Fatalf("%s: the query failed", c.name)
+						t.Fatalf("%s: %v", c.name, err)
 					}
 					var n int
 					var sum float64
 					for _, p := range db.Photos() {
 						if v := c.get(p.Score); v != 0 {
 							n++
-							sum += v
+							sum += v * float64(p.PK)
 						}
 					}
-					if n != wantN || math.Abs(sum-wantSum) > 1e-9 {
-						t.Errorf("%s: %d photos with a score, the sum differs by %g; the database has %d", c.name, n, sum-wantSum, wantN)
+					if n != wantN || math.Abs(sum-wantSum) > 1e-6*(1+math.Abs(wantSum)) {
+						t.Errorf("%s: %d photos with a score, the weighted sum differs by %g; the database has %d", c.name, n, sum-wantSum, wantN)
 					}
+					t.Logf("Photos %v: %s: %d photos with a non-zero value", db.info.PhotosVersion, c.name, n)
 					switch c.name {
 					case "overall":
-						mu.Lock()
-						overall += n
-						mu.Unlock()
+						overall.Add(int64(n))
 					case "failure":
-						mu.Lock()
-						failure += n
-						mu.Unlock()
+						failure.Add(int64(n))
 					}
 				}
 				t.Logf("Photos %v: %d photos, %d with a row, %d with a score, %d with Behavioral or Interaction",
@@ -282,7 +282,7 @@ func TestLoadScoresLibraries(t *testing.T) {
 			})
 		}
 	})
-	if overall == 0 && failure == 0 {
-		t.Error("no photo has Overall or Failure in any library: the test is vacuous")
+	if overall.Load() == 0 || failure.Load() == 0 {
+		t.Error("no photo has Overall, or none has Failure, in any library: the test is vacuous")
 	}
 }
