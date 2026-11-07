@@ -14,6 +14,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/personinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/scoreinfo"
 )
 
 func TestFixtureKeys(t *testing.T) {
@@ -32,8 +33,8 @@ func TestCompareNoDifferences(t *testing.T) {
 	if !rep.OK() || len(rep.Diffs) != 0 || len(rep.Explained) != 0 || len(rep.Stale) != 0 {
 		t.Fatalf("report = %+v, want no differences", rep)
 	}
-	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 81 {
-		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 81", rep.Library, rep.Objects, len(rep.Keys))
+	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 82 {
+		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 82", rep.Library, rep.Objects, len(rep.Keys))
 	}
 	if !slices.IsSorted(rep.Keys) {
 		t.Error("Keys are not sorted")
@@ -170,6 +171,14 @@ func photoMutations() []mutation {
 		}), "exif_info"},
 		{"ExifInfo TZOffset nil", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.TZOffset = nil }), "exif_info"},
 		{"ExifInfo TZName", p(func(x *photoinfo.PhotoInfo) { x.ExifInfo.TZName = "" }), "exif_info"},
+
+		// Only a few fields here: TestCompareScoreEveryField changes each field.
+		{"Score Overall", p(func(x *photoinfo.PhotoInfo) { x.Score.Overall = 0.011 }), "score"},
+		{"Score Overall and Curation swapped", p(func(x *photoinfo.PhotoInfo) { x.Score.Overall, x.Score.Curation = x.Score.Curation, x.Score.Overall }), "score"},
+		{"Score WellTimedShot", p(func(x *photoinfo.PhotoInfo) { x.Score.WellTimedShot = 0.28 }), "score"},
+		{"Score Noise by one ulp", p(func(x *photoinfo.PhotoInfo) { x.Score.Noise = math.Nextafter(x.Score.Noise, 1) }), "score"},
+		{"Score Behavioral against a null", p(func(x *photoinfo.PhotoInfo) { x.Score.Behavioral = 0.5 }), "score"},
+		{"Score zero", p(func(x *photoinfo.PhotoInfo) { x.Score = scoreinfo.ScoreInfo{} }), "score"},
 
 		// Only nil, order and position here: TestComparePlaceEveryLeaf changes each leaf.
 		{"Place nil", p(func(x *photoinfo.PhotoInfo) { x.Place = nil }), "place"},
@@ -349,6 +358,24 @@ func TestCompareEachKey(t *testing.T) {
 				if d.Want == d.Got {
 					t.Errorf("a difference of %s with equal values %s", d.Field, d.Want)
 				}
+			}
+		})
+	}
+}
+
+// The rule reads the fields of ScoreInfo by position, so a field it did not
+// read would be 0 on both sides: only a change of the Go side shows it.
+func TestCompareScoreEveryField(t *testing.T) {
+	t.Parallel()
+	typ := reflect.TypeFor[scoreinfo.ScoreInfo]()
+	for i := range typ.NumField() {
+		t.Run(typ.Field(i).Name, func(t *testing.T) {
+			t.Parallel()
+			lib := fixtureLib()
+			f := reflect.ValueOf(&lib.Photos[0].Score).Elem().Field(i)
+			f.SetFloat(f.Float() + 0.5)
+			if got := diffKeys(compare(t, fixtureRef(), lib)); !slices.Equal(got, []string{"score"}) {
+				t.Errorf("differences in %v, want score", got)
 			}
 		})
 	}
@@ -611,6 +638,27 @@ func TestWriteDetailsExifAndOwner(t *testing.T) {
 	}
 }
 
+// Scores are not personal data, and a difference of one key cannot be found
+// among 27 placeholders.
+func TestWriteDetailsScore(t *testing.T) {
+	t.Parallel()
+	lib := fixtureLib()
+	lib.Photos[0].Score.Overall = 0.5
+	rep := compare(t, fixtureRef(), lib)
+	if got := diffKeys(rep); !slices.Equal(got, []string{"score"}) {
+		t.Fatalf("differences in %v, want score", got)
+	}
+	var b strings.Builder
+	if err := rep.WriteDetails(&b); err != nil {
+		t.Fatal(err)
+	}
+	for _, need := range []string{`"overall":0.01`, `"overall":0.5`} {
+		if !strings.Contains(b.String(), need) {
+			t.Errorf("WriteDetails lacks %q:\n%s", need, b.String())
+		}
+	}
+}
+
 func TestWriteDetailsPlace(t *testing.T) {
 	t.Parallel()
 	lib := fixtureLib()
@@ -864,6 +912,8 @@ func TestCompareNulls(t *testing.T) {
 		{"ExifInfo CameraMake", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ExifInfo.CameraMake = "x" }), "exif_info"},
 		{"ExifInfo Date at the epoch is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ExifInfo.Date = ptr(time.Unix(0, 0).UTC()) }), "exif_info"},
 		{"ExifInfo TZOffset 0 is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ExifInfo.TZOffset = ptr(0) }), "exif_info"},
+		{"Score Overall", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Score.Overall = 0.5 }), "score"},
+		{"Score Behavioral", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Score.Behavioral = 0.5 }), "score"},
 		{"Place zero is not {}", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Place = &placeinfo.PlaceInfo{} }), "place"},
 	}
 	for _, c := range cases {
