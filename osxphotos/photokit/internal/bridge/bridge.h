@@ -68,9 +68,10 @@ typedef struct {
 // completion (0 does not wait); r and albums are not read after the return. An
 // album not found, not UTF-8, or that cannot take an asset is PK_NOT_FOUND and
 // changes nothing; an exception in a change that PhotoKit commits is PK_TIMEOUT.
-// A failed change sets *ns_domain, "" when the NSError has none, and *ns_code;
-// otherwise *identifier is the LocalIdentifier. The caller passes both strings
-// NULL and frees them.
+// An original_filename that is not UTF-8 keeps the name of the file, so the
+// caller checks it. A failed change sets *ns_domain, "" when the NSError has
+// none, and *ns_code; otherwise *identifier is the LocalIdentifier. The caller
+// passes both strings NULL and frees them.
 pk_result pk_import(const pk_import_request *r, const char *const *albums, int64_t n_albums, int64_t timeout_ms, char **identifier, int64_t *ns_code, char **ns_domain);
 
 // The title is NULL when PhotoKit gives none, the parent "" at the top level.
@@ -99,3 +100,10 @@ pk_result pk_create_collection(const char *title, const char *parent, bool folde
 pk_result pk_rename_collection(const char *local_id, const char *title, int64_t timeout_ms, int64_t *ns_code, char **ns_domain);
 pk_result pk_delete_collections(const char *const *ids, int64_t n, int64_t timeout_ms, int64_t *ns_code, char **ns_domain);
 pk_result pk_album_assets(const char *album, const char *const *assets, int64_t n, bool add, int64_t timeout_ms, int64_t *ns_code, char **ns_domain);
+
+// Deletes the n assets, UUIDs or LocalIdentifiers in one form per asset, in one
+// performChanges and waits up to timeout_ms as pk_import does; ids are not read
+// after the return. An asset that is not found, not UTF-8, hidden or cannot be
+// deleted is PK_NO_ASSET and changes nothing. *ns_code and *ns_domain are as
+// for pk_import.
+pk_result pk_delete_assets(const char *const *ids, int64_t n, int64_t timeout_ms, int64_t *ns_code, char **ns_domain);

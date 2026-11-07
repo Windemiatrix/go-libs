@@ -41,8 +41,10 @@ var (
 	// ErrNotFound is returned when a fetch or Resources finds no asset
 	// (PhotoKitFetchFailed, photokit.py:1244-1246, 1292-1294), and wrapped by
 	// Import when an album of the request is missing or cannot take an asset,
-	// and by the collection methods for a collection, a parent, an asset or an
-	// identifier that is missing, not a valid string or cannot take the change.
+	// by the collection methods for a collection, a parent, an asset or an
+	// identifier that is missing, not a valid string or cannot take the change,
+	// and by Delete for an asset that is missing or cannot be deleted and for an
+	// identifier that is not a valid string.
 	ErrNotFound = errors.New("photokit: not found")
 	// ErrMediaType is wrapped, with the number PhotoKit gave, when a fetched
 	// asset is neither an image, a video nor a Live Photo
@@ -60,8 +62,9 @@ var (
 	ErrExport = errors.New("photokit: export failed")
 	// ErrImportFile is wrapped, with the name of the field, when a path of an
 	// ImportRequest is not an absolute path of a regular file, when neither or
-	// both of Photo and Video are set, or when PairedVideo or AlternatePhoto is
-	// set without Photo. Nothing was changed.
+	// both of Photo and Video are set, when PairedVideo or AlternatePhoto is set
+	// without Photo, or when OriginalFilename holds a NUL or is not UTF-8.
+	// Nothing was changed.
 	// extension: not in osxphotos
 	ErrImportFile = errors.New("photokit: not a file to import")
 	// ErrImport is wrapped when PhotoKit fails an import, with the domain and
@@ -82,9 +85,10 @@ var (
 	// ErrInvalidTitle is returned when a title is empty, not UTF-8 or holds a NUL.
 	// extension: not in osxphotos
 	ErrInvalidTitle = errors.New("photokit: the title is empty or not a valid string")
-	// ErrChange is wrapped when PhotoKit fails a change of a collection, with
-	// the domain and code of the NSError, or creates one without an identifier.
-	// The description of the NSError is left out: it may name a collection.
+	// ErrChange is wrapped when PhotoKit fails a change of a collection or a
+	// deletion of assets, with the domain and code of the NSError, or creates a
+	// collection without an identifier. The description of the NSError is left
+	// out: it may name a collection or a file.
 	// extension: not in osxphotos
 	ErrChange = errors.New("photokit: the change failed")
 )

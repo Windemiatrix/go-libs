@@ -402,8 +402,8 @@ pk_result pk_import(const pk_import_request *r, const char *const *albums, int64
 				}
 			}
 			NSString *name = *r->original_filename ? [NSString stringWithUTF8String:r->original_filename] : nil;
-			// In the change, a set PhotoKit refuses would raise after a part is requested, and a nil name would keep that of the file.
-			if (![PHAssetCreationRequest supportsAssetResourceTypes:types] || (*r->original_filename && name == nil)) [NSException raise:NSInvalidArgumentException format:@"pk_import_request"];
+			// In the change, a set PhotoKit refuses would raise after a part is requested.
+			if (![PHAssetCreationRequest supportsAssetResourceTypes:types]) [NSException raise:NSInvalidArgumentException format:@"pk_import_request"];
 			NSDate *date = r->has_creation_date ? [NSDate dateWithTimeIntervalSince1970:r->creation_date] : nil;
 			CLLocation *location = r->has_location ? [[CLLocation alloc] initWithLatitude:r->latitude longitude:r->longitude] : nil;
 			BOOL favorite = r->favorite, hidden = r->hidden;
@@ -622,6 +622,30 @@ pk_result pk_album_assets(const char *album, const char *const *assets, int64_t 
 				} else {
 					[change removeAssets:found];
 				}
+			}, timeout_ms, NULL, ns_code, ns_domain);
+		} @catch (NSException *e) {
+			result = pk_exception_name(e);
+		}
+	}
+	return result;
+}
+
+// extension: not in osxphotos, whose photokit.py does not delete. Every asset
+// is checked before the change, so that it deletes all or none.
+pk_result pk_delete_assets(const char *const *ids, int64_t n, int64_t timeout_ms, int64_t *ns_code, char **ns_domain) {
+	pk_result result = {PK_NO_ASSET, NULL};
+	@autoreleasepool {
+		@try {
+			NSArray<NSString *> *list = pk_identifiers(ids, n);
+			if (list == nil) return result;
+			// The default options leave a hidden asset out, as for pk_fetch_assets.
+			PHFetchResult<PHAsset *> *found = [PHAsset fetchAssetsWithLocalIdentifiers:list options:nil];
+			if (found.count != list.count) return result;
+			for (PHAsset *asset in found) {
+				if (![asset canPerformEditOperation:PHAssetEditOperationDelete]) return result;
+			}
+			result = pk_perform_changes(^(__unused OSXPhotosChangeRequest *request) {
+				[PHAssetChangeRequest deleteAssets:found];
 			}, timeout_ms, NULL, ns_code, ns_domain);
 		} @catch (NSException *e) {
 			result = pk_exception_name(e);

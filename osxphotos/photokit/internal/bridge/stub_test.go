@@ -46,4 +46,7 @@ func TestStubNotSupported(t *testing.T) {
 	if err := b.AlbumAssets("id", []string{"id"}, true, time.Minute); !errors.Is(err, ErrNotSupported) {
 		t.Errorf("AlbumAssets: err = %v, want ErrNotSupported", err)
 	}
+	if err := b.DeleteAssets([]string{"id"}, time.Minute); !errors.Is(err, ErrNotSupported) {
+		t.Errorf("DeleteAssets: err = %v, want ErrNotSupported", err)
+	}
 }
