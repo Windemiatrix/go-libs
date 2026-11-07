@@ -32,8 +32,8 @@ type ImportRequest struct {
 
 // Import creates one asset from r in one change of PhotoKit and returns its
 // LocalIdentifier, as Fetch gives it. A plain import shows no dialog. Before
-// the change, a bad file is ErrImportFile and an album that the library does
-// not have, or that cannot take an asset, ErrNotFound. A failure of PhotoKit is
+// the change, a bad file or name is ErrImportFile and an album that the library
+// does not have, or that cannot take an asset, ErrNotFound. A failure of PhotoKit is
 // ErrImport, a refusal of the user ErrUserCanceled. A ctx done before the call
 // is ctx.Err(), and nothing was changed; a ctx done before the outcome is
 // ErrOutcomeUnknown with ctx.Err(), and the request goes on in PhotoKit, as a
@@ -60,7 +60,7 @@ func (l *Library) Import(ctx context.Context, r ImportRequest) (string, error) {
 	return id, nil
 }
 
-// The paths are the data of the caller: an error names the field only.
+// The paths and the name are the data of the caller: an error names the field only.
 func checkImportFiles(r ImportRequest) error {
 	if (r.Photo == "") == (r.Video == "") {
 		return fmt.Errorf("%w: one of Photo or Video", ErrImportFile)
@@ -77,6 +77,11 @@ func checkImportFiles(r ImportRequest) error {
 		if f.path != "" && ((f.withPhoto && r.Photo == "") || !isAbsFile(f.path)) {
 			return fmt.Errorf("%w: %s", ErrImportFile, f.name)
 		}
+	}
+	// C would cut the name at a NUL, and one that is not UTF-8 gives no NSString:
+	// Photos would keep the name of the file.
+	if r.OriginalFilename != "" && !isCString(r.OriginalFilename) {
+		return fmt.Errorf("%w: OriginalFilename", ErrImportFile)
 	}
 	return nil
 }

@@ -84,21 +84,11 @@ func TestChangeResult(t *testing.T) {
 	}
 }
 
-// Both calls fail before a change is requested, which the tests must not reach.
+// The call fails before a change is requested, which the tests must not reach.
 func TestImportBeforeChange(t *testing.T) {
-	for _, tt := range []struct {
-		name string
-		r    ImportRecord
-		want string
-	}{
-		{"name not UTF-8", ImportRecord{Photo: "/x/IMG_0001.JPG", OriginalFilename: "\xff"}, "photokit: Objective-C exception: NSInvalidArgumentException"},
-		{"album not UTF-8", ImportRecord{Photo: "/x/IMG_0001.JPG", Albums: []string{"\xff"}}, ErrNoAlbum.Error()},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			if id, err := New().Import(tt.r, time.Second); id != "" || err == nil || err.Error() != tt.want {
-				t.Errorf("Import = %q, %v, want an error %q", id, err, tt.want)
-			}
-		})
+	r := ImportRecord{Photo: "/x/IMG_0001.JPG", Albums: []string{"\xff"}}
+	if id, err := New().Import(r, time.Second); id != "" || !errors.Is(err, ErrNoAlbum) || err.Error() != ErrNoAlbum.Error() {
+		t.Errorf("Import with an album not UTF-8 = %q, %v, want ErrNoAlbum", id, err)
 	}
 }
 

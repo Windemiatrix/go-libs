@@ -62,8 +62,9 @@ var (
 	ErrExport = errors.New("photokit: export failed")
 	// ErrImportFile is wrapped, with the name of the field, when a path of an
 	// ImportRequest is not an absolute path of a regular file, when neither or
-	// both of Photo and Video are set, or when PairedVideo or AlternatePhoto is
-	// set without Photo. Nothing was changed.
+	// both of Photo and Video are set, when PairedVideo or AlternatePhoto is set
+	// without Photo, or when OriginalFilename holds a NUL or is not UTF-8.
+	// Nothing was changed.
 	// extension: not in osxphotos
 	ErrImportFile = errors.New("photokit: not a file to import")
 	// ErrImport is wrapped when PhotoKit fails an import, with the domain and
