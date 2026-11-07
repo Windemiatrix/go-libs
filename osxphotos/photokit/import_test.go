@@ -121,6 +121,8 @@ func TestImport(t *testing.T) {
 		{"AlternatePhoto without Photo", ImportRequest{Video: video, AlternatePhoto: raw}, "AlternatePhoto"},
 		{"bad PairedVideo", ImportRequest{Photo: photo, PairedVideo: missing}, "PairedVideo"},
 		{"bad AlternatePhoto", ImportRequest{Photo: photo, AlternatePhoto: "IMG_0001.CR2"}, "AlternatePhoto"},
+		{"NUL in OriginalFilename", ImportRequest{Photo: photo, OriginalFilename: "IMG_0003\x00.JPG"}, "OriginalFilename"},
+		{"OriginalFilename not UTF-8", ImportRequest{Photo: photo, OriginalFilename: "IMG_\xff.JPG"}, "OriginalFilename"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &fake.Bridge{ImportID: importID}

@@ -402,8 +402,8 @@ pk_result pk_import(const pk_import_request *r, const char *const *albums, int64
 				}
 			}
 			NSString *name = *r->original_filename ? [NSString stringWithUTF8String:r->original_filename] : nil;
-			// In the change, a set PhotoKit refuses would raise after a part is requested, and a nil name would keep that of the file.
-			if (![PHAssetCreationRequest supportsAssetResourceTypes:types] || (*r->original_filename && name == nil)) [NSException raise:NSInvalidArgumentException format:@"pk_import_request"];
+			// In the change, a set PhotoKit refuses would raise after a part is requested.
+			if (![PHAssetCreationRequest supportsAssetResourceTypes:types]) [NSException raise:NSInvalidArgumentException format:@"pk_import_request"];
 			NSDate *date = r->has_creation_date ? [NSDate dateWithTimeIntervalSince1970:r->creation_date] : nil;
 			CLLocation *location = r->has_location ? [[CLLocation alloc] initWithLatitude:r->latitude longitude:r->longitude] : nil;
 			BOOL favorite = r->favorite, hidden = r->hidden;
