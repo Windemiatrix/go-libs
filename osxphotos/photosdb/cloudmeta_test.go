@@ -124,31 +124,34 @@ func TestCloudMetadataDamaged(t *testing.T) {
 		t.Fatal(err)
 	}
 	photos := before.Photos()
-	if len(photos) < 6 {
-		t.Fatalf("the synthetic library has %d photos, want 6 or more: the case is vacuous", len(photos))
+	if len(photos) < 7 {
+		t.Fatalf("the synthetic library has %d photos, want 7 or more: the case is vacuous", len(photos))
 	}
 	pk := func(i int) string { return strconv.FormatInt(photos[i].PK, 10) }
 	const insert = "INSERT INTO ZCLOUDMASTERMEDIAMETADATA (Z_PK, ZCLOUDMASTER, ZDATA) VALUES "
-	text := func(v string) string { return "'" + cloudXML("<key>k</key><string>"+v+"</string>") + "'" }
+	xml := func(v string) string { return cloudXML("<key>k</key><string>" + v + "</string>") }
+	blob := func(v string) string { return "CAST('" + xml(v) + "' AS BLOB)" }
 	change(t, lib,
-		"INSERT INTO ZCLOUDMASTER (Z_PK) VALUES (900001), (900002), (900003), (900004), (900005), (900009)",
+		"INSERT INTO ZCLOUDMASTER (Z_PK) VALUES (900001), (900002), (900003), (900004), (900005), (900006), (900009)",
 		"UPDATE ZASSET SET ZMASTER = 900001 WHERE Z_PK = "+pk(0),
 		"UPDATE ZASSET SET ZMASTER = 900002 WHERE Z_PK = "+pk(1),
 		"UPDATE ZASSET SET ZMASTER = 900003 WHERE Z_PK = "+pk(2),
 		"UPDATE ZASSET SET ZMASTER = 900004 WHERE Z_PK = "+pk(3),
 		"UPDATE ZASSET SET ZMASTER = 900005 WHERE Z_PK = "+pk(4),
-		insert+"(900010, 900001, "+text("first")+")",
+		"UPDATE ZASSET SET ZMASTER = 900006 WHERE Z_PK = "+pk(5),
+		insert+"(900010, 900001, "+blob("first")+")",
 		// The row with the higher Z_PK is written first.
-		insert+"(900012, 900002, "+text("new")+")",
-		insert+"(900011, 900002, "+text("old")+")",
-		insert+"(900008, 900003, "+text("older")+")",
+		insert+"(900012, 900002, "+blob("new")+")",
+		insert+"(900011, 900002, "+blob("old")+")",
+		insert+"(900008, 900003, "+blob("older")+")",
 		insert+"(900013, 900003, zeroblob(1048577))",
-		insert+"(900007, 900004, "+text("older")+")",
+		insert+"(900007, 900004, "+blob("older")+")",
 		insert+"(900014, 900004, NULL)",
-		// plistlib.loads of an integer raises inside suppress(Exception): upstream gives {} (photoinfo.py:1757-1759).
+		// plistlib.loads of an integer or a str raises inside suppress(Exception): upstream gives {} (photoinfo.py:1757-1759).
 		insert+"(900015, 900005, 424242)",
+		insert+"(900016, 900006, '"+xml("text")+"')",
 		// A LEFT JOIN would hand Scan a NULL asset for the master that no asset has.
-		insert+"(900019, 900009, "+text("orphan")+")",
+		insert+"(900019, 900009, "+blob("orphan")+")",
 	)
 
 	after, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
@@ -172,15 +175,16 @@ func TestCloudMetadataDamaged(t *testing.T) {
 		{"a value over 1 MiB after an older one: the last row decides", metadata(2), nil},
 		{"a NULL value after an older one: the older one decides", metadata(3), map[string]any{"k": "older"}},
 		{"an integer value", metadata(4), nil},
+		{"a text value that is a valid property list", metadata(5), nil},
 	} {
 		if !sameCloudMetadata(c.got, c.want) {
 			t.Errorf("%s: %d keys, want %d", c.name, len(c.got), len(c.want))
 		}
 	}
 
-	// The 6 bytes of the integer are kept: the data is decoded on demand.
-	want, changed := 4, 0
-	for _, p := range photos[5:] {
+	// Of the first six photos only those with a blob keep data.
+	want, changed := 3, 0
+	for _, p := range photos[6:] {
 		old, had := before.cloudMeta[p.UUID]
 		if had {
 			want++
@@ -190,19 +194,19 @@ func TestCloudMetadataDamaged(t *testing.T) {
 		}
 	}
 	if len(after.cloudMeta) != want || changed != 0 {
-		t.Errorf("%d photos with data, want %d; %d of the %d other photos changed their data", len(after.cloudMeta), want, changed, len(photos)-5)
+		t.Errorf("%d photos with data, want %d; %d of the %d other photos changed their data", len(after.cloudMeta), want, changed, len(photos)-6)
 	}
 }
 
 // The oracle is the database: the rows load keeps, by SQL. They are the rows of
 // the assets that have an attributes row, of the highest Z_PK of their master
-// that has a value, with a value of 1 byte to 1 MiB. The messages hold counts,
+// that has a value, with a blob of 1 byte to 1 MiB. The messages hold counts,
 // not the metadata of a library.
 func TestCloudMetadataLibraries(t *testing.T) {
 	t.Parallel()
 
 	const rows = " FROM ZCLOUDMASTERMEDIAMETADATA md JOIN ZCLOUDMASTER m ON m.Z_PK = md.ZCLOUDMASTER JOIN ZASSET a ON a.ZMASTER = m.Z_PK" +
-		" WHERE md.ZDATA IS NOT NULL AND length(CAST(md.ZDATA AS BLOB)) BETWEEN 1 AND 1048576 AND a.ZUUID IS NOT NULL" +
+		" WHERE md.ZDATA IS NOT NULL AND typeof(md.ZDATA) = 'blob' AND length(md.ZDATA) BETWEEN 1 AND 1048576 AND a.ZUUID IS NOT NULL" +
 		" AND EXISTS (SELECT 1 FROM ZADDITIONALASSETATTRIBUTES x WHERE x.ZASSET = a.Z_PK)" +
 		" AND md.Z_PK = (SELECT MAX(md2.Z_PK) FROM ZCLOUDMASTERMEDIAMETADATA md2 WHERE md2.ZCLOUDMASTER = md.ZCLOUDMASTER AND md2.ZDATA IS NOT NULL)"
 
@@ -217,7 +221,7 @@ func TestCloudMetadataLibraries(t *testing.T) {
 				}
 				ro := roDB(t, lib.path)
 				wantRows := testlib.Count(t, ro, "SELECT COUNT(*)"+rows)
-				wantBytes := testlib.Count(t, ro, "SELECT COALESCE(SUM(length(CAST(md.ZDATA AS BLOB))), 0)"+rows)
+				wantBytes := testlib.Count(t, ro, "SELECT COALESCE(SUM(length(md.ZDATA)), 0)"+rows)
 
 				size := 0
 				for _, data := range db.cloudMeta {

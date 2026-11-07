@@ -6,9 +6,10 @@ import (
 )
 
 // CloudMetadata is one ZCLOUDMASTERMEDIAMETADATA row by the asset of its
-// master, the row of osxphotos cloud_metadata (photoinfo.py:1747-1753). Data
-// is nil for a value over 1 MiB; the rows of one PK share it, so it is not to
-// be modified.
+// master, the row of osxphotos cloud_metadata (photoinfo.py:1747-1753). Only a
+// blob is read: Data is nil for a text or a number, as plistlib.loads raises
+// on it upstream (photoinfo.py:1757-1759), and for a blob over 1 MiB. The rows
+// of one PK share Data, so it is not to be modified.
 type CloudMetadata struct {
 	PK, AssetPK int64 // Z_PK, ZASSET.Z_PK of the asset whose ZMASTER is the master of the row
 	Data        []byte
@@ -24,8 +25,8 @@ func cloudMetaSelect() []column {
 // inner joins of upstream leave it.
 func (d *DB) CloudMetadata(ctx context.Context) ([]CloudMetadata, error) {
 	// The value comes from outside: one over maxPlistSize of photosdb, which
-	// refuses it anyway, stays in SQLite. length() of a text counts characters.
-	q := "SELECT md.Z_PK, a.Z_PK, CASE WHEN length(CAST(md.ZDATA AS BLOB)) <= 1048576 THEN md.ZDATA END" +
+	// refuses it anyway, stays in SQLite.
+	q := "SELECT md.Z_PK, a.Z_PK, CASE WHEN typeof(md.ZDATA) = 'blob' AND length(md.ZDATA) <= 1048576 THEN md.ZDATA END" +
 		" FROM ZCLOUDMASTERMEDIAMETADATA md JOIN ZCLOUDMASTER m ON m.Z_PK = md.ZCLOUDMASTER JOIN ZASSET a ON a.ZMASTER = m.Z_PK" +
 		" WHERE md.ZDATA IS NOT NULL ORDER BY a.Z_PK, md.Z_PK"
 	var out []CloudMetadata

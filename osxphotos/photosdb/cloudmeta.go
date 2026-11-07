@@ -7,10 +7,12 @@ import "github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 // ZCLOUDMASTERMEDIAMETADATA.ZDATA of the ZCLOUDMASTER row of ZASSET.ZMASTER,
 // as howett.net/plist decodes it (string, int64 or uint64, float32 or float64,
 // bool, time.Time in UTC, []byte, plist.UID, []any, map[string]any). It is nil
-// for a photo without a master or a row, for data over 1 MiB or refused by the
-// limits of the property list reader, and for a root that is not a dictionary;
-// upstream gives {} for any failure and returns a root of another type as it
-// is. The map is new on every call: the caller may change it.
+// for a photo without a master or a row, for a ZDATA that is not a blob (a text
+// or a number: plistlib.loads raises on it upstream), for data over 1 MiB or
+// refused by the limits of the property list reader, and for a root that is
+// not a dictionary; upstream gives {} for any failure and returns a root of
+// another type as it is. The map is new on every call: the caller may change
+// it.
 func (db *DB) CloudMetadataOf(p *photoinfo.PhotoInfo) map[string]any {
 	// The raw value is kept and decoded here: the decoded map of every photo
 	// would be several times the size of its property list.

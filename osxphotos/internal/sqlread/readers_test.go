@@ -1579,7 +1579,7 @@ func TestScoreRowValues(t *testing.T) {
 }
 
 // Upstream joins ZCLOUDMASTER and ZASSET (photoinfo.py:1747-1753): the rows are
-// those with a value whose master an asset has.
+// those with a value whose master an asset has. Data is kept only for a blob.
 const cloudMetaFrom = " FROM ZCLOUDMASTERMEDIAMETADATA md JOIN ZCLOUDMASTER m ON m.Z_PK = md.ZCLOUDMASTER JOIN ZASSET a ON a.ZMASTER = m.Z_PK" +
 	" WHERE md.ZDATA IS NOT NULL"
 
@@ -1614,7 +1614,7 @@ func TestCloudMetadataRows(t *testing.T) {
 					weighted += r.AssetPK * r.PK
 					size += int64(len(r.Data))
 				}
-				// The data of the libraries are under 1 MiB, so every row keeps its value.
+				// The data of the libraries are blobs under 1 MiB, so every row keeps its value.
 				for _, c := range []struct {
 					name, query string
 					got         int64
@@ -1623,7 +1623,7 @@ func TestCloudMetadataRows(t *testing.T) {
 					{"sum of Z_PK", "SELECT COALESCE(SUM(md.Z_PK), 0)" + cloudMetaFrom, pkSum},
 					{"sum of the asset Z_PK", "SELECT COALESCE(SUM(a.Z_PK), 0)" + cloudMetaFrom, assetSum},
 					{"sum of Z_PK * asset Z_PK", "SELECT COALESCE(SUM(md.Z_PK * a.Z_PK), 0)" + cloudMetaFrom, weighted},
-					{"bytes", "SELECT COALESCE(SUM(length(CAST(md.ZDATA AS BLOB))), 0)" + cloudMetaFrom, size},
+					{"bytes", "SELECT COALESCE(SUM(CASE WHEN typeof(md.ZDATA) = 'blob' THEN length(md.ZDATA) END), 0)" + cloudMetaFrom, size},
 				} {
 					if want := count(t, ro, c.query); c.got != want {
 						t.Errorf("CloudMetadata: %s %d, want %d", c.name, c.got, want)
@@ -1661,9 +1661,10 @@ func TestCloudMetadataRows(t *testing.T) {
 			insert+"(900004, NULL, X'01')",
 			insert+"(900001, "+master("MIN")+", zeroblob(1048576))",
 			insert+"(900002, "+master("MAX")+", zeroblob(1048577))",
-			// A text of 600000 characters is 1.2 MB: length() of a text counts characters.
-			insert+"(900005, "+master("MIN")+", replace(hex(zeroblob(300000)), '0', 'é'))",
+			// plistlib.loads of an integer or a str raises upstream (photoinfo.py:1757-1759): the row stays, without Data.
+			insert+"(900005, "+master("MIN")+", 424242)",
 			insert+"(900006, "+master("MIN")+", '"+xml+"')",
+			insert+"(900007, "+master("MIN")+", CAST('"+xml+"' AS BLOB))",
 		)
 		want := count(t, w, "SELECT COUNT(*)"+cloudMetaFrom)
 		if err := w.Close(); err != nil {
@@ -1673,7 +1674,7 @@ func TestCloudMetadataRows(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		mib, null, text := 0, 0, 0
+		mib, null, plist := 0, 0, 0
 		for _, r := range rows {
 			switch {
 			case r.Data == nil:
@@ -1681,11 +1682,11 @@ func TestCloudMetadataRows(t *testing.T) {
 			case len(r.Data) == 1048576:
 				mib++
 			case string(r.Data) == xml:
-				text++
+				plist++
 			}
 		}
-		if int64(len(rows)) != want || mib != 1 || null != 2 || text != 1 {
-			t.Errorf("%d rows, %d of 1 MiB, %d without Data, %d of text; want %d, 1, 2, 1", len(rows), mib, null, text, want)
+		if int64(len(rows)) != want || mib != 1 || null != 3 || plist != 1 {
+			t.Errorf("%d rows, %d of 1 MiB, %d without Data, %d of a property list; want %d, 1, 3, 1", len(rows), mib, null, plist, want)
 		}
 	})
 
