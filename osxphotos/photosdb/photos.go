@@ -37,6 +37,8 @@ type DB struct {
 	commented    map[string]bool                         // the keys of comments, for query.Catalog
 	liked        map[string]bool                         // the keys of likes, for query.Catalog
 
+	cloudMeta map[string][]byte // the ZDATA of ZCLOUDMASTERMEDIAMETADATA by photo UUID, decoded by CloudMetadataOf
+
 	renderer template.Renderer // of RenderTemplate: one Renderer is one process of osxphotos, whose {counter} grows from photo to photo
 
 	personData

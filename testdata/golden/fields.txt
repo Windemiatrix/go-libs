@@ -12,6 +12,7 @@ burst_key
 burst_photos
 burst_selected
 cloud_guid
+cloud_metadata
 cloud_owner_hashed_id
 comments
 date

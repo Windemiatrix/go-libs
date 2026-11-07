@@ -118,6 +118,10 @@ var readers = []struct {
 		r, err := d.Scores(ctx, s)
 		return len(r), err
 	}},
+	{"CloudMetadata", func(ctx context.Context, d *DB, _ schema.Schema) (int, error) {
+		r, err := d.CloudMetadata(ctx)
+		return len(r), err
+	}},
 }
 
 func contains(list []string, s string) bool {
@@ -202,6 +206,7 @@ func TestColumnsIncludeJoins(t *testing.T) {
 		"ZUNMANAGEDADJUSTMENT":       {"Z_PK", "ZADJUSTMENTFORMATIDENTIFIER"},
 		"ZASSETDESCRIPTION":          {"Z_PK", "ZLONGDESCRIPTION"},
 		"ZCLOUDMASTER":               {"Z_PK", "ZCLOUDLOCALSTATE", "ZCLOUDMASTERGUID"},
+		"ZCLOUDMASTERMEDIAMETADATA":  {"Z_PK", "ZCLOUDMASTER", "ZDATA"},
 		"ZEXTENDEDATTRIBUTES":        {"Z_PK", "ZASSET", "ZFLASHFIRED", "ZISO", "ZFPS", "ZLENSMODEL", "ZDATECREATED", "ZTIMEZONEOFFSET", "ZTIMEZONENAME"},
 		"ZINTERNALRESOURCE":          {"ZASSET", "ZDATASTORESUBTYPE", "ZRESOURCETYPE", "ZFINGERPRINT"},
 		"Z_1KEYWORDS":                {"Z_1ASSETATTRIBUTES", "Z_52KEYWORDS"},
@@ -534,6 +539,9 @@ func TestReaderValueType(t *testing.T) {
 		{"moment start", "INSERT INTO ZMOMENT (Z_PK, ZSTARTDATE) VALUES (999999, 'SECRET-D')", readers[16].run},
 		{"moment timezone", "INSERT INTO ZMOMENT (Z_PK, ZTIMEZONEOFFSET) VALUES (999997, 'SECRET-Z')", readers[16].run},
 		{"score value", "INSERT INTO ZCOMPUTEDASSETATTRIBUTES (Z_PK, ZASSET, ZFAILURESCORE) VALUES (999999, 3, 'SECRET-S')", readers[17].run},
+		// An integer where a value is a blob or a text; the master is one that an asset has, so that the row is read.
+		{"cloud metadata value", "INSERT INTO ZCLOUDMASTERMEDIAMETADATA (Z_PK, ZCLOUDMASTER, ZDATA) VALUES (999999, " +
+			"(SELECT m.Z_PK FROM ZCLOUDMASTER m JOIN ZASSET a ON a.ZMASTER = m.Z_PK LIMIT 1), 424242)", readers[18].run},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1570,6 +1578,100 @@ func TestScoreRowValues(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Upstream joins ZCLOUDMASTER and ZASSET (photoinfo.py:1747-1753): the rows are
+// those with a value whose master an asset has.
+const cloudMetaFrom = " FROM ZCLOUDMASTERMEDIAMETADATA md JOIN ZCLOUDMASTER m ON m.Z_PK = md.ZCLOUDMASTER JOIN ZASSET a ON a.ZMASTER = m.Z_PK" +
+	" WHERE md.ZDATA IS NOT NULL"
+
+// The oracle is the database: a swap of the two keys in the Scan changes a sum
+// weighted by one of them.
+func TestCloudMetadataRows(t *testing.T) {
+	t.Parallel()
+
+	var total atomic.Int64
+	t.Run("libraries", func(t *testing.T) {
+		for _, lib := range libraryDBs(t) {
+			t.Run(lib.name, func(t *testing.T) {
+				t.Parallel()
+				ro := openRO(t, lib.path)
+				rows, err := openDB(t, lib.path).CloudMetadata(t.Context())
+				if err != nil {
+					t.Fatal(err)
+				}
+				var pkSum, assetSum, weighted, size int64
+				for i, r := range rows {
+					if i > 0 && (rows[i-1].AssetPK > r.AssetPK || (rows[i-1].AssetPK == r.AssetPK && rows[i-1].PK >= r.PK)) {
+						t.Errorf("CloudMetadata: row %d out of (asset, Z_PK) order", i+1)
+					}
+					pkSum += r.PK
+					assetSum += r.AssetPK
+					weighted += r.AssetPK * r.PK
+					size += int64(len(r.Data))
+				}
+				// The data of the libraries are under 1 MiB, so every row keeps its value.
+				for _, c := range []struct {
+					name, query string
+					got         int64
+				}{
+					{"rows", "SELECT COUNT(*)" + cloudMetaFrom, int64(len(rows))},
+					{"sum of Z_PK", "SELECT COALESCE(SUM(md.Z_PK), 0)" + cloudMetaFrom, pkSum},
+					{"sum of the asset Z_PK", "SELECT COALESCE(SUM(a.Z_PK), 0)" + cloudMetaFrom, assetSum},
+					{"sum of Z_PK * asset Z_PK", "SELECT COALESCE(SUM(md.Z_PK * a.Z_PK), 0)" + cloudMetaFrom, weighted},
+					{"bytes", "SELECT COALESCE(SUM(length(CAST(md.ZDATA AS BLOB))), 0)" + cloudMetaFrom, size},
+				} {
+					if want := count(t, ro, c.query); c.got != want {
+						t.Errorf("CloudMetadata: %s %d, want %d", c.name, c.got, want)
+					}
+				}
+				t.Logf("CloudMetadata: %d rows, %d bytes", len(rows), size)
+				total.Add(int64(len(rows)))
+			})
+		}
+	})
+	if total.Load() == 0 {
+		t.Log("no library has a ZCLOUDMASTERMEDIAMETADATA row of an asset: the libraries do not test the reader")
+	}
+
+	// The libraries may hold no row, so the rows are written.
+	t.Run("bounds and joins", func(t *testing.T) {
+		t.Parallel()
+		path := syntheticDB(t)
+		w := openWriter(t, path)
+		master := func(aggregate string) string {
+			return "(SELECT " + aggregate + "(m.Z_PK) FROM ZCLOUDMASTER m JOIN ZASSET a ON a.ZMASTER = m.Z_PK)"
+		}
+		const insert = "INSERT INTO ZCLOUDMASTERMEDIAMETADATA (Z_PK, ZCLOUDMASTER, ZDATA) VALUES "
+		exec(t, w,
+			// A master that no asset has, and a row without a master.
+			"INSERT INTO ZCLOUDMASTER (Z_PK) VALUES (900099)",
+			insert+"(900003, 900099, X'01')",
+			insert+"(900004, NULL, X'01')",
+			insert+"(900001, "+master("MIN")+", zeroblob(1048576))",
+			insert+"(900002, "+master("MAX")+", zeroblob(1048577))",
+		)
+		want := count(t, w, "SELECT COUNT(*)"+cloudMetaFrom)
+		if err := w.Close(); err != nil {
+			t.Fatal(err)
+		}
+		rows, err := openDB(t, path).CloudMetadata(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		mib, null := 0, 0
+		for _, r := range rows {
+			switch {
+			case r.Data == nil:
+				null++
+			case len(r.Data) == 1048576:
+				mib++
+			}
+		}
+		if int64(len(rows)) != want || mib != 1 || null != 1 {
+			t.Errorf("%d rows, %d of 1 MiB, %d without Data; want %d, 1, 1", len(rows), mib, null, want)
+		}
+	})
 }
 
 func TestReadersEmpty(t *testing.T) {

@@ -65,13 +65,15 @@ func compareGolden(t *testing.T, db *DB, ref *golden.Reference, divs []golden.Di
 	photos := db.Photos()
 	burstAlbums := map[string][]string{}
 	persons := map[string][]personinfo.PersonInfo{}
+	cloudMeta := map[string]map[string]any{}
 	for _, p := range photos {
 		burstAlbums[p.UUID] = lookupUUIDs(db.BurstAlbumInfoOf(p))
 		persons[p.UUID] = db.PersonInfoOf(p)
+		cloudMeta[p.UUID] = db.CloudMetadataOf(p)
 	}
 	rep, err := golden.Compare(ref, golden.Library{
 		Photos: photos, Albums: db.albums, SharedAlbums: db.sharedAlbums, BurstAlbums: burstAlbums, Imports: db.imports, Projects: db.projects,
-		Comments: db.comments, Likes: db.likes, Persons: persons,
+		Comments: db.comments, Likes: db.likes, Persons: persons, CloudMetadata: cloudMeta,
 	},
 		slices.Concat(golden.PhotoKeys(), golden.AlbumKeys()), divs)
 	if err != nil {
