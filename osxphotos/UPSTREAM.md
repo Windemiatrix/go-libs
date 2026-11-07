@@ -33,11 +33,13 @@ Only what is ported so far.
 | `photosdb/_photosdb_process_comments.py` | `internal/sqlread`, `photosdb` |
 | `photosdb/_photosdb_process_exif.py` | `internal/sqlread`, `photosdb` |
 | `photosdb/_photosdb_process_faceinfo.py` | `internal/sqlread`, `photosdb` |
+| `photosdb/_photosdb_process_scoreinfo.py` | `internal/sqlread`, `photosdb` |
 | `commentinfo.py` | `photoinfo` |
 | `exifinfo.py` | `exifinfo`, `photosdb` |
 | `placeinfo.py` | `placeinfo`, `photosdb` |
 | `personinfo.py` | `personinfo`, `photosdb` |
 | `momentinfo.py` | `momentinfo`, `photosdb` |
+| `scoreinfo.py` | `scoreinfo`, `photosdb` |
 | `photoinfo.py` | `photoinfo`, `photosdb` |
 | `shareinfo.py` | `photoinfo`, `photosdb`, `internal/sqlread` |
 | `shareparticipant.py` | `photoinfo`, `photosdb`, `internal/sqlread` |
@@ -193,11 +195,13 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 | `photosdb/_photosdb_process_comments.py` | `internal/sqlread`, `photosdb` |
 | `photosdb/_photosdb_process_exif.py` | `internal/sqlread`, `photosdb` |
 | `photosdb/_photosdb_process_faceinfo.py` | `internal/sqlread`, `photosdb` |
+| `photosdb/_photosdb_process_scoreinfo.py` | `internal/sqlread`, `photosdb` |
 | `commentinfo.py` | `photoinfo` |
 | `exifinfo.py` | `exifinfo`, `photosdb` |
 | `placeinfo.py` | `placeinfo`, `photosdb` |
 | `personinfo.py` | `personinfo`, `photosdb` |
 | `momentinfo.py` | `momentinfo`, `photosdb` |
+| `scoreinfo.py` | `scoreinfo`, `photosdb` |
 | `photoinfo.py` | `photoinfo`, `photosdb` |
 | `shareinfo.py` | `photoinfo`, `photosdb`, `internal/sqlread` |
 | `shareparticipant.py` | `photoinfo`, `photosdb`, `internal/sqlread` |
