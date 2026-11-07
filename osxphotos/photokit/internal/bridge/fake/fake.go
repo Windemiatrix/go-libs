@@ -38,10 +38,12 @@ import (
 // then it returns ImportID and ImportErr.
 //
 // Collections returns CollectionRecords and CollectionsErr. The four changes
-// of collections and DeleteAssets log their arguments, keep the timeout for
-// LastTimeout, and the slice of DeleteCollections, AlbumAssets or DeleteAssets
-// as given for LastIDs, and wait for HoldChange as Import does for HoldImport;
-// then they return ChangeErr, and CreateCollection CreatedID when ChangeErr is nil.
+// of collections, DeleteAssets and UpdateAsset log their arguments, keep the
+// timeout for LastTimeout, the slice of DeleteCollections, AlbumAssets or
+// DeleteAssets as given for LastIDs and the record of UpdateAsset for
+// LastPatch, and wait for HoldChange as Import does for HoldImport; then they
+// return ChangeErr, and CreateCollection CreatedID when ChangeErr is nil.
+// UpdateAsset logs the names of the fields its record sets.
 type Bridge struct {
 	Status, RequestStatus int
 	StatusErr, RequestErr error
@@ -70,6 +72,7 @@ type Bridge struct {
 	lastImport  bridge.ImportRecord
 	lastTimeout time.Duration
 	lastIDs     []string
+	lastPatch   bridge.PatchRecord
 }
 
 var _ bridge.Bridge = (*Bridge)(nil)
@@ -211,6 +214,30 @@ func (b *Bridge) AlbumAssets(album string, assets []string, add bool, timeout ti
 // DeleteAssets implements bridge.Bridge.
 func (b *Bridge) DeleteAssets(ids []string, timeout time.Duration) error {
 	return b.change(fmt.Sprintf("DeleteAssets %d", len(ids)), ids, timeout)
+}
+
+// UpdateAsset implements bridge.Bridge.
+func (b *Bridge) UpdateAsset(id string, r bridge.PatchRecord, timeout time.Duration) error {
+	var set []string
+	for _, f := range []struct {
+		name string
+		has  bool
+	}{{"date", r.HasCreationDate}, {"favorite", r.HasFavorite}, {"hidden", r.HasHidden}, {"location", r.HasLocation}} {
+		if f.has {
+			set = append(set, f.name)
+		}
+	}
+	b.mu.Lock()
+	b.lastPatch = r
+	b.mu.Unlock()
+	return b.change("UpdateAsset "+id+" "+strings.Join(set, " "), nil, timeout)
+}
+
+// LastPatch returns the record of the latest UpdateAsset, the zero value before one.
+func (b *Bridge) LastPatch() bridge.PatchRecord {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.lastPatch
 }
 
 // LastTimeout returns the timeout of the latest Import or change, 0 before one.

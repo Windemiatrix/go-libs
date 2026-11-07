@@ -653,3 +653,36 @@ pk_result pk_delete_assets(const char *const *ids, int64_t n, int64_t timeout_ms
 	}
 	return result;
 }
+
+// extension: not in osxphotos, whose photokit.py only reads the properties of
+// an asset (photokit.py:436-464). As in pk_import, every value of p is copied
+// before performChanges.
+pk_result pk_update_asset(const char *local_id, const pk_patch *p, int64_t timeout_ms, int64_t *ns_code, char **ns_domain) {
+	pk_result result = {PK_NO_ASSET, NULL};
+	@autoreleasepool {
+		@try {
+			NSArray<NSString *> *ids = pk_identifiers(&local_id, 1);
+			if (ids == nil) return result;
+			// The default options leave a hidden asset out, as for pk_fetch_assets.
+			PHFetchResult<PHAsset *> *found = [PHAsset fetchAssetsWithLocalIdentifiers:ids options:nil];
+			PHAsset *asset = found.firstObject;
+			if (found.count != 1 || ![asset canPerformEditOperation:PHAssetEditOperationProperties]) return result;
+			NSDate *date = p->has_creation_date ? [NSDate dateWithTimeIntervalSince1970:p->creation_date] : nil;
+			CLLocation *location = p->has_location ? [[CLLocation alloc] initWithLatitude:p->latitude longitude:p->longitude] : nil;
+			BOOL hasFavorite = p->has_favorite, favorite = p->favorite, hasHidden = p->has_hidden, hidden = p->hidden;
+			result = pk_perform_changes(^(__unused OSXPhotosChangeRequest *request) {
+				PHAssetChangeRequest *change = [PHAssetChangeRequest changeRequestForAsset:asset];
+				// Without a request the change would succeed and change nothing.
+				if (change == nil) [NSException raise:NSInternalInconsistencyException format:@"asset"];
+				if (date) change.creationDate = date;
+				if (location) change.location = location;
+				if (hasFavorite) change.favorite = favorite;
+				// A write of hidden, even of NO, may ask the user.
+				if (hasHidden) change.hidden = hidden;
+			}, timeout_ms, NULL, ns_code, ns_domain);
+		} @catch (NSException *e) {
+			result = pk_exception_name(e);
+		}
+	}
+	return result;
+}

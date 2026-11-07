@@ -4,5 +4,6 @@
 // Library.Collections and the methods that change folders and albums:
 // osxphotos reads them from the database and changes them through AppleScript.
 // So is Library.Delete, which moves assets to Recently Deleted: photokit.py
-// does not delete.
+// does not delete. So is Library.Update, which changes the date, the flags and
+// the location of an asset: photokit.py only reads them.
 package photokit

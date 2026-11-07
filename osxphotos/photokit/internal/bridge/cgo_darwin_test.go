@@ -115,6 +115,8 @@ func TestCollectionChangesBeforeChange(t *testing.T) {
 		{"album not UTF-8", b.AlbumAssets("\xff", []string{"x"}, true, time.Second), ErrNoAlbum.Error()},
 		{"asset not UTF-8", b.AlbumAssets("Trips", []string{"\xff"}, false, time.Second), ErrNoAsset.Error()},
 		{"asset to delete not UTF-8", b.DeleteAssets([]string{"\xff"}, time.Second), ErrNoAsset.Error()},
+		// Favorite, not Hidden: a broken check must not reach a dialog.
+		{"asset to update not UTF-8", b.UpdateAsset("\xff", PatchRecord{HasFavorite: true}, time.Second), ErrNoAsset.Error()},
 	} {
 		if tt.err == nil || tt.err.Error() != tt.want || (tt.want == ErrNoAlbum.Error() && !errors.Is(tt.err, ErrNoAlbum)) || (tt.want == ErrNoAsset.Error() && !errors.Is(tt.err, ErrNoAsset)) {
 			t.Errorf("%s: error %v, want %q", tt.name, tt.err, tt.want)

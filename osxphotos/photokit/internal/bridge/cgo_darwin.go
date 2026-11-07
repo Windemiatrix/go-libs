@@ -232,6 +232,22 @@ func (*cgoBridge) DeleteAssets(ids []string, timeout time.Duration) error {
 	return cmp.Or(err, nsError(domain != nil, C.GoString(domain), int64(code)))
 }
 
+func (*cgoBridge) UpdateAsset(id string, r PatchRecord, timeout time.Duration) error {
+	cid := C.CString(id)
+	defer C.free(unsafe.Pointer(cid)) //nolint:gosec // G103: the C.CString buffer of this call is freed here
+	p := C.pk_patch{
+		has_creation_date: C.bool(r.HasCreationDate), creation_date: C.double(r.CreationDate),
+		has_favorite: C.bool(r.HasFavorite), favorite: C.bool(r.Favorite),
+		has_hidden: C.bool(r.HasHidden), hidden: C.bool(r.Hidden),
+		has_location: C.bool(r.HasLocation), latitude: C.double(r.Latitude), longitude: C.double(r.Longitude),
+	}
+	var domain *C.char
+	var code C.int64_t
+	err := check(C.pk_update_asset(cid, &p, C.int64_t(timeoutMS(timeout)), &code, &domain))
+	defer C.free(unsafe.Pointer(domain)) //nolint:gosec // G103: the strdup buffer of bridge.m is freed here
+	return cmp.Or(err, nsError(domain != nil, C.GoString(domain), int64(code)))
+}
+
 func cStrings(ss []string) ([]*C.char, func()) {
 	cs := make([]*C.char, len(ss))
 	for i, s := range ss {
