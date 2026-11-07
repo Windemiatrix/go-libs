@@ -26,15 +26,20 @@ var excludedIDs = map[string]error{"t287": template.ErrUnsupportedConstruct, "t2
 // ported; a pending id that renders is an error, so the list shrinks with the
 // port and is empty once every field of phototemplate.py is ported.
 var pendingIDs = map[string][]string{
-	"the properties of PhotoInfo by their upstream name (photo.X)": slices.Concat([]string{"t098", "t123"}, idRange(210, 216), idRange(405, 483)),
-	"place.X and exif.X":                       idRange(484, 500),
-	"searchinfo.X, label and label_normalized": idRange(503, 510),
+	"photo.score.X, photo.exif_info.X and photo.place.X": slices.Concat([]string{"t098", "t431"}, idRange(479, 481)),
+	"place.X and exif.X": idRange(484, 500),
+	"searchinfo.X, label, label_normalized, photo.labels and photo.labels_normalized": slices.Concat([]string{"t438", "t439"}, idRange(503, 510)),
 }
 
 // vacuousIDs are supported ids whose value is "_" for every photo of the test
 // libraries. They are compared all the same; the list keeps a new vacuous id
-// from passing unnoticed.
-var vacuousIDs = []string{"t014", "t042", "t056", "t096", "t097", "t099", "t144", "t209", "t240", "t340", "t343"}
+// from passing unnoticed. The test libraries hold no files, so uti_raw, read
+// from the RAW file, is None (t414, photoinfo.py:940-946); the photos compared
+// are outside the trash, so they have no date_trashed (t443) and intrash is
+// false (t454); no photo was shared through Messages, so syndicated and
+// saved_to_library are false (t473, t474, photoinfo.py:1569-1599); flagged is
+// false on Photos (t478, photoinfo.py:817-820).
+var vacuousIDs = []string{"t014", "t042", "t056", "t096", "t097", "t099", "t144", "t209", "t240", "t340", "t343", "t414", "t443", "t454", "t473", "t474", "t478"}
 
 func idRange(from, to int) []string {
 	var out []string

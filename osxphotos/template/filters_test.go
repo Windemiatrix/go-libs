@@ -389,24 +389,6 @@ func TestNumbers(t *testing.T) {
 	})
 }
 
-// repr of a float of Python 3 (float_repr_style "short").
-func TestPyFloatRepr(t *testing.T) {
-	t.Parallel()
-	for _, tt := range []struct {
-		f    float64
-		want string
-	}{
-		{1, "1.0"}, {1000, "1000.0"}, {1e16, "1e+16"}, {1e15, "1000000000000000.0"}, {9999999999999998, "9999999999999998.0"},
-		{0.0001, "0.0001"}, {0.00001, "1e-05"}, {0.1, "0.1"}, {123456789.125, "123456789.125"}, {1.5e300, "1.5e+300"},
-		{-1.5e-7, "-1.5e-07"}, {5e-324, "5e-324"}, {math.MaxFloat64, "1.7976931348623157e+308"}, {0, "0.0"},
-		{math.Copysign(0, -1), "-0.0"}, {math.Inf(1), "inf"}, {math.Inf(-1), "-inf"}, {math.NaN(), "nan"},
-	} {
-		if got := pyFloatRepr(tt.f); got != tt.want {
-			t.Errorf("pyFloatRepr(%v) = %q, want %q", tt.f, got, tt.want)
-		}
-	}
-}
-
 func TestPathlib(t *testing.T) {
 	t.Parallel()
 	k := func() fakePhoto {

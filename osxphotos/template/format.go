@@ -176,7 +176,7 @@ func formatFloat(f float64, sp formatSpec) (string, error) {
 	var s string
 	switch t := strings.ToLower(sp.typ); {
 	case math.IsInf(f, 0) || math.IsNaN(f) || t == "" && sp.precision < 0:
-		s = pyFloatRepr(f)
+		s = FloatString(f)
 	case t == "e":
 		s = strconv.FormatFloat(f, 'e', p, 64)
 	case t == "f" || t == "%":
