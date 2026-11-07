@@ -207,6 +207,26 @@ func TestRenderEmptyIsNil(t *testing.T) {
 	}
 }
 
+// RenderOptions(none_str="") of upstream, which the zero NoneStr cannot say
+// (photoquery.py:734, phototemplate.py:770-772).
+func TestRenderNoneEmpty(t *testing.T) {
+	t.Parallel()
+
+	noTitle := fakePhoto{"title": {}}
+	one := func(s string) []string { return []string{s} }
+	checkRender(t, []renderCase{
+		{"none str", "{title}", noTitle, RenderOptions{}, one("_"), nil},
+		{"none empty", "{title}", noTitle, RenderOptions{NoneEmpty: true}, one(""), nil},
+		{"none empty with none str", "{title}", noTitle, RenderOptions{NoneStr: "x", NoneEmpty: true}, one(""), nil},
+		{"none empty between texts", "a{title}b", noTitle, RenderOptions{NoneEmpty: true}, one("ab"), nil},
+		{"none empty with a value", "{title}", fakePhoto{"title": strs("T")}, RenderOptions{NoneEmpty: true}, one("T"), nil},
+		{"none empty with a default", "{title,d}", noTitle, RenderOptions{NoneEmpty: true}, one("d"), nil},
+		{"none empty with a bool and a default", "{title?Y,N}", noTitle, RenderOptions{NoneEmpty: true}, one("N"), nil},
+		{"none empty with a false condition", "{title contains x}", fakePhoto{"title": strs("T")}, RenderOptions{NoneEmpty: true}, one(""), nil},
+		{"none str with a false condition", "{title contains x}", fakePhoto{"title": strs("T")}, RenderOptions{}, one("_"), nil},
+	})
+}
+
 // pathlib.Path(...).stem of Python 3.12 (phototemplate.py:931-933, 997) and
 // persons without _UNKNOWN_PERSON (1275-1278).
 func TestRenderNameStems(t *testing.T) {
