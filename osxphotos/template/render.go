@@ -184,6 +184,9 @@ func (s *rendering) field(f *Field) ([]string, bool, error) {
 		vals = def
 	case len(vals) == 0 && f.Name != "var": // phototemplate.py:770-772
 		vals = []string{s.o.NoneStr}
+		if s.o.NoneEmpty {
+			vals[0] = ""
+		}
 	}
 	return vals, true, nil
 }

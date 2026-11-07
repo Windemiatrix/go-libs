@@ -1,6 +1,7 @@
 package query
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/template"
 )
 
 // photo keeps each predicate of filters on one line.
@@ -21,9 +23,9 @@ type photo = photoinfo.PhotoInfo
 // The result is new, in the order of Sort (reversed with
 // NewestFirst), each photo once unless a Function returns it twice and
 // BurstPhotos is off; its elements are the pointers of photos. photos and
-// albums are not modified. Apply has no comments and likes: with HasComment
-// or HasLikes it selects nothing, with NoComment or NoLikes everything;
-// ApplyCatalog takes them.
+// albums are not modified. Apply has no comments, likes and fields of a
+// photo: with HasComment, HasLikes or Regex it selects nothing, with NoComment
+// or NoLikes everything; ApplyCatalog takes them.
 func Apply(o Options, photos []*photoinfo.PhotoInfo, albums []*albuminfo.AlbumInfo) []*photoinfo.PhotoInfo {
 	return ApplyCatalog(o, Catalog{Photos: photos, Albums: albums})
 }
@@ -126,6 +128,7 @@ func filters(o Options, c Catalog) (before, after []filter) {
 	when(len(names) > 0, func(p *photo) bool { return containsAny(fold.apply(p.OriginalFilename), names) })
 	when(o.MinSize != 0, func(p *photo) bool { return p.OriginalFilesize >= o.MinSize })
 	when(o.MaxSize != 0, func(p *photo) bool { return p.OriginalFilesize <= o.MaxSize })
+	when(len(o.Regex) > 0, regexFilter(o, c))
 	before, fs = fs, nil
 	pair(o.Location, o.NoLocation, func(p *photo) bool { return p.Latitude != nil || p.Longitude != nil })
 	when(!o.AddedAfter.IsZero(), func(p *photo) bool { return dateAdded(p).After(o.AddedAfter) })
@@ -140,6 +143,33 @@ func filters(o Options, c Catalog) (before, after []filter) {
 	pair(o.SharedMoment, o.NotSharedMoment, func(p *photo) bool { return p.SharedMoment })
 	pair(o.SharedLibrary, o.NotSharedLibrary, func(p *photo) bool { return p.SharedLibrary })
 	return before, fs
+}
+
+// photoquery.py:732-744, with none_str="" (734). A failed render is not a
+// match: Apply has no error to return, where upstream raises or renders a field
+// that DB.Fields does not give yet.
+func regexFilter(o Options, c Catalog) filter {
+	var pairs []RegexTemplate
+	for _, rt := range o.Regex {
+		if rt.Regex == nil || rt.Template == nil || c.Photo == nil {
+			continue
+		}
+		if o.IgnoreCase {
+			re, err := regexp.Compile("(?i)" + rt.Regex.String())
+			if err != nil { // a CompilePOSIX pattern that Compile rejects, such as a**
+				continue
+			}
+			rt.Regex = re
+		}
+		pairs = append(pairs, rt)
+	}
+	var renderer template.Renderer
+	return func(p *photo) bool {
+		return slices.ContainsFunc(pairs, func(rt RegexTemplate) bool {
+			values, _, err := renderer.Render(rt.Template, c.Photo(p), template.RenderOptions{NoneEmpty: true})
+			return err == nil && slices.ContainsFunc(values, rt.Regex.MatchString)
+		})
+	}
 }
 
 // timeOfDay is date.time() of Python: the wall clock in the zone of d

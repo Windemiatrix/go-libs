@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"regexp"
 	"slices"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/template"
 )
 
 type applyCase struct {
@@ -461,6 +463,109 @@ func TestApplyCatalog(t *testing.T) {
 		if !reflect.DeepEqual(*p, photoValues[i]) {
 			t.Errorf("ApplyCatalog changed photo %s", p.UUID)
 		}
+	}
+}
+
+// regexFields gives {title} and {keyword} and nothing else, so that {descr}
+// is a field the Photo does not give.
+type regexFields map[string]template.Value
+
+func (f regexFields) Field(name string) (template.Value, bool) {
+	v, ok := f[name]
+	return v, ok
+}
+
+func regexPhoto(p *photoinfo.PhotoInfo) template.Photo {
+	title := template.Value{}
+	if p.Title != "" {
+		title.Strings = []string{p.Title}
+	}
+	return regexFields{"title": title, "keyword": {Strings: p.Keywords}}
+}
+
+func regexPair(t *testing.T, pattern, tmpl string) RegexTemplate {
+	t.Helper()
+	parsed, err := template.Parse(tmpl)
+	if err != nil {
+		t.Fatalf("Parse(%q): %v", tmpl, err)
+	}
+	return RegexTemplate{Regex: regexp.MustCompile(pattern), Template: parsed}
+}
+
+// photoquery.py:732-744.
+func TestApplyRegex(t *testing.T) {
+	t.Parallel()
+
+	mk := func(uuid, title string, keywords ...string) *photoinfo.PhotoInfo {
+		return &photoinfo.PhotoInfo{UUID: uuid, IsPhoto: true, Title: title, Keywords: keywords}
+	}
+	photos := []*photoinfo.PhotoInfo{
+		mk("B1", "Beach day", "alpha", "sun"),
+		mk("B2", "beach", "Beta"),
+		mk("J", "Jungle", "a", "b"),
+		mk("E", ""),
+	}
+	pair := func(pattern, tmpl string) []RegexTemplate { return []RegexTemplate{regexPair(t, pattern, tmpl)} }
+	good := regexPair(t, "^Beach", "{title}")
+	for _, tt := range []struct {
+		name string
+		o    Options
+		want []string
+	}{
+		{"title", Options{Regex: pair("^Beach", "{title}")}, []string{"B1"}},
+		{"title keeps case", Options{Regex: pair("^beach", "{title}")}, []string{"B2"}},
+		{"title ignore case", Options{Regex: pair("^beach", "{title}"), IgnoreCase: true}, []string{"B1", "B2"}},
+		{"ignore case of a pattern with alternatives", Options{Regex: pair("^jungle$|^nope$", "{title}"), IgnoreCase: true}, []string{"J"}},
+		{"second value of a keyword", Options{Regex: pair("^sun$", "{keyword}")}, []string{"B1"}},
+		{"each value is searched alone", Options{Regex: pair("ab", "{keyword}")}, nil},
+		{"values are not joined", Options{Regex: pair("^b$", "{keyword}")}, []string{"J"}},
+		{"two pairs, one photo once", Options{Regex: slices.Concat(pair("^Beach", "{title}"), pair("^alpha$", "{keyword}"))}, []string{"B1"}},
+		{"two pairs, two photos", Options{Regex: slices.Concat(pair("^Beach", "{title}"), pair("^Beta$", "{keyword}"))}, []string{"B1", "B2"}},
+		{"no title is an empty string", Options{Regex: pair("^$", "{title}")}, []string{"E"}},
+		{"a title is not an empty string", Options{Regex: pair(".", "{title}")}, []string{"B1", "B2", "J"}},
+		{"a default wins over the empty string", Options{Regex: pair("^x$", "{title,x}")}, []string{"E"}},
+		{"a field that the Photo does not give", Options{Regex: pair(".", "{descr}")}, nil},
+		{"a zero pair", Options{Regex: []RegexTemplate{{}}}, nil},
+		{"a pair without a template", Options{Regex: []RegexTemplate{{Regex: good.Regex}}}, nil},
+		{"a pair without a regex", Options{Regex: []RegexTemplate{{Template: good.Template}}}, nil},
+		{"a zero pair beside a good one", Options{Regex: []RegexTemplate{{}, good}}, []string{"B1"}},
+		{"a zero pair with ignore case", Options{Regex: []RegexTemplate{{}}, IgnoreCase: true}, nil},
+		{"a posix pattern that Compile rejects, ignore case", Options{Regex: []RegexTemplate{{Regex: regexp.MustCompilePOSIX("a**"), Template: good.Template}}, IgnoreCase: true}, nil},
+		{"with another filter", Options{Regex: pair("^Beach", "{title}"), Keyword: []string{"Beta"}}, nil},
+		{"no pair", Options{Regex: []RegexTemplate{}}, []string{"B1", "B2", "E", "J"}},
+	} {
+		got := uuids(ApplyCatalog(tt.o, Catalog{Photos: photos, Photo: regexPhoto}))
+		if !slices.Equal(got, tt.want) {
+			t.Errorf("%s: ApplyCatalog = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+
+	o := Options{Regex: pair(".*", "{title}")}
+	if got := ApplyCatalog(o, Catalog{Photos: photos}); len(got) != 0 {
+		t.Errorf("ApplyCatalog without Photo returned %d photos, want none", len(got))
+	}
+	if got := Apply(o, photos, nil); len(got) != 0 {
+		t.Errorf("Apply returned %d photos, want none", len(got))
+	}
+}
+
+// The filter runs before the duplicate step (photoquery.py:732-744, 754-771):
+// the twin of a photo that passes comes in, the twins of photos that do not
+// pass stay out.
+func TestApplyRegexDuplicate(t *testing.T) {
+	t.Parallel()
+
+	titled := func(uuid, title string, size int64) *photoinfo.PhotoInfo {
+		p := flagsTwin(uuid)
+		p.Title, p.OriginalFilesize = title, size
+		return p
+	}
+	photos := []*photoinfo.PhotoInfo{
+		titled("D1", "Beach", 1), titled("D2", "Other", 1), titled("D3", "Other", 2), titled("D4", "Sun", 3), titled("D5", "Sun", 3),
+	}
+	o := Options{Regex: []RegexTemplate{regexPair(t, "^Beach", "{title}")}, Duplicate: true}
+	if got, want := uuids(ApplyCatalog(o, Catalog{Photos: photos, Photo: regexPhoto})), []string{"D1", "D2"}; !slices.Equal(got, want) {
+		t.Errorf("ApplyCatalog = %q, want %q", got, want)
 	}
 }
 
