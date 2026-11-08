@@ -142,6 +142,7 @@ func TestLivePatch(t *testing.T) {
 		if pending {
 			t.Skip("a dialog of Hidden false may still be open: answer it")
 		}
+		dialog(t, "confirm")
 		start := time.Now()
 		err := update(t, id, photokit.AssetPatch{Hidden: new(true)})
 		t.Logf("hiding an asset: Update returned after %v", time.Since(start).Round(time.Second))
