@@ -20,16 +20,16 @@ type AssetPatch struct {
 
 // Update changes the asset id, a UUID or a LocalIdentifier as for Fetch, in
 // one change. Hidden true asks the user once; after it the asset is not found
-// by Fetch or Update any more, as a hidden asset is not. The other fields
-// change without a dialog, but Hidden false on a visible asset may ask too,
-// so it is written only when set. An empty patch changes nothing and calls
-// nothing. Before the change, and without a dialog, an asset that is missing
-// (a hidden one too) or that cannot be changed is ErrNotFound. A refusal of
-// the user is ErrUserCanceled and nothing was changed; a failure of PhotoKit
-// ErrChange. A ctx done before the call is ctx.Err(); a ctx done before the
-// outcome is ErrOutcomeUnknown with ctx.Err(): the change may still take
-// effect, and with Hidden true the dialog stays open and a later answer still
-// hides the asset, so read the library again before the next change.
+// by Fetch or Update any more, as a hidden asset is not, so Update cannot show
+// it again. The other fields change without a dialog, and so does Hidden false
+// on a visible asset. An empty patch changes nothing and calls nothing. Before
+// the change, and without a dialog, an asset that is missing (a hidden one
+// too) or that cannot be changed is ErrNotFound. A refusal of the user is
+// ErrUserCanceled and nothing was changed; a failure of PhotoKit ErrChange. A
+// ctx done before the call is ctx.Err(); a ctx done before the outcome is
+// ErrOutcomeUnknown with ctx.Err(): the change may still take effect, and with
+// Hidden true the dialog stays open and a later answer still hides the asset,
+// so read the library again before the next change.
 // extension: not in osxphotos
 func (l *Library) Update(ctx context.Context, id string, p AssetPatch) error {
 	if p == (AssetPatch{}) {

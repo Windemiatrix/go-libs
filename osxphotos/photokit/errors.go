@@ -75,8 +75,8 @@ var (
 	// extension: not in osxphotos
 	ErrImport = errors.New("photokit: import failed")
 	// ErrUserCanceled is returned when the user refuses the dialog of a change
-	// (PHPhotosErrorUserCancelled, 3072); nothing was changed. Hiding an asset
-	// asks the user too.
+	// (PHPhotosErrorUserCancelled, 3072); nothing was changed. Delete,
+	// DeleteCollections of a folder and Update with Hidden true ask the user.
 	// extension: not in osxphotos
 	ErrUserCanceled = errors.New("photokit: the user canceled the change")
 	// ErrOutcomeUnknown is wrapped, together with the error of ctx, when ctx
