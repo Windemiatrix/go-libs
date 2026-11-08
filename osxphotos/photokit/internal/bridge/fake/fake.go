@@ -33,6 +33,12 @@ import (
 // closed when it is not nil, whatever Cancel, as a completion that never comes.
 // Done delivers DoneErr, or bridge.ErrCanceled after Cancel.
 //
+// RequestImage logs the id and the version and returns bridge.ErrNoResource
+// when Images has no entry for id+"/"+version. An entry without Data delivers
+// bridge.ErrNoResource by Done without Write and Info, as PhotoKit does when
+// it gives no data; otherwise it runs as RequestResource does, with the data
+// in one chunk, and gives the Record to Info after the data.
+//
 // Import keeps the record and the timeout for LastImport and, when HoldImport
 // is not nil, waits for it to be closed or the timeout to pass, as Hold does;
 // then it returns ImportID and ImportErr.
@@ -60,6 +66,7 @@ type Bridge struct {
 	ResourcesErr          error
 	Data                  map[string][]byte
 	Chunk                 int
+	Images                map[string]ImageData
 	DoneErr               error
 	HoldRequest           chan struct{}
 	ImportID              string
@@ -83,6 +90,12 @@ type Bridge struct {
 }
 
 var _ bridge.Bridge = (*Bridge)(nil)
+
+// ImageData is what RequestImage gives for an entry of Images.
+type ImageData struct {
+	Data   []byte
+	Record bridge.ImageRecord
+}
 
 // Calls returns a line per call so far, in order. It may be called while a
 // call runs: photokit calls RequestAuthorization from a goroutine.
@@ -150,15 +163,35 @@ func (b *Bridge) RequestResource(id string, typ int, sink bridge.ResourceSink) (
 	if !ok {
 		return nil, bridge.ErrNoResource
 	}
+	return b.start(id, sink, func(r *request) error { return r.run(data, b.Chunk, sink, nil) }), nil
+}
+
+// RequestImage implements bridge.Bridge.
+func (b *Bridge) RequestImage(id string, version int, sink bridge.ImageSink) (bridge.Request, error) {
+	b.log(fmt.Sprintf("RequestImage %s %d", id, version))
+	img, ok := b.Images[id+"/"+strconv.Itoa(version)]
+	if !ok {
+		return nil, bridge.ErrNoResource
+	}
+	return b.start(id, sink, func(r *request) error {
+		if len(img.Data) == 0 {
+			return bridge.ErrNoResource
+		}
+		return r.run(img.Data, 0, sink, func() { sink.Info(img.Record) })
+	}), nil
+}
+
+func (b *Bridge) start(id string, sink bridge.ResourceSink, run func(*request) error) *request {
 	b.mu.Lock()
 	b.sink = sink
 	b.mu.Unlock()
 	r := &request{b: b, id: id, canceled: make(chan struct{}), done: make(chan error, 1)}
-	go func() { r.done <- r.run(data, sink) }()
-	return r, nil
+	go func() { r.done <- run(r) }()
+	return r
 }
 
-// LastSink returns the sink of the latest RequestResource, nil before one.
+// LastSink returns the sink of the latest RequestResource or RequestImage, nil
+// before one.
 func (b *Bridge) LastSink() bridge.ResourceSink {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -318,8 +351,7 @@ func (r *request) Cancel() {
 
 func (r *request) Done() <-chan error { return r.done }
 
-func (r *request) run(data []byte, sink bridge.ResourceSink) error {
-	chunk := r.b.Chunk
+func (r *request) run(data []byte, chunk int, sink bridge.ResourceSink, info func()) error {
 	if chunk <= 0 {
 		chunk = max(len(data), 1)
 	}
@@ -334,6 +366,9 @@ func (r *request) run(data []byte, sink bridge.ResourceSink) error {
 		}
 		written += len(c)
 		sink.Progress(float64(written) / float64(len(data)))
+	}
+	if info != nil {
+		info()
 	}
 	if r.b.HoldRequest != nil {
 		<-r.b.HoldRequest

@@ -44,7 +44,22 @@ var (
 // later at most; without a deadline in ctx it waits as long as PhotoKit does
 // (upstream 300 s, 196-218). No such asset is ErrNotFound; no resource of the
 // kind, ErrNoResource; a failure of PhotoKit, ErrExport.
-func (l *Library) Export(ctx context.Context, uuid string, kind ResourceType, dir, name string, o ExportOptions) (err error) {
+func (l *Library) Export(ctx context.Context, uuid string, kind ResourceType, dir, name string, o ExportOptions) error {
+	return writeExport(ctx, dir, name, o, func() error {
+		res, err := l.Resources(ctx, uuid)
+		if err != nil {
+			return err
+		}
+		if !slices.ContainsFunc(res, func(r Resource) bool { return r.Type == kind }) {
+			return fmt.Errorf("%w: %d", ErrNoResource, kind)
+		}
+		return nil
+	}, func(s *fileSink) (bridge.Request, error) { return l.b.RequestResource(uuid, int(kind), s) })
+}
+
+// One copy of the rules of the file for every export; check runs before the
+// file exists, so that a missing asset leaves dir as it was.
+func writeExport(ctx context.Context, dir, name string, o ExportOptions, check func() error, start func(*fileSink) (bridge.Request, error)) (err error) {
 	// Upstream writes into dest itself, by the stem of filename (photokit.py:557-561, 596).
 	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\x00") {
 		return ErrInvalidName
@@ -55,12 +70,8 @@ func (l *Library) Export(ctx context.Context, uuid string, kind ResourceType, di
 		return err
 	}
 	defer func() { err = errors.Join(err, root.Close()) }()
-	res, err := l.Resources(ctx, uuid)
-	if err != nil {
+	if err = check(); err != nil {
 		return err
-	}
-	if !slices.ContainsFunc(res, func(r Resource) bool { return r.Type == kind }) {
-		return fmt.Errorf("%w: %d", ErrNoResource, kind)
 	}
 	// The old file stays until the resource is whole (photokit.py:579, 601); a rename never writes through a hard link at name.
 	target := name
@@ -72,7 +83,7 @@ func (l *Library) Export(ctx context.Context, uuid string, kind ResourceType, di
 		return err
 	}
 	s := &fileSink{f: f, progress: o.Progress, failed: make(chan struct{})}
-	if err = s.finish(l.request(ctx, uuid, kind, s)); err == nil && o.Overwrite {
+	if err = s.finish(awaitRequest(ctx, s, start)); err == nil && o.Overwrite {
 		err = root.Rename(name, target)
 	}
 	if err != nil {
@@ -81,8 +92,8 @@ func (l *Library) Export(ctx context.Context, uuid string, kind ResourceType, di
 	return nil
 }
 
-func (l *Library) request(ctx context.Context, uuid string, kind ResourceType, s *fileSink) error {
-	req, err := l.b.RequestResource(uuid, int(kind), s)
+func awaitRequest(ctx context.Context, s *fileSink, start func(*fileSink) (bridge.Request, error)) error {
+	req, err := start(s)
 	if err != nil {
 		return err
 	}
