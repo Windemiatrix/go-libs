@@ -22,17 +22,16 @@ import (
 )
 
 // The removal at the end of the run finds the imports of this run and of
-// earlier ones by the prefix of their name.
+// earlier ones by the prefix of their name. A run imports at most six: a
+// photo, a Live pair, a RAW+JPEG pair, a hidden photo and two photos for the
+// removal.
 const (
 	importPrefix = "photosync-livetest-"
-	maxImports   = 4
+	maxImports   = 6
 )
 
-// Hiding at creation may wait for the owner to answer a dialog.
+// The owner has this long to refuse a dialog that an import should not show.
 const importTimeout = 2 * time.Minute
-
-// PHPhotosErrorUserCancelled, and NSUserCancelledError of NSCocoaErrorDomain.
-const userCancelled = 3072
 
 // Far from the dates of the album, so that the date of the request is told
 // from that of the file.
@@ -147,9 +146,9 @@ func TestLiveImport(t *testing.T) {
 		}
 	})
 
-	// An observation: hiding an existing asset asks the user, and Go maps only
-	// the refusal of PHPhotosErrorDomain to ErrUserCanceled. Fetch does not find
-	// a hidden asset; photosdb checks Hidden below.
+	// Hiding at creation shows no dialog, unlike hiding an existing asset; the
+	// time tells one confirmed by mistake. Fetch does not find a hidden asset;
+	// photosdb checks Hidden below.
 	t.Run("hidden", func(t *testing.T) {
 		if plain == "" {
 			t.Skip("no photo was exported for the import of a photo")
@@ -157,20 +156,26 @@ func TestLiveImport(t *testing.T) {
 		start := time.Now()
 		a, err := im.add(t, photokit.ImportRequest{Photo: plain, Hidden: true}, false, false)
 		t.Logf("Import with Hidden returned after %v", time.Since(start).Round(time.Second))
-		switch pk, isPK := errors.AsType[*bridge.PhotoKitError](err); {
-		case errors.Is(err, photokit.ErrUserCanceled):
-			t.Log("hiding at creation needs a dialog; refused with NSError domain PHPhotosErrorDomain")
-		case isPK && pk.Code == userCancelled:
-			t.Logf("hiding at creation needs a dialog; refused with NSError domain %s", pk.Domain)
-		// The asset may be created later, outside importedAssets: the count of
-		// the marker album below then differs.
-		case errors.Is(err, photokit.ErrOutcomeUnknown):
-			t.Logf("Import with Hidden ended before its outcome: look for %s* in the Hidden album", importPrefix)
-		case err != nil:
-			t.Errorf("Import with Hidden: %s", importFailure(err))
-		default:
-			if _, err := lib.Fetch(t.Context(), []string{a.id}); !errors.Is(err, photokit.ErrNotFound) {
-				t.Errorf("Fetch of the asset imported hidden: not ErrNotFound (error: %t)", err != nil)
+		// After ErrOutcomeUnknown the asset may be created later, outside
+		// importedAssets: the count of the marker album below then differs.
+		if err != nil {
+			t.Errorf("Import with Hidden: %s; look for %s* in the Hidden album", importFailure(err), importPrefix)
+			return
+		}
+		if _, err := lib.Fetch(t.Context(), []string{a.id}); !errors.Is(err, photokit.ErrNotFound) {
+			t.Errorf("Fetch of the asset imported hidden: not ErrNotFound (error: %t)", err != nil)
+		}
+	})
+
+	// TestLivePatch hides one visible import, and the three dialogs of
+	// TestLiveRemoval need two photos, whatever kinds the marker album holds.
+	t.Run("for removal", func(t *testing.T) {
+		if plain == "" {
+			t.Skip("no photo was exported for the import of a photo")
+		}
+		for range 2 {
+			if _, err := im.add(t, photokit.ImportRequest{Photo: plain}, false, false); err != nil {
+				t.Fatalf("Import of a photo for the removal: %s", importFailure(err))
 			}
 		}
 	})
