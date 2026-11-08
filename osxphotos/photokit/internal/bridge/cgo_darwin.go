@@ -5,16 +5,20 @@ package bridge
 // -Werror is not here: a warning of a newer clang would break go build for
 // every user of the library. CI adds it through CGO_CFLAGS. CoreLocation holds
 // the CLLocation of an imported asset, which Photos declares but does not link.
+// ImageIO reads the properties of an image, as Quartz does upstream
+// (photokit.py:669-673).
 
 /*
 #cgo CFLAGS: -Wall -Wextra -fobjc-arc
 #cgo LDFLAGS: -framework Photos -framework Foundation -framework CoreLocation
+#cgo LDFLAGS: -framework ImageIO
 #include <stdlib.h>
 #include "bridge.h"
 */
 import "C"
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"errors"
@@ -99,23 +103,31 @@ func (*cgoBridge) AssetResources(id string) ([]ResourceRecord, error) {
 func (*cgoBridge) RequestResource(id string, typ int, sink ResourceSink) (Request, error) {
 	cid := C.CString(id)
 	defer C.free(unsafe.Pointer(cid)) //nolint:gosec // G103: the C.CString buffer of this call is freed here
-	r := &cgoRequest{sink: sink, done: make(chan error, 1)}
-	// The completion handler may run long after Export returned, or never:
-	// the request stays known until it runs.
+	var rid C.int32_t
+	return startRequest(sink, func() { C.pk_cancel_resource(rid) }, func(h C.uintptr_t) C.pk_result {
+		return C.pk_request_resource(cid, C.int64_t(typ), h, &rid)
+	})
+}
+
+// The request has no id to cancel: pk_go_progress stops it.
+func (*cgoBridge) RequestImage(id string, version int, sink ImageSink) (Request, error) {
+	cid := C.CString(id)
+	defer C.free(unsafe.Pointer(cid)) //nolint:gosec // G103: the C.CString buffer of this call is freed here
+	return startRequest(sink, nil, func(h C.uintptr_t) C.pk_result { return C.pk_request_image(cid, C.int64_t(version), h) })
+}
+
+// The completion handler may run long after the export returned, or never: the
+// request stays known until it runs.
+func startRequest(sink ResourceSink, cancel func(), start func(C.uintptr_t) C.pk_result) (Request, error) {
+	r := &cgoRequest{sink: sink, cancel: cancel, done: make(chan error, 1)}
 	h := lastRequest.Add(1)
 	requests.Store(h, r)
-	var rid C.int32_t
-	if err := check(C.pk_request_resource(cid, C.int64_t(typ), C.uintptr_t(h), &rid)); err != nil {
+	if err := check(start(C.uintptr_t(h))); err != nil {
 		requests.Delete(h)
 		return nil, err
 	}
-	r.id = rid
 	return r, nil
 }
-
-// bridge.m does not request an image yet: pk_request_image comes with the
-// Objective-C side of RequestImage.
-func (*cgoBridge) RequestImage(string, int, ImageSink) (Request, error) { return nil, ErrNotSupported }
 
 func (*cgoBridge) Import(r ImportRecord, timeout time.Duration) (string, error) {
 	strs, free := cStrings(append([]string{r.Photo, r.Video, r.PairedVideo, r.AlternatePhoto, r.OriginalFilename}, r.Albums...))
@@ -297,15 +309,15 @@ func cStrings(ss []string) ([]*C.char, func()) {
 }
 
 type cgoRequest struct {
-	id               C.int32_t
 	sink             ResourceSink
+	cancel           func()
 	done             chan error
 	failed, canceled atomic.Bool
 }
 
 var _ Request = (*cgoRequest)(nil)
 
-// PhotoKit calls the three handlers on queues of its own, in no order: a
+// PhotoKit calls the handlers on queues of its own, in no order: a
 // handler after the completion finds no request here, where the Value of a
 // deleted cgo.Handle would panic.
 var (
@@ -314,14 +326,14 @@ var (
 )
 
 func (r *cgoRequest) Cancel() {
-	if r.canceled.CompareAndSwap(false, true) {
-		C.pk_cancel_resource(r.id)
+	if r.canceled.CompareAndSwap(false, true) && r.cancel != nil {
+		r.cancel()
 	}
 }
 
 func (r *cgoRequest) Done() <-chan error { return r.done }
 
-// The three below do not recover: a panic recovered here would leave a partial
+// The four below do not recover: a panic recovered here would leave a partial
 // file looking whole or Export waiting forever; unrecovered, it ends the
 // process, as in any goroutine.
 
@@ -332,11 +344,35 @@ func pk_go_write(h C.uintptr_t, p unsafe.Pointer, n C.size_t) {
 	}
 }
 
+// The answer is the stop of the progress handler of an image request.
+//
 //export pk_go_progress
-func pk_go_progress(h C.uintptr_t, fraction C.double) {
-	if r, ok := requests.Load(uintptr(h)); ok {
-		r.(*cgoRequest).sink.Progress(float64(fraction))
+func pk_go_progress(h C.uintptr_t, fraction C.double) C.bool {
+	r, ok := requests.Load(uintptr(h))
+	if !ok {
+		return true
 	}
+	r.(*cgoRequest).sink.Progress(float64(fraction))
+	return C.bool(r.(*cgoRequest).canceled.Load())
+}
+
+// Every pointer of info, as p, lives until the call returns, so everything is
+// copied here.
+//
+//export pk_go_image
+func pk_go_image(h C.uintptr_t, p unsafe.Pointer, n C.size_t, info *C.pk_image_info) {
+	r, ok := requests.Load(uintptr(h))
+	if !ok {
+		return
+	}
+	r.(*cgoRequest).write(unsafe.Slice((*byte)(p), n)) //nolint:gosec // G103: n is the length of the NSData of the call, kept by bridge.m until it returns
+	r.(*cgoRequest).sink.(ImageSink).Info(ImageRecord{
+		UTI:         C.GoString(info.uti),
+		Orientation: int(info.orientation),
+		Degraded:    bool(info.degraded),
+		Path:        C.GoString(info.path),
+		Metadata:    metadataBytes(info.metadata, int64(info.metadata_len)),
+	})
 }
 
 //export pk_go_done
@@ -349,7 +385,7 @@ func pk_go_done(h C.uintptr_t, code C.int64_t, domain *C.char) {
 	r.(*cgoRequest).finish(domain != nil, C.GoString(domain), int64(code))
 }
 
-// write, finish and changeResult take Go values, so that a test can reach them without PhotoKit.
+// write, metadataBytes, finish and changeResult take Go values, so that a test can reach them without PhotoKit.
 
 func (r *cgoRequest) write(p []byte) {
 	if !r.failed.Load() && r.sink.Write(p) != nil {
@@ -357,8 +393,22 @@ func (r *cgoRequest) write(p []byte) {
 	}
 }
 
+// photokit drops a list above 1 MiB unread (version.go), so it is not copied
+// either.
+func metadataBytes(p unsafe.Pointer, n int64) []byte {
+	if n > 1<<20 {
+		return nil
+	}
+	return bytes.Clone(unsafe.Slice((*byte)(p), n)) //nolint:gosec // G103: n is the length of the NSData of the call, kept by bridge.m until it returns
+}
+
+// Without an NSError, code is one of bridge.h: an image request reports with it
+// no data or an exception in its handler.
 func (r *cgoRequest) finish(failed bool, domain string, code int64) {
-	err := nsError(failed, domain, code)
+	err := codeError(int(code), "")
+	if failed {
+		err = nsError(true, domain, code)
+	}
 	if r.canceled.Load() {
 		err = ErrCanceled
 	}
