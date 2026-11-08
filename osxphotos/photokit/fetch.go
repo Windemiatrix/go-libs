@@ -11,30 +11,39 @@ import (
 // Fetch returns the assets of uuids that the library has, in the order of
 // PhotoKit (fetch_uuid_list, photokit.py:1219-1246; fetch_uuid is Fetch with
 // one uuid, 1248-1264). A uuid is the UUID of photosdb or a LocalIdentifier. A
-// uuid the library does not have, or of a hidden asset, is left out, as
-// upstream with the default PHFetchOptions (1234-1237); no uuid, or none
-// found, is ErrNotFound. An asset that is neither an image, a video nor a Live
+// uuid the library does not have, or of a hidden asset (the default
+// PHFetchOptions, 1234-1237), is left out, and so is one that is empty, holds
+// a NUL or is not UTF-8, before PhotoKit is asked; no uuid, or none found, is
+// ErrNotFound. An asset that is neither an image, a video nor a Live
 // Photo fails the whole fetch with ErrMediaType. ctx is checked only before
 // the first call: PhotoKit answers the fetch and the resources of each asset
 // at once and cannot be interrupted.
 func (l *Library) Fetch(ctx context.Context, uuids []string) ([]Asset, error) {
-	return l.fetch(ctx, len(uuids) > 0, func() ([]bridge.AssetRecord, error) { return l.b.FetchAssets(uuids) })
+	// C would cut an identifier at a NUL and find another asset; Clone, since
+	// DeleteFunc writes into the caller's slice.
+	ids := slices.DeleteFunc(slices.Clone(uuids), func(id string) bool { return !isCString(id) })
+	return l.fetch(ctx, len(ids) > 0, func() ([]bridge.AssetRecord, error) { return l.b.FetchAssets(ids) })
 }
 
 // FetchBurst returns the assets of the burst burstID, none hidden, as for
 // Fetch: with all, every frame; without, the frames the user selected and
-// the key photo (fetch_burst_uuid, photokit.py:1266-1294). An empty burstID,
-// or no such burst, is ErrNotFound; ErrMediaType and ctx are as for Fetch.
+// the key photo (fetch_burst_uuid, photokit.py:1266-1294). No such burst is
+// ErrNotFound, and so is an empty burstID, or one that holds a NUL or is not
+// UTF-8, before PhotoKit is asked; ErrMediaType and ctx are as for Fetch.
 func (l *Library) FetchBurst(ctx context.Context, burstID string, all bool) ([]Asset, error) {
-	return l.fetch(ctx, burstID != "", func() ([]bridge.AssetRecord, error) { return l.b.FetchBurst(burstID, all) })
+	return l.fetch(ctx, isCString(burstID), func() ([]bridge.AssetRecord, error) { return l.b.FetchBurst(burstID, all) })
 }
 
 // Resources returns the resources of the asset uuid in the order of PhotoKit
 // (_resources, photokit.py:769-772). uuid and ctx are as for Fetch; no such
-// asset, or a hidden one, is ErrNotFound.
+// asset, a hidden one, or a uuid that Fetch leaves out before PhotoKit is
+// asked, is ErrNotFound.
 func (l *Library) Resources(ctx context.Context, uuid string) ([]Resource, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if !isCString(uuid) {
+		return nil, ErrNotFound
 	}
 	records, err := l.b.AssetResources(uuid)
 	if err != nil {

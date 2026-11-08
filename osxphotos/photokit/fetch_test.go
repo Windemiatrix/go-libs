@@ -86,13 +86,17 @@ func newFake() *fake.Bridge {
 
 func TestFetch(t *testing.T) {
 	for _, tt := range []struct {
-		name string
-		ids  []string
-		want []Asset
+		name  string
+		ids   []string
+		asked string
+		want  []Asset
 	}{
-		{"in the order of PhotoKit", []string{slowMoID, liveID}, []Asset{wantLive, wantSlowMo}},
-		{"one identifier", []string{slowMoID}, []Asset{wantSlowMo}},
-		{"an unknown one left out", []string{unknownID, liveID}, []Asset{wantLive}},
+		{"in the order of PhotoKit", []string{slowMoID, liveID}, slowMoID + " " + liveID, []Asset{wantLive, wantSlowMo}},
+		{"one identifier", []string{slowMoID}, slowMoID, []Asset{wantSlowMo}},
+		{"an unknown one left out", []string{unknownID, liveID}, unknownID + " " + liveID, []Asset{wantLive}},
+		{"one with a NUL left out", []string{liveID, "a\x00b"}, liveID, []Asset{wantLive}},
+		{"one not UTF-8 left out", []string{"\xff", liveID}, liveID, []Asset{wantLive}},
+		{"an empty one left out", []string{liveID, ""}, liveID, []Asset{wantLive}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			b := newFake()
@@ -100,7 +104,7 @@ func TestFetch(t *testing.T) {
 			if err != nil || !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Fetch(%q) = %+v, %v; want %+v", tt.ids, got, err, tt.want)
 			}
-			want := []string{"FetchAssets " + strings.Join(tt.ids, " ")}
+			want := []string{"FetchAssets " + tt.asked}
 			for _, a := range tt.want {
 				want = append(want, "AssetResources "+a.LocalIdentifier)
 			}
@@ -123,8 +127,10 @@ func TestFetch(t *testing.T) {
 	}{
 		{"none found", t.Context(), newFake(), []string{unknownID}, ErrNotFound, 1},
 		{"no identifier", t.Context(), newFake(), nil, ErrNotFound, 0},
+		{"only an identifier with a NUL", t.Context(), newFake(), []string{"a\x00b"}, ErrNotFound, 0},
 		{"canceled", canceled, newFake(), []string{liveID}, context.Canceled, 0},
 		{"canceled, no identifier", canceled, newFake(), nil, context.Canceled, 0},
+		{"canceled, identifier with a NUL", canceled, newFake(), []string{"a\x00b"}, context.Canceled, 0},
 		{"bridge error", t.Context(), &fake.Bridge{FetchErr: bridgeErr}, []string{liveID}, bridgeErr, 1},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -209,8 +215,11 @@ func TestFetchBurst(t *testing.T) {
 	}{
 		{"no such burst", t.Context(), newFake(), unknownID, ErrNotFound, 1},
 		{"no identifier", t.Context(), newFake(), "", ErrNotFound, 0},
+		{"identifier with a NUL", t.Context(), newFake(), burstID + "\x00b", ErrNotFound, 0},
+		{"identifier not UTF-8", t.Context(), newFake(), "\xff", ErrNotFound, 0},
 		{"canceled", canceled, newFake(), burstID, context.Canceled, 0},
 		{"canceled, no identifier", canceled, newFake(), "", context.Canceled, 0},
+		{"canceled, identifier with a NUL", canceled, newFake(), "a\x00b", context.Canceled, 0},
 		{"bridge error", t.Context(), &fake.Bridge{FetchErr: bridgeErr}, burstID, bridgeErr, 1},
 		{"media type", t.Context(), &fake.Bridge{Assets: []bridge.AssetRecord{{MediaType: 3, BurstIdentifier: burstID}}}, burstID, ErrMediaType, 1},
 	} {
@@ -339,16 +348,21 @@ func TestResources(t *testing.T) {
 		name  string
 		ctx   context.Context
 		b     *fake.Bridge
+		id    string
 		want  error
 		calls int
 	}{
-		{"no such asset", t.Context(), &fake.Bridge{}, ErrNotFound, 1},
-		{"no resource", t.Context(), &fake.Bridge{Resources: map[string][]bridge.ResourceRecord{unknownID: {}}}, ErrNotFound, 1},
-		{"canceled", canceled, &fake.Bridge{}, context.Canceled, 0},
-		{"bridge error", t.Context(), &fake.Bridge{ResourcesErr: bridgeErr}, bridgeErr, 1},
+		{"no such asset", t.Context(), &fake.Bridge{}, unknownID, ErrNotFound, 1},
+		{"no resource", t.Context(), &fake.Bridge{Resources: map[string][]bridge.ResourceRecord{unknownID: {}}}, unknownID, ErrNotFound, 1},
+		{"no identifier", t.Context(), &fake.Bridge{}, "", ErrNotFound, 0},
+		{"identifier with a NUL", t.Context(), &fake.Bridge{}, unknownID + "\x00b", ErrNotFound, 0},
+		{"identifier not UTF-8", t.Context(), &fake.Bridge{}, "\xff", ErrNotFound, 0},
+		{"canceled", canceled, &fake.Bridge{}, unknownID, context.Canceled, 0},
+		{"canceled, identifier with a NUL", canceled, &fake.Bridge{}, "a\x00b", context.Canceled, 0},
+		{"bridge error", t.Context(), &fake.Bridge{ResourcesErr: bridgeErr}, unknownID, bridgeErr, 1},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			res, err := (&Library{tt.b}).Resources(tt.ctx, unknownID)
+			res, err := (&Library{tt.b}).Resources(tt.ctx, tt.id)
 			if res != nil || !errors.Is(err, tt.want) {
 				t.Errorf("Resources = %v, %v; want %v", res, err, tt.want)
 			}

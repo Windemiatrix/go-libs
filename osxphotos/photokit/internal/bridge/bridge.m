@@ -181,11 +181,8 @@ pk_result pk_fetch_assets(const char *const *ids, int64_t n, pk_asset **out, int
 	return pk_fetch(^(PHFetchOptions *options) {
 		NSMutableArray<NSString *> *identifiers = [NSMutableArray arrayWithCapacity:(NSUInteger)n];
 		for (int64_t i = 0; i < n; i++) {
-			// A string that is not UTF-8 names no asset.
-			NSString *identifier = [NSString stringWithUTF8String:ids[i]];
-			if (identifier != nil) {
-				[identifiers addObject:identifier];
-			}
+			// A string that breaks the rule of bridge.h gives nil, on which addObject: raises.
+			[identifiers addObject:[NSString stringWithUTF8String:ids[i]]];
 		}
 		return [PHAsset fetchAssetsWithLocalIdentifiers:identifiers options:options];
 	}, out, count);
@@ -195,7 +192,12 @@ pk_result pk_fetch_burst(const char *burst_id, bool include_all, pk_asset **out,
 	return pk_fetch(^(PHFetchOptions *options) {
 		options.includeAllBurstAssets = include_all;
 		NSString *burst = [NSString stringWithUTF8String:burst_id];
-		return burst != nil ? [PHAsset fetchAssetsWithBurstIdentifier:burst options:options] : nil;
+		// A string that breaks the rule of bridge.h gives nil, on which
+		// fetchAssetsWithBurstIdentifier: is not known to raise, as addObject: and @[ ] do.
+		if (burst == nil) {
+			[NSException raise:NSInvalidArgumentException format:@"burst_id breaks the rule of bridge.h"];
+		}
+		return [PHAsset fetchAssetsWithBurstIdentifier:burst options:options];
 	}, out, count);
 }
 
@@ -207,10 +209,9 @@ void pk_free_assets(pk_asset *assets, int count) {
 	free(assets);
 }
 
-// A string that is not UTF-8 names no asset, and @[nil] would raise.
+// A string that breaks the rule of bridge.h gives nil, on which @[ ] raises.
 static PHAsset *pk_asset_of(const char *local_id) {
-	NSString *identifier = [NSString stringWithUTF8String:local_id];
-	return identifier != nil ? [PHAsset fetchAssetsWithLocalIdentifiers:@[ identifier ] options:nil].firstObject : nil;
+	return [PHAsset fetchAssetsWithLocalIdentifiers:@[ [NSString stringWithUTF8String:local_id] ] options:nil].firstObject;
 }
 
 static NSArray<PHAssetResource *> *pk_resources(const char *local_id) {

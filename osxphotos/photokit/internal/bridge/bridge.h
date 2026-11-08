@@ -13,12 +13,11 @@ typedef struct {
 	char *message;
 } pk_result;
 
-// Every identifier and title, except the ids of the fetches, the resources, the
-// images and the videos, is UTF-8 without NUL: photokit checks it before the
-// call, and a pk_* function checks only the state of PhotoKit. One that is not
-// UTF-8 is a bug of the caller and raises before any change (PK_EXCEPTION); C
-// cuts one at a NUL, which only photokit sees. The excepted ids that are not
-// UTF-8 find no asset.
+// Every identifier and title is UTF-8 without NUL: photokit checks it before
+// the call, and a pk_* function checks only the state of PhotoKit. One that is
+// not UTF-8 is a bug of the caller and raises before any change, and before
+// PhotoKit is asked for a read (PK_EXCEPTION); C cuts one at a NUL, which only
+// photokit sees.
 
 pk_result pk_authorization_status(int *status);
 // A timeout_ms of 0 does not wait.
