@@ -10,24 +10,28 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/searchinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/template"
 )
 
 // Fields returns p as a template.Photo: the values of the template fields of
-// osxphotos read from p and the library (phototemplate.py:930-1000,
-// 1261-1339), on demand, by their upstream name. photo.X gives the property X
-// of PhotoInfo by its upstream name (1346-1382): a float as str() of Python, a
-// date as isoformat() in the zone of the value, so DateAdded, DateModified and
+// osxphotos read from p and the library (phototemplate.py:930-1000, 1261-1339),
+// on demand, by their upstream name. photo.X gives the property X of PhotoInfo
+// by its upstream name (1346-1382): a float as str() of Python, a date as
+// isoformat() in the zone of the value, so DateAdded, DateModified and
 // DateTrashed in UTC, and a DateAdded the database does not have as
-// 1970-01-01T00:00:00+00:00; photo.score.X, photo.exif_info.X and
-// photo.place.X give the scalars of those objects. place.X, photo.place.X
-// whatever X is, and exif.X give no value for a photo without a place or EXIF
-// data, as upstream None (957-966, 1358-1359, 1779-1780). photo.X followed by
-// more names gives no value when X has no value, whatever follows (1358-1359,
-// 1365-1366): upstream has None there, which the port holds as "" or nil; an
-// empty string upstream would fail there instead. photo.X.Y of a property
-// with a value, such as photo.date.year, is false, where upstream renders
-// str() of the attribute or fails (1360-1363, 1369-1382). photo.X of an
+// 1970-01-01T00:00:00+00:00; photo.score.X, photo.exif_info.X and photo.place.X
+// give the scalars of those objects; photo.search_info.X and
+// photo.search_info_normalized.X give the attribute X of the SearchInfo of the
+// photo, a list, or one string that renders even when it is ""
+// (searchinfo.py:23, 31-345, phototemplate.py:1369-1376). place.X,
+// photo.place.X whatever X is, and exif.X give no value for a photo without a
+// place or EXIF data, as upstream None (957-966, 1358-1359, 1779-1780). photo.X
+// followed by more names gives no value when X has no value, whatever follows
+// (1358-1359, 1365-1366): upstream has None there, which the port holds as ""
+// or nil; an empty string upstream would fail there instead. photo.X.Y of a
+// property with a value, such as photo.date.year, is false, where upstream
+// renders str() of the attribute or fails (1360-1363, 1369-1382). photo.X of an
 // object, a method or a property upstream does not have gives false, where
 // upstream renders str() of the object or fails (1360-1363, 1377-1382).
 // searchinfo.X, label and label_normalized read DB.SearchInfoOf. The Photo is
@@ -193,6 +197,12 @@ func photoProperty(db *DB, p *photoinfo.PhotoInfo, name string) (template.Value,
 		"date_added": isoformat(*cmp.Or(p.DateAdded, &epoch)), "date_trashed": formatOrNone(p.DateTrashed, isoformat),
 	}
 	if object, property, ok := strings.Cut(name, "."); ok {
+		switch object {
+		case "search_info":
+			return searchProperty(db.SearchInfoOf(p), p.UUID, property)
+		case "search_info_normalized":
+			return searchProperty(db.SearchInfoOf(p).Normalized(), p.UUID, property)
+		}
 		// None stops the chain of getattr, whatever follows (1358-1359); the port holds it as "" or, for the flag incloud, nil.
 		if s, held := scalars[object]; (held && s == "") || (object == "incloud" && p.InCloud == nil) {
 			return template.Value{}, true
@@ -221,6 +231,21 @@ func photoProperty(db *DB, p *photoinfo.PhotoInfo, name string) (template.Value,
 		return noneDropped(scalars["latitude"], scalars["longitude"]), true
 	case "imported_by":
 		return noneDropped(p.ImportedByName, p.ImportedByBundleID), true
+	}
+	return template.Value{}, false
+}
+
+// A list is a multi-valued field, a string one value even when ""
+// (phototemplate.py:1369-1376); a name SearchInfo does not have is the
+// ValueError of 1360-1363.
+func searchProperty(s searchinfo.SearchInfo, uuid, name string) (template.Value, bool) {
+	d := s.AsDict()
+	d["all"], d["text_found"], d["uuid"] = s.All(), s.TextFound(), uuid
+	switch v := d[name].(type) {
+	case []string:
+		return multiValue(v), true
+	case string:
+		return template.Value{Strings: []string{v}}, true
 	}
 	return template.Value{}, false
 }

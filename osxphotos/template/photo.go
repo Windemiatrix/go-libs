@@ -24,7 +24,8 @@ type Photo interface {
 // Value is the value of one field; only the part the field uses is set.
 // Strings holds the values in the order of upstream (sorted for album, keyword,
 // person and the other multi-valued fields); empty is the None of upstream,
-// and a single-valued field never holds "" (phototemplate.py:1012). Time is
+// and a single-valued field never holds "" (phototemplate.py:1012), except a
+// string attribute of photo.X, which renders even when "" (1369-1370). Time is
 // created or modified, nil when the photo has none (952-956). Int is id.
 // Albums is folder_album and folder_album_project, whose folder names and
 // title Render joins with the path separator and sorts (1287-1313), and
