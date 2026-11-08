@@ -441,7 +441,7 @@ pk_result pk_import(const pk_import_request *r, const char *const *albums, int64
 					if (location) {
 						asset.location = location;
 					}
-					// Only YES is written: a write of hidden, even of NO, may ask the user.
+					// A new asset is neither a favorite nor hidden: only YES needs a write.
 					if (favorite) asset.favorite = YES;
 					if (hidden) asset.hidden = YES;
 				}, timeout_ms, identifier, ns_code, ns_domain);
@@ -677,7 +677,6 @@ pk_result pk_update_asset(const char *local_id, const pk_patch *p, int64_t timeo
 				if (date) change.creationDate = date;
 				if (location) change.location = location;
 				if (hasFavorite) change.favorite = favorite;
-				// A write of hidden, even of NO, may ask the user.
 				if (hasHidden) change.hidden = hidden;
 			}, timeout_ms, NULL, ns_code, ns_domain);
 		} @catch (NSException *e) {
@@ -739,7 +738,14 @@ pk_result pk_cloud_identifiers(const char *const *ids, int64_t n, pk_identifier_
 pk_result pk_local_identifiers(const char *const *cloud_ids, int64_t n, pk_identifier_pair **out, int *count) {
 	return pk_identifier_pairs(cloud_ids, n, ^NSArray<NSArray<NSString *> *> *(NSArray<NSString *> *list) {
 		NSMutableArray<PHCloudIdentifier *> *clouds = [NSMutableArray array];
-		for (NSString *s in list) [clouds addObject:[[PHCloudIdentifier alloc] initWithStringValue:s]];
+		for (NSString *s in list) {
+			// initWithStringValue: may give nil for a string it cannot parse, and
+			// addObject: raises on nil; such a string names no asset, as an unknown one.
+			PHCloudIdentifier *cloud = [[PHCloudIdentifier alloc] initWithStringValue:s];
+			if (cloud != nil) [clouds addObject:cloud];
+		}
+		// What PhotoKit does with an empty array is not documented.
+		if (clouds.count == 0) return nil;
 		NSDictionary<PHCloudIdentifier *, PHLocalIdentifierMapping *> *mappings = [[PHPhotoLibrary sharedPhotoLibrary] localIdentifierMappingsForCloudIdentifiers:clouds];
 		NSMutableArray<NSArray<NSString *> *> *pairs = [NSMutableArray array];
 		for (PHCloudIdentifier *cloud in mappings) {

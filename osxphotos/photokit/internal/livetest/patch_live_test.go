@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/photokit"
-	"github.com/Windemiatrix/go-libs/osxphotos/photokit/internal/bridge"
 	"github.com/Windemiatrix/go-libs/osxphotos/photosdb"
 )
 
@@ -24,9 +23,7 @@ import (
 const maxPatches = 4
 
 // Only an asset imported by this run is changed, never a photo of the owner.
-// The owner confirms the dialog of hiding and refuses any other: only a
-// refusal tells a dialog of Hidden false from none, and a dialog of properties
-// is then an error.
+// The owner confirms the dialog of hiding and refuses any other.
 func TestLivePatch(t *testing.T) {
 	lib := openLibrary(t)
 	i := slices.IndexFunc(importedAssets, func(id string) bool { return fetchable(t, lib, id) })
@@ -123,25 +120,18 @@ func TestLivePatch(t *testing.T) {
 		}
 	})
 
-	// An observation: pk_import writes only hidden YES, as a write even of NO
-	// may ask the user. The time tells a dialog confirmed by mistake.
+	// Hidden false on a visible asset shows no dialog; the time tells one
+	// confirmed by mistake, and one left open would mix up the answers of hide.
 	pending := false
 	t.Run("unhide-visible", func(t *testing.T) {
 		start := time.Now()
 		err := update(t, id, photokit.AssetPatch{Hidden: new(false)})
 		t.Logf("Hidden false on a visible asset: Update returned after %v", time.Since(start).Round(time.Second))
-		switch pk, isPK := errors.AsType[*bridge.PhotoKitError](err); {
-		case err == nil:
-			t.Log("Hidden false on a visible asset: no dialog")
-		case errors.Is(err, photokit.ErrUserCanceled):
-			t.Log("Hidden false on a visible asset asked the user; refused")
-		case isPK && pk.Code == userCancelled:
-			t.Logf("Hidden false on a visible asset asked the user; refused with NSError domain %s", pk.Domain)
-		case errors.Is(err, photokit.ErrOutcomeUnknown):
-			pending = true
-			t.Log("Hidden false on a visible asset ended before its outcome: a dialog may be open")
-		default:
-			t.Errorf("Update with Hidden false: %s", changeFailure(err))
+		pending = errors.Is(err, photokit.ErrOutcomeUnknown)
+		if err != nil {
+			t.Errorf("Update with Hidden false on a visible asset: %s", changeFailure(err))
+		} else if !fetchable(t, lib, id) {
+			t.Error("Fetch does not find the asset after Update with Hidden false")
 		}
 	})
 
