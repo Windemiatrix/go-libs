@@ -357,6 +357,54 @@ func TestRenderTemplatePhoto(t *testing.T) {
 	}
 }
 
+func TestRenderTemplatePhotoNoneChain(t *testing.T) {
+	t.Parallel()
+	db := tmplDB()
+	offset, adjustment, lat, lon, no := 3600, 2, 51.5, -3.0, false
+	moment := time.Date(2022, 5, 6, 7, 8, 9, 0, time.UTC)
+	properties := []struct {
+		in  string
+		set func(p *photoinfo.PhotoInfo)
+	}{
+		{"{photo.date_modified.year}", func(p *photoinfo.PhotoInfo) { p.DateModified = &moment }},
+		{"{photo.date_trashed.isoformat}", func(p *photoinfo.PhotoInfo) { p.DateTrashed = &moment }},
+		{"{photo.tzoffset.real}", func(p *photoinfo.PhotoInfo) { p.TZOffset = &offset }},
+		{"{photo.adjustment_type.x}", func(p *photoinfo.PhotoInfo) { p.AdjustmentType = &adjustment }},
+		{"{photo.latitude.real}", func(p *photoinfo.PhotoInfo) { p.Latitude = &lat }},
+		{"{photo.longitude.real}", func(p *photoinfo.PhotoInfo) { p.Longitude = &lon }},
+		{"{photo.incloud.x}", func(p *photoinfo.PhotoInfo) { p.InCloud = &no }},
+		{"{photo.tzname.upper}", func(p *photoinfo.PhotoInfo) { p.TZName = "America/Chicago" }},
+		{"{photo.path_edited.name}", func(p *photoinfo.PhotoInfo) { p.PathEdited = "/x/e.jpeg" }},
+		{"{photo.title.upper}", func(p *photoinfo.PhotoInfo) { p.Title = "b" }},
+	}
+	o := template.RenderOptions{}
+	for i, tt := range properties {
+		only, others := &photoinfo.PhotoInfo{UUID: "X-1"}, &photoinfo.PhotoInfo{UUID: "X-2"}
+		for j, other := range properties {
+			if i == j {
+				other.set(only)
+			} else {
+				other.set(others)
+			}
+		}
+		if got, err := tmplRender(t, db, only, tt.in, o); !errors.Is(err, template.ErrUnsupportedField) {
+			t.Errorf("RenderTemplate(%q) of a photo with the property = %q, %v; want ErrUnsupportedField", tt.in, got, err)
+		}
+		if got, err := tmplRender(t, db, others, tt.in, o); err != nil || !slices.Equal(got, []string{"_"}) {
+			t.Errorf("RenderTemplate(%q) of a photo without the property = %q, %v; want _", tt.in, got, err)
+		}
+	}
+	none := &photoinfo.PhotoInfo{UUID: "X-0"}
+	if got, err := tmplRender(t, db, none, "{photo.date_added.year}", o); !errors.Is(err, template.ErrUnsupportedField) {
+		t.Errorf("RenderTemplate({photo.date_added.year}) = %q, %v; want ErrUnsupportedField", got, err)
+	}
+	for _, in := range []string{"{photo.date_modified.year.x}", "{photo.place.name}", "{photo.date_modified}"} {
+		if got, err := tmplRender(t, db, none, in, o); err != nil || !slices.Equal(got, []string{"_"}) {
+			t.Errorf("RenderTemplate(%q) of a photo without the property = %q, %v; want _", in, got, err)
+		}
+	}
+}
+
 // Every value differs from the others, so that a name that reads another
 // field shows. The city of the smaller area comes first (placeinfo.New).
 func tmplNestedPhoto() *photoinfo.PhotoInfo {
