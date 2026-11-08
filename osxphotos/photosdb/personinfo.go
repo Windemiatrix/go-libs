@@ -151,7 +151,7 @@ func loadPersons(t tables, c *catalog) personData {
 // (_photosdb_process_faceinfo.py:283).
 func faceInfo(f sqlread.Face) personinfo.FaceInfo {
 	return personinfo.FaceInfo{
-		PK: f.PK, UUID: f.UUID.String, Name: nfc(f.FullName.String), AssetUUID: f.AssetUUID.String, PersonUUID: f.PersonUUID.String,
+		PK: f.PK, UUID: f.UUID.String, Name: nfc(f.FullName.String), AssetUUID: f.AssetUUID.String, PersonPK: f.PersonPK, PersonUUID: f.PersonUUID.String,
 		CenterX: f.CenterX.Float64, CenterY: f.CenterY.Float64, Size: f.Size.Float64, Quality: f.Quality.Float64, Roll: f.Roll.Float64,
 		SourceWidth: intOf(f.SourceWidth), SourceHeight: intOf(f.SourceHeight),
 		HasSmile: is(f.HasSmile, flagSet), Manual: is(f.Manual, flagSet), InTrash: is(f.InTrash, flagSet),
