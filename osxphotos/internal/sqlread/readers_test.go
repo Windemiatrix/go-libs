@@ -176,7 +176,8 @@ func openRO(t *testing.T, path string) *sql.DB {
 func TestReaderColumns(t *testing.T) {
 	t.Parallel()
 
-	methods := reflect.TypeFor[*DB]().NumMethod() - len([]string{"Close", "Metadata", "CheckColumns"})
+	// SearchTerms and LeoTerms read the search databases, not Photos.sqlite: search_test.go runs them.
+	methods := reflect.TypeFor[*DB]().NumMethod() - len([]string{"Close", "Metadata", "CheckColumns", "SearchTerms", "LeoTerms"})
 	if methods != len(readers) {
 		t.Fatalf("*DB has %d exported reader methods, the table of readers has %d; add the new reader", methods, len(readers))
 	}

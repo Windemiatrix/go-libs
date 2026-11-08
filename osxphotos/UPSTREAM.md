@@ -34,6 +34,7 @@ Only what is ported so far.
 | `photosdb/_photosdb_process_exif.py` | `internal/sqlread`, `photosdb` |
 | `photosdb/_photosdb_process_faceinfo.py` | `internal/sqlread`, `photosdb` |
 | `photosdb/_photosdb_process_scoreinfo.py` | `internal/sqlread`, `photosdb` |
+| `photosdb/_photosdb_process_searchinfo.py` | `internal/sqlread` |
 | `commentinfo.py` | `photoinfo` |
 | `exifinfo.py` | `exifinfo`, `photosdb` |
 | `placeinfo.py` | `placeinfo`, `photosdb` |
@@ -208,6 +209,7 @@ Exported names that have no counterpart in osxphotos. Each is marked `// extensi
 | `photosdb/_photosdb_process_exif.py` | `internal/sqlread`, `photosdb` |
 | `photosdb/_photosdb_process_faceinfo.py` | `internal/sqlread`, `photosdb` |
 | `photosdb/_photosdb_process_scoreinfo.py` | `internal/sqlread`, `photosdb` |
+| `photosdb/_photosdb_process_searchinfo.py` | `internal/sqlread` |
 | `commentinfo.py` | `photoinfo` |
 | `exifinfo.py` | `exifinfo`, `photosdb` |
 | `placeinfo.py` | `placeinfo`, `photosdb` |
