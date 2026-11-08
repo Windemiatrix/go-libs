@@ -2,7 +2,6 @@ package photosdb
 
 import (
 	"errors"
-	"fmt"
 	"maps"
 	"slices"
 	"sync"
@@ -22,12 +21,10 @@ import (
 // upstream, which Render does not mimic (template.TestRenderGoldenPythonRepr).
 var excludedIDs = map[string]error{"t287": template.ErrUnsupportedConstruct, "t289": template.ErrUnsupportedConstruct}
 
-// pendingIDs render ErrUnsupportedField for every photo until the field is
-// ported; a pending id that renders is an error, so the list shrinks with the
-// port and is empty once every field of phototemplate.py is ported.
-var pendingIDs = map[string][]string{
-	"searchinfo.X, label, label_normalized, photo.labels and photo.labels_normalized": slices.Concat([]string{"t438", "t439"}, idRange(503, 510)),
-}
+// pendingIDs render ErrUnsupportedField for every photo until their field is
+// ported; a pending id that renders is an error. Empty: every id of
+// templates.txt renders.
+var pendingIDs = map[string][]string{}
 
 // vacuousIDs are supported ids whose value is "_" for every photo of the test
 // libraries. They are compared all the same; the list keeps a new vacuous id
@@ -36,16 +33,9 @@ var pendingIDs = map[string][]string{
 // are outside the trash, so they have no date_trashed (t443) and intrash is
 // false (t454); no photo was shared through Messages, so syndicated and
 // saved_to_library are false (t473, t474, photoinfo.py:1569-1599); flagged is
-// false on Photos (t478, photoinfo.py:817-820).
-var vacuousIDs = []string{"t014", "t042", "t056", "t096", "t097", "t099", "t144", "t209", "t240", "t340", "t343", "t414", "t443", "t454", "t473", "t474", "t478"}
-
-func idRange(from, to int) []string {
-	var out []string
-	for i := from; i <= to; i++ {
-		out = append(out, fmt.Sprintf("t%03d", i))
-	}
-	return out
-}
+// false on Photos (t478, photoinfo.py:817-820); the search databases of the
+// test libraries hold no venue terms (t506, t507).
+var vacuousIDs = []string{"t014", "t042", "t056", "t096", "t097", "t099", "t144", "t209", "t240", "t340", "t343", "t414", "t443", "t454", "t473", "t474", "t478", "t506", "t507"}
 
 type templateIDs struct {
 	parsed                       map[string]*template.Template

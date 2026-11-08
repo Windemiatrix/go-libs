@@ -23,9 +23,9 @@ type photo = photoinfo.PhotoInfo
 // The result is new, in the order of Sort (reversed with
 // NewestFirst), each photo once unless a Function returns it twice and
 // BurstPhotos is off; its elements are the pointers of photos. photos and
-// albums are not modified. Apply has no comments, likes and fields of a
-// photo: with HasComment, HasLikes or Regex it selects nothing, with NoComment
-// or NoLikes everything; ApplyCatalog takes them.
+// albums are not modified. Apply has no comments, likes, fields and labels of
+// a photo: with HasComment, HasLikes, Regex or Label it selects nothing, with
+// NoComment or NoLikes everything; ApplyCatalog takes them.
 func Apply(o Options, photos []*photoinfo.PhotoInfo, albums []*albuminfo.AlbumInfo) []*photoinfo.PhotoInfo {
 	return ApplyCatalog(o, Catalog{Photos: photos, Albums: albums})
 }
@@ -84,12 +84,13 @@ func filters(o Options, c Catalog) (before, after []filter) {
 	}
 	albums, folders := parseAlbumPaths(o.Album, fold), parseAlbumPaths(o.Folder, fold)
 	keywords, persons, names := searchValues(o.Keyword, fold), searchValues(o.Person, fold), searchValues(o.Name, fold)
-	places := searchValues(o.Place, fold)
+	places, labels := searchValues(o.Place, fold), searchValues(o.Label, fold)
 
 	when(len(albums.paths) > 0, func(p *photo) bool { return in.has(p, albums.namesAlbum) })
 	when(len(keywords) > 0, func(p *photo) bool { return fold.anyEqual(p.Keywords, keywords) })
 	when(len(keywords) == 0 && o.NoKeyword, func(p *photo) bool { return len(p.Keywords) == 0 })
 	when(len(persons) > 0, func(p *photo) bool { return fold.anyEqual(p.Persons, persons) })
+	when(len(labels) > 0, func(p *photo) bool { return c.Labels != nil && fold.anyEqual(c.Labels(p), labels) })
 	when(len(folders.paths) > 0, func(p *photo) bool { return in.has(p, folders.enclosesAlbum) })
 	text(searchValues(o.Title, fold), o.NoTitle, func(p *photo) string { return p.Title })
 	text(searchValues(o.Description, fold), o.NoDescription, func(p *photo) string { return p.Description })
@@ -147,7 +148,7 @@ func filters(o Options, c Catalog) (before, after []filter) {
 
 // photoquery.py:732-744, with none_str="" (734). A failed render is not a
 // match: Apply has no error to return, where upstream raises or renders a field
-// that DB.Fields does not give yet.
+// that DB.Fields does not give.
 func regexFilter(o Options, c Catalog) filter {
 	var pairs []RegexTemplate
 	for _, rt := range o.Regex {

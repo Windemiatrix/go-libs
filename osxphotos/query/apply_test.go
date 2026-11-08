@@ -569,6 +569,43 @@ func TestApplyRegexDuplicate(t *testing.T) {
 	}
 }
 
+// photoquery.py:472-473, 996-1021.
+func TestApplyLabel(t *testing.T) {
+	t.Parallel()
+	applyCheckNFD(t)
+
+	labels := map[string][]string{"L1": {"Beach", "Sky"}, "L2": {"Beaches"}, "L3": nil, "L4": {applyNFC}}
+	var photos []*photoinfo.PhotoInfo
+	for _, uuid := range slices.Sorted(maps.Keys(labels)) {
+		photos = append(photos, &photoinfo.PhotoInfo{UUID: uuid, IsPhoto: true})
+	}
+	c := Catalog{Photos: photos, Labels: func(p *photoinfo.PhotoInfo) []string { return labels[p.UUID] }}
+	for _, tt := range []struct {
+		name string
+		o    Options
+		want []string
+	}{
+		{"label is equal, not a substring", Options{Label: []string{"Beach"}}, []string{"L1"}},
+		{"labels or", Options{Label: []string{"Sky", "Beaches"}}, []string{"L1", "L2"}},
+		{"label keeps case", Options{Label: []string{"beach"}}, nil},
+		{"label ignore case", Options{Label: []string{"bEACH"}, IgnoreCase: true}, []string{"L1"}},
+		{"label in NFD", Options{Label: []string{applyNFD}}, []string{"L4"}},
+		{"empty label list", Options{Label: []string{}}, []string{"L1", "L2", "L3", "L4"}},
+	} {
+		if got := uuids(ApplyCatalog(tt.o, c)); !slices.Equal(got, tt.want) {
+			t.Errorf("%s: ApplyCatalog = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+
+	o := Options{Label: []string{"Beach"}}
+	if got := ApplyCatalog(o, Catalog{Photos: photos}); len(got) != 0 {
+		t.Errorf("ApplyCatalog without Labels returned %d photos, want none", len(got))
+	}
+	if got := Apply(o, photos, nil); len(got) != 0 {
+		t.Errorf("Apply returned %d photos, want none", len(got))
+	}
+}
+
 func TestApplyAlbums(t *testing.T) {
 	t.Parallel()
 	applyCheckNFD(t)

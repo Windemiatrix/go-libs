@@ -15,7 +15,7 @@ import (
 
 // Fields returns p as a template.Photo: the values of the template fields of
 // osxphotos read from p and the library (phototemplate.py:930-1000,
-// 1261-1317), on demand, by their upstream name. photo.X gives the property X
+// 1261-1339), on demand, by their upstream name. photo.X gives the property X
 // of PhotoInfo by its upstream name (1346-1382): a float as str() of Python, a
 // date as isoformat() in the zone of the value, so DateAdded, DateModified and
 // DateTrashed in UTC, and a DateAdded the database does not have as
@@ -27,12 +27,11 @@ import (
 // 1365-1366): upstream has None there, which the port holds as "" or nil; an
 // empty string upstream would fail there instead. photo.X.Y of a property
 // with a value, such as photo.date.year, is false, where upstream renders
-// str() of the attribute or fails (1360-1363, 1369-1382). A name the port
-// does not give yet, such as searchinfo.X, label, label_normalized or
-// photo.labels, gives false, and so does photo.X of an object, a method or a
-// property upstream does not have, where upstream renders str() of the
-// object or fails (1360-1363, 1377-1382). The Photo is valid as long as db
-// is; the caller may change the values it gives.
+// str() of the attribute or fails (1360-1363, 1369-1382). photo.X of an
+// object, a method or a property upstream does not have gives false, where
+// upstream renders str() of the object or fails (1360-1363, 1377-1382).
+// searchinfo.X, label and label_normalized read DB.SearchInfoOf. The Photo is
+// valid as long as db is; the caller may change the values it gives.
 func (db *DB) Fields(p *photoinfo.PhotoInfo) template.Photo { return photoFields{db, p} }
 
 // RenderTemplate renders t for p with one Renderer of the library, as
@@ -123,6 +122,20 @@ func (f photoFields) Field(name string) (template.Value, bool) {
 		return multiValue(p.Keywords), true
 	case "person":
 		return multiValue(p.Persons), true
+	case "label": // 1279-1280
+		return template.Value{Strings: db.SearchInfoOf(p).Labels()}, true
+	case "label_normalized": // 1281-1286
+		return template.Value{Strings: db.SearchInfoOf(p).Normalized().Labels()}, true
+	case "searchinfo.season": // 959-960
+		return singleValue(db.SearchInfoOf(p).Season()), true
+	case "searchinfo.holiday": // 1318-1323
+		return template.Value{Strings: db.SearchInfoOf(p).Holidays()}, true
+	case "searchinfo.activity": // 1324-1329
+		return template.Value{Strings: db.SearchInfoOf(p).Activities()}, true
+	case "searchinfo.venue": // 1330-1333
+		return template.Value{Strings: db.SearchInfoOf(p).Venues()}, true
+	case "searchinfo.venue_type": // 1334-1339
+		return template.Value{Strings: db.SearchInfoOf(p).VenueTypes()}, true
 	case "comment": // f"{comment.user}: …" prints the user None as "None" (1314-1317)
 		var v []string
 		for _, c := range db.Comments(p) {
@@ -198,6 +211,10 @@ func photoProperty(db *DB, p *photoinfo.PhotoInfo, name string) (template.Value,
 		return multiValue(p.Keywords), true
 	case "persons":
 		return multiValue(p.Persons), true
+	case "labels": // photoinfo.py:1651-1669
+		return template.Value{Strings: db.SearchInfoOf(p).Labels()}, true
+	case "labels_normalized":
+		return template.Value{Strings: db.SearchInfoOf(p).Normalized().Labels()}, true
 	case "path_derivatives":
 		return multiValue(p.PathDerivatives), true
 	case "location":

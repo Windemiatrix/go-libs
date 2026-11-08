@@ -19,11 +19,14 @@ type Catalog struct {
 	// Photo gives the fields of a photo for Regex (DB.Fields); nil selects
 	// nothing with Regex.
 	Photo func(*photoinfo.PhotoInfo) template.Photo
+	// Labels gives the labels of a photo for Label
+	// (DB.SearchInfoOf(p).Labels()); nil selects nothing with Label.
+	Labels func(*photoinfo.PhotoInfo) []string
 }
 
 // ApplyCatalog is Apply over c.Photos and c.Albums, with c.Comments and
-// c.Likes for HasComment, NoComment, HasLikes and NoLikes, and c.Photo for
-// Regex. c is not modified.
+// c.Likes for HasComment, NoComment, HasLikes and NoLikes, c.Photo for Regex
+// and c.Labels for Label. c is not modified.
 func ApplyCatalog(o Options, c Catalog) []*photoinfo.PhotoInfo {
 	before, after := filters(o, c)
 	var out []*photo
