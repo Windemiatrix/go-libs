@@ -23,6 +23,8 @@ func (*stub) AssetResources(string) ([]ResourceRecord, error) { return nil, ErrN
 
 func (*stub) RequestResource(string, int, ResourceSink) (Request, error) { return nil, ErrNotSupported }
 
+func (*stub) RequestImage(string, int, ImageSink) (Request, error) { return nil, ErrNotSupported }
+
 func (*stub) Import(ImportRecord, time.Duration) (string, error) { return "", ErrNotSupported }
 
 func (*stub) Collections() ([]CollectionRecord, error) { return nil, ErrNotSupported }
