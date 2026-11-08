@@ -5,8 +5,10 @@ package livetest
 import (
 	"cmp"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"slices"
 	"sync"
@@ -14,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Windemiatrix/go-libs/osxphotos/export"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photokit"
 )
@@ -408,6 +411,171 @@ func TestLiveVideoVersions(t *testing.T) {
 		}
 		emptyDir(t, dir)
 	})
+}
+
+// photosdb gives the files of the resources that ExportLivePhoto reads: Path and
+// PathLive the originals, PathEdited and PathEditedLive the renders of an edit.
+func TestLiveLivePhotoVersions(t *testing.T) {
+	lib := openLibrary(t)
+	visible := visibleMarkerPhotos(t)
+	lives := filter(visible, func(p *photoinfo.PhotoInfo) bool {
+		return p.Live && !p.IsMissing && p.Path != "" && p.PathLive != ""
+	})
+	if len(lives) == 0 {
+		skipNone(t, "Live Photo with its photo and video on disk")
+	}
+	x := &exporter{lib: lib, dir: t.TempDir(), taken: map[string]bool{}, exported: map[string]*photoinfo.PhotoInfo{}}
+
+	t.Run("unedited", func(t *testing.T) {
+		plain := filter(lives, func(p *photoinfo.PhotoInfo) bool { return !p.HasAdjustments })
+		if len(plain) == 0 {
+			skipNone(t, "Live Photo without edits with its photo and video on disk")
+		}
+		exported, differ := 0, 0
+		for _, p := range plain {
+			for _, half := range []struct {
+				kind photokit.ResourceType
+				file string
+			}{{photokit.ResourcePhoto, p.Path}, {photokit.ResourcePairedVideo, p.PathLive}} {
+				for _, v := range []photokit.Version{photokit.VersionCurrent, photokit.VersionUnadjusted, photokit.VersionOriginal} {
+					if got, ok := x.exportLive(t, p, v, half.kind); ok {
+						exported++
+						if got != sum(t, half.file) {
+							differ++
+						}
+					}
+				}
+			}
+		}
+		t.Logf("of %d Live Photos without edits on disk, %d versions of a photo or a video exported", len(plain), exported)
+		if exported == 0 {
+			t.Skip("no version of a Live Photo without edits exported")
+		}
+		if differ > 0 {
+			t.Errorf("%d of %d exported versions of Live Photos without edits differ from their file in the library", differ, exported)
+		}
+	})
+
+	t.Run("edited", func(t *testing.T) {
+		edited := filter(lives, func(p *photoinfo.PhotoInfo) bool { return p.HasAdjustments && p.PathEdited != "" })
+		if len(edited) == 0 {
+			skipNone(t, "edited Live Photo with a rendered photo on disk")
+		}
+		exported, notRender, sameAsOriginal, videoDiffer, noEditedVideo := 0, 0, 0, 0, 0
+		for _, p := range edited {
+			current, okCurrent := x.exportLive(t, p, photokit.VersionCurrent, photokit.ResourcePhoto)
+			original, okOriginal := x.exportLive(t, p, photokit.VersionOriginal, photokit.ResourcePhoto)
+			video, okVideo := x.exportLive(t, p, photokit.VersionCurrent, photokit.ResourcePairedVideo)
+			if !okCurrent || !okOriginal || !okVideo {
+				continue
+			}
+			exported++
+			if current != sum(t, p.PathEdited) {
+				notRender++
+			}
+			if current == original {
+				sameAsOriginal++
+			}
+			wantVideo := p.PathEditedLive
+			if wantVideo == "" {
+				noEditedVideo++
+				wantVideo = p.PathLive
+			}
+			if video != sum(t, wantVideo) {
+				videoDiffer++
+			}
+		}
+		t.Logf("of %d edited Live Photos with a rendered photo on disk, %d exported, %d without a rendered video on disk", len(edited), exported, noEditedVideo)
+		if exported == 0 {
+			t.Skip("no edited Live Photo exported")
+		}
+		if notRender > 0 || sameAsOriginal > 0 || videoDiffer > 0 {
+			t.Errorf("of %d edited Live Photos exported, %d with a Current photo other than the render in the library, %d with a Current photo equal to the Original, %d with a Current video other than the rendered video or, without one, the original video", exported, notRender, sameAsOriginal, videoDiffer)
+		}
+	})
+
+	// Only counted: a photo of VersionUnadjusted other than that of
+	// PHImageManager would point at the AdjustmentBasePhoto resource.
+	t.Run("compared with ExportImage", func(t *testing.T) {
+		compared, sameCurrent, sameUnadjusted := 0, 0, 0
+		for _, p := range lives {
+			live, okLive := x.exportLive(t, p, photokit.VersionCurrent, photokit.ResourcePhoto)
+			image, okImage := x.imageSum(t, p, photokit.VersionCurrent)
+			livePlain, okLivePlain := x.exportLive(t, p, photokit.VersionUnadjusted, photokit.ResourcePhoto)
+			imagePlain, okImagePlain := x.imageSum(t, p, photokit.VersionUnadjusted)
+			if !okLive || !okImage || !okLivePlain || !okImagePlain {
+				continue
+			}
+			compared++
+			if live == image {
+				sameCurrent++
+			}
+			if livePlain == imagePlain {
+				sameUnadjusted++
+			}
+		}
+		t.Logf("of %d Live Photos, %d compared with ExportImage: the photo of ExportLivePhoto equals that of ExportImage in %d for Current, in %d for Unadjusted", len(lives), compared, sameCurrent, sameUnadjusted)
+		if compared == 0 {
+			t.Skip("no Live Photo exported by both ExportLivePhoto and ExportImage")
+		}
+	})
+
+	t.Run("live errors", func(t *testing.T) {
+		p := lives[0]
+		dir, o := t.TempDir(), photokit.ExportOptions{}
+		const none = "00000000-0000-0000-0000-000000000000"
+		if err := lib.ExportLivePhoto(t.Context(), p.UUID, photokit.VersionOriginal, photokit.ResourceVideo, dir, "IMG_0001.MOV", o); !errors.Is(err, photokit.ErrNoResource) {
+			t.Errorf("ExportLivePhoto of a Video resource: %s, want ErrNoResource", exportFailure(err))
+		}
+		if stills := filter(visible, func(q *photoinfo.PhotoInfo) bool { return q.IsPhoto && !q.Live }); len(stills) > 0 {
+			if err := lib.ExportLivePhoto(t.Context(), stills[0].UUID, photokit.VersionOriginal, photokit.ResourcePhoto, dir, "IMG_0001.JPG", o); !errors.Is(err, photokit.ErrMediaType) {
+				t.Errorf("ExportLivePhoto of a photo that is not a Live Photo: %s, want ErrMediaType", exportFailure(err))
+			}
+		}
+		if err := lib.ExportLivePhoto(t.Context(), none, photokit.VersionOriginal, photokit.ResourcePhoto, dir, "IMG_0001.JPG", o); !errors.Is(err, photokit.ErrNotFound) {
+			t.Errorf("ExportLivePhoto of an unknown UUID: %s, want ErrNotFound", exportFailure(err))
+		}
+		if err := lib.ExportLivePhoto(t.Context(), p.UUID, photokit.VersionOriginal, photokit.ResourcePhoto, dir, "../x", o); !errors.Is(err, photokit.ErrInvalidName) {
+			t.Errorf("ExportLivePhoto to ../x: %s, want ErrInvalidName", exportFailure(err))
+		}
+		emptyDir(t, dir)
+	})
+}
+
+// The error is printed by its class only, as by export. The file is hashed and
+// removed at once: the Live Photos of a library may not fit on the disk twice.
+func (x *exporter) exportLive(t *testing.T, p *photoinfo.PhotoInfo, v photokit.Version, kind photokit.ResourceType) ([sha256.Size]byte, bool) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), exportTimeout)
+	defer cancel()
+	name := x.name(p.OriginalFilename)
+	if kind == photokit.ResourcePairedVideo {
+		name = export.Names(p, name).Live
+	}
+	if err := x.lib.ExportLivePhoto(ctx, p.UUID, v, kind, x.dir, name, photokit.ExportOptions{}); err != nil {
+		t.Errorf("ExportLivePhoto of version %d, resource type %d: %s", v, kind, exportFailure(err))
+		return [sha256.Size]byte{}, false
+	}
+	return sumRemove(t, filepath.Join(x.dir, name)), true
+}
+
+func (x *exporter) imageSum(t *testing.T, p *photoinfo.PhotoInfo, v photokit.Version) ([sha256.Size]byte, bool) {
+	t.Helper()
+	path, _, ok := x.exportImage(t, p, v)
+	if !ok {
+		return [sha256.Size]byte{}, false
+	}
+	return sumRemove(t, path), true
+}
+
+// The error of os names the path, so it is not printed.
+func sumRemove(t *testing.T, path string) [sha256.Size]byte {
+	t.Helper()
+	s := sum(t, path)
+	if err := os.Remove(path); err != nil {
+		t.Fatal("cannot remove an exported file")
+	}
+	return s
 }
 
 // The error goes to the caller, which prints it by its class only, as export

@@ -553,3 +553,190 @@ func TestExportVideo(t *testing.T) {
 		wantCalls(t, b, append(fetchVideo, requestOriginal, "Cancel "+versionVideoID)...)
 	})
 }
+
+// The data of each resource names its type, so that a test sees which one was
+// written.
+func liveFake(types ...ResourceType) *fake.Bridge {
+	b, _ := versionFake(1, nil)
+	b.Resources, b.Data = map[string][]bridge.ResourceRecord{}, map[string][]byte{}
+	for _, typ := range types {
+		b.Resources[versionLiveID] = append(b.Resources[versionLiveID], bridge.ResourceRecord{Type: int(typ)})
+		b.Data[fmt.Sprintf("%s/%d", versionLiveID, typ)] = fmt.Appendf(nil, "resource %d", typ)
+	}
+	return b
+}
+
+func TestExportLivePhoto(t *testing.T) {
+	fetchLive := []string{"FetchAssets " + versionLiveID, "AssetResources " + versionLiveID + "/L0/001", "AssetResources " + versionLiveID}
+	requestPhoto := "RequestResource " + versionLiveID + " 1"
+	plain := []ResourceType{ResourcePhoto, ResourcePairedVideo}
+	// AdjustmentBasePhoto has data, so that an Unadjusted version taken from it fails.
+	edited := []ResourceType{ResourcePhoto, ResourcePairedVideo, ResourceFullSizePhoto, ResourceFullSizePairedVideo, ResourceAdjustmentData, ResourceAdjustmentBasePhoto}
+	photoEdited := []ResourceType{ResourcePhoto, ResourcePairedVideo, ResourceFullSizePhoto, ResourceAdjustmentData}
+	videoEdited := []ResourceType{ResourcePhoto, ResourcePairedVideo, ResourceFullSizePairedVideo, ResourceAdjustmentData}
+
+	t.Run("resource of the version", func(t *testing.T) {
+		for _, tt := range []struct {
+			name      string
+			resources []ResourceType
+			kind      ResourceType
+			byVersion [3]ResourceType
+		}{
+			{"photo without edits", plain, ResourcePhoto, [3]ResourceType{ResourcePhoto, ResourcePhoto, ResourcePhoto}},
+			{"video without edits", plain, ResourcePairedVideo, [3]ResourceType{ResourcePairedVideo, ResourcePairedVideo, ResourcePairedVideo}},
+			{"edited photo", edited, ResourcePhoto, [3]ResourceType{ResourceFullSizePhoto, ResourcePhoto, ResourcePhoto}},
+			{"edited video", edited, ResourcePairedVideo, [3]ResourceType{ResourceFullSizePairedVideo, ResourcePairedVideo, ResourcePairedVideo}},
+			{"photo of a photo-only edit", photoEdited, ResourcePhoto, [3]ResourceType{ResourceFullSizePhoto, ResourcePhoto, ResourcePhoto}},
+			{"video of a photo-only edit", photoEdited, ResourcePairedVideo, [3]ResourceType{ResourcePairedVideo, ResourcePairedVideo, ResourcePairedVideo}},
+			{"photo of a video-only edit", videoEdited, ResourcePhoto, [3]ResourceType{ResourcePhoto, ResourcePhoto, ResourcePhoto}},
+			{"video of a video-only edit", videoEdited, ResourcePairedVideo, [3]ResourceType{ResourceFullSizePairedVideo, ResourcePairedVideo, ResourcePairedVideo}},
+		} {
+			for _, v := range imageVersions {
+				t.Run(fmt.Sprintf("%s, version %d", tt.name, v), func(t *testing.T) {
+					b := liveFake(tt.resources...)
+					dir := t.TempDir()
+					progress := 0
+					o := ExportOptions{Progress: func(float64) { progress++ }}
+					if err := (&Library{b}).ExportLivePhoto(t.Context(), versionLiveID, v, tt.kind, dir, "IMG_0001.HEIC", o); err != nil {
+						t.Fatal(err)
+					}
+					want := tt.byVersion[v]
+					path := filepath.Join(dir, "IMG_0001.HEIC")
+					if got, err := os.ReadFile(path); err != nil || string(got) != fmt.Sprintf("resource %d", want) {
+						t.Errorf("file = %q, %v; want the resource of type %d", got, err, want)
+					}
+					if fi, err := os.Stat(path); err != nil || fi.Mode().Perm() != 0o600 {
+						t.Errorf("Stat = %v, %v; want mode 0600", fi, err)
+					}
+					if progress == 0 {
+						t.Error("Progress never called, want it called as by Export")
+					}
+					wantCalls(t, b, append(fetchLive, fmt.Sprintf("RequestResource %s %d", versionLiveID, want))...)
+				})
+			}
+		}
+	})
+
+	t.Run("existing file", func(t *testing.T) {
+		b := liveFake(plain...)
+		dir := t.TempDir()
+		path := filepath.Join(dir, "IMG_0001.HEIC")
+		if err := os.WriteFile(path, []byte("old"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		lib := &Library{b}
+		if err := lib.ExportLivePhoto(t.Context(), versionLiveID, VersionOriginal, ResourcePhoto, dir, "IMG_0001.HEIC", ExportOptions{}); !errors.Is(err, fs.ErrExist) {
+			t.Errorf("without Overwrite: err = %v, want fs.ErrExist", err)
+		}
+		if got, err := os.ReadFile(path); err != nil || string(got) != "old" {
+			t.Errorf("without Overwrite: file = %q, %v; want it kept", got, err)
+		}
+		wantCalls(t, b, fetchLive...)
+		if err := lib.ExportLivePhoto(t.Context(), versionLiveID, VersionOriginal, ResourcePhoto, dir, "IMG_0001.HEIC", ExportOptions{Overwrite: true}); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := os.ReadFile(path); err != nil || string(got) != fmt.Sprintf("resource %d", ResourcePhoto) {
+			t.Errorf("Overwrite: file = %q, %v; want the Photo resource", got, err)
+		}
+		if entries, err := os.ReadDir(dir); err != nil || len(entries) != 1 {
+			t.Errorf("Overwrite: %d entries in dir, %v; want the file only", len(entries), err)
+		}
+	})
+
+	t.Run("invalid name", func(t *testing.T) {
+		for _, tt := range []struct {
+			name string
+			kind ResourceType
+			want error
+		}{
+			{"../x", ResourcePhoto, ErrInvalidName},
+			{"", ResourcePairedVideo, ErrInvalidName},
+			{"../x", ResourceVideo, ErrNoResource},
+		} {
+			b := liveFake(plain...)
+			dir := t.TempDir()
+			if err := (&Library{b}).ExportLivePhoto(t.Context(), versionLiveID, VersionOriginal, tt.kind, dir, tt.name, ExportOptions{}); !errors.Is(err, tt.want) {
+				t.Errorf("ExportLivePhoto(%d, %q): err = %v, want %v", tt.kind, tt.name, err, tt.want)
+			}
+			if entries, err := os.ReadDir(dir); err != nil || len(entries) != 0 {
+				t.Errorf("ExportLivePhoto(%d, %q): %d entries in dir, %v; want none", tt.kind, tt.name, len(entries), err)
+			}
+			wantCalls(t, b)
+		}
+	})
+
+	canceled, cancel := context.WithCancel(t.Context())
+	cancel()
+	for _, tt := range []struct {
+		name  string
+		ctx   context.Context
+		set   func(*fake.Bridge)
+		uuid  string
+		v     Version
+		kind  ResourceType
+		want  error
+		text  string
+		calls []string
+	}{
+		{"Video as kind", t.Context(), nil, versionLiveID, VersionCurrent, ResourceVideo, ErrNoResource, ": 2", nil},
+		{"FullSizePhoto as kind", t.Context(), nil, versionLiveID, VersionCurrent, ResourceFullSizePhoto, ErrNoResource, ": 5", nil},
+		{"no paired video", t.Context(), func(b *fake.Bridge) {
+			b.Resources[versionLiveID] = []bridge.ResourceRecord{{Type: int(ResourcePhoto)}}
+		}, versionLiveID, VersionOriginal, ResourcePairedVideo, ErrNoResource, ": 9", fetchLive},
+		{"asset gone after the fetch", t.Context(), func(b *fake.Bridge) { delete(b.Resources, versionLiveID) }, versionLiveID, VersionOriginal, ResourcePhoto, ErrNotFound, "", fetchLive},
+		{"not a Live Photo", t.Context(), nil, versionPhotoID, VersionOriginal, ResourcePhoto, ErrMediaType, ": 1", []string{"FetchAssets " + versionPhotoID, "AssetResources " + versionPhotoID + "/L0/001"}},
+		{"not a Live Photo, version 3", t.Context(), nil, versionPhotoID, Version(3), ResourcePhoto, ErrMediaType, ": 1", []string{"FetchAssets " + versionPhotoID, "AssetResources " + versionPhotoID + "/L0/001"}},
+		{"video", t.Context(), nil, versionVideoID, VersionOriginal, ResourcePairedVideo, ErrMediaType, ": 2", []string{"FetchAssets " + versionVideoID, "AssetResources " + versionVideoID + "/L0/001"}},
+		{"video, version 3", t.Context(), nil, versionVideoID, Version(3), ResourcePairedVideo, ErrMediaType, ": 2", []string{"FetchAssets " + versionVideoID, "AssetResources " + versionVideoID + "/L0/001"}},
+		{"version 3", t.Context(), nil, versionLiveID, Version(3), ResourcePhoto, ErrInvalidVersion, ": 3", []string{"FetchAssets " + versionLiveID, "AssetResources " + versionLiveID + "/L0/001"}},
+		{"no such asset", t.Context(), nil, unknownID, VersionOriginal, ResourcePhoto, ErrNotFound, "", []string{"FetchAssets " + unknownID}},
+		{"resource gone at the request", t.Context(), func(b *fake.Bridge) { clear(b.Data) }, versionLiveID, VersionOriginal, ResourcePhoto, ErrNoResource, "", append(fetchLive, requestPhoto)},
+		{"PhotoKit error", t.Context(), func(b *fake.Bridge) {
+			b.DoneErr = &bridge.PhotoKitError{Domain: "PHPhotosErrorDomain", Code: 3164}
+		}, versionLiveID, VersionOriginal, ResourcePhoto, ErrExport, "PHPhotosErrorDomain code 3164", append(fetchLive, requestPhoto)},
+		{"canceled", canceled, nil, versionLiveID, VersionOriginal, ResourcePhoto, context.Canceled, "", nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			b := liveFake(plain...)
+			if tt.set != nil {
+				tt.set(b)
+			}
+			dir := t.TempDir()
+			err := (&Library{b}).ExportLivePhoto(tt.ctx, tt.uuid, tt.v, tt.kind, dir, "IMG_0001.HEIC", ExportOptions{})
+			if !errors.Is(err, tt.want) || !strings.HasSuffix(err.Error(), tt.text) {
+				t.Errorf("err = %v, want %v ending in %q", err, tt.want, tt.text)
+			}
+			noFile(t, filepath.Join(dir, "IMG_0001.HEIC"))
+			wantCalls(t, b, tt.calls...)
+		})
+	}
+
+	// A cancel from Progress puts the cancel inside the request whatever the
+	// load of the runner.
+	t.Run("canceled, completion never comes", func(t *testing.T) {
+		old := cancelGrace
+		cancelGrace = 100 * time.Millisecond
+		t.Cleanup(func() { cancelGrace = old })
+		b := liveFake(plain...)
+		b.HoldRequest = make(chan struct{})
+		t.Cleanup(func() { close(b.HoldRequest) })
+		dir := t.TempDir()
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		o := ExportOptions{Progress: func(float64) { cancel() }}
+		done := make(chan error, 1)
+		go func() {
+			done <- (&Library{b}).ExportLivePhoto(ctx, versionLiveID, VersionOriginal, ResourcePhoto, dir, "IMG_0001.HEIC", o)
+		}()
+		select {
+		case err := <-done:
+			if !errors.Is(err, context.Canceled) {
+				t.Errorf("err = %v, want context.Canceled", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("ExportLivePhoto still waits 5 s after the cancel, want it to return within the grace")
+		}
+		noFile(t, filepath.Join(dir, "IMG_0001.HEIC"))
+		wantCalls(t, b, append(fetchLive, requestPhoto, "Cancel "+versionLiveID)...)
+	})
+}
