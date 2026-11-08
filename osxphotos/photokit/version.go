@@ -50,12 +50,13 @@ type ImageInfo struct {
 // through LivePhotoAsset.export (1095-1182). An asset that is not a photo is
 // ErrMediaType; a v other than the three constants ErrInvalidVersion; no such
 // asset ErrNotFound; no data of the version ErrNoResource; a failure of
-// PhotoKit ErrExport with its domain and code; when ctx is done the request is
-// canceled (cancelImageRequest:) and ExportImage returns ctx.Err(). Upstream
-// names the file by the UTI (593, 596); here the caller does, with
+// PhotoKit ErrExport with its domain and code; when ctx is done PhotoKit stops
+// the request at its next report of progress, and ExportImage returns ctx.Err()
+// once PhotoKit ends it, 30 s later at most, as Export does: a request that
+// reports no progress (read from disk, or a stalled download) is not stopped.
+// Upstream names the file by the UTI (593, 596); here the caller does, with
 // export.EditedName and uti.PreferredExtension. After an error the ImageInfo
-// is the zero value. Until the Objective-C side of RequestImage lands,
-// ExportImage on macOS returns an error that wraps ErrNotSupported.
+// is the zero value.
 func (l *Library) ExportImage(ctx context.Context, uuid string, v Version, dir, name string, o ExportOptions) (ImageInfo, error) {
 	s := &imageSink{}
 	err := writeExport(ctx, dir, name, o, func() error {

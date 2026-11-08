@@ -1,6 +1,7 @@
 //go:build darwin && cgo
 
 #import <Foundation/Foundation.h>
+#import <ImageIO/ImageIO.h>
 #import <Photos/Photos.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,6 +40,10 @@ _Static_assert(PHAssetResourceTypePairedVideo == 9, "PHAssetResourceTypePairedVi
 _Static_assert(PHAssetResourceTypeFullSizePairedVideo == 10, "PHAssetResourceTypeFullSizePairedVideo");
 _Static_assert(PHAssetResourceTypeAdjustmentBasePairedVideo == 11, "PHAssetResourceTypeAdjustmentBasePairedVideo");
 _Static_assert(PHAssetResourceTypeAdjustmentBaseVideo == 12, "PHAssetResourceTypeAdjustmentBaseVideo");
+// photokit.Version, which upstream takes from PhotoKit (photokit.py:77-85).
+_Static_assert(PHImageRequestOptionsVersionCurrent == 0, "PHImageRequestOptionsVersionCurrent");
+_Static_assert(PHImageRequestOptionsVersionUnadjusted == 1, "PHImageRequestOptionsVersionUnadjusted");
+_Static_assert(PHImageRequestOptionsVersionOriginal == 2, "PHImageRequestOptionsVersionOriginal");
 _Static_assert(PHPhotosErrorUserCancelled == 3072, "PHPhotosErrorUserCancelled");
 #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000 // the name came with the macOS 26 SDK; the build targets macOS 13
 #pragma clang diagnostic push
@@ -198,11 +203,14 @@ void pk_free_assets(pk_asset *assets, int count) {
 	free(assets);
 }
 
-static NSArray<PHAssetResource *> *pk_resources(const char *local_id) {
-	// A string that is not UTF-8 names no asset, and @[nil] would raise.
+// A string that is not UTF-8 names no asset, and @[nil] would raise.
+static PHAsset *pk_asset_of(const char *local_id) {
 	NSString *identifier = [NSString stringWithUTF8String:local_id];
-	NSArray<NSString *> *identifiers = identifier != nil ? @[ identifier ] : @[];
-	PHAsset *asset = [PHAsset fetchAssetsWithLocalIdentifiers:identifiers options:nil].firstObject;
+	return identifier != nil ? [PHAsset fetchAssetsWithLocalIdentifiers:@[ identifier ] options:nil].firstObject : nil;
+}
+
+static NSArray<PHAssetResource *> *pk_resources(const char *local_id) {
+	PHAsset *asset = pk_asset_of(local_id);
 	return asset != nil ? [PHAssetResource assetResourcesForAsset:asset] : nil;
 }
 
@@ -300,6 +308,99 @@ void pk_cancel_resource(int32_t request_id) {
 			// An exception must not unwind into Go; Export stops waiting after its grace.
 		}
 	}
+}
+
+// The dictionary that upstream keeps (photokit.py:669-673) crosses to Go as a
+// binary property list; nil when ImageIO reads none or it holds a value that a
+// property list cannot.
+static NSData *pk_image_properties(NSData *data) {
+	NSDictionary *options = @{(__bridge NSString *)kCGImageSourceShouldCache : @NO};
+	id source = CFBridgingRelease(CGImageSourceCreateWithData((__bridge CFDataRef)data, (__bridge CFDictionaryRef)options));
+	NSDictionary *properties = source ? CFBridgingRelease(CGImageSourceCopyPropertiesAtIndex((__bridge CGImageSourceRef)source, 0, (__bridge CFDictionaryRef)options)) : nil;
+	return properties ? [NSPropertyListSerialization dataWithPropertyList:properties format:NSPropertyListBinaryFormat_v1_0 options:0 error:NULL] : nil;
+}
+
+// pk_go_done comes once, after the request, which PhotoKit may end without
+// calling the handler; an exception must not leave the handler or the queue.
+// The description of an NSError is left out, as in pk_request_resource.
+static void pk_image(PHAsset *asset, PHImageRequestOptions *options, uintptr_t handle) {
+	@autoreleasepool {
+		__block int64_t code = PK_NO_RESOURCE;
+		__block NSString *domain = nil;
+		@try {
+			[[PHImageManager defaultManager] requestImageDataAndOrientationForAsset:asset
+				options:options
+				resultHandler:^(NSData *data, NSString *uti, CGImagePropertyOrientation orientation, NSDictionary *info) {
+					@autoreleasepool {
+						@try {
+							NSError *error = info[PHImageErrorKey];
+							if (error != nil) {
+								code = error.code;
+								domain = error.domain ?: @"";
+							} else if (data.length > 0) {
+								// No constant names the key; upstream reads it so too (photokit.py:502, 511).
+								NSURL *url = info[@"PHImageFileURLKey"];
+								// metadata.bytes is an inner pointer: ARC may free metadata after its last use, before pk_go_image reads them.
+								NS_VALID_UNTIL_END_OF_SCOPE NSData *metadata = pk_image_properties(data);
+								pk_image_info image = {
+									.uti = uti.UTF8String,
+									.path = url.fileSystemRepresentation,
+									.metadata = metadata.bytes,
+									.metadata_len = (int64_t)metadata.length,
+									.orientation = (int)orientation,
+									.degraded = [info[PHImageResultIsDegradedKey] boolValue],
+								};
+								pk_go_image(handle, (void *)data.bytes, data.length, &image);
+								code = PK_OK;
+							}
+						} @catch (NSException *e) {
+							code = PK_EXCEPTION;
+							domain = nil;
+						}
+					}
+				}];
+		} @catch (NSException *e) {
+			code = PK_EXCEPTION;
+			domain = nil;
+		}
+		pk_go_done(handle, code, domain == nil ? NULL : (char *)(domain.UTF8String ?: ""));
+	}
+}
+
+// _request_image_data (photokit.py:625-691) is synchronous (654): the handler of
+// an asynchronous image request may run on the main queue, which nothing runs
+// in a Go process. The request runs on a global queue and holds its thread
+// until PhotoKit returns, so that Go waits as for pk_request_resource.
+pk_result pk_request_image(const char *local_id, int64_t version, uintptr_t handle) {
+	pk_result r = {PK_NO_RESOURCE, NULL};
+	@autoreleasepool {
+		@try {
+			PHAsset *asset = pk_asset_of(local_id);
+			if (asset != nil) {
+				PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
+				// An original kept only in iCloud is downloaded (photokit.py:653).
+				options.networkAccessAllowed = YES;
+				options.synchronous = YES;
+				options.version = (PHImageRequestOptionsVersion)version;
+				// One result, not degraded (photokit.py:656-657).
+				options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
+				// extension: not in osxphotos; it feeds ExportOptions.Progress and
+				// stops the request, which has no id for cancelImageRequest:.
+				options.progressHandler = ^(double progress, __unused NSError *error, BOOL *stop, __unused NSDictionary *info) {
+					@autoreleasepool {
+						*stop = pk_go_progress(handle, progress);
+					}
+				};
+				dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+					pk_image(asset, options, handle);
+				});
+				r.code = PK_OK;
+			}
+		} @catch (NSException *e) {
+			r = pk_exception(e);
+		}
+	}
+	return r;
 }
 
 // The change block and the handler may run after pk_perform_changes has

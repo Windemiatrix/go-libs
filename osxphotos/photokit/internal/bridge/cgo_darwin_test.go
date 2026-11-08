@@ -3,11 +3,13 @@
 package bridge
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"reflect"
 	"testing"
 	"time"
+	"unsafe"
 )
 
 type recordingSink struct {
@@ -46,6 +48,9 @@ func TestRequestFinish(t *testing.T) {
 		{"domain not UTF-8", false, true, "\xff", 1, &PhotoKitError{"", 1}},
 		{"canceled with an NSError", true, true, "PHPhotosErrorDomain", 3072, ErrCanceled},
 		{"canceled without an NSError", true, false, "", 0, ErrCanceled},
+		{"no image data", false, false, "", 3, ErrNoResource},
+		{"canceled without image data", true, false, "", 3, ErrCanceled},
+		{"exception in a handler", false, false, "", 1, errors.New("photokit: Objective-C exception: ")},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &cgoRequest{done: make(chan error, 1)}
@@ -149,8 +154,11 @@ func TestRequestHandlers(t *testing.T) {
 	pk_go_write(h, nil, 0)
 	pk_go_progress(h, 0.5)
 	pk_go_done(h, 0, nil)
-	pk_go_progress(h, 1)
+	if !bool(pk_go_progress(h, 1)) {
+		t.Error("pk_go_progress of an ended request does not ask to stop")
+	}
 	pk_go_write(h, nil, 0)
+	pk_go_image(h, nil, 0, nil)
 	if err := <-r.done; err != nil {
 		t.Errorf("Done = %v, want nil", err)
 	}
@@ -163,6 +171,78 @@ func TestRequestHandlers(t *testing.T) {
 		}
 	}()
 	pk_go_done(h, 0, nil)
+}
+
+// An image request runs on a global queue and holds its thread until PhotoKit
+// returns, so it has no id for cancelImageRequest: and only the answer of
+// pk_go_progress stops it.
+func TestRequestStop(t *testing.T) {
+	const h = 1<<40 + 1
+	r := &cgoRequest{sink: &recordingSink{}, done: make(chan error, 1)}
+	requests.Store(uintptr(h), r)
+	defer requests.Delete(uintptr(h))
+	if bool(pk_go_progress(h, 0.5)) {
+		t.Error("pk_go_progress before Cancel asks to stop")
+	}
+	r.Cancel()
+	r.Cancel()
+	if !bool(pk_go_progress(h, 0.6)) {
+		t.Error("pk_go_progress after Cancel does not ask to stop")
+	}
+}
+
+func TestRequestCancel(t *testing.T) {
+	runs := 0
+	r := &cgoRequest{cancel: func() { runs++ }}
+	r.Cancel()
+	r.Cancel()
+	if runs != 1 {
+		t.Errorf("two calls of Cancel ran the cancel %d times, want 1", runs)
+	}
+}
+
+// The source is longer than the limit, so that a copy without the check
+// returns bytes instead of reading past the buffer.
+func TestMetadataBytes(t *testing.T) {
+	b := make([]byte, 1<<20+1)
+	b[0] = 'b'
+	p := unsafe.Pointer(&b[0]) //nolint:gosec // G103: a Go buffer of known length stands for the plist of bridge.m
+	got := metadataBytes(p, 1<<20)
+	if !bytes.Equal(got, b[:1<<20]) {
+		t.Errorf("metadataBytes of 1 MiB = %d bytes, want a copy of 1 MiB", len(got))
+	}
+	b[0] = 'c'
+	if len(got) > 0 && got[0] != 'b' {
+		t.Error("metadataBytes shares its result with the buffer of bridge.m, which is freed after pk_go_image")
+	}
+	if got := metadataBytes(p, 1<<20+1); got != nil {
+		t.Errorf("metadataBytes over 1 MiB = %d bytes, want nil", len(got))
+	}
+	if got := metadataBytes(nil, 0); got != nil {
+		t.Errorf("metadataBytes(nil) = %v, want nil", got)
+	}
+}
+
+// An id that is not UTF-8 names no asset before PhotoKit, which the tests must
+// not reach.
+func TestRequestsNoAsset(t *testing.T) {
+	known := func() (n int) {
+		requests.Range(func(_, _ any) bool {
+			n++
+			return true
+		})
+		return n
+	}
+	before := known()
+	if r, err := New().RequestImage("\xff", 0, nil); r != nil || !errors.Is(err, ErrNoResource) {
+		t.Errorf("RequestImage of an id not UTF-8 = %v, %v; want ErrNoResource", r, err)
+	}
+	if r, err := New().RequestResource("\xff", 1, nil); r != nil || !errors.Is(err, ErrNoResource) {
+		t.Errorf("RequestResource of an id not UTF-8 = %v, %v; want ErrNoResource", r, err)
+	}
+	if after := known(); after != before {
+		t.Errorf("%d requests known after two that did not start, want %d", after, before)
+	}
 }
 
 // The codes are literals, so that a new order of the enum in bridge.h fails

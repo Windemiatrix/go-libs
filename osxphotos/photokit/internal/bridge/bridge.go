@@ -56,9 +56,10 @@ type Bridge interface {
 	RequestResource(id string, typ int, sink ResourceSink) (Request, error)
 	// RequestImage starts requestImageDataAndOrientationForAsset for the asset
 	// id with version, networkAccessAllowed and HighQualityFormat; no such
-	// asset is ErrNoResource. The data goes to sink until Done; Cancel is
-	// cancelImageRequest:. Done delivers ErrNoResource when PhotoKit gives no
-	// data (photokit.py:591-592).
+	// asset is ErrNoResource. The data goes to sink until Done; Cancel stops the
+	// request at its next report of progress, which PhotoKit gives only while it
+	// downloads. Done delivers ErrNoResource when PhotoKit gives no data
+	// (photokit.py:591-592).
 	RequestImage(id string, version int, sink ImageSink) (Request, error)
 	// Import runs one performChanges that creates the asset of r and adds it to
 	// its albums, and blocks until the completion handler, or up to timeout,
@@ -135,7 +136,7 @@ type ResourceSink interface {
 }
 
 // ImageSink receives one image: Write gets the bytes once, Info the record,
-// both on a queue of PhotoKit before Done, neither when PhotoKit gives no
+// both on a queue of the bridge before Done, neither when PhotoKit gives no
 // data.
 type ImageSink interface {
 	ResourceSink
@@ -155,10 +156,10 @@ type ImageRecord struct {
 
 // Request is a running RequestResource or RequestImage. Done delivers at most
 // once, without waiting for a receiver: nil, a *PhotoKitError, ErrNoResource
-// of an image without data, or ErrCanceled after Cancel, since PhotoKit calls
-// the completion handler after cancelDataRequest: and cancelImageRequest:
-// too, unless a stalled iCloud download holds it back. A second Cancel does
-// nothing.
+// of an image without data, the error of an Objective-C exception in the
+// handler of an image, or ErrCanceled after Cancel, since PhotoKit calls the
+// completion handler after a cancel too, unless a stalled iCloud download
+// holds it back. A second Cancel does nothing.
 type Request interface {
 	Cancel()
 	Done() <-chan error
