@@ -146,15 +146,15 @@ func TestLoadFaceInfo(t *testing.T) {
 	}
 	d := loadPersons(in, c)
 	face7 := personinfo.FaceInfo{
-		PK: 7, UUID: "F-7", Name: personNFC, AssetUUID: "A-1", PersonUUID: "P-2",
+		PK: 7, UUID: "F-7", Name: personNFC, AssetUUID: "A-1", PersonPK: 1, PersonUUID: "P-2",
 		CenterX: 0.25, CenterY: 0.5, Size: 0.2, Quality: 0.75, SourceWidth: 4000, SourceHeight: 3000,
 		HasSmile: true, Manual: false, InTrash: false,
 		AgeType: 2, EyeMakeupType: 1, EyeState: 3, FacialHairType: 4, GenderType: 5, GlassesType: 6, HairColorType: 7, LipMakeupType: 8, SmileType: 9,
 		Roll: 0.125,
 	}
 	// A person without a name has the name "" on a face, which sorts first (_photosdb_process_faceinfo.py:283; photoinfo.py:622).
-	face8 := personinfo.FaceInfo{PK: 8, AssetUUID: "A-1", PersonUUID: "P-1", InTrash: true}
-	face11 := personinfo.FaceInfo{PK: 11, AssetUUID: "A-1", PersonUUID: "P-1", Manual: true}
+	face8 := personinfo.FaceInfo{PK: 8, AssetUUID: "A-1", PersonPK: 2, PersonUUID: "P-1", InTrash: true}
+	face11 := personinfo.FaceInfo{PK: 11, AssetUUID: "A-1", PersonPK: 2, PersonUUID: "P-1", Manual: true}
 	if want := map[string][]personinfo.FaceInfo{"A-1": {face8, face11, face7}}; !reflect.DeepEqual(d.facesOf, want) {
 		t.Errorf("facesOf:\n%+v\nwant:\n%+v", d.facesOf, want)
 	}

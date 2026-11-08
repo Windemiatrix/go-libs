@@ -597,6 +597,18 @@ func TestApplyLabel(t *testing.T) {
 		}
 	}
 
+	// The filter runs before the duplicate step, which takes the twins from the
+	// whole library (photoquery.py:472-473, 754-765).
+	twins := Catalog{Photos: []*photoinfo.PhotoInfo{flagsTwin("D1"), flagsTwin("D2")}, Labels: func(p *photoinfo.PhotoInfo) []string {
+		if p.UUID == "D1" {
+			return []string{"dog"}
+		}
+		return nil
+	}}
+	if got, want := uuids(ApplyCatalog(Options{Label: []string{"dog"}, Duplicate: true}, twins)), []string{"D1", "D2"}; !slices.Equal(got, want) {
+		t.Errorf("ApplyCatalog with duplicate = %q, want %q", got, want)
+	}
+
 	o := Options{Label: []string{"Beach"}}
 	if got := ApplyCatalog(o, Catalog{Photos: photos}); len(got) != 0 {
 		t.Errorf("ApplyCatalog without Labels returned %d photos, want none", len(got))

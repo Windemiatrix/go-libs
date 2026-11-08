@@ -460,6 +460,53 @@ func TestRenderTemplateSearch(t *testing.T) {
 	}
 }
 
+// The labels and the cities are out of order and differ from their normalized
+// form, so that a property that does not sort or reads the other form shows
+// (phototemplate.py:1353-1376).
+func TestRenderTemplateSearchProperties(t *testing.T) {
+	t.Parallel()
+	db := tmplDB()
+	p1, p2 := db.byUUID["P-1"], db.byUUID["P-2"]
+	db.search = map[string][]searchinfo.Record{"P-1": {
+		{Category: searchinfo.CategoryLabel, Content: "Dog", Normalized: "dog"},
+		{Category: searchinfo.CategoryLabel, Content: "Cat", Normalized: "cat"},
+		{Category: searchinfo.CategoryCity, Content: "Paris", Normalized: "paris"},
+		{Category: searchinfo.CategoryCity, Content: "Berlin", Normalized: "berlin"},
+	}}
+	o, vals := template.RenderOptions{}, func(s ...string) []string { return s }
+	for _, tt := range []struct {
+		in         string
+		want, bare []string
+	}{
+		{"{photo.search_info.labels}", vals("Cat", "Dog"), vals("_")},
+		{"{photo.search_info_normalized.labels}", vals("cat", "dog"), vals("_")},
+		{"{photo.search_info.city}", vals("Berlin"), vals("")},
+		{"{photo.search_info_normalized.city}", vals("berlin"), vals("")},
+		{"{photo.search_info.venues}", vals("_"), vals("_")},
+		{"{photo.search_info.season}", vals(""), vals("")},
+		{"{photo.search_info.all}", vals("Cat", "Dog", "Berlin"), vals("_")},
+		{"{photo.search_info_normalized.all}", vals("cat", "dog", "berlin"), vals("_")},
+		{"{photo.search_info.text_found}", vals("_"), vals("_")},
+		{"{photo.search_info.uuid}", vals("P-1"), vals("P-2")},
+		{"{photo.labels}", vals("Cat", "Dog"), vals("_")},
+	} {
+		if got, err := tmplRender(t, db, p1, tt.in, o); err != nil || !slices.Equal(got, tt.want) {
+			t.Errorf("RenderTemplate(%q) = %q, %v; want %q", tt.in, got, err, tt.want)
+		}
+		if got, err := tmplRender(t, db, p2, tt.in, o); err != nil || !slices.Equal(got, tt.bare) {
+			t.Errorf("RenderTemplate(%q) of a photo without search terms = %q, %v; want %q", tt.in, got, err, tt.bare)
+		}
+	}
+	for _, in := range []string{"{photo.search_info.nonsense}", "{photo.search_info_normalized.nonsense}", "{photo.search_info}",
+		"{photo.search_info_normalized}", "{photo.search_info.labels.x}"} {
+		for _, p := range []*photoinfo.PhotoInfo{p1, p2} {
+			if got, err := tmplRender(t, db, p, in, o); !errors.Is(err, template.ErrUnsupportedField) {
+				t.Errorf("RenderTemplate(%q) of %s = %q, %v; want ErrUnsupportedField", in, p.UUID, got, err)
+			}
+		}
+	}
+}
+
 // Every value differs from the others, so that a name that reads another
 // field shows. The city of the smaller area comes first (placeinfo.New).
 func tmplNestedPhoto() *photoinfo.PhotoInfo {
