@@ -14,12 +14,14 @@ import (
 // (photoinfo.py:2103-2117, 2119-2253): the keys of 2134-2205, and without
 // shallow those of 2209-2251 too. A value is as upstream has it: a date is a
 // time.Time, None is nil, also for a string that p holds as "", a list is a
-// non-nil slice, an object is its AsDict or an empty map where upstream has
-// {}. rating is 0 (photoinfo.py:822-825) and library is Info().LibraryPath;
-// media_analysis and ai_caption are nil: they come from a database of another
-// program, which is not read. In folders an album without a title has the key
-// "", where upstream has None. The map is new on every call and holds no
-// reference into the library.
+// non-nil slice, also inside search_info, an object is its AsDict or an empty
+// map where upstream has {}. rating is 0 (photoinfo.py:822-825) and library is
+// Info().LibraryPath; media_analysis and ai_caption are nil: they come from a
+// database of another program, which is not read. date_added without a value
+// is 1970-01-01T00:00:00Z, where upstream takes midnight in the zone of the
+// computer (photos_datetime.py:19-21). In folders an album without a title has
+// the key "", where upstream has None. The map is new on every call and holds
+// no reference into the library.
 func (db *DB) AsDict(p *photoinfo.PhotoInfo, shallow bool) map[string]any {
 	albums := db.AlbumInfoOf(p)
 	folders := map[string]any{}
@@ -78,7 +80,7 @@ func (db *DB) AsDict(p *photoinfo.PhotoInfo, shallow bool) map[string]any {
 		"labels_normalized": pyList(search.Normalized().Labels()),
 		"person_info":       pyDicts(db.PersonInfoOf(p), personinfo.PersonInfo.AsDict),
 		"project_info":      pyDicts(db.ProjectInfoOf(p), (*albuminfo.AlbumInfo).AsDict),
-		"search_info":       search.AsDict(), "search_info_normalized": search.Normalized().AsDict(),
+		"search_info":       pyLists(search.AsDict()), "search_info_normalized": pyLists(search.Normalized().AsDict()),
 		"syndicated": p.Syndicated, "saved_to_library": p.SavedToLibrary, "shared_moment": p.SharedMoment,
 		"shared_library": p.SharedLibrary, "rating": 0, "screen_recording": p.ScreenRecording, "spatial": p.Spatial,
 		"date_original": p.DateOriginal, "tzname": pyNone(p.TZName), "media_analysis": nil, "ai_caption": nil,
@@ -106,6 +108,16 @@ func pyNoneOf[T any](p *T) any {
 
 // json writes a nil slice as null, where upstream writes the empty list as [].
 func pyList(s []string) []string { return append([]string{}, s...) }
+
+// SearchInfo.AsDict gives an empty list as nil, where upstream has [].
+func pyLists(d map[string]any) map[string]any {
+	for k, v := range d {
+		if l, ok := v.([]string); ok {
+			d[k] = pyList(l)
+		}
+	}
+	return d
+}
 
 // The title of an album without one is None upstream (photoinfo.py:640-643).
 func pyTitles(titles []string) []any {

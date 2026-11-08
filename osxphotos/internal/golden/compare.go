@@ -268,17 +268,18 @@ func (r *Report) Summary() string {
 }
 
 // WriteDetails writes one line per difference and per stale record, with
-// UUIDs and values; a value of persons is written as its number of names, the
+// UUIDs and values; a value of persons is written as its number of names; the
 // owner of a photo or of an album, the user of a comment or a like, the name
 // and the display name of a person of person_info and the name of a face of
-// face_info as "<name>", the text
-// of a comment as "<text>", a value of exif_info, place, cloud_metadata,
-// search_info, search_info_normalized, labels or labels_normalized that is not
-// null or "" as "<value>", the keys and the lengths of the lists kept, and a
-// value of album_info, burst_album_info, project_info, comments, likes,
-// person_info, face_info, labels or labels_normalized that is not a list, or of
-// exif_info, place, cloud_metadata, search_info or search_info_normalized that
-// is not an object, as "<unparsed>".
+// face_info as "<name>"; the text of a comment as "<text>"; a value of
+// exif_info, place, cloud_metadata, search_info, search_info_normalized,
+// adjustments, original_adjustments, labels, labels_normalized or
+// path_derivatives that is not null or "" as "<value>", the keys and the
+// lengths of the lists kept; and a value of album_info, burst_album_info,
+// project_info, comments, likes, person_info, face_info, labels,
+// labels_normalized or path_derivatives that is not a list, or of exif_info,
+// place, cloud_metadata, search_info, search_info_normalized, adjustments or
+// original_adjustments that is not an object, as "<unparsed>".
 func (r *Report) WriteDetails(w io.Writer) error {
 	for _, d := range r.Diffs {
 		if _, err := fmt.Fprintf(w, "%s %s want=%s got=%s\n", d.Field, d.UUID, redact(d.Field, d.Want), redact(d.Field, d.Got)); err != nil {
@@ -311,9 +312,9 @@ func redact(field, value string) string {
 		return "<name>"
 	}
 	switch field {
-	case "exif_info", "place", "cloud_metadata", "search_info", "search_info_normalized":
+	case "exif_info", "place", "cloud_metadata", "search_info", "search_info_normalized", "adjustments", "original_adjustments":
 		return redactAs[map[string]any](value)
-	case "labels", "labels_normalized":
+	case "labels", "labels_normalized", "path_derivatives":
 		return redactAs[[]any](value)
 	}
 	placeholders, ok := redacted[field]
@@ -336,9 +337,9 @@ func redact(field, value string) string {
 }
 
 // The coordinates and the camera of a photo, the names and the address of its
-// place and its search terms are personal data too: the keys and the lengths
-// of the lists stay, so that a null or "" can be told from a value and a
-// difference located.
+// place, its search terms, its edits and the paths of the machine are personal
+// data too: the keys and the lengths of the lists stay, so that a null or ""
+// can be told from a value and a difference located.
 func redactAs[T map[string]any | []any](value string) string {
 	var v T
 	if json.Unmarshal([]byte(value), &v) != nil {

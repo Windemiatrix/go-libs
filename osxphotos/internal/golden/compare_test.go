@@ -826,7 +826,6 @@ func TestWriteDetailsFaceInfo(t *testing.T) {
 			t.Errorf("WriteDetails writes %q", leak)
 		}
 	}
-	// want 1 + got 1, the stale record 1.
 	if n := strings.Count(b.String(), `"name":"<name>"`); n != 3 {
 		t.Errorf("%d names written as <name>, want 3:\n%s", n, b.String())
 	}
@@ -835,6 +834,38 @@ func TestWriteDetailsFaceInfo(t *testing.T) {
 	}
 	if line := "stale face_info " + selectedFrame + " want=<unparsed> got=*\n"; !strings.Contains(b.String(), line) {
 		t.Errorf("WriteDetails has no line %q:\n%s", line, b.String())
+	}
+}
+
+// Upstream joins the library path to each preview (photoinfo.py:1200-1205),
+// and the adjustments hold the edits of the owner (adjustmentsinfo.py:210-228).
+func TestWriteDetailsPathsAndAdjustments(t *testing.T) {
+	t.Parallel()
+	lib := fixtureLib()
+	lib.Override = map[string]map[string]any{selectedFrame: {
+		"path_derivatives": []string{"/Users/SECRET/Pictures/x.photoslibrary/resources/derivatives/0/IMG_0001_1_105_c.jpeg"},
+		"adjustments":      map[string]any{"editor": "SECRET-EDITOR", "adjustments": []any{"SECRET-OP"}},
+	}}
+	stale := Divergence{Library: "lib", UUID: emptyPhoto, Field: "path_derivatives", Want: []byte(`["/SECRET-STALE"]`), Reason: "r", Upstream: "a.py:1"}
+	rep := compare(t, fixtureRef(), lib, stale)
+	if got := diffKeys(rep); !slices.Equal(got, []string{"adjustments", "path_derivatives"}) {
+		t.Fatalf("differences in %v, want adjustments and path_derivatives", got)
+	}
+	var b strings.Builder
+	if err := rep.WriteDetails(&b); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(b.String(), "SECRET") {
+		t.Errorf("WriteDetails writes a path or an edit:\n%s", b.String())
+	}
+	for _, line := range []string{
+		"path_derivatives " + selectedFrame + ` want=[] got=["<value>"]` + "\n",
+		"stale path_derivatives " + emptyPhoto + ` want=["<value>"] got=*` + "\n",
+		"adjustments " + selectedFrame + ` want={} got={"adjustments":["<value>"],"editor":"<value>"}` + "\n",
+	} {
+		if !strings.Contains(b.String(), line) {
+			t.Errorf("WriteDetails lacks %q:\n%s", line, b.String())
+		}
 	}
 }
 
@@ -908,6 +939,40 @@ func TestCompareEquivalent(t *testing.T) {
 		lib.Persons[emptyPhoto] = []personinfo.PersonInfo{{UUID: personUnknown, Name: "_UNKNOWN_"}, {UUID: other, Name: "_UNKNOWN_"}}
 		if rep := compare(t, ref, lib); !rep.OK() {
 			t.Errorf("differences %+v, want none: equal names are compared by uuid", rep.Diffs)
+		}
+	})
+
+	// Upstream sorts by name only, equal names in the order of SQLite (photoinfo.py:613-623).
+	t.Run("faces of one name in the order of SQLite", func(t *testing.T) {
+		t.Parallel()
+		face21 := strings.TrimSuffix(strings.TrimPrefix(refFaceInfo, "["), "]")
+		face22 := strings.Replace(face21, `"_pk": 21`, `"_pk": 22`, 1)
+		withFaces := func(faces ...string) *Reference {
+			return refOf(refObj(refSelectedFrame(), map[string]string{"face_info": "[" + strings.Join(faces, ", ") + "]"}), refObj(refEmptyPhoto()))
+		}
+		lib := fixtureLib()
+		second := lib.Faces[selectedFrame][0]
+		second.PK = 22
+		lib.Faces[selectedFrame] = append(lib.Faces[selectedFrame], second)
+		if rep := compare(t, withFaces(face22, face21), lib); !rep.OK() {
+			t.Errorf("differences %+v, want none: equal names are compared by _pk", rep.Diffs)
+		}
+		lib.Faces[selectedFrame][1].Name = "Person B"
+		named := strings.Replace(face22, `"name": "Person A"`, `"name": "Person B"`, 1)
+		if got := diffKeys(compare(t, withFaces(named, face21), lib)); !slices.Equal(got, []string{"face_info"}) {
+			t.Errorf("differences in %v, want face_info: faces of other names keep their order", got)
+		}
+	})
+
+	// json() sorts the list (photoinfo.py:2279-2285); upstream gives it by size,
+	// largest first (photoinfo.py:1174).
+	t.Run("path_derivatives by size against the sorted reference", func(t *testing.T) {
+		t.Parallel()
+		lib := fixtureLib()
+		lib.Photos[0].PathDerivatives = []string{"b.jpeg", "a.jpeg"}
+		ref := refOf(refObj(refSelectedFrame(), map[string]string{"path_derivatives": `["a.jpeg", "b.jpeg"]`}), refObj(refEmptyPhoto()))
+		if rep := compare(t, ref, lib); !rep.OK() {
+			t.Errorf("differences %+v, want none", rep.Diffs)
 		}
 	})
 
@@ -1360,6 +1425,37 @@ func TestCompareReadsDicts(t *testing.T) {
 			}
 			if got := diffKeys(rep); !slices.Equal(got, want) {
 				t.Errorf("differences in %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+// The reference reads null as "" for these keys; a key that the object of the
+// dictionary lacks is not that null.
+func TestCompareMissingInnerKey(t *testing.T) {
+	t.Parallel()
+	item := func(key string, i int) func(d map[string]any) map[string]any {
+		return func(d map[string]any) map[string]any { return d[key].([]any)[i].(map[string]any) }
+	}
+	for _, c := range []struct {
+		key, uuid, inner string
+		object           func(d map[string]any) map[string]any
+	}{
+		{"exif_info", emptyPhoto, "codec", func(d map[string]any) map[string]any { return d["exif_info"].(map[string]any) }},
+		{"album_info", selectedFrame, "owner", item("album_info", 0)},
+		{"person_info", selectedFrame, "displayname", item("person_info", 1)},
+		{"comments", selectedFrame, "user", item("comments", 1)},
+	} {
+		t.Run(c.key, func(t *testing.T) {
+			t.Parallel()
+			lib := fixtureLib().lib()
+			delete(c.object(lib.Dicts[c.uuid]), c.inner)
+			rep, err := Compare(fixtureRef(), lib, Keys(), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := diffKeys(rep); !slices.Equal(got, []string{c.key}) {
+				t.Errorf("differences in %v, want %s: the dictionary lacks %s", got, c.key, c.inner)
 			}
 		})
 	}

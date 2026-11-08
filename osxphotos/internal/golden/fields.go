@@ -59,7 +59,7 @@ func buildRules() map[string]rule {
 		stringList("burst_photos", true),
 		stringList("persons", false),
 		stringList("keywords", false),
-		stringList("path_derivatives", false),
+		stringList("path_derivatives", true),
 		location(),
 		orientation(),
 		value[*bool]("incloud", true, "a boolean or null", pyValue),
@@ -68,9 +68,8 @@ func buildRules() map[string]rule {
 		value[*float64]("longitude", true, "a number or null", pyValue),
 		value[*int]("adjustment_type", true, "an integer or null", pyValue),
 		importedBy(),
-		// json() writes {} for a photo without the file (photoinfo.py:2212-2214, 2248-2250).
-		value[map[string]any]("adjustments", false, "an object", pyValue),
-		value[map[string]any]("original_adjustments", false, "an object", pyValue),
+		adjustmentsRule("adjustments"),
+		adjustmentsRule("original_adjustments"),
 
 		zonedDate("date"),
 		zonedDate("date_original"),
@@ -416,6 +415,29 @@ func orientation() rule {
 	return r
 }
 
+// json() writes {} for a photo without the file (photoinfo.py:2212-2214,
+// 2248-2250). asdict writes timestamp as the isoformat() of a UTC datetime
+// (adjustmentsinfo.py:44-46, 212-214), where the Go side holds a time.Time:
+// both are compared as a moment (rule 2).
+func adjustmentsRule(key string) rule {
+	return simple(key,
+		func(o Object) (any, error) {
+			m, err := decode[map[string]any](o, key, false, "an object")
+			if err != nil {
+				return nil, err
+			}
+			if s, ok := m["timestamp"].(string); ok {
+				t, ok := parseMoment(s)
+				if !ok {
+					return nil, shape(key+".timestamp", "an ISO 8601 string")
+				}
+				m["timestamp"] = momentString(t)
+			}
+			return m, nil
+		},
+		pyValue)
+}
+
 // The reference list is sorted by upstream json() (photoinfo.py:2279-2285);
 // sorted sorts a list that DB.AsDict leaves to json().
 func stringList(key string, sorted bool) rule {
@@ -498,7 +520,12 @@ func personInfoRule() rule {
 				if err != nil {
 					return nil, err
 				}
-				persons[i] = p.AsDict()
+				// A literal, not PersonInfo.AsDict: the Go side is that, and a wrong key
+				// of it would be wrong on both sides.
+				persons[i] = map[string]any{
+					"uuid": p.UUID, "name": p.Name, "displayname": p.DisplayName, "keyface": p.KeyFace, "facecount": p.FaceCount,
+					"keyphoto": p.KeyPhotoUUID, "favorite": p.Favorite, "sort_order": p.SortOrder, "feature_less": p.FeatureLess,
+				}
 			}
 			return personElems(persons), nil
 		},

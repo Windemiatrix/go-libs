@@ -134,11 +134,9 @@ func strs(s []string) []string {
 	return out
 }
 
-// pyValue is a value of Library.Dicts in the form of the reference side: a
-// date is a moment in UTC (rule 2); the sort order of an album and bytes are
-// null, as the default of json() writes what json has no form for
-// (photoinfo.py:2269-2271). The result is a copy: Compare leaves its input as
-// it is.
+// The sort order of an album and bytes are null, as the default of json()
+// writes what json has no form for (photoinfo.py:2269-2271); a date is a
+// moment by rule 2. The result is a copy: Compare leaves its input as it is.
 func pyValue(v any) any {
 	switch x := v.(type) {
 	case time.Time:
@@ -173,21 +171,21 @@ func emptyIfNull(v any) any {
 }
 
 // emptyFor is emptyIfNull for keys of an object that pyValue has copied. An
-// empty object stays {}: upstream writes it for a missing place or session.
+// empty object stays {}: upstream writes it for a missing place or session. A
+// missing key stays missing, so that it is a difference, not "".
 func emptyFor(v any, keys ...string) any {
 	m, ok := v.(map[string]any)
 	if !ok || len(m) == 0 {
 		return v
 	}
 	for _, k := range keys {
-		if m[k] == nil {
+		if e, ok := m[k]; ok && e == nil {
 			m[k] = ""
 		}
 	}
 	return m
 }
 
-// eachEmptyFor is emptyFor for each object of a list.
 func eachEmptyFor(v any, keys ...string) any {
 	list, ok := pyValue(v).([]any)
 	if !ok {

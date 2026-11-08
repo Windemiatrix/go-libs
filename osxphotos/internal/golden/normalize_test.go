@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Windemiatrix/go-libs/osxphotos/adjustmentsinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/exifinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/personinfo"
@@ -468,14 +469,18 @@ func TestNormalize(t *testing.T) {
 			wantErr: "search_info_normalized.activities: want a value (the key is missing)"},
 
 		{name: "face_info of equal names by _pk, null as \"\"", key: "face_info",
-			raw:  `[{"_pk": 10, "name": null, "uuid": "F", "asset_uuid": null, "center": [1, 2]}, {"_pk": 9, "name": "", "uuid": null, "asset_uuid": "P", "center": [1.0, 2.5]}]`,
-			want: `[{"_pk":10,"asset_uuid":"","center":[1,2],"name":"","uuid":"F"},{"_pk":9,"asset_uuid":"P","center":[1,2.5],"name":"","uuid":""}]`},
+			raw:  `[{"_pk": 5, "name": null, "uuid": "F", "asset_uuid": null, "center": [1, 2]}, {"_pk": 3, "name": "", "uuid": null, "asset_uuid": "P", "center": [1.0, 2.5]}]`,
+			want: `[{"_pk":3,"asset_uuid":"P","center":[1,2.5],"name":"","uuid":""},{"_pk":5,"asset_uuid":"","center":[1,2],"name":"","uuid":"F"}]`},
 		{name: "face_info empty", key: "face_info", raw: `[]`, want: `[]`},
 		{name: "face_info null", key: "face_info", raw: `null`, wantErr: "face_info: want a list of objects"},
 		{name: "face_info of numbers", key: "face_info", raw: `[424242]`, wantErr: "face_info: want a list of objects"},
 		{name: "rating", key: "rating", raw: `0`, want: `0`},
 		{name: "rating as a float", key: "rating", raw: `0.0`, wantErr: "rating: want an integer"},
 		{name: "adjustments of a photo without the file", key: "adjustments", raw: `{}`, want: `{}`},
+		{name: "adjustments timestamp is a moment", key: "adjustments", raw: `{"editor": "E", "timestamp": "2020-06-06T19:45:24.725564+05:30"}`,
+			want: `{"editor":"E","timestamp":"2020-06-06T14:15:24.725564Z"}`},
+		{name: "adjustments timestamp that is not a date", key: "original_adjustments", raw: `{"timestamp": "SECRET-DATE"}`,
+			wantErr: "original_adjustments.timestamp: want an ISO 8601 string"},
 		{name: "original_adjustments null", key: "original_adjustments", raw: `null`, wantErr: "original_adjustments: want an object"},
 		{name: "original_adjustments list", key: "original_adjustments", raw: `[]`, wantErr: "original_adjustments: want an object"},
 		{name: "path_derivatives in the order of the reference", key: "path_derivatives", raw: `["b", "a"]`, want: `["b","a"]`},
@@ -608,6 +613,25 @@ func TestNormalizeGoSide(t *testing.T) {
 			if got := goCanon(t, c.key, c.v); got != c.want {
 				t.Errorf("%s of %v: %s, want %s", c.key, c.v, got, c.want)
 			}
+		}
+	})
+	t.Run("the timestamp of adjustments is one moment on both sides", func(t *testing.T) {
+		t.Parallel()
+		ref, err := refCanon("adjustments", `{"adjustment_format_version": null, "adjustments": [], "base_version": null, "data": null, `+
+			`"editor": null, "format_id": null, "format_version": null, "metadata": null, "orientation": null, `+
+			`"timestamp": "2020-06-06T19:45:24.725564+05:30", "version_info": null}`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := goCanon(t, "adjustments", adjustmentsinfo.AdjustmentsInfo{Timestamp: &when}.AsDict()); got != ref {
+			t.Errorf("Go %s, reference %s", got, ref)
+		}
+	})
+	t.Run("a key missing from an object is not null", func(t *testing.T) {
+		t.Parallel()
+		missing := goCanon(t, "face_info", []any{map[string]any{"_pk": 1}})
+		if null := goCanon(t, "face_info", []any{map[string]any{"_pk": 1, "name": nil}}); missing == null {
+			t.Errorf("a face without name and one with a null name are both %s", missing)
 		}
 	})
 	t.Run("the list of the Go side is not sorted", func(t *testing.T) {
