@@ -22,11 +22,17 @@ import (
 // 1970-01-01T00:00:00+00:00; photo.score.X, photo.exif_info.X and
 // photo.place.X give the scalars of those objects. place.X, photo.place.X
 // whatever X is, and exif.X give no value for a photo without a place or EXIF
-// data, as upstream None (957-966, 1358-1359, 1779-1780). A name the port does not give yet, such as searchinfo.X, label,
-// label_normalized or photo.labels, gives false, and so does photo.X of an
-// object, a method or a property upstream does not have, where upstream
-// renders str() of the object or fails (1360-1363, 1377-1382). The Photo is
-// valid as long as db is; the caller may change the values it gives.
+// data, as upstream None (957-966, 1358-1359, 1779-1780). photo.X followed by
+// more names gives no value when X has no value, whatever follows (1358-1359,
+// 1365-1366): upstream has None there, which the port holds as "" or nil; an
+// empty string upstream would fail there instead. photo.X.Y of a property
+// with a value, such as photo.date.year, is false, where upstream renders
+// str() of the attribute or fails (1360-1363, 1369-1382). A name the port
+// does not give yet, such as searchinfo.X, label, label_normalized or
+// photo.labels, gives false, and so does photo.X of an object, a method or a
+// property upstream does not have, where upstream renders str() of the
+// object or fails (1360-1363, 1377-1382). The Photo is valid as long as db
+// is; the caller may change the values it gives.
 func (db *DB) Fields(p *photoinfo.PhotoInfo) template.Photo { return photoFields{db, p} }
 
 // RenderTemplate renders t for p with one Renderer of the library, as
@@ -141,9 +147,6 @@ func (f photoFields) Field(name string) (template.Value, bool) {
 
 // {photo.X}: phototemplate.py:1346-1382.
 func photoProperty(db *DB, p *photoinfo.PhotoInfo, name string) (template.Value, bool) {
-	if object, property, ok := strings.Cut(name, "."); ok {
-		return nestedProperty(p, object, property)
-	}
 	flags := map[string]bool{
 		"burst": p.Burst, "burst_default_pick": p.BurstDefaultPick, "burst_key": p.BurstKey, "burst_selected": p.BurstSelected,
 		"external_edit": p.ExternalEdit, "favorite": p.Favorite, "has_raw": p.HasRAW, "hasadjustments": p.HasAdjustments,
@@ -175,6 +178,13 @@ func photoProperty(db *DB, p *photoinfo.PhotoInfo, name string) (template.Value,
 		"date": isoformat(p.Date), "date_original": isoformat(p.DateOriginal), "date_modified": formatOrNone(p.DateModified, isoformat),
 		// DEFAULT_DATETIME_LOCAL for a date_added the database does not have (photosdb/photosdb.py:2317, photos_datetime.py:77-78)
 		"date_added": isoformat(*cmp.Or(p.DateAdded, &epoch)), "date_trashed": formatOrNone(p.DateTrashed, isoformat),
+	}
+	if object, property, ok := strings.Cut(name, "."); ok {
+		// None stops the chain of getattr, whatever follows (1358-1359); the port holds it as "" or, for the flag incloud, nil.
+		if s, held := scalars[object]; (held && s == "") || (object == "incloud" && p.InCloud == nil) {
+			return template.Value{}, true
+		}
+		return nestedProperty(p, object, property)
 	}
 	if s, ok := scalars[name]; ok {
 		return singleValue(s), true
