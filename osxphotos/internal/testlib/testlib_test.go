@@ -1,6 +1,7 @@
 package testlib
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -14,6 +15,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"testing/fstest"
 )
 
 type libCase struct {
@@ -232,6 +234,141 @@ func TestMigrations(t *testing.T) {
 }
 
 func dbFile(lib string) string { return filepath.Join(lib, "database", "Photos.sqlite") }
+
+// The sizes are those of the files of the upstream tag; a -wal that is empty
+// there is not kept, and the library of macOS 27 has leo.sqlite instead of
+// psi.sqlite.
+var searchFiles = map[string]map[string]int64{
+	"Test-13.0.0":       {"search/psi.sqlite": 155648, "search/psi.sqlite-wal": 510912},
+	"Test-14.0.0":       {"search/psi.sqlite": 155648, "search/psi.sqlite-wal": 510912},
+	"Test-15.4.1":       {"search/psi.sqlite": 155648, "search/psi.sqlite-wal": 510912},
+	"Test-14.6.0":       {"search/psi.sqlite": 253952},
+	"Test-16.0.0-beta":  {"search/psi.sqlite": 118784},
+	"Test-26.1":         {"search/psi.sqlite": 4096, "search/psi.sqlite-wal": 111272},
+	"Test-27.0_DevBeta": {"search/leo.sqlite": 61440, "search/leo.sqlite-wal": 280192},
+	"Test-Cloud-13.1":   {"search/psi.sqlite": 311296},
+	"synthetic":         nil,
+}
+
+func TestCopyLibrarySearch(t *testing.T) {
+	src := RepoDir(t, "libraries")
+	if got, want := Libraries(t), slices.Sorted(maps.Keys(searchFiles)); !slices.Equal(got, want) {
+		t.Fatalf("libraries %q, want %q (an entry of searchFiles for every library)", got, want)
+	}
+	for name, want := range searchFiles {
+		t.Run(name, func(t *testing.T) {
+			database := filepath.Join(OpenPristine(t, name), "database")
+			for _, file := range libraryFiles {
+				if !strings.HasPrefix(file, "search/") {
+					continue
+				}
+				got, err := os.ReadFile(filepath.Join(database, file))
+				size, kept := want[file]
+				switch {
+				case !kept && err == nil:
+					t.Errorf("%s is copied, but the library has none", file)
+				case !kept && !errors.Is(err, fs.ErrNotExist):
+					t.Errorf("%s: %v", file, err)
+				case kept && err != nil:
+					t.Errorf("%s is not copied: %v", file, err)
+				case kept:
+					orig, err := os.ReadFile(filepath.Join(src, name, "database", file))
+					if err != nil {
+						t.Fatal(err)
+					}
+					if int64(len(got)) != size || !bytes.Equal(got, orig) {
+						t.Errorf("%s: %d bytes, want the %d bytes of the library", file, len(got), size)
+					}
+				}
+			}
+			if _, err := os.Stat(filepath.Join(database, "search")); len(want) == 0 && err == nil {
+				t.Error("search/ is created for a library without a search database")
+			}
+		})
+	}
+}
+
+func TestLibraryLayout(t *testing.T) {
+	dir := RepoDir(t, "libraries")
+	for _, name := range Libraries(t) {
+		for _, err := range checkDatabaseDir(os.DirFS(filepath.Join(dir, name, "database"))) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+}
+
+func TestCheckDatabaseDir(t *testing.T) {
+	t.Parallel()
+	valid := func() fstest.MapFS {
+		return fstest.MapFS{
+			"Photos.sqlite":         file("x"),
+			"Photos.sqlite-wal":     file("x"),
+			"search/psi.sqlite":     file("x"),
+			"search/psi.sqlite-wal": file("x"),
+			"search/leo.sqlite":     file("x"),
+			"search/leo.sqlite-wal": file("x"),
+		}
+	}
+	if errs := checkDatabaseDir(valid()); len(errs) != 0 {
+		t.Errorf("checkDatabaseDir of a valid tree = %v, want no errors", errs)
+	}
+	cases := []struct {
+		name   string
+		mutate func(m fstest.MapFS)
+		want   string
+	}{
+		{"shm of the database", func(m fstest.MapFS) { m["Photos.sqlite-shm"] = file("x") }, "Photos.sqlite-shm"},
+		{"shm of a search database", func(m fstest.MapFS) { m["search/psi.sqlite-shm"] = file("x") }, "search/psi.sqlite-shm"},
+		{"other file in search", func(m fstest.MapFS) { m["search/other.sqlite"] = file("x") }, "search/other.sqlite"},
+		{"search database beside Photos.sqlite", func(m fstest.MapFS) { m["psi.sqlite"] = file("x") }, "psi.sqlite"},
+		{"directory in search", func(m fstest.MapFS) { m["search/sub/psi.sqlite"] = file("x") }, "search/sub"},
+		{"other directory", func(m fstest.MapFS) { m["other/psi.sqlite"] = file("x") }, "other"},
+		{"symbolic link in search", func(m fstest.MapFS) {
+			m["search/leo.sqlite"] = &fstest.MapFile{Data: []byte("/etc/passwd"), Mode: fs.ModeSymlink}
+		}, "search/leo.sqlite"},
+		{"search is a file", func(m fstest.MapFS) {
+			delete(m, "search/psi.sqlite")
+			delete(m, "search/psi.sqlite-wal")
+			delete(m, "search/leo.sqlite")
+			delete(m, "search/leo.sqlite-wal")
+			m["search"] = file("x")
+		}, "search"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			m := valid()
+			c.mutate(m)
+			errs := checkDatabaseDir(m)
+			if len(errs) != 1 || !strings.HasPrefix(errs[0].Error(), c.want+": ") {
+				t.Errorf("checkDatabaseDir = %v, want exactly one error about %q", errs, c.want)
+			}
+		})
+	}
+}
+
+// Only the files of libraryFiles are kept in a library: a copy of a real
+// library or a -shm must not slip into testdata.
+func checkDatabaseDir(fsys fs.FS) []error {
+	var errs []error
+	err := fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
+		switch {
+		case err != nil:
+			return err
+		case p == "." || (p == "search" && d.IsDir()):
+		case !d.Type().IsRegular() || !slices.Contains(libraryFiles, p):
+			errs = append(errs, fmt.Errorf("%s: unexpected entry; a library keeps only %s", p, strings.Join(libraryFiles, ", ")))
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		errs = append(errs, err)
+	}
+	return errs
+}
 
 func TestSynthetic(t *testing.T) {
 	t.Parallel()

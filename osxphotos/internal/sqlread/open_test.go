@@ -286,6 +286,10 @@ func TestSourceUnchanged(t *testing.T) {
 	lib := testlib.OpenPristine(t, "Test-Cloud-13.1")
 	dir := filepath.Join(lib, "database")
 	src := filepath.Join(dir, "Photos.sqlite")
+	// The search database is another file Open never touches; the test is about the files of Photos.sqlite.
+	if err := os.RemoveAll(filepath.Join(dir, "search")); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(src+"-shm", nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
