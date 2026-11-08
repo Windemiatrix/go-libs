@@ -14,9 +14,9 @@ var (
 	// without PhotoKit; photokit exports it.
 	ErrNotSupported = errors.New("photokit: not supported on this platform")
 	// ErrNoResource is returned by RequestResource when the asset has no
-	// resource of the type and by RequestImage when there is no such asset,
-	// and delivered by Done of RequestImage when PhotoKit gives no data;
-	// photokit exports it.
+	// resource of the type and by RequestImage and RequestVideo when there is
+	// no such asset, and delivered by Done of RequestImage when PhotoKit gives
+	// no data; photokit exports it.
 	ErrNoResource = errors.New("photokit: the asset has no resource of that type")
 	// ErrCanceled is delivered by Done after Cancel, whatever PhotoKit reports
 	// then.
@@ -36,8 +36,9 @@ var (
 // PHAuthorizationStatus value for read-write access. No fetch finds a hidden
 // asset: upstream fetches with the default PHFetchOptions
 // (photokit.py:1234-1237, 1281-1285). Every identifier and title given to a
-// method other than a fetch, a resource or an image one is UTF-8 without
-// NUL, which photokit checks: the bridge checks only the state of PhotoKit.
+// method other than a fetch, a resource, an image or a video one is UTF-8
+// without NUL, which photokit checks: the bridge checks only the state of
+// PhotoKit.
 type Bridge interface {
 	AuthorizationStatus() (int, error)
 	// RequestAuthorization blocks up to timeout, then returns
@@ -61,6 +62,13 @@ type Bridge interface {
 	// downloads. Done delivers ErrNoResource when PhotoKit gives no data
 	// (photokit.py:591-592).
 	RequestImage(id string, version int, sink ImageSink) (Request, error)
+	// RequestVideo starts requestAVAssetForVideo for the asset id with
+	// version, a PHVideoRequestOptionsVersion, networkAccessAllowed and
+	// HighQualityFormat; no such asset is ErrNoResource. path gets the file of
+	// an AVURLAsset of a file URL once, on a queue of PhotoKit before Done; it
+	// is not called for an AVAsset without a file, such as an AVComposition.
+	// Cancel is cancelImageRequest:.
+	RequestVideo(id string, version int, path func(string)) (Request, error)
 	// Import runs one performChanges that creates the asset of r and adds it to
 	// its albums, and blocks until the completion handler, or up to timeout,
 	// then returns context.DeadlineExceeded while the change goes on; so does an
@@ -154,12 +162,13 @@ type ImageRecord struct {
 	Metadata    []byte
 }
 
-// Request is a running RequestResource or RequestImage. Done delivers at most
-// once, without waiting for a receiver: nil, a *PhotoKitError, ErrNoResource
-// of an image without data, the error of an Objective-C exception in the
-// handler of an image, or ErrCanceled after Cancel, since PhotoKit calls the
-// completion handler after a cancel too, unless a stalled iCloud download
-// holds it back. A second Cancel does nothing.
+// Request is a running RequestResource, RequestImage or RequestVideo. Done
+// delivers at most once, without waiting for a receiver: nil, a
+// *PhotoKitError, ErrNoResource of an image without data, the error of an
+// Objective-C exception in the handler of an image or a video, or ErrCanceled
+// after Cancel, since PhotoKit calls the completion handler after a cancel
+// too, unless a stalled iCloud download holds it back. A second Cancel does
+// nothing.
 type Request interface {
 	Cancel()
 	Done() <-chan error

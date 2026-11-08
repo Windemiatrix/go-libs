@@ -45,7 +45,7 @@ var (
 // (upstream 300 s, 196-218). No such asset is ErrNotFound; no resource of the
 // kind, ErrNoResource; a failure of PhotoKit, ErrExport.
 func (l *Library) Export(ctx context.Context, uuid string, kind ResourceType, dir, name string, o ExportOptions) error {
-	return writeExport(ctx, dir, name, o, func() error {
+	return writeExport(dir, name, o, func() error {
 		res, err := l.Resources(ctx, uuid)
 		if err != nil {
 			return err
@@ -54,12 +54,14 @@ func (l *Library) Export(ctx context.Context, uuid string, kind ResourceType, di
 			return fmt.Errorf("%w: %d", ErrNoResource, kind)
 		}
 		return nil
-	}, func(s *fileSink) (bridge.Request, error) { return l.b.RequestResource(uuid, int(kind), s) })
+	}, func(s *fileSink) error {
+		return awaitRequest(ctx, s, func() (bridge.Request, error) { return l.b.RequestResource(uuid, int(kind), s) })
+	})
 }
 
 // One copy of the rules of the file for every export; check runs before the
 // file exists, so that a missing asset leaves dir as it was.
-func writeExport(ctx context.Context, dir, name string, o ExportOptions, check func() error, start func(*fileSink) (bridge.Request, error)) (err error) {
+func writeExport(dir, name string, o ExportOptions, check func() error, write func(*fileSink) error) (err error) {
 	// Upstream writes into dest itself, by the stem of filename (photokit.py:557-561, 596).
 	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\x00") {
 		return ErrInvalidName
@@ -83,7 +85,7 @@ func writeExport(ctx context.Context, dir, name string, o ExportOptions, check f
 		return err
 	}
 	s := &fileSink{f: f, progress: o.Progress, failed: make(chan struct{})}
-	if err = s.finish(awaitRequest(ctx, s, start)); err == nil && o.Overwrite {
+	if err = s.finish(write(s)); err == nil && o.Overwrite {
 		err = root.Rename(name, target)
 	}
 	if err != nil {
@@ -92,8 +94,8 @@ func writeExport(ctx context.Context, dir, name string, o ExportOptions, check f
 	return nil
 }
 
-func awaitRequest(ctx context.Context, s *fileSink, start func(*fileSink) (bridge.Request, error)) error {
-	req, err := start(s)
+func awaitRequest(ctx context.Context, s *fileSink, start func() (bridge.Request, error)) error {
+	req, err := start()
 	if err != nil {
 		return err
 	}

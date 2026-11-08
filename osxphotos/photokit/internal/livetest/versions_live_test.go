@@ -263,6 +263,162 @@ func TestLiveVersions(t *testing.T) {
 	})
 }
 
+// A video without edits has one file, which every version gives; the Current
+// version of a slow-motion video is an AVComposition without a file
+// (photokit.py:876-884), ErrNoResource until ExportSlowMo exists.
+func TestLiveVideoVersions(t *testing.T) {
+	lib := openLibrary(t)
+	visible := visibleMarkerPhotos(t)
+	videos := filter(visible, func(p *photoinfo.PhotoInfo) bool { return p.IsMovie })
+	if len(videos) == 0 {
+		skipNone(t, "video")
+	}
+	x := &exporter{lib: lib, dir: t.TempDir(), taken: map[string]bool{}, exported: map[string]*photoinfo.PhotoInfo{}}
+
+	t.Run("video current equals original", func(t *testing.T) {
+		plain := filter(videos, func(p *photoinfo.PhotoInfo) bool {
+			return !p.HasAdjustments && !p.SlowMo && p.Path != "" && !p.IsMissing
+		})
+		if len(plain) == 0 {
+			skipNone(t, "video without edits with its original on disk")
+		}
+		exported, differ := 0, 0
+		for _, p := range plain {
+			for _, v := range []photokit.Version{photokit.VersionCurrent, photokit.VersionUnadjusted, photokit.VersionOriginal} {
+				path, err := x.exportVideo(t, p, v)
+				if err != nil {
+					t.Errorf("ExportVideo of version %d: %s", v, exportFailure(err))
+					continue
+				}
+				exported++
+				if sum(t, path) != sum(t, p.Path) {
+					differ++
+				}
+			}
+		}
+		t.Logf("of %d videos without edits on disk, %d versions exported", len(plain), exported)
+		if differ > 0 {
+			t.Errorf("%d of %d exported versions of videos without edits differ from their file in the library", differ, exported)
+		}
+	})
+
+	// The Current version of an edited video may be an AVComposition without a
+	// file, as that of a slow-motion video is (photokit.py:876-884): only counted.
+	t.Run("current of an edited video", func(t *testing.T) {
+		edited := filter(videos, func(p *photoinfo.PhotoInfo) bool {
+			return p.HasAdjustments && !p.SlowMo && p.Path != "" && !p.IsMissing
+		})
+		if len(edited) == 0 {
+			skipNone(t, "edited video with its original on disk")
+		}
+		exported, notFile, noFile, same, plainOriginal := 0, 0, 0, 0, 0
+		for _, p := range edited {
+			originalPath, err := x.exportVideo(t, p, photokit.VersionOriginal)
+			if err != nil {
+				t.Errorf("ExportVideo of the Original version of an edited video: %s", exportFailure(err))
+				continue
+			}
+			exported++
+			original := sum(t, originalPath)
+			if original != sum(t, p.Path) {
+				notFile++
+			}
+			if plainPath, err := x.exportVideo(t, p, photokit.VersionUnadjusted); err != nil {
+				t.Errorf("ExportVideo of the Unadjusted version of an edited video: %s", exportFailure(err))
+			} else if sum(t, plainPath) == original {
+				plainOriginal++
+			}
+			currentPath, err := x.exportVideo(t, p, photokit.VersionCurrent)
+			switch {
+			case errors.Is(err, photokit.ErrNoResource):
+				noFile++
+			case err != nil:
+				t.Errorf("ExportVideo of the Current version of an edited video: %s, want nil or ErrNoResource", exportFailure(err))
+			case sum(t, currentPath) == original:
+				same++
+			}
+		}
+		t.Logf("of %d edited videos on disk, %d exported in the Original version, %d with an Unadjusted version equal to the Original, %d whose Current version has no file", len(edited), exported, plainOriginal, noFile)
+		if notFile > 0 || same > 0 {
+			t.Errorf("of %d edited videos exported in the Original version, %d differ from their file in the library, %d with a Current version equal to the Original", exported, notFile, same)
+		}
+	})
+
+	// Only a smoke check, as "deadline" of TestLiveVersions: Fetch may end the
+	// shortest deadlines first.
+	t.Run("video deadline", func(t *testing.T) {
+		p := slices.MaxFunc(videos, func(a, b *photoinfo.PhotoInfo) int { return cmp.Compare(a.OriginalFilesize, b.OriginalFilesize) })
+		deadlines := []time.Duration{time.Millisecond, 2 * time.Millisecond, 5 * time.Millisecond, 10 * time.Millisecond, 20 * time.Millisecond}
+		ended := 0
+		for _, d := range deadlines {
+			dir := t.TempDir()
+			ctx, cancel := context.WithTimeout(t.Context(), d)
+			err := lib.ExportVideo(ctx, p.UUID, photokit.VersionOriginal, dir, "IMG_0001.MOV", photokit.ExportOptions{})
+			cancel()
+			switch {
+			case err == nil:
+				if n := size(t, filepath.Join(dir, "IMG_0001.MOV")); p.OriginalFilesize > 0 && n != p.OriginalFilesize {
+					t.Errorf("the video export within %v is not of the size of the original", d)
+				}
+			case errors.Is(err, context.DeadlineExceeded):
+				ended++
+				emptyDir(t, dir)
+			default:
+				t.Errorf("ExportVideo with a deadline of %v: %s, want nil or DeadlineExceeded", d, exportFailure(err))
+			}
+		}
+		t.Logf("%d of %d video exports of the largest original ended at their deadline", ended, len(deadlines))
+	})
+
+	t.Run("slow motion", func(t *testing.T) {
+		slow := filter(videos, func(p *photoinfo.PhotoInfo) bool { return p.SlowMo })
+		if len(slow) == 0 {
+			skipNone(t, "slow-motion video")
+		}
+		noFile, exported := 0, 0
+		for _, p := range slow {
+			ctx, cancel := context.WithTimeout(t.Context(), exportTimeout)
+			err := lib.ExportVideo(ctx, p.UUID, photokit.VersionCurrent, t.TempDir(), "IMG_0001.MOV", photokit.ExportOptions{})
+			cancel()
+			switch {
+			case err == nil:
+				exported++
+			case errors.Is(err, photokit.ErrNoResource):
+				noFile++
+			default:
+				t.Errorf("ExportVideo of the Current version of a slow-motion video: %s, want nil or ErrNoResource", exportFailure(err))
+			}
+		}
+		t.Logf("of %d slow-motion videos, the Current version of %d is ErrNoResource and of %d exported", len(slow), noFile, exported)
+	})
+
+	t.Run("video errors", func(t *testing.T) {
+		dir, o := t.TempDir(), photokit.ExportOptions{}
+		const none = "00000000-0000-0000-0000-000000000000"
+		if err := lib.ExportVideo(t.Context(), none, photokit.VersionOriginal, dir, "IMG_0001.MOV", o); !errors.Is(err, photokit.ErrNotFound) {
+			t.Errorf("ExportVideo of an unknown UUID: %s, want ErrNotFound", exportFailure(err))
+		}
+		if err := lib.ExportVideo(t.Context(), videos[0].UUID, photokit.VersionOriginal, dir, "../x", o); !errors.Is(err, photokit.ErrInvalidName) {
+			t.Errorf("ExportVideo to ../x: %s, want ErrInvalidName", exportFailure(err))
+		}
+		if photos := filter(visible, func(p *photoinfo.PhotoInfo) bool { return p.IsPhoto }); len(photos) > 0 {
+			if err := lib.ExportVideo(t.Context(), photos[0].UUID, photokit.VersionOriginal, dir, "IMG_0001.MOV", o); !errors.Is(err, photokit.ErrMediaType) {
+				t.Errorf("ExportVideo of a photo: %s, want ErrMediaType", exportFailure(err))
+			}
+		}
+		emptyDir(t, dir)
+	})
+}
+
+// The error goes to the caller, which prints it by its class only, as export
+// does: the Current version of a video may have no file.
+func (x *exporter) exportVideo(t *testing.T, p *photoinfo.PhotoInfo, v photokit.Version) (string, error) {
+	ctx, cancel := context.WithTimeout(t.Context(), exportTimeout)
+	defer cancel()
+	name := x.name(p.OriginalFilename)
+	return filepath.Join(x.dir, name), x.lib.ExportVideo(ctx, p.UUID, v, x.dir, name, photokit.ExportOptions{})
+}
+
 // The error is printed by its class only, as by export.
 func (x *exporter) exportImage(t *testing.T, p *photoinfo.PhotoInfo, v photokit.Version) (string, photokit.ImageInfo, bool) {
 	t.Helper()

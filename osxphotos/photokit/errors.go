@@ -50,20 +50,23 @@ var (
 	ErrNotFound = errors.New("photokit: not found")
 	// ErrMediaType is wrapped, with the number PhotoKit gave, when a fetched
 	// asset is neither an image, a video nor a Live Photo
-	// (PhotoKitMediaTypeError, photokit.py:1309-1319), and by ExportImage for
-	// an asset that is not a photo.
+	// (PhotoKitMediaTypeError, photokit.py:1309-1319), by ExportImage for an
+	// asset that is not a photo and by ExportVideo for one that is not a video.
 	ErrMediaType = errors.New("photokit: unknown media type")
-	// ErrInvalidName is returned by Export and ExportImage when the name is not
-	// one element of a path: empty, ".", "..", or with "/" or NUL in it.
+	// ErrInvalidName is returned by Export, ExportImage and ExportVideo when the
+	// name is not one element of a path: empty, ".", "..", or with "/" or NUL
+	// in it.
 	ErrInvalidName = errors.New("photokit: the name is not one path element")
 	// ErrInvalidVersion is wrapped, with the number, by the error of
-	// ExportImage for a Version other than the three constants (ValueError,
-	// photokit.py:644-649).
+	// ExportImage and ExportVideo for a Version other than the three constants
+	// (ValueError, photokit.py:644-649, 980-985).
 	ErrInvalidVersion = errors.New("photokit: invalid version")
 	// ErrNoResource is wrapped by the error of Export when the asset has no
 	// resource of the type (PhotoKitExportError, photokit.py:583-586), and by
 	// that of ExportImage when PhotoKit no longer finds the asset or gives no
-	// data (photokit.py:591-592).
+	// data (photokit.py:591-592), and by that of ExportVideo when PhotoKit no
+	// longer finds the asset or gives no file, or one that does not exist or is
+	// not a regular file (898-899, 904-905).
 	ErrNoResource = bridge.ErrNoResource
 	// ErrExport is wrapped, with the domain and code of the NSError, when
 	// PhotoKit fails an export or a request of a version (PhotoKitExportError,

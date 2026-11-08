@@ -149,21 +149,27 @@ func TestCollectionChangesNone(t *testing.T) {
 func TestRequestHandlers(t *testing.T) {
 	const h = 1 << 40
 	s := &recordingSink{}
-	r := &cgoRequest{sink: s, done: make(chan error, 1)}
+	paths := 0
+	r := &cgoRequest{sink: s, path: func(string) { paths++ }, done: make(chan error, 1)}
 	requests.Store(uintptr(h), r)
 	pk_go_write(h, nil, 0)
 	pk_go_progress(h, 0.5)
+	pk_go_video(h, nil)
 	pk_go_done(h, 0, nil)
 	if !bool(pk_go_progress(h, 1)) {
 		t.Error("pk_go_progress of an ended request does not ask to stop")
 	}
 	pk_go_write(h, nil, 0)
 	pk_go_image(h, nil, 0, nil)
+	pk_go_video(h, nil)
 	if err := <-r.done; err != nil {
 		t.Errorf("Done = %v, want nil", err)
 	}
 	if s.writes != 0 || s.progress != 1 {
 		t.Errorf("sink got %d writes and %d progress values, want 0 and 1", s.writes, s.progress)
+	}
+	if paths != 0 {
+		t.Errorf("path called %d times for a NULL path and after the completion, want 0", paths)
 	}
 	defer func() {
 		if recover() == nil {
@@ -240,8 +246,11 @@ func TestRequestsNoAsset(t *testing.T) {
 	if r, err := New().RequestResource("\xff", 1, nil); r != nil || !errors.Is(err, ErrNoResource) {
 		t.Errorf("RequestResource of an id not UTF-8 = %v, %v; want ErrNoResource", r, err)
 	}
+	if r, err := New().RequestVideo("\xff", 1, nil); r != nil || !errors.Is(err, ErrNoResource) {
+		t.Errorf("RequestVideo of an id not UTF-8 = %v, %v; want ErrNoResource", r, err)
+	}
 	if after := known(); after != before {
-		t.Errorf("%d requests known after two that did not start, want %d", after, before)
+		t.Errorf("%d requests known after three that did not start, want %d", after, before)
 	}
 }
 

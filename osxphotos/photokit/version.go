@@ -2,7 +2,11 @@ package photokit
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
+	"os"
 
 	"howett.net/plist"
 
@@ -59,27 +63,107 @@ type ImageInfo struct {
 // is the zero value.
 func (l *Library) ExportImage(ctx context.Context, uuid string, v Version, dir, name string, o ExportOptions) (ImageInfo, error) {
 	s := &imageSink{}
-	err := writeExport(ctx, dir, name, o, func() error {
-		assets, err := l.Fetch(ctx, []string{uuid})
-		if err != nil {
-			return err
-		}
-		if a := assets[0]; !a.IsPhoto {
-			return fmt.Errorf("%w: %d", ErrMediaType, a.MediaType)
-		}
-		if v < VersionCurrent || v > VersionOriginal {
-			return fmt.Errorf("%w: %d", ErrInvalidVersion, v)
-		}
-		return nil
-	}, func(f *fileSink) (bridge.Request, error) {
+	err := writeExport(dir, name, o, func() error { return l.checkVersion(ctx, uuid, MediaTypeImage, v) }, func(f *fileSink) error {
 		s.fileSink = f
-		return l.b.RequestImage(uuid, int(v), s)
+		return awaitRequest(ctx, f, func() (bridge.Request, error) { return l.b.RequestImage(uuid, int(v), s) })
 	})
 	if err != nil {
 		return ImageInfo{}, err
 	}
 	r := s.record
 	return ImageInfo{UTI: r.UTI, Orientation: r.Orientation, Degraded: r.Degraded, Path: r.Path, Metadata: metadata(r.Metadata)}, nil
+}
+
+// ExportVideo writes the file of version v of the video uuid into the file
+// name of dir, as Export does (name, dir, o.Overwrite, the mode 0600, the
+// removal on an error are those of Export): VideoAsset.export without its
+// slow-motion branch (photokit.py:851-914). requestAVAssetForVideo, with
+// networkAccessAllowed and HighQualityFormat (987-992), gives the URL of a file
+// PhotoKit holds, which is read, never changed, and copied (912).
+// VersionUnadjusted asks for the original: PHVideoRequestOptionsVersion has
+// Current and Original only. A video whose request gives no file, such as a
+// slow-motion video of VersionCurrent (an AVComposition, which upstream exports
+// through AVAssetExportSession, 876-884), or one that does not exist or is not
+// a regular file (904-905) is ErrNoResource; a file that cannot be opened is
+// another error, as FileUtil.copy raises (912). No error names the file. An
+// asset that is not a video is ErrMediaType; a v other than the three
+// constants ErrInvalidVersion (980-985); no such asset ErrNotFound; a failure
+// of PhotoKit ErrExport with its domain and code. When ctx is done the request
+// is canceled and ExportVideo returns ctx.Err() once PhotoKit ends it, 30 s
+// later at most, or, during the copy, before its next MiB. o.Progress is not
+// called. Upstream names the file by the extension of the file of PhotoKit
+// (906-907); here the caller does, with export.Names and export.EditedName,
+// whose suffix is that of the render (PathEdited).
+func (l *Library) ExportVideo(ctx context.Context, uuid string, v Version, dir, name string, o ExportOptions) error {
+	var path string
+	return writeExport(dir, name, o, func() error { return l.checkVersion(ctx, uuid, MediaTypeVideo, v) }, func(s *fileSink) error {
+		// PHVideoRequestOptionsVersion has Current (0) and Original (1) only;
+		// upstream passes the image constants as they are (photokit.py:989): its
+		// Unadjusted (1) is Original, and its Original (2) is no value of the enum,
+		// so it is sent as Original.
+		version := 1
+		if v == VersionCurrent {
+			version = 0
+		}
+		err := awaitRequest(ctx, s, func() (bridge.Request, error) {
+			return l.b.RequestVideo(uuid, version, func(p string) { path = p })
+		})
+		if err != nil {
+			return err
+		}
+		return copyVideo(ctx, path, s)
+	})
+}
+
+// Upstream checks the version when it requests (photokit.py:644-649, 980-985),
+// after the class of the asset (1309-1319).
+func (l *Library) checkVersion(ctx context.Context, uuid string, t MediaType, v Version) error {
+	assets, err := l.Fetch(ctx, []string{uuid})
+	if err != nil {
+		return err
+	}
+	if a := assets[0]; a.MediaType != t {
+		return fmt.Errorf("%w: %d", ErrMediaType, a.MediaType)
+	}
+	if v < VersionCurrent || v > VersionOriginal {
+		return fmt.Errorf("%w: %d", ErrInvalidVersion, v)
+	}
+	return nil
+}
+
+// Upstream checks is_file() (photokit.py:904-905) and lets the copy raise
+// (912). The errors of os name the path, which is inside the library, so only
+// their cause is kept. A video may take long to copy, so ctx is checked
+// between chunks.
+func copyVideo(ctx context.Context, path string, s *fileSink) error {
+	fi, err := os.Stat(path)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return fmt.Errorf("%w: %w", ErrNoResource, errors.Unwrap(err))
+	case err == nil && !fi.Mode().IsRegular():
+		return ErrNoResource
+	}
+	f, err := os.Open(path) //nolint:gosec // G304: the file of the AVURLAsset that PhotoKit gave, opened only to be read
+	if err != nil {
+		return fmt.Errorf("photokit: cannot open the file of the video: %w", errors.Unwrap(err))
+	}
+	defer f.Close() //nolint:errcheck // opened only to be read
+	buf := make([]byte, 1<<20)
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		n, err := f.Read(buf)
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("photokit: cannot read the file of the video: %w", errors.Unwrap(err))
+		}
+		if err := s.Write(buf[:n]); err != nil {
+			return err
+		}
+	}
 }
 
 // Upstream keeps the dictionary itself (photokit.py:669-673); here it crosses

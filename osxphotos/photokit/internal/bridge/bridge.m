@@ -1,5 +1,6 @@
 //go:build darwin && cgo
 
+#import <AVFoundation/AVFoundation.h>
 #import <Foundation/Foundation.h>
 #import <ImageIO/ImageIO.h>
 #import <Photos/Photos.h>
@@ -44,6 +45,9 @@ _Static_assert(PHAssetResourceTypeAdjustmentBaseVideo == 12, "PHAssetResourceTyp
 _Static_assert(PHImageRequestOptionsVersionCurrent == 0, "PHImageRequestOptionsVersionCurrent");
 _Static_assert(PHImageRequestOptionsVersionUnadjusted == 1, "PHImageRequestOptionsVersionUnadjusted");
 _Static_assert(PHImageRequestOptionsVersionOriginal == 2, "PHImageRequestOptionsVersionOriginal");
+// What ExportVideo passes for a photokit.Version.
+_Static_assert(PHVideoRequestOptionsVersionCurrent == 0, "PHVideoRequestOptionsVersionCurrent");
+_Static_assert(PHVideoRequestOptionsVersionOriginal == 1, "PHVideoRequestOptionsVersionOriginal");
 _Static_assert(PHPhotosErrorUserCancelled == 3072, "PHPhotosErrorUserCancelled");
 #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 260000 // the name came with the macOS 26 SDK; the build targets macOS 13
 #pragma clang diagnostic push
@@ -401,6 +405,66 @@ pk_result pk_request_image(const char *local_id, int64_t version, uintptr_t hand
 		}
 	}
 	return r;
+}
+
+// _request_video_data (photokit.py:967-1015) waits on an event; here Go waits,
+// as for pk_request_resource. PhotoKit calls the handler on a serial queue of
+// its own, not the main queue, so unlike pk_request_image the request is
+// asynchronous and has an id for cancelImageRequest:. The handler holds only
+// handle and calls pk_go_done once; an exception must not leave it. The
+// description of an NSError is left out, as in pk_request_resource.
+pk_result pk_request_video(const char *local_id, int64_t version, uintptr_t handle, int32_t *request_id) {
+	pk_result r = {PK_NO_RESOURCE, NULL};
+	@autoreleasepool {
+		@try {
+			PHAsset *asset = pk_asset_of(local_id);
+			if (asset != nil) {
+				PHVideoRequestOptions *options = [[PHVideoRequestOptions alloc] init];
+				// A video kept only in iCloud is downloaded (photokit.py:988).
+				options.networkAccessAllowed = YES;
+				options.version = (PHVideoRequestOptionsVersion)version;
+				options.deliveryMode = PHVideoRequestOptionsDeliveryModeHighQualityFormat;
+				*request_id = [[PHImageManager defaultManager] requestAVAssetForVideo:asset
+					options:options
+					resultHandler:^(AVAsset *video, __unused AVAudioMix *mix, NSDictionary *info) {
+						@autoreleasepool {
+							int64_t code = PK_OK;
+							NSString *domain = nil;
+							@try {
+								NSError *error = info[PHImageErrorKey];
+								if (error != nil) {
+									code = error.code;
+									domain = error.domain ?: @"";
+								} else if ([video isKindOfClass:AVURLAsset.class] && ((AVURLAsset *)video).URL.isFileURL) {
+									// An AVComposition, a slow-motion video of the current version, has no file
+									// (photokit.py:876-884, 901), and a URL of another scheme names none.
+									pk_go_video(handle, (char *)((AVURLAsset *)video).URL.fileSystemRepresentation);
+								}
+							} @catch (NSException *e) {
+								code = PK_EXCEPTION;
+								domain = nil;
+							}
+							pk_go_done(handle, code, domain == nil ? NULL : (char *)(domain.UTF8String ?: ""));
+						}
+					}];
+				r.code = PK_OK;
+			}
+		} @catch (NSException *e) {
+			r = pk_exception(e);
+		}
+	}
+	return r;
+}
+
+// cancelImageRequest: of an ended request does nothing, as cancelDataRequest: in pk_cancel_resource.
+void pk_cancel_video(int32_t request_id) {
+	@autoreleasepool {
+		@try {
+			[[PHImageManager defaultManager] cancelImageRequest:request_id];
+		} @catch (NSException *e) {
+			// An exception must not unwind into Go; ExportVideo stops waiting after its grace.
+		}
+	}
 }
 
 // The change block and the handler may run after pk_perform_changes has
