@@ -53,7 +53,9 @@ var (
 	// asset is neither an image, a video nor a Live Photo
 	// (PhotoKitMediaTypeError, photokit.py:1309-1319), and by ExportImage,
 	// ExportVideo and ExportLivePhoto when the class of the asset, as
-	// _asset_factory tells it (1312-1317), does not match the method.
+	// _asset_factory tells it (1312-1317), does not match the method, and by
+	// ExportVideo when the current AVAsset of a slow-motion video is not a
+	// composition of two tracks (938-942).
 	ErrMediaType = errors.New("photokit: unknown media type")
 	// ErrInvalidName is returned by Export, ExportImage, ExportVideo and
 	// ExportLivePhoto when the name is not one element of a path: empty, ".",
@@ -68,15 +70,17 @@ var (
 	// resource of the type (PhotoKitExportError, photokit.py:583-586), and by
 	// that of ExportImage when PhotoKit no longer finds the asset or gives no
 	// data (photokit.py:591-592), and by that of ExportVideo when PhotoKit no
-	// longer finds the asset or gives no file, or one that does not exist or is
-	// not a regular file (898-899, 904-905), and by that of ExportLivePhoto for a
-	// kind other than ResourcePhoto and ResourcePairedVideo or an asset without
-	// the resource of the version (1142-1151).
+	// longer finds the asset or gives no file, other than the current version
+	// of a slow-motion video, which is rendered, or one that does not exist or
+	// is not a regular file (898-899, 904-905), and by that of ExportLivePhoto
+	// for a kind other than ResourcePhoto and ResourcePairedVideo or an asset
+	// without the resource of the version (1142-1151).
 	ErrNoResource = bridge.ErrNoResource
 	// ErrExport is wrapped, with the domain and code of the NSError, when
-	// PhotoKit fails an export or a request of a version (PhotoKitExportError,
-	// photokit.py:719-723). The description of the NSError is left out: it may
-	// name a file.
+	// PhotoKit fails an export or a request of a version, or
+	// AVAssetExportSession the render of a slow-motion video
+	// (PhotoKitExportError, photokit.py:719-723, 826-828). The description of
+	// the NSError is left out: it may name a file.
 	ErrExport = errors.New("photokit: export failed")
 	// ErrImportFile is wrapped, with the name of the field, when a path of an
 	// ImportRequest is not an absolute path of a regular file, when neither or

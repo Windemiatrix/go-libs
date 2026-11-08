@@ -7,7 +7,8 @@ package bridge
 // the CLLocation of an imported asset, which Photos declares but does not link.
 // ImageIO reads the properties of an image, as Quartz does upstream
 // (photokit.py:669-673). AVFoundation holds the AVURLAsset of a video, whose
-// URL upstream copies (photokit.py:901).
+// URL upstream copies (photokit.py:901), and the AVAssetExportSession that
+// renders a slow-motion video (photokit.py:799-806).
 
 /*
 #cgo CFLAGS: -Wall -Wextra -fobjc-arc
@@ -119,11 +120,25 @@ func (*cgoBridge) RequestImage(id string, version int, sink ImageSink) (Request,
 }
 
 func (*cgoBridge) RequestVideo(id string, version int, path func(string)) (Request, error) {
+	return requestVideo(id, version, nil, &cgoRequest{path: path})
+}
+
+func (*cgoBridge) ExportComposition(id string, version int, path string) (Request, error) {
+	cpath := C.CString(path)
+	defer C.free(unsafe.Pointer(cpath)) //nolint:gosec // G103: the C.CString buffer of this call is freed here
+	return requestVideo(id, version, cpath, &cgoRequest{})
+}
+
+// The cancel needs the handle: bridge.m keeps the session of a render by it.
+func requestVideo(id string, version int, renderPath *C.char, r *cgoRequest) (Request, error) {
 	cid := C.CString(id)
 	defer C.free(unsafe.Pointer(cid)) //nolint:gosec // G103: the C.CString buffer of this call is freed here
 	var rid C.int32_t
-	return startRequest(&cgoRequest{path: path, cancel: func() { C.pk_cancel_video(rid) }}, func(h C.uintptr_t) C.pk_result {
-		return C.pk_request_video(cid, C.int64_t(version), h, &rid)
+	var handle C.uintptr_t
+	r.cancel = func() { C.pk_cancel_video(rid, handle) }
+	return startRequest(r, func(h C.uintptr_t) C.pk_result {
+		handle = h
+		return C.pk_request_video(cid, C.int64_t(version), renderPath, h, &rid)
 	})
 }
 
@@ -396,6 +411,15 @@ func pk_go_video(h C.uintptr_t, path *C.char) {
 	}
 }
 
+// pk_go_progress cannot answer a render, which has no sink; an ended request
+// needs no render either.
+//
+//export pk_go_canceled
+func pk_go_canceled(h C.uintptr_t) C.bool {
+	r, ok := requests.Load(uintptr(h))
+	return C.bool(!ok || r.(*cgoRequest).canceled.Load())
+}
+
 //export pk_go_done
 func pk_go_done(h C.uintptr_t, code C.int64_t, domain *C.char) {
 	r, ok := requests.LoadAndDelete(uintptr(h))
@@ -424,7 +448,8 @@ func metadataBytes(p unsafe.Pointer, n int64) []byte {
 }
 
 // Without an NSError, code is one of bridge.h: an image request reports with
-// it no data or an exception in its handler, a video request an exception.
+// it no data or an exception in its handler, a video request an exception, a
+// composition another AVAsset or a session neither completed nor failed.
 func (r *cgoRequest) finish(failed bool, domain string, code int64) {
 	err := codeError(int(code), "")
 	if failed {
@@ -529,6 +554,8 @@ func codeError(code int, message string) error {
 		return ErrNoAlbum
 	case C.PK_NO_ASSET:
 		return ErrNoAsset
+	case C.PK_NO_COMPOSITION:
+		return ErrNoComposition
 	}
 	reason, err := cString(message)
 	if err != nil {

@@ -34,6 +34,9 @@ func TestStubNotSupported(t *testing.T) {
 	if got, err := b.RequestVideo("id", 1, nil); got != nil || !errors.Is(err, ErrNotSupported) {
 		t.Errorf("RequestVideo = %v, %v; want ErrNotSupported", got, err)
 	}
+	if got, err := b.ExportComposition("id", 0, "/x/render.mov"); got != nil || !errors.Is(err, ErrNotSupported) {
+		t.Errorf("ExportComposition = %v, %v; want ErrNotSupported", got, err)
+	}
 	if got, err := b.Import(ImportRecord{Photo: "/IMG_0001.JPG"}, time.Minute); got != "" || !errors.Is(err, ErrNotSupported) {
 		t.Errorf("Import = %q, %v; want ErrNotSupported", got, err)
 	}

@@ -14,9 +14,9 @@ var (
 	// without PhotoKit; photokit exports it.
 	ErrNotSupported = errors.New("photokit: not supported on this platform")
 	// ErrNoResource is returned by RequestResource when the asset has no
-	// resource of the type and by RequestImage and RequestVideo when there is
-	// no such asset, and delivered by Done of RequestImage when PhotoKit gives
-	// no data; photokit exports it.
+	// resource of the type and by RequestImage, RequestVideo and
+	// ExportComposition when there is no such asset, and delivered by Done of
+	// RequestImage when PhotoKit gives no data; photokit exports it.
 	ErrNoResource = errors.New("photokit: the asset has no resource of that type")
 	// ErrCanceled is delivered by Done after Cancel, whatever PhotoKit reports
 	// then.
@@ -30,6 +30,10 @@ var (
 	// UpdateAsset for one not found or that cannot be changed; nothing was
 	// changed.
 	ErrNoAsset = errors.New("photokit: no such asset")
+	// ErrNoComposition is delivered by Done of ExportComposition when the
+	// current AVAsset of the asset is not an AVComposition of two tracks
+	// (photokit.py:938-942); photokit reports it as ErrMediaType.
+	ErrNoComposition = errors.New("photokit: the asset is not a slow-motion composition")
 )
 
 // Bridge is what photokit needs from PhotoKit. A status is a
@@ -68,6 +72,17 @@ type Bridge interface {
 	// is not called for an AVAsset without a file, such as an AVComposition.
 	// Cancel is cancelImageRequest:.
 	RequestVideo(id string, version int, path func(string)) (Request, error)
+	// ExportComposition starts requestAVAssetForVideo for the asset id as
+	// RequestVideo does, then renders the AVComposition it gives into the file
+	// path, which must not exist, through AVAssetExportSession with
+	// AVAssetExportPresetHighestQuality, AVFileTypeQuickTimeMovie and
+	// shouldOptimizeForNetworkUse (photokit.py:799-806). No such asset is
+	// ErrNoResource. Done delivers nil once the session has completed, the
+	// *PhotoKitError of the request or of a failed session, ErrNoComposition for
+	// an AVAsset that is not a composition of two tracks, or ErrCanceled after
+	// Cancel, which cancels the request or the session, whichever runs, and
+	// keeps a session that has not started from starting.
+	ExportComposition(id string, version int, path string) (Request, error)
 	// Import runs one performChanges that creates the asset of r and adds it to
 	// its albums, and blocks until the completion handler, or up to timeout,
 	// then returns context.DeadlineExceeded while the change goes on; so does an
@@ -161,13 +176,14 @@ type ImageRecord struct {
 	Metadata    []byte
 }
 
-// Request is a running RequestResource, RequestImage or RequestVideo. Done
-// delivers at most once, without waiting for a receiver: nil, a
-// *PhotoKitError, ErrNoResource of an image without data, the error of an
-// Objective-C exception in the handler of an image or a video, or ErrCanceled
-// after Cancel, since PhotoKit calls the completion handler after a cancel
-// too, unless a stalled iCloud download holds it back. A second Cancel does
-// nothing.
+// Request is a running RequestResource, RequestImage, RequestVideo or
+// ExportComposition. Done delivers at most once, without waiting for a
+// receiver: nil, a *PhotoKitError, ErrNoResource of an image without data,
+// ErrNoComposition, the error of an Objective-C exception in a handler of an
+// image or a video or of a session that ends neither completed nor failed, or
+// ErrCanceled after Cancel, since PhotoKit calls the completion handler after
+// a cancel too, unless a stalled iCloud download holds it back. A second
+// Cancel does nothing.
 type Request interface {
 	Cancel()
 	Done() <-chan error

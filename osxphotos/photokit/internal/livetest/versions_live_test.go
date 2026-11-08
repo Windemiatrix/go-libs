@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -267,8 +268,8 @@ func TestLiveVersions(t *testing.T) {
 }
 
 // A video without edits has one file, which every version gives; the Current
-// version of a slow-motion video is an AVComposition without a file
-// (photokit.py:876-884), ErrNoResource until ExportSlowMo exists.
+// version of a slow-motion video is an AVComposition without a file, which
+// ExportVideo renders (photokit.py:876-884).
 func TestLiveVideoVersions(t *testing.T) {
 	lib := openLibrary(t)
 	visible := visibleMarkerPhotos(t)
@@ -306,7 +307,7 @@ func TestLiveVideoVersions(t *testing.T) {
 	})
 
 	// The Current version of an edited video may be an AVComposition without a
-	// file, as that of a slow-motion video is (photokit.py:876-884): only counted.
+	// file: only counted.
 	t.Run("current of an edited video", func(t *testing.T) {
 		edited := filter(videos, func(p *photoinfo.PhotoInfo) bool {
 			return p.HasAdjustments && !p.SlowMo && p.Path != "" && !p.IsMissing
@@ -373,26 +374,107 @@ func TestLiveVideoVersions(t *testing.T) {
 		t.Logf("%d of %d video exports of the largest original ended at their deadline", ended, len(deadlines))
 	})
 
+	// The Current version is a new encoding of the composition
+	// (photokit.py:799-806), so it differs from the file in the library, which
+	// the other versions give.
 	t.Run("slow motion", func(t *testing.T) {
 		slow := filter(videos, func(p *photoinfo.PhotoInfo) bool { return p.SlowMo })
 		if len(slow) == 0 {
 			skipNone(t, "slow-motion video")
 		}
-		noFile, exported := 0, 0
+		rendered, empty, notMovie, sameAsFile, compared, differ := 0, 0, 0, 0, 0, 0
+		var longest time.Duration
+		renders := map[string]time.Duration{}
 		for _, p := range slow {
+			dir := t.TempDir()
+			// Upstream names the render <stem>.mov (photokit.py:954).
+			name := x.name(p.OriginalFilename)
+			name = strings.TrimSuffix(name, filepath.Ext(name)) + ".mov"
 			ctx, cancel := context.WithTimeout(t.Context(), exportTimeout)
-			err := lib.ExportVideo(ctx, p.UUID, photokit.VersionCurrent, t.TempDir(), "IMG_0001.MOV", photokit.ExportOptions{})
+			start := time.Now()
+			err := lib.ExportVideo(ctx, p.UUID, photokit.VersionCurrent, dir, name, photokit.ExportOptions{})
 			cancel()
+			if err != nil {
+				t.Errorf("ExportVideo of the Current version of a slow-motion video: %s", exportFailure(err))
+				continue
+			}
+			renders[p.UUID] = time.Since(start)
+			longest = max(longest, renders[p.UUID])
+			rendered++
+			if entries, err := os.ReadDir(dir); err != nil || len(entries) != 1 {
+				t.Errorf("%d entries in the directory after the export, want 1 (read error: %t)", len(entries), err != nil)
+			}
+			path := filepath.Join(dir, name)
 			switch {
-			case err == nil:
-				exported++
-			case errors.Is(err, photokit.ErrNoResource):
-				noFile++
-			default:
-				t.Errorf("ExportVideo of the Current version of a slow-motion video: %s, want nil or ErrNoResource", exportFailure(err))
+			case size(t, path) == 0:
+				empty++
+			case string(head(t, path)[4:]) != "ftyp":
+				notMovie++
+			case p.Path != "" && !p.IsMissing && sum(t, path) == sum(t, p.Path):
+				sameAsFile++
+			}
+			// The renders of a library may not fit on the disk together, as its Live Photos (sumRemove).
+			if err := os.Remove(path); err != nil {
+				t.Fatal("cannot remove an exported file")
+			}
+			if p.Path == "" || p.IsMissing {
+				continue
+			}
+			for _, v := range []photokit.Version{photokit.VersionUnadjusted, photokit.VersionOriginal} {
+				other, err := x.exportVideo(t, p, v)
+				if err != nil {
+					t.Errorf("ExportVideo of version %d of a slow-motion video: %s", v, exportFailure(err))
+					continue
+				}
+				compared++
+				if sumRemove(t, other) != sum(t, p.Path) {
+					differ++
+				}
 			}
 		}
-		t.Logf("of %d slow-motion videos, the Current version of %d is ErrNoResource and of %d exported", len(slow), noFile, exported)
+		t.Logf("the Current version of %d slow-motion videos rendered, the longest in %v; %d Unadjusted and Original versions of those on disk compared with their file", rendered, longest, compared)
+		if empty > 0 || notMovie > 0 || sameAsFile > 0 {
+			t.Errorf("of %d rendered Current versions of slow-motion videos, %d empty, %d without ftyp, %d equal to the file in the library", rendered, empty, notMovie, sameAsFile)
+		}
+		if differ > 0 {
+			t.Errorf("%d of %d exported Unadjusted and Original versions of slow-motion videos differ from their file in the library", differ, compared)
+		}
+
+		// The video on disk whose render took longest, so that the 2 s before the
+		// cancel go to the render, not to a download from iCloud.
+		t.Run("cancel", func(t *testing.T) {
+			local := filter(slow, func(p *photoinfo.PhotoInfo) bool { return renders[p.UUID] > 0 && p.Path != "" && !p.IsMissing })
+			if len(local) == 0 {
+				skipNone(t, "rendered slow-motion video on disk")
+			}
+			p := slices.MaxFunc(local, func(a, b *photoinfo.PhotoInfo) int { return cmp.Compare(renders[a.UUID], renders[b.UUID]) })
+			whole := renders[p.UUID]
+			// From 10 s on, the rest of the render after the cancel, which ExportVideo
+			// waits for without cancelExport, exceeds half of the render by 3 s.
+			if whole < 10*time.Second {
+				t.Skipf("the longest render of a slow-motion video on disk took %v, too short to tell cancelExport from the end of the render", whole)
+			}
+			dir := t.TempDir()
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			timer := time.AfterFunc(2*time.Second, cancel)
+			defer timer.Stop()
+			start := time.Now()
+			err := lib.ExportVideo(ctx, p.UUID, photokit.VersionCurrent, dir, "IMG_0001.mov", photokit.ExportOptions{})
+			late := time.Since(start) - 2*time.Second
+			if err == nil {
+				t.Skip("the render ended before the cancel")
+			}
+			t.Logf("ExportVideo of a render of %v canceled 2 s after its start returned %v after the cancel", whole, late)
+			if !errors.Is(err, context.Canceled) {
+				t.Errorf("ExportVideo of the Current version of a slow-motion video canceled 2 s after its start: %s, want context.Canceled", exportFailure(err))
+			}
+			// Without cancelExport ExportVideo waits for the end of the render, or for its grace of 30 s.
+			if late > 10*time.Second || late > whole/2 {
+				t.Errorf("ExportVideo returned %v after the cancel of a render of %v, want 10 s and half of the render at most", late, whole)
+			}
+			emptyDir(t, dir)
+		})
 	})
 
 	t.Run("video errors", func(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"slices"
 
 	"howett.net/plist"
@@ -65,7 +66,8 @@ type ImageInfo struct {
 func (l *Library) ExportImage(ctx context.Context, uuid string, v Version, dir, name string, o ExportOptions) (ImageInfo, error) {
 	s := &imageSink{}
 	err := writeExport(dir, name, o, func() error {
-		return l.checkVersion(ctx, uuid, func(a Asset) bool { return a.IsPhoto }, v)
+		_, err := l.checkVersion(ctx, uuid, func(a Asset) bool { return a.IsPhoto }, v)
+		return err
 	}, func(f *fileSink) error {
 		s.fileSink = f
 		return awaitRequest(ctx, f, func() (bridge.Request, error) { return l.b.RequestImage(uuid, int(v), s) })
@@ -79,29 +81,47 @@ func (l *Library) ExportImage(ctx context.Context, uuid string, v Version, dir, 
 
 // ExportVideo writes the file of version v of the video uuid into the file
 // name of dir, as Export does (name, dir, o.Overwrite, the mode 0600, the
-// removal on an error are those of Export): VideoAsset.export without its
-// slow-motion branch (photokit.py:851-914). requestAVAssetForVideo, with
-// networkAccessAllowed and HighQualityFormat (987-992), gives the URL of a file
-// PhotoKit holds, which is read, never changed, and copied (912).
-// VersionUnadjusted asks for the original: PHVideoRequestOptionsVersion has
-// Current and Original only. A video whose request gives no file, such as a
-// slow-motion video of VersionCurrent (an AVComposition, which upstream exports
-// through AVAssetExportSession, 876-884), or one that does not exist or is not
-// a regular file (904-905) is ErrNoResource; a file that cannot be opened is
-// another error, as FileUtil.copy raises (912). No error names the file. An
-// asset that is not a video is ErrMediaType; a v other than the three
-// constants ErrInvalidVersion (980-985); no such asset ErrNotFound; a failure
-// of PhotoKit ErrExport with its domain and code. When ctx is done the request
-// is canceled and ExportVideo returns ctx.Err() once PhotoKit ends it, 30 s
-// later at most, or, during the copy, before its next MiB. o.Progress is not
-// called. Upstream names the file by the extension of the file of PhotoKit
-// (906-907); here the caller does, with export.Names and export.EditedName,
-// whose suffix is that of the render (PathEdited).
+// removal on an error are those of Export): VideoAsset.export
+// (photokit.py:851-914). requestAVAssetForVideo, with networkAccessAllowed and
+// HighQualityFormat (987-992), gives the URL of a file PhotoKit holds, which is
+// read, never changed, and copied (912). VersionUnadjusted asks for the
+// original: PHVideoRequestOptionsVersion has Current and Original only.
+//
+// The current version of a slow-motion video is an AVComposition without a
+// file: it is rendered through AVAssetExportSession with
+// AVAssetExportPresetHighestQuality into a QuickTime movie, as upstream does
+// (876-884, 916-964, 799-806), so its bytes are a new encoding and may differ
+// between calls; the caller names the file .mov, as upstream does (954). A
+// slow-motion asset whose current AVAsset is not a composition of two tracks
+// is ErrMediaType (938-942). The render goes into a directory that ExportVideo
+// creates inside dir with mode 0700 and removes before it returns; the file
+// name is then written as by every export. A failed render is ErrExport with
+// the domain and code of the error of the session (826-828).
+//
+// Another video whose request gives no file, or a file that does not exist or
+// is not a regular file (898-899, 904-905), is ErrNoResource; a file that
+// cannot be opened is another error, as FileUtil.copy raises (912). No error
+// names a file. An asset that is not a video is ErrMediaType; a v other than
+// the three constants ErrInvalidVersion (980-985); no such asset ErrNotFound; a
+// failure of PhotoKit ErrExport with its domain and code. When ctx is done the
+// request or the render is canceled and ExportVideo returns ctx.Err() once
+// PhotoKit or the session ends it, 30 s later at most, or, during the copy,
+// before its next MiB. o.Progress is not called. Upstream names the file by the
+// extension of the file of PhotoKit (906-907); here the caller does, with
+// export.Names and export.EditedName, whose suffix is that of the render
+// (PathEdited).
 func (l *Library) ExportVideo(ctx context.Context, uuid string, v Version, dir, name string, o ExportOptions) error {
 	var path string
+	var slowMo bool
 	return writeExport(dir, name, o, func() error {
-		return l.checkVersion(ctx, uuid, func(a Asset) bool { return a.IsMovie }, v)
+		a, err := l.checkVersion(ctx, uuid, func(a Asset) bool { return a.IsMovie }, v)
+		slowMo = a.SlowMo
+		return err
 	}, func(s *fileSink) error {
+		// Upstream renders only the current version of a slow-motion video (photokit.py:876).
+		if slowMo && v == VersionCurrent {
+			return l.exportComposition(ctx, uuid, dir, s)
+		}
 		// PHVideoRequestOptionsVersion has Current (0) and Original (1) only;
 		// upstream passes the image constants as they are (photokit.py:989): its
 		// Unadjusted (1) is Original, and its Original (2) is no value of the enum,
@@ -141,7 +161,7 @@ func (l *Library) ExportLivePhoto(ctx context.Context, uuid string, v Version, k
 	}
 	var typ ResourceType
 	return writeExport(dir, name, o, func() error {
-		if err := l.checkVersion(ctx, uuid, func(a Asset) bool { return a.Live }, v); err != nil {
+		if _, err := l.checkVersion(ctx, uuid, func(a Asset) bool { return a.Live }, v); err != nil {
 			return err
 		}
 		res, err := l.Resources(ctx, uuid)
@@ -178,18 +198,45 @@ func liveResource(res []Resource, v Version, kind ResourceType) ResourceType {
 
 // Upstream checks the version when it requests (photokit.py:644-649, 980-985),
 // after the class of the asset (1309-1319).
-func (l *Library) checkVersion(ctx context.Context, uuid string, class func(Asset) bool, v Version) error {
+func (l *Library) checkVersion(ctx context.Context, uuid string, class func(Asset) bool, v Version) (Asset, error) {
 	assets, err := l.Fetch(ctx, []string{uuid})
 	if err != nil {
-		return err
+		return Asset{}, err
 	}
-	if a := assets[0]; !class(a) {
-		return fmt.Errorf("%w: %d", ErrMediaType, a.MediaType)
+	a := assets[0]
+	if !class(a) {
+		return Asset{}, fmt.Errorf("%w: %d", ErrMediaType, a.MediaType)
 	}
 	if v < VersionCurrent || v > VersionOriginal {
-		return fmt.Errorf("%w: %d", ErrInvalidVersion, v)
+		return Asset{}, fmt.Errorf("%w: %d", ErrInvalidVersion, v)
 	}
-	return nil
+	return a, nil
+}
+
+// A variable, so that a test can fail it: dir, where the file name has just
+// been created, is writable when it is called.
+var mkdirTemp = os.MkdirTemp
+
+// _export_slow_mo (photokit.py:916-964). AVAssetExportSession refuses a file
+// that exists, and name exists already, so the session writes into a directory
+// of its own; the copy gives the render the rules of every export. The errors
+// of os name the directory, so only their cause is kept.
+func (l *Library) exportComposition(ctx context.Context, uuid, dir string, s *fileSink) error {
+	tmp, err := mkdirTemp(dir, ".osxphotos-*")
+	if err != nil {
+		return fmt.Errorf("photokit: cannot create the directory of the render: %w", errors.Unwrap(err))
+	}
+	defer os.RemoveAll(tmp) //nolint:errcheck // the result is decided; a failed removal leaves only the hidden directory
+	out := filepath.Join(tmp, "render.mov")
+	// 0 is PHVideoRequestOptionsVersionCurrent, the version upstream renders (photokit.py:937).
+	err = awaitRequest(ctx, s, func() (bridge.Request, error) { return l.b.ExportComposition(uuid, 0, out) })
+	switch {
+	case errors.Is(err, bridge.ErrNoComposition):
+		return fmt.Errorf("%w: not a slow-motion composition", ErrMediaType)
+	case err != nil:
+		return err
+	}
+	return copyVideo(ctx, out, s)
 }
 
 // Upstream checks is_file() (photokit.py:904-905) and lets the copy raise
