@@ -169,6 +169,9 @@ func TestLoadFolders(t *testing.T) {
 		if got := folderTitles(db.FolderList(a)); !slices.Equal(got, a.FolderNames) {
 			t.Errorf("FolderList(%s) titles %q, FolderNames %q", a.UUID, got, a.FolderNames)
 		}
+		if got := folderUUIDs(db.FolderList(a)); !slices.Equal(got, a.FolderUUIDs) {
+			t.Errorf("FolderList(%s) UUIDs %q, FolderUUIDs %q", a.UUID, got, a.FolderUUIDs)
+		}
 	}
 }
 
@@ -324,6 +327,9 @@ func TestFolders(t *testing.T) {
 				if got := folderTitles(list); !slices.Equal(got, a.FolderNames) {
 					t.Errorf("album %s: the titles of FolderList differ from FolderNames", a.UUID)
 				}
+				if got := folderUUIDs(list); !slices.Equal(got, a.FolderUUIDs) {
+					t.Errorf("album %s: the UUIDs of FolderList differ from FolderUUIDs", a.UUID)
+				}
 				switch {
 				case a.ParentUUID == "" && len(list) != 0:
 					t.Errorf("album %s: FolderList of a top-level album has %d folders", a.UUID, len(list))
@@ -389,6 +395,9 @@ func TestFoldersGolden(t *testing.T) {
 					list := db.FolderList(a)
 					if !slices.Equal(folderUUIDs(list), e.FolderList) {
 						t.Errorf("album %s: FolderList %q, folder_list %q", e.UUID, folderUUIDs(list), e.FolderList)
+					}
+					if !slices.Equal(a.FolderUUIDs, e.FolderList) {
+						t.Errorf("album %s: FolderUUIDs %q, folder_list %q", e.UUID, a.FolderUUIDs, e.FolderList)
 					}
 					if !slices.Equal(folderTitles(list), names) {
 						t.Errorf("album %s: titles of FolderList differ from folder_names", e.UUID)

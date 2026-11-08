@@ -84,7 +84,7 @@ func loadFolders(rows []sqlread.Album, albums []*albuminfo.AlbumInfo) (all, top 
 	all = make([]*albuminfo.FolderInfo, 0, len(folderRows))
 	badParents := 0
 	for _, r := range folderRows {
-		if _, ok := folderNames(r, byPK, rootPK); !ok {
+		if _, _, ok := folderChain(r, byPK, rootPK); !ok {
 			badParents++
 			continue
 		}
