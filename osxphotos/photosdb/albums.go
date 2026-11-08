@@ -44,13 +44,13 @@ func loadAlbums(rows []sqlread.Album, albumPhotos map[string][]string) ([]*album
 		if r.Kind != sqlread.KindUserAlbum { // photosdb.py:612-622, 3187-3209
 			continue
 		}
-		folders, ok := folderNames(r, byPK, rootPK)
+		names, uuids, ok := folderChain(r, byPK, rootPK)
 		if !ok {
 			badParents++
 			continue
 		}
 		a := albumOf(r, albumPhotos)
-		a.FolderNames, a.LibraryListOrder = folders, libraryListOrder(r, byPK, rootPK)
+		a.FolderNames, a.FolderUUIDs, a.LibraryListOrder = names, uuids, libraryListOrder(r, byPK, rootPK)
 		if r.Parent.Valid && r.Parent.Int64 != rootPK { // albuminfo.py:228-234
 			a.ParentUUID = byPK[r.Parent.Int64].UUID
 		}
@@ -79,20 +79,21 @@ func albumOf(r sqlread.Album, albumPhotos map[string][]string) *albuminfo.AlbumI
 	}
 }
 
-// Upstream: photosdb.py:1987-1991, 2944-2965, 3013-3050. A chain with more
-// steps than there are rows is a cycle.
-func folderNames(album sqlread.Album, byPK map[int64]sqlread.Album, rootPK int64) (names []string, ok bool) {
+// Upstream: photosdb.py:1987-1991, 2944-2965, 3013-3050, 3091-3123. A chain
+// with more steps than there are rows is a cycle.
+func folderChain(album sqlread.Album, byPK map[int64]sqlread.Album, rootPK int64) (names, uuids []string, ok bool) {
 	parent := album.Parent
 	for steps := 0; parent.Valid && parent.Int64 != rootPK; steps++ {
 		f, found := byPK[parent.Int64]
 		if !found || steps == len(byPK) {
-			return nil, false
+			return nil, nil, false
 		}
-		names = append(names, nfc(f.Title.String))
+		names, uuids = append(names, nfc(f.Title.String)), append(uuids, f.UUID)
 		parent = f.Parent
 	}
 	slices.Reverse(names)
-	return names, true
+	slices.Reverse(uuids)
+	return names, uuids, true
 }
 
 // Upstream: albuminfo.py:243-256.
@@ -123,7 +124,7 @@ const noListOrder = 9_999_999
 
 // Upstream: albuminfo.py:266-278, 501-513. A row without an order drops the
 // list of its own parents, as the exception of int(None) does there. The
-// chain of parents of r must end: folderNames has checked it.
+// chain of parents of r must end: folderChain has checked it.
 func libraryListOrder(r sqlread.Album, byPK map[int64]sqlread.Album, rootPK int64) []int {
 	var order []int
 	for {

@@ -27,6 +27,7 @@ type AlbumInfo struct {
 	Owner                            string         // the full name of the owner of the album (ZCLOUDOWNERHASHEDPERSONID; for a shared album of Photos 11 and later the ZSHAREPARTICIPANT with the owner role), in NFC; "" without an owner or its name (osxphotos None, albuminfo.py:113-133)
 	ParentUUID                       string         // the enclosing folder, for a project and a shared album its parent row of any ZKIND; "" at the top level
 	FolderNames                      []string       // titles of the enclosing folders, outermost first; nil for a project and a shared album
+	FolderUUIDs                      []string       // UUIDs of the folders of FolderNames, in its order: osxphotos folder_list (albuminfo.py:203-213); nil for a project and a shared album
 	PhotoUUIDs                       []string       // UUIDs of the member photos, sorted; DB.AlbumPhotos gives the order of the album
 	CreationDate, StartDate, EndDate *time.Time     // nil without a value; osxphotos gives 2001-01-01 for a missing creation date
 	InTrash                          bool           // extension: not in osxphotos — ZTRASHEDSTATE is not 0, NULL included, as osxphotos reads it (photosdb.py:1936); a NULL state of a shared album of Photos 11 and later is outside the trash (photosdb.py:2906); osxphotos keeps no album in the trash in its lists

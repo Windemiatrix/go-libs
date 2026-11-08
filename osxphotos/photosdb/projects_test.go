@@ -90,7 +90,7 @@ func TestLoadProjects(t *testing.T) {
 	}
 	for i, w := range want {
 		g := got[i]
-		if g.UUID != w.UUID || g.CloudGUID != w.CloudGUID || g.Title != w.Title || g.ParentUUID != w.ParentUUID || g.FolderNames != nil ||
+		if g.UUID != w.UUID || g.CloudGUID != w.CloudGUID || g.Title != w.Title || g.ParentUUID != w.ParentUUID || g.FolderNames != nil || g.FolderUUIDs != nil ||
 			!sameStringsNilAware(g.PhotoUUIDs, w.PhotoUUIDs) || g.InTrash != w.InTrash || g.SortOrder != w.SortOrder ||
 			!slices.Equal(g.LibraryListOrder, w.LibraryListOrder) ||
 			!sameTime(g.CreationDate, w.CreationDate) || !sameTime(g.StartDate, w.StartDate) || !sameTime(g.EndDate, w.EndDate) {
@@ -258,8 +258,8 @@ func projectCheck(t *testing.T, name, lib string) (projects, trashed, members in
 		if a.InTrash {
 			trashed++
 		}
-		if _, ok := db.Album(a.UUID); ok || a.FolderNames != nil {
-			t.Errorf("project %s is among the albums or has folders %q", a.UUID, a.FolderNames)
+		if _, ok := db.Album(a.UUID); ok || a.FolderNames != nil || a.FolderUUIDs != nil {
+			t.Errorf("project %s is among the albums or has folders %q, %q", a.UUID, a.FolderNames, a.FolderUUIDs)
 		}
 		parent := testlib.Rows(t, src, "SELECT p.ZUUID FROM ZGENERICALBUM g JOIN ZGENERICALBUM p ON p.Z_PK = g.ZPARENTFOLDER "+
 			"WHERE g.ZUUID = ? AND p.ZKIND != 3999", a.UUID)

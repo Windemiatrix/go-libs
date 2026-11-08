@@ -88,15 +88,15 @@ func TestLoadAlbums(t *testing.T) {
 	created, start := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
 	want := []*albuminfo.AlbumInfo{
 		{UUID: "AL-A", Title: "Top", InTrash: true},
-		{UUID: "AL-B", Title: "Under FN", ParentUUID: "F-N", FolderNames: []string{"FN"}, PhotoUUIDs: []string{"P-1"}, InTrash: true},
-		{UUID: "AL-C", ParentUUID: "F-T", FolderNames: []string{""}},
+		{UUID: "AL-B", Title: "Under FN", ParentUUID: "F-N", FolderNames: []string{"FN"}, FolderUUIDs: []string{"F-N"}, PhotoUUIDs: []string{"P-1"}, InTrash: true},
+		{UUID: "AL-C", ParentUUID: "F-T", FolderNames: []string{""}, FolderUUIDs: []string{"F-T"}},
 		{UUID: "AL-D", Title: "No parent", InTrash: true},
 		{
 			UUID: "AL-E", CloudGUID: "GUID-1", Title: nfcForm, ParentUUID: "F-2", FolderNames: []string{nfcForm, "F2"},
-			PhotoUUIDs: []string{"P-1", "P-2"}, CreationDate: &created, StartDate: &start,
+			FolderUUIDs: []string{"F-1", "F-2"}, PhotoUUIDs: []string{"P-1", "P-2"}, CreationDate: &created, StartDate: &start,
 		},
-		{UUID: "AL-F", Title: "Same", ParentUUID: "F-2", FolderNames: []string{nfcForm, "F2"}, PhotoUUIDs: []string{"P-2"}},
-		{UUID: "AL-G", Title: "Same", ParentUUID: "F-2", FolderNames: []string{nfcForm, "F2"}, PhotoUUIDs: []string{"P-1"}},
+		{UUID: "AL-F", Title: "Same", ParentUUID: "F-2", FolderNames: []string{nfcForm, "F2"}, FolderUUIDs: []string{"F-1", "F-2"}, PhotoUUIDs: []string{"P-2"}},
+		{UUID: "AL-G", Title: "Same", ParentUUID: "F-2", FolderNames: []string{nfcForm, "F2"}, FolderUUIDs: []string{"F-1", "F-2"}, PhotoUUIDs: []string{"P-1"}},
 	}
 
 	got, err := loadAlbums(rows, membershipOrder(members, assets, byUUID))
@@ -109,7 +109,8 @@ func TestLoadAlbums(t *testing.T) {
 	for i, w := range want {
 		g := got[i]
 		if g.UUID != w.UUID || g.CloudGUID != w.CloudGUID || g.Title != w.Title || g.ParentUUID != w.ParentUUID ||
-			!sameStringsNilAware(g.FolderNames, w.FolderNames) || !sameStringsNilAware(g.PhotoUUIDs, w.PhotoUUIDs) || g.InTrash != w.InTrash ||
+			!sameStringsNilAware(g.FolderNames, w.FolderNames) || !sameStringsNilAware(g.FolderUUIDs, w.FolderUUIDs) ||
+			!sameStringsNilAware(g.PhotoUUIDs, w.PhotoUUIDs) || g.InTrash != w.InTrash ||
 			!sameTime(g.CreationDate, w.CreationDate) || !sameTime(g.StartDate, w.StartDate) || !sameTime(g.EndDate, w.EndDate) {
 			t.Errorf("album %d = %+v, want %+v", i, *g, *w)
 		}
@@ -649,7 +650,7 @@ func TestLoadSharedAlbums(t *testing.T) {
 	}
 	for i, w := range want {
 		g := got[i]
-		if g.UUID != w.UUID || g.Title != w.Title || g.Owner != w.Owner || g.ParentUUID != w.ParentUUID || g.FolderNames != nil ||
+		if g.UUID != w.UUID || g.Title != w.Title || g.Owner != w.Owner || g.ParentUUID != w.ParentUUID || g.FolderNames != nil || g.FolderUUIDs != nil ||
 			!sameStringsNilAware(g.PhotoUUIDs, w.PhotoUUIDs) || g.InTrash != w.InTrash || !slices.Equal(g.LibraryListOrder, w.LibraryListOrder) {
 			t.Errorf("shared album %d = %+v, want %+v", i, *g, *w)
 		}
@@ -753,7 +754,7 @@ func TestSharedAlbums(t *testing.T) {
 				if a.Owner != "" {
 					owned++
 				}
-				if got, ok := db.Album(a.UUID); !ok || got != a || a.FolderNames != nil || db.FolderList(a) != nil {
+				if got, ok := db.Album(a.UUID); !ok || got != a || a.FolderNames != nil || a.FolderUUIDs != nil || db.FolderList(a) != nil {
 					t.Errorf("shared album %s: not found by Album, or in folders", a.UUID)
 				}
 				parent := testlib.Rows(t, src, "SELECT p.ZUUID FROM ZGENERICALBUM g JOIN ZGENERICALBUM p ON p.Z_PK = g.ZPARENTFOLDER "+
