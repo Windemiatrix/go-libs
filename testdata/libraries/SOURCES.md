@@ -4,21 +4,23 @@
 
 For contributors who add test libraries or migrations.
 
-Databases of the test Photos libraries of [osxphotos](https://github.com/RhetTbull/osxphotos) v0.77.2 (MIT, Copyright (c) 2019-2026 Rhet Turnbull), copied unchanged from `tests/<name>.photoslibrary/database/` of that tag. Only `Photos.sqlite` and, where it is not empty, `Photos.sqlite-wal` are kept: the expected values in the upstream tests were computed on exactly this state. Images and other files of the libraries are not copied.
+Databases of the test Photos libraries of [osxphotos](https://github.com/RhetTbull/osxphotos) v0.77.2 (MIT, Copyright (c) 2019-2026 Rhet Turnbull), copied unchanged from `tests/<name>.photoslibrary/database/` of that tag. Only `Photos.sqlite` and the search database `search/psi.sqlite` (`search/leo.sqlite` in `Test-27.0_DevBeta`, the library of macOS 27), each with its `-wal` where that is not empty, are kept: the expected values in the upstream tests were computed on exactly this state, and osxphotos reads the search database for `search_info` and `labels`. Images and other files of the libraries are not copied.
 
 The databases live outside the `osxphotos` module directory, so they are not part of the module zip that consumers download. Tests of the module read them by relative path from the repository.
 
-| Directory | Upstream library | Model | Schema | macOS | `-wal` | Upstream test |
-|---|---|---|---|---|---|---|
-| `Test-13.0.0` | `tests/Test-13.0.0.photoslibrary` | 16320 | photos8 | 13.0 | no | `tests/test_ventura_13_0_0.py` |
-| `Test-Cloud-13.1` | `tests/Test-Cloud-13.1.photoslibrary` | 16320 | photos8 | 13.1, iCloud and shared library | yes | `tests/test_shared_ventura_13_1.py` |
-| `Test-14.0.0` | `tests/Test-14.0.0.photoslibrary` | 17120 | photos9 | 14.0 | no | `tests/test_sonoma_14_0_0.py` |
-| `Test-14.6.0` | `tests/Test-14.6.0.photoslibrary` | 17600 | photos9_14_6 | 14.6 | yes | `tests/test_sonoma_14_6_0.py` |
-| `Test-15.4.1` | `tests/Test-15.4.1.photoslibrary` | 18508 | photos10 | 15.4 | yes | `tests/test_sequoia_15_4_1.py` |
-| `Test-16.0.0-beta` | `tests/Test-16.0.0-beta.photoslibrary` | 19063 | photos11 | 26.0 beta | yes | `tests/test_tahoe_16_0_0_beta.py` |
-| `Test-26.1` | `tests/Test-26.1.photoslibrary` | 19320 | photos11_1 | 26.1 | no | `tests/test_tahoe_26_1.py` |
-| `Test-27.0_DevBeta` | `tests/Test-27.0_DevBeta.photoslibrary` | 270008501 | photos12 | 27.0 developer beta | yes | `tests/test_gg_dev_beta_27_0.py` |
-| `synthetic` | none, see below | 19607 | photos11_1 | none | no | none |
+The `-wal` column is that of `Photos.sqlite`. In the Search column `psi` is `database/search/psi.sqlite`, `leo` is `database/search/leo.sqlite`, and `wal` is the `-wal` of that file.
+
+| Directory | Upstream library | Model | Schema | macOS | `-wal` | Search | Upstream test |
+|---|---|---|---|---|---|---|---|
+| `Test-13.0.0` | `tests/Test-13.0.0.photoslibrary` | 16320 | photos8 | 13.0 | no | psi, wal | `tests/test_ventura_13_0_0.py` |
+| `Test-Cloud-13.1` | `tests/Test-Cloud-13.1.photoslibrary` | 16320 | photos8 | 13.1, iCloud and shared library | yes | psi | `tests/test_shared_ventura_13_1.py` |
+| `Test-14.0.0` | `tests/Test-14.0.0.photoslibrary` | 17120 | photos9 | 14.0 | no | psi, wal | `tests/test_sonoma_14_0_0.py` |
+| `Test-14.6.0` | `tests/Test-14.6.0.photoslibrary` | 17600 | photos9_14_6 | 14.6 | yes | psi | `tests/test_sonoma_14_6_0.py` |
+| `Test-15.4.1` | `tests/Test-15.4.1.photoslibrary` | 18508 | photos10 | 15.4 | yes | psi, wal | `tests/test_sequoia_15_4_1.py` |
+| `Test-16.0.0-beta` | `tests/Test-16.0.0-beta.photoslibrary` | 19063 | photos11 | 26.0 beta | yes | psi | `tests/test_tahoe_16_0_0_beta.py` |
+| `Test-26.1` | `tests/Test-26.1.photoslibrary` | 19320 | photos11_1 | 26.1 | no | psi, wal | `tests/test_tahoe_26_1.py` |
+| `Test-27.0_DevBeta` | `tests/Test-27.0_DevBeta.photoslibrary` | 270008501 | photos12 | 27.0 developer beta | yes | leo, wal | `tests/test_gg_dev_beta_27_0.py` |
+| `synthetic` | none, see below | 19607 | photos11_1 | none | no | none | none |
 
 `synthetic` is not an upstream library. Its database was generated once by the former generator of this repository, `osxphotos/internal/gen`, with its default configuration: 1000 assets, seed 1. All its values are generated. It holds states that the upstream libraries lack: RAW+JPEG pairs, a shared library, resources only in iCloud, bursts with every pick type, a video larger than 2^32 bytes, NFD names, assets created in the same second. The generator is gone: the database file itself is never changed again.
 
@@ -32,7 +34,7 @@ A state of a field that osxphotos outputs but no library holds goes to `<name>/r
 | `projects` | two user albums with members turned into projects (`ZKIND` 1508), one of them in the trash | `synthetic` |
 | `tzname` | `Date` in the zone of `ZTIMEZONENAME` (`Europe/Paris`) when `ZTIMEZONEOFFSET` (10800) is not the offset of that zone at the moment of the photo | `synthetic` |
 
-To add a library: take the database from the same upstream tag, put it in `<name>/database/` (no `.photoslibrary` suffix, so that `.gitignore` lets it through), and add a row here.
+To add a library: take the database from the same upstream tag, put it in `<name>/database/` with its `search/` directory, leaving out empty `-wal` files (no `.photoslibrary` suffix, so that `.gitignore` lets it through), add the search files with their sizes to `searchFiles` in the test of `osxphotos/internal/testlib`, and add a row here.
 
 ## Migrations
 
@@ -43,7 +45,7 @@ The module reads more from `Photos.sqlite` than osxphotos does (the fields marke
 <name>/migrations/NNN_<case>.sql     applied in file-name order to a temporary copy
 ```
 
-- The databases themselves are never modified: the test helper `osxphotos/internal/testlib` copies `Photos.sqlite` and `Photos.sqlite-wal` into a temporary directory, applies all migrations of the library in one transaction and hands the copy to the test. Reference (golden) tests use copies without migrations (`reference/` applied).
+- The databases themselves are never modified: the test helper `osxphotos/internal/testlib` copies `Photos.sqlite`, `Photos.sqlite-wal` and the search databases into a temporary directory, applies all migrations of the library in one transaction and hands the copy to the test. Reference (golden) tests use copies without migrations (`reference/` applied).
 - Any `UPDATE` of `ZASSET` fires triggers of `Photos.sqlite` (R*Tree and functions that exist only inside the Photos app, Core Data). The helper registers stand-ins for the functions that do nothing, so a migration that fires such a trigger (for example, moving an asset to the trash) runs on the copy.
 - A migration contains only `UPDATE` and `DELETE`, no primary keys or UUIDs of the database: a row is chosen by a rule (the first eligible asset in `ZUUID` order that no earlier migration has marked) and marked with a title `mig:<case>` (`ZADDITIONALASSETATTRIBUTES.ZTITLE` for assets, `ZGENERICALBUM.ZTITLE` for albums and folders); tests find rows by that title. One exception: `skipped-asset` deletes the `ZADDITIONALASSETATTRIBUTES` row of its asset, and the title goes with it, so that asset is marked in `ZASSET` instead, before the row is deleted: `ZFILENAME = 'mig-skipped-asset.jpg'`. Every statement must change at least one row, otherwise the helper fails the test (a statement that may legitimately match nothing is preceded by the line `-- rows: any`).
 - All values are synthetic: identifiers carry the prefix `TEST-` (`TEST-GUID-0001`), dates are round values (`694224000` = 2023-01-01T00:00:00Z in Core Data seconds). Nothing from a real library is used.
@@ -91,9 +93,9 @@ To add a case: a new file `NNN_<case>.sql` (lowercase letters, digits and hyphen
 
 Для тех, кто добавляет тестовые медиатеки или миграции.
 
-Базы тестовых медиатек [osxphotos](https://github.com/RhetTbull/osxphotos) v0.77.2 (MIT, Copyright (c) 2019-2026 Rhet Turnbull), скопированные без изменений из `tests/<имя>.photoslibrary/database/` этого тега. Хранятся только `Photos.sqlite` и, где он не пуст, `Photos.sqlite-wal`: ожидаемые значения в тестах upstream вычислены ровно на этом состоянии. Изображения и другие файлы медиатек не копируются.
+Базы тестовых медиатек [osxphotos](https://github.com/RhetTbull/osxphotos) v0.77.2 (MIT, Copyright (c) 2019-2026 Rhet Turnbull), скопированные без изменений из `tests/<имя>.photoslibrary/database/` этого тега. Хранятся только `Photos.sqlite` и база поиска `search/psi.sqlite` (`search/leo.sqlite` в `Test-27.0_DevBeta`, медиатеке macOS 27), каждая со своим `-wal`, где он не пуст: ожидаемые значения в тестах upstream вычислены ровно на этом состоянии, а базу поиска osxphotos читает для `search_info` и `labels`. Изображения и другие файлы медиатек не копируются.
 
-Базы лежат вне каталога модуля `osxphotos`, поэтому не входят в zip модуля, который скачивают потребители. Тесты модуля читают их по относительному пути от репозитория. Таблица каталогов, моделей и схем — выше (она одна).
+Базы лежат вне каталога модуля `osxphotos`, поэтому не входят в zip модуля, который скачивают потребители. Тесты модуля читают их по относительному пути от репозитория. Таблица каталогов, моделей и схем — выше (она одна); колонка `-wal` в ней — у `Photos.sqlite`, в колонке Search `psi` — `database/search/psi.sqlite`, `leo` — `database/search/leo.sqlite`, `wal` — `-wal` этого файла.
 
 `synthetic` — не медиатека upstream. Её база сгенерирована один раз прежним генератором этого репозитория, `osxphotos/internal/gen`, с настройками по умолчанию: 1000 объектов, seed 1. Все её значения сгенерированы. В ней есть состояния, которых нет в медиатеках upstream: пары RAW+JPEG, общая медиатека, ресурсы только в iCloud, серии со всеми видами отметок, видео больше 2^32 байт, имена в NFD, объекты, созданные в одну секунду. Генератора больше нет: сам файл базы больше не меняется.
 
@@ -107,7 +109,7 @@ To add a case: a new file `NNN_<case>.sql` (lowercase letters, digits and hyphen
 | `projects` | два альбома пользователя с фото, превращённые в проекты (`ZKIND` 1508), один из них в корзине | `synthetic` |
 | `tzname` | `Date` в зоне `ZTIMEZONENAME` (`Europe/Paris`), когда `ZTIMEZONEOFFSET` (10800) — не смещение этой зоны в момент снимка | `synthetic` |
 
-Чтобы добавить медиатеку: взять базу из того же тега upstream, положить в `<имя>/database/` (без суффикса `.photoslibrary`, иначе `.gitignore` её не пропустит) и добавить строку в таблицу.
+Чтобы добавить медиатеку: взять базу из того же тега upstream, положить в `<имя>/database/` вместе с каталогом `search/`, не копируя пустые `-wal` (без суффикса `.photoslibrary`, иначе `.gitignore` её не пропустит), добавить файлы поиска с их размерами в `searchFiles` в тесте `osxphotos/internal/testlib` и добавить строку в таблицу.
 
 ### Миграции
 
@@ -118,7 +120,7 @@ To add a case: a new file `NNN_<case>.sql` (lowercase letters, digits and hyphen
 <имя>/migrations/NNN_<случай>.sql   применяются по порядку имён к временной копии
 ```
 
-- Сами базы никогда не меняются: тестовый помощник `osxphotos/internal/testlib` копирует `Photos.sqlite` и `Photos.sqlite-wal` во временный каталог, применяет все миграции медиатеки в одной транзакции и отдаёт копию тесту. Эталонные тесты работают на копиях без миграций (с применённым `reference/`).
+- Сами базы никогда не меняются: тестовый помощник `osxphotos/internal/testlib` копирует `Photos.sqlite`, `Photos.sqlite-wal` и базы поиска во временный каталог, применяет все миграции медиатеки в одной транзакции и отдаёт копию тесту. Эталонные тесты работают на копиях без миграций (с применённым `reference/`).
 - Любой `UPDATE` таблицы `ZASSET` запускает триггеры `Photos.sqlite` (R*Tree и функции, которые есть только внутри приложения «Фото», Core Data). Помощник регистрирует для функций заглушки, которые ничего не делают, поэтому миграция, запускающая такой триггер (например, перенос объекта в корзину), выполняется на копии.
 - Миграция содержит только `UPDATE` и `DELETE`, без первичных ключей и UUID из базы: строка выбирается правилом (первый подходящий объект в порядке `ZUUID`, не помеченный предыдущей миграцией) и помечается названием `mig:<случай>` (`ZADDITIONALASSETATTRIBUTES.ZTITLE` у объектов, `ZGENERICALBUM.ZTITLE` у альбомов и папок); тесты находят строки по этому названию. Одно исключение: `skipped-asset` удаляет строку `ZADDITIONALASSETATTRIBUTES` своего объекта, и название исчезает вместе с ней, поэтому этот объект помечается в `ZASSET` до удаления строки: `ZFILENAME = 'mig-skipped-asset.jpg'`. Каждая инструкция обязана изменить хотя бы одну строку, иначе помощник валит тест (перед инструкцией, которой законно не на чем сработать, стоит строка `-- rows: any`).
 - Все значения синтетические: идентификаторы с префиксом `TEST-` (`TEST-GUID-0001`), даты круглые (`694224000` = 2023-01-01T00:00:00Z в секундах Core Data). Ничего из реальной медиатеки не используется.

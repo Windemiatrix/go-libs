@@ -60,7 +60,7 @@ Public history cannot be undone: forks and archives keep whatever once reached t
 - your Photos libraries and any copies or exports of them, names of your albums, paths, UUIDs and GUIDs, exact counts from your library;
 - passwords and tokens.
 
-`testdata/` holds only `database/Photos.sqlite` of test libraries with a verified license, and synthetic fragments; images are not copied. `testdata/` lies outside the module directory and is not part of the module zip; the `osxphotos/` directory goes into the zip whole, so no test data is put there. Reference files are never edited by hand: a separate manual workflow generates them from a pinned osxphotos version.
+`testdata/` holds only `database/Photos.sqlite` (and its `-wal`) and the search databases `database/search/psi.sqlite` and `leo.sqlite` (and their `-wal`) of test libraries with a verified license, and synthetic fragments; images are not copied. `testdata/` lies outside the module directory and is not part of the module zip; the `osxphotos/` directory goes into the zip whole, so no test data is put there. Reference files are never edited by hand: a separate manual workflow generates them from a pinned osxphotos version.
 
 Tests and documents use generic examples: `IMG_0001.HEIC`, `2024/05-01 - Holidays`, `user@example.com`. Optional: run `gitleaks` and a personal list of forbidden strings, kept outside the repository, before committing.
 

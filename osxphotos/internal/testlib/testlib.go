@@ -82,9 +82,10 @@ func Open(t testing.TB, name string) string {
 
 // OpenPristine copies database/Photos.sqlite and, when present,
 // Photos.sqlite-wal of the named library into
-// <t.TempDir()>/<name>.photoslibrary/database/ and returns the library path
-// (the directory that photosdb.Open takes), without migrations, for tests that
-// compare the original state with the migrated one.
+// <t.TempDir()>/<name>.photoslibrary/database/, and its search databases into
+// database/search/ of the copy, and returns the library path (the directory
+// that photosdb.Open takes), without migrations, for tests that compare the
+// original state with the migrated one.
 // It does apply reference/*.sql of the library: those statements are part of
 // the library, and golden-regen.yml applies them too before it runs osxphotos.
 // Any failure is t.Fatal.
@@ -110,6 +111,14 @@ func applyDir(t testing.TB, lib, name, dir string) {
 	}
 }
 
+// libraryFiles are the files of a library that testdata keeps, relative to its
+// database/ directory. osxphotos reads the search databases for search_info and
+// labels.
+var libraryFiles = []string{
+	"Photos.sqlite", "Photos.sqlite-wal",
+	"search/psi.sqlite", "search/psi.sqlite-wal", "search/leo.sqlite", "search/leo.sqlite-wal",
+}
+
 func copyLibrary(t testing.TB, name string) string {
 	t.Helper()
 	if name == "" || name != filepath.Base(name) || name == "." || name == ".." {
@@ -118,16 +127,16 @@ func copyLibrary(t testing.TB, name string) string {
 	src := filepath.Join(RepoDir(t, "libraries"), name, "database")
 	lib := filepath.Join(t.TempDir(), name+".photoslibrary")
 	dst := filepath.Join(lib, "database")
-	if err := os.MkdirAll(dst, 0o700); err != nil {
-		t.Fatalf("testlib: %v", err)
-	}
-	for _, file := range []string{"Photos.sqlite", "Photos.sqlite-wal"} {
+	for _, file := range libraryFiles {
 		data, err := os.ReadFile(filepath.Join(src, file)) //nolint:gosec // G304: a database file of a test library in testdata
 		if file != "Photos.sqlite" && errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
 		if err == nil {
-			err = os.WriteFile(filepath.Join(dst, file), data, 0o600) //nolint:gosec // G703: dst is the test's temporary directory, file one of two fixed names
+			err = os.MkdirAll(filepath.Join(dst, filepath.Dir(file)), 0o700)
+		}
+		if err == nil {
+			err = os.WriteFile(filepath.Join(dst, file), data, 0o600) //nolint:gosec // G703: dst is the test's temporary directory, file one of the fixed names of libraryFiles
 		}
 		if err != nil {
 			t.Fatalf("testlib: %s: %v", name, err)
