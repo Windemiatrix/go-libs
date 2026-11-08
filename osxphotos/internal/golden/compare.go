@@ -16,6 +16,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/personinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/query"
+	"github.com/Windemiatrix/go-libs/osxphotos/searchinfo"
 )
 
 // Library is the Go side of a comparison, as plain values.
@@ -38,6 +39,8 @@ type Library struct {
 	Persons map[string][]personinfo.PersonInfo // by photo UUID: photosdb.DB.PersonInfoOf; as Comments
 
 	CloudMetadata map[string]map[string]any // by photo UUID: photosdb.DB.CloudMetadataOf; as Comments
+
+	SearchInfo map[string]searchinfo.SearchInfo // by photo UUID: photosdb.DB.SearchInfoOf; a photo without an entry has no terms; may be nil without AlbumKeys
 }
 
 // Diff is one difference between the reference and Go.
@@ -72,6 +75,7 @@ type env struct {
 	likes         map[string][]photoinfo.LikeInfo
 	persons       map[string][]personinfo.PersonInfo
 	cloudMeta     map[string]map[string]any
+	search        map[string]searchinfo.SearchInfo
 }
 
 var (
@@ -92,6 +96,7 @@ func newEnv(lib Library) (*env, error) {
 		likes:         lib.Likes,
 		persons:       lib.Persons,
 		cloudMeta:     lib.CloudMetadata,
+		search:        lib.SearchInfo,
 	}
 	for _, set := range []struct {
 		albums []*albuminfo.AlbumInfo
@@ -392,11 +397,13 @@ func (r *Report) Summary() string {
 // UUIDs and values; a value of persons is written as its number of names, the
 // owner of a photo or of an album, the user of a comment or a like and the
 // name and the display name of a person of person_info as "<name>", the text
-// of a comment as "<text>", a value of exif_info, place or cloud_metadata that
-// is not null or "" as "<value>", the keys and the lengths of the lists kept,
-// and a value of album_info, burst_album_info, project_info, comments, likes
-// or person_info that is not a list of objects, or of exif_info, place or
-// cloud_metadata that is not an object, as "<unparsed>".
+// of a comment as "<text>", a value of exif_info, place, cloud_metadata,
+// search_info, search_info_normalized, labels or labels_normalized that is not
+// null or "" as "<value>", the keys and the lengths of the lists kept, and a
+// value of album_info, burst_album_info, project_info, comments, likes,
+// person_info, labels or labels_normalized that is not a list, or of
+// exif_info, place, cloud_metadata, search_info or search_info_normalized that
+// is not an object, as "<unparsed>".
 func (r *Report) WriteDetails(w io.Writer) error {
 	for _, d := range r.Diffs {
 		if _, err := fmt.Fprintf(w, "%s %s want=%s got=%s\n", d.Field, d.UUID, redact(d.Field, d.Want), redact(d.Field, d.Got)); err != nil {
@@ -427,8 +434,11 @@ func redact(field, value string) string {
 	if field == "owner" && value != `""` {
 		return "<name>"
 	}
-	if field == "exif_info" || field == "place" || field == "cloud_metadata" {
-		return redactValues(value)
+	switch field {
+	case "exif_info", "place", "cloud_metadata", "search_info", "search_info_normalized":
+		return redactAs[map[string]any](value)
+	case "labels", "labels_normalized":
+		return redactAs[[]any](value)
 	}
 	placeholders, ok := redacted[field]
 	if !ok {
@@ -449,15 +459,16 @@ func redact(field, value string) string {
 	return s
 }
 
-// The coordinates and the camera of a photo and the names and the address of
-// its place are personal data too: the keys and the lengths of the lists stay,
-// so that a null or "" can be told from a value and a difference located.
-func redactValues(value string) string {
-	var obj map[string]any
-	if json.Unmarshal([]byte(value), &obj) != nil {
+// The coordinates and the camera of a photo, the names and the address of its
+// place and its search terms are personal data too: the keys and the lengths
+// of the lists stay, so that a null or "" can be told from a value and a
+// difference located.
+func redactAs[T map[string]any | []any](value string) string {
+	var v T
+	if json.Unmarshal([]byte(value), &v) != nil {
 		return "<unparsed>"
 	}
-	s, _ := canonical(redactLeaves(obj)) // decoded JSON holds no NaN
+	s, _ := canonical(redactLeaves(v)) // decoded JSON holds no NaN
 	return s
 }
 

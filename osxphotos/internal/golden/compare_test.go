@@ -15,6 +15,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/scoreinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/searchinfo"
 )
 
 func TestFixtureKeys(t *testing.T) {
@@ -33,8 +34,8 @@ func TestCompareNoDifferences(t *testing.T) {
 	if !rep.OK() || len(rep.Diffs) != 0 || len(rep.Explained) != 0 || len(rep.Stale) != 0 {
 		t.Fatalf("report = %+v, want no differences", rep)
 	}
-	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 83 {
-		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 83", rep.Library, rep.Objects, len(rep.Keys))
+	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 87 {
+		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 87", rep.Library, rep.Objects, len(rep.Keys))
 	}
 	if !slices.IsSorted(rep.Keys) {
 		t.Error("Keys are not sorted")
@@ -330,11 +331,31 @@ func photoMutations() []mutation {
 		{"CloudMetadata date by 1us", cloudMeta(func(m map[string]any) { m["when"] = utc(2020, 1, 2, 3, 4, 5, 7000) }), "cloud_metadata"},
 		{"CloudMetadata date without microseconds", cloudMeta(func(m map[string]any) { m["when"] = utc(2020, 1, 2, 3, 4, 5, 0) }), "cloud_metadata"},
 		{"CloudMetadata list swapped", cloudMeta(func(m map[string]any) { m["nested"] = map[string]any{"list": []any{"x", int64(-1)}} }), "cloud_metadata"},
+
+		{"SearchInfo nil", func(l *Library) { l.SearchInfo = nil }, "labels labels_normalized search_info search_info_normalized"},
+		{"SearchInfo of another photo", func(l *Library) {
+			l.SearchInfo[emptyPhoto], l.SearchInfo[selectedFrame] = l.SearchInfo[selectedFrame], searchinfo.SearchInfo{}
+		}, "labels labels_normalized search_info search_info_normalized"},
+		{"a label", searchTerms(func(r []searchinfo.Record) []searchinfo.Record { r[0].Content = "Cat"; return r }), "labels search_info"},
+		{"a normalized label", searchTerms(func(r []searchinfo.Record) []searchinfo.Record { r[0].Normalized = "cat"; return r }),
+			"labels_normalized search_info_normalized"},
+		// SearchInfo keeps a term once per record, as upstream does (searchinfo.py:401-413).
+		{"a repeated label", searchTerms(func(r []searchinfo.Record) []searchinfo.Record { return append(r, r[0]) }),
+			"labels labels_normalized search_info search_info_normalized"},
+		{"the city", searchTerms(func(r []searchinfo.Record) []searchinfo.Record { r[1].Content = "Elsewhere"; return r }), "search_info"},
+		{"the city as a state", searchTerms(func(r []searchinfo.Record) []searchinfo.Record { r[1].Category = searchinfo.CategoryState; return r }),
+			"search_info search_info_normalized"},
+		{"a normalized holiday", searchTerms(func(r []searchinfo.Record) []searchinfo.Record { r[3].Normalized = "x"; return r }),
+			"search_info_normalized"},
 	}
 }
 
 func cloudMeta(f func(m map[string]any)) func(l *Library) {
 	return func(l *Library) { f(l.CloudMetadata[selectedFrame]) }
+}
+
+func searchTerms(f func(r []searchinfo.Record) []searchinfo.Record) func(l *Library) {
+	return func(l *Library) { l.SearchInfo[selectedFrame] = searchinfo.New(f(searchRecords())) }
 }
 
 // i indexes Library.Persons of selectedFrame: 0 is Person A, 1 the unknown person.
@@ -939,6 +960,10 @@ func TestCompareNulls(t *testing.T) {
 		{"Score Overall", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Score.Overall = 0.5 }), "score"},
 		{"Score Behavioral", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Score.Behavioral = 0.5 }), "score"},
 		{"Place zero is not {}", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Place = &placeinfo.PlaceInfo{} }), "place"},
+		{"SearchInfo without records", func(l *Library) { l.SearchInfo[emptyPhoto] = searchinfo.New([]searchinfo.Record{}) }, ""},
+		{"SearchInfo of one term", func(l *Library) {
+			l.SearchInfo[emptyPhoto] = searchinfo.New([]searchinfo.Record{{Category: searchinfo.CategoryCity, Content: "x", Normalized: "x"}})
+		}, "search_info search_info_normalized"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

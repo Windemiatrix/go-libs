@@ -102,8 +102,9 @@ func TestAlbumShape(t *testing.T) {
 func TestAlbumsMissingOnTheGoSide(t *testing.T) {
 	t.Parallel()
 	for _, key := range AlbumKeys() {
-		if key == "comments" || key == "likes" || key == "person_info" || key == "cloud_metadata" {
-			continue // keyed by photo UUID: nothing can be missing
+		switch key {
+		case "comments", "likes", "person_info", "cloud_metadata", "labels", "labels_normalized", "search_info", "search_info_normalized":
+			continue // keyed by photo UUID: a missing entry is a difference, not an error
 		}
 		t.Run(key, func(t *testing.T) {
 			t.Parallel()
