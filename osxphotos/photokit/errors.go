@@ -48,25 +48,29 @@ var (
 	// CloudIdentifiers and LocalIdentifiers also for an identifier that is not a
 	// valid string, never for a missing asset, which the two leave out.
 	ErrNotFound = errors.New("photokit: not found")
-	// ErrMediaType is wrapped, with the number PhotoKit gave, when a fetched
+	// ErrMediaType is wrapped, with the MediaType PhotoKit gave, when a fetched
 	// asset is neither an image, a video nor a Live Photo
-	// (PhotoKitMediaTypeError, photokit.py:1309-1319), by ExportImage for an
-	// asset that is not a photo and by ExportVideo for one that is not a video.
+	// (PhotoKitMediaTypeError, photokit.py:1309-1319), and by ExportImage,
+	// ExportVideo and ExportLivePhoto when the class of the asset, as
+	// _asset_factory tells it (1312-1317), does not match the method.
 	ErrMediaType = errors.New("photokit: unknown media type")
-	// ErrInvalidName is returned by Export, ExportImage and ExportVideo when the
-	// name is not one element of a path: empty, ".", "..", or with "/" or NUL
-	// in it.
+	// ErrInvalidName is returned by Export, ExportImage, ExportVideo and
+	// ExportLivePhoto when the name is not one element of a path: empty, ".",
+	// "..", or with "/" or NUL in it.
 	ErrInvalidName = errors.New("photokit: the name is not one path element")
 	// ErrInvalidVersion is wrapped, with the number, by the error of
-	// ExportImage and ExportVideo for a Version other than the three constants
-	// (ValueError, photokit.py:644-649, 980-985).
+	// ExportImage, ExportVideo and ExportLivePhoto for a Version other than the
+	// three constants (ValueError, photokit.py:644-649, 980-985;
+	// LivePhotoAsset.export passes it to PhotoKit unchecked, 1038).
 	ErrInvalidVersion = errors.New("photokit: invalid version")
 	// ErrNoResource is wrapped by the error of Export when the asset has no
 	// resource of the type (PhotoKitExportError, photokit.py:583-586), and by
 	// that of ExportImage when PhotoKit no longer finds the asset or gives no
 	// data (photokit.py:591-592), and by that of ExportVideo when PhotoKit no
 	// longer finds the asset or gives no file, or one that does not exist or is
-	// not a regular file (898-899, 904-905).
+	// not a regular file (898-899, 904-905), and by that of ExportLivePhoto for a
+	// kind other than ResourcePhoto and ResourcePairedVideo or an asset without
+	// the resource of the version (1142-1151).
 	ErrNoResource = bridge.ErrNoResource
 	// ErrExport is wrapped, with the domain and code of the NSError, when
 	// PhotoKit fails an export or a request of a version (PhotoKitExportError,
