@@ -4,6 +4,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/query"
+	"github.com/Windemiatrix/go-libs/osxphotos/searchinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/template"
 )
 
@@ -38,6 +39,8 @@ type DB struct {
 	liked        map[string]bool                         // the keys of likes, for query.Catalog
 
 	cloudMeta map[string][]byte // the ZDATA of ZCLOUDMASTERMEDIAMETADATA by photo UUID, decoded by CloudMetadataOf
+
+	search map[string][]searchinfo.Record // the terms of psi.sqlite or leo.sqlite by photo UUID, in rowid order
 
 	renderer template.Renderer // of RenderTemplate: one Renderer is one process of osxphotos, whose {counter} grows from photo to photo
 

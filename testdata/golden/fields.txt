@@ -43,6 +43,8 @@ isphoto
 israw
 isreference
 keywords
+labels
+labels_normalized
 latitude
 likes
 live_photo
@@ -66,6 +68,8 @@ saved_to_library
 score
 screen_recording
 screenshot
+search_info
+search_info_normalized
 selfie
 shared
 shared_library

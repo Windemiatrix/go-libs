@@ -13,6 +13,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/uti"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/searchinfo"
 )
 
 const (
@@ -97,6 +98,8 @@ type tables struct {
 
 	collectionShares []sqlread.Album // CollectionShare rows of ZSHARE: their PK is a ZSHARE.Z_PK
 	shareMembers     []sqlread.Member
+
+	search []sqlread.SearchTerm // of psi.sqlite or leo.sqlite, not of Photos.sqlite
 }
 
 type catalog struct {
@@ -106,6 +109,8 @@ type catalog struct {
 
 	momentOf  map[string]int64  // ZASSET.ZMOMENT by photo UUID, also for a Z_PK without a ZMOMENT row (photosdb.py:2280)
 	cloudMeta map[string][]byte // the data of ZCLOUDMASTERMEDIAMETADATA by photo UUID, only a photo with data
+
+	search map[string][]searchinfo.Record // the search terms by photo UUID, in RowID order, only a photo with terms
 }
 
 // osxphotos normalizes the text of the database to NFC (unicode.py:12, 76-92).
@@ -222,6 +227,14 @@ func load(t tables) (*catalog, error) {
 	}
 	if dupUUID > 0 {
 		return nil, fmt.Errorf("photosdb: %d assets with the ZASSET.ZUUID of another asset", dupUUID)
+	}
+	// Upstream also keeps the terms of assets that Photos.sqlite lacks
+	// (_photosdb_process_searchinfo.py:249-269); no photo shows them.
+	c.search = map[string][]searchinfo.Record{}
+	for _, s := range t.search {
+		if _, ok := c.byUUID[s.UUID]; ok {
+			c.search[s.UUID] = append(c.search[s.UUID], searchinfo.Record{Category: s.Category, Content: s.Content, Normalized: s.Normalized})
+		}
 	}
 	return c, nil
 }

@@ -132,6 +132,14 @@ const (
 
 func placeWith(old, value string) string { return strings.Replace(refPlace, old, value, 1) }
 
+// The values of refSearchInfoEmpty are only [] and "", so the compact form is
+// the literal without the spaces after its separators.
+var zeroSearchInfo = strings.NewReplacer(`": `, `":`, `, "`, `,"`).Replace(refSearchInfoEmpty)
+
+func searchInfoWith(old, value string) string {
+	return strings.Replace(refSearchInfoEmpty, old, value, 1)
+}
+
 // The keys of a person but uuid and name, as osxphotos writes them (personinfo.py:110-123).
 const (
 	personNulls  = `"displayname": null, "facecount": null, "favorite": false, "feature_less": false, "keyface": null, "keyphoto": null, "sort_order": null`
@@ -435,6 +443,27 @@ func TestNormalize(t *testing.T) {
 		{name: "place names city with a number", key: "place", raw: placeWith(`["Townsville", "Greater Townsville"]`, `["SECRET-C", 424242]`),
 			wantErr: "place.names.city: want a list of strings"},
 
+		{name: "labels in the order of the reference", key: "labels", raw: `["b", "a"]`, want: `["b","a"]`},
+		{name: "labels null", key: "labels", raw: `null`, wantErr: "labels: want a list of strings"},
+		{name: "labels_normalized with a number", key: "labels_normalized", raw: `["a", 424242]`, wantErr: "labels_normalized: want a list of strings"},
+		{name: "search_info of a photo without terms", key: "search_info", raw: refSearchInfoEmpty, want: zeroSearchInfo},
+		{name: "search_info", key: "search_info", raw: refSearchInfo(false), want: strings.NewReplacer(`"city":""`, `"city":"Townsville"`,
+			`"holidays":[]`, `"holidays":["New Year"]`, `"labels":[]`, `"labels":["Beach","Dog"]`).Replace(zeroSearchInfo)},
+		{name: "search_info with an extra key", key: "search_info", raw: searchInfoWith(`"year": ""}`, `"year": "", "text_found": ["SECRET-X"]}`),
+			want: zeroSearchInfo},
+		{name: "search_info null", key: "search_info", raw: `null`, wantErr: "search_info: want an object"},
+		{name: "search_info list", key: "search_info", raw: `[]`, wantErr: "search_info: want an object"},
+		{name: "search_info empty", key: "search_info", raw: `{}`, wantErr: "search_info.activities: want a value (the key is missing)"},
+		{name: "search_info without year", key: "search_info", raw: searchInfoWith(`, "year": ""`, ``),
+			wantErr: "search_info.year: want a value (the key is missing)"},
+		{name: "search_info labels null", key: "search_info", raw: searchInfoWith(`"labels": []`, `"labels": null`), wantErr: "search_info.labels: want a list of strings"},
+		{name: "search_info labels with a number", key: "search_info", raw: searchInfoWith(`"labels": []`, `"labels": ["SECRET-L", 424242]`),
+			wantErr: "search_info.labels: want a list of strings"},
+		{name: "search_info city null", key: "search_info", raw: searchInfoWith(`"city": ""`, `"city": null`), wantErr: "search_info.city: want a string"},
+		{name: "search_info city as a list", key: "search_info", raw: searchInfoWith(`"city": ""`, `"city": ["SECRET-C"]`), wantErr: "search_info.city: want a string"},
+		{name: "search_info_normalized empty", key: "search_info_normalized", raw: `{}`,
+			wantErr: "search_info_normalized.activities: want a value (the key is missing)"},
+
 		{name: "no key", key: "title", raw: ``, wantErr: "title: want a value (the key is missing)"},
 	}
 	for _, c := range cases {
@@ -526,6 +555,7 @@ func TestNormalizeGoSide(t *testing.T) {
 			"adjustment_type": `null`, "imported_by": `["",""]`, "spatial": `0`, "tzname": `""`, "visible": `false`,
 			"import_info": `{}`, "project_info": `[]`, "comments": `[]`, "likes": `[]`, "person_info": `[]`,
 			"owner": `""`, "exif_info": zeroExif, "place": `{}`, "score": zeroScore,
+			"labels": `[]`, "labels_normalized": `[]`, "search_info": zeroSearchInfo, "search_info_normalized": zeroSearchInfo,
 		}
 		for key, w := range want {
 			if got := goCanon(t, key, p); got != w {

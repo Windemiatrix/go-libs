@@ -17,6 +17,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/scoreinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/searchinfo"
 )
 
 const (
@@ -162,7 +163,38 @@ func fixtureLib() Library {
 			"when":      utc(2020, 1, 2, 3, 4, 5, 6000),
 			"nested":    map[string]any{"list": []any{int64(-1), "x"}},
 		}},
+		SearchInfo: map[string]searchinfo.SearchInfo{selectedFrame: searchinfo.New(searchRecords())},
 	}
+}
+
+// The labels are out of order, so that only a sorted side matches the
+// reference. Index 0 is the label Dog, 1 the city, 3 the holiday.
+func searchRecords() []searchinfo.Record {
+	return []searchinfo.Record{
+		{Category: searchinfo.CategoryLabel, Content: "Dog", Normalized: "dog"},
+		{Category: searchinfo.CategoryCity, Content: "Townsville", Normalized: "townsville"},
+		{Category: searchinfo.CategoryLabel, Content: "Beach", Normalized: "beach"},
+		{Category: searchinfo.CategoryHoliday, Content: "New Year", Normalized: "new year"},
+	}
+}
+
+// The asdict of a SearchInfo without terms (searchinfo.py:347-394), as json.dumps
+// writes it with sorted keys.
+const refSearchInfoEmpty = `{"activities": [], "age_groups": [], "areas_of_interest": [], "bodies_of_water": [], "camera": "", ` +
+	`"captured_by_me": "", "city": "", "continent": "", "country": "", "country_code": "", "day_of_week": "", "detected_text": [], ` +
+	`"document_types": [], "event_performers": [], "event_types": [], "events": [], "file_type": "", "holidays": [], "home": "", ` +
+	`"human_actions": [], "id_document_names": [], "id_document_types": [], "labels": [], "landmarks": [], "locality_names": [], ` +
+	`"media_types": [], "month": "", "neighborhoods": [], "pets": [], "photographic_style": "", "place_names": [], "region": "", ` +
+	`"season": "", "sounds": [], "source": "", "state": "", "state_abbreviation": "", "streets": [], "times_of_day": [], "trip": "", ` +
+	`"venue_types": [], "venues": [], "week_part": "", "year": ""}`
+
+func refSearchInfo(normalized bool) string {
+	labels, city, holiday := `"Beach", "Dog"`, "Townsville", "New Year"
+	if normalized {
+		labels, city, holiday = `"beach", "dog"`, "townsville", "new year"
+	}
+	return strings.NewReplacer(`"labels": []`, `"labels": [`+labels+`]`, `"city": ""`, `"city": "`+city+`"`,
+		`"holidays": []`, `"holidays": ["`+holiday+`"]`).Replace(refSearchInfoEmpty)
 }
 
 // The integer above 2^53 and the date with microseconds are what a float64 and a rounded date would change.
@@ -287,6 +319,8 @@ func refSelectedFrame() map[string]string {
 		"israw":                "false",
 		"isreference":          "true",
 		"keywords":             `["alpha", "beta"]`,
+		"labels":               `["Beach", "Dog"]`,
+		"labels_normalized":    `["beach", "dog"]`,
 		"latitude":             "48.8566",
 		"likes":                refLikes,
 		"live_photo":           "true",
@@ -336,6 +370,9 @@ func refSelectedFrame() map[string]string {
 		"spatial":               "1",
 		"tzname":                `"Asia/Kolkata"`,
 		"visible":               "true",
+
+		"search_info":            refSearchInfo(false),
+		"search_info_normalized": refSearchInfo(true),
 	}
 }
 
@@ -360,6 +397,7 @@ func refEmptyPhoto() map[string]string {
 		"shared_moment": "false", "spatial": "0", "tzname": "null", "visible": "false",
 		"comments": "[]", "likes": "[]", "cloud_metadata": "{}",
 		"date_original": `"1970-01-01T00:00:00+00:00"`, "exif_info": refExifNull, "owner": "null", "place": "{}", "score": refScoreZero,
+		"labels": "[]", "labels_normalized": "[]", "search_info": refSearchInfoEmpty, "search_info_normalized": refSearchInfoEmpty,
 	}
 }
 
