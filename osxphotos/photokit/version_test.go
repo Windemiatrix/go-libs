@@ -554,6 +554,225 @@ func TestExportVideo(t *testing.T) {
 	})
 }
 
+const versionSlowMoID = "99999999-9999-9999-9999-999999999999"
+
+// The render of the composition, returned before the file of PhotoKit, differs
+// from that file, so that a test sees which one was written; its size is not a
+// multiple of the chunk of the copy.
+func slowMoFake(t *testing.T) (*fake.Bridge, []byte, []byte) {
+	t.Helper()
+	b, src, file := videoFake(t, 1<<10)
+	b.Assets = append(b.Assets, bridge.AssetRecord{LocalIdentifier: versionSlowMoID + "/L0/001", MediaType: 2, MediaSubtypes: subtypeHighFrameRate})
+	render := make([]byte, 3<<20+17)
+	for i := range render {
+		render[i] = byte(i % 241)
+	}
+	b.Compositions = map[string][]byte{versionSlowMoID + "/0": render}
+	b.Videos[versionSlowMoID+"/1"] = src
+	return b, render, file
+}
+
+func onlyEntries(t *testing.T, dir string, want int) {
+	t.Helper()
+	if entries, err := os.ReadDir(dir); err != nil || len(entries) != want {
+		t.Errorf("%d entries in dir, %v; want %d, without the directory of the render", len(entries), err, want)
+	}
+}
+
+// Upstream renders the current version of a slow-motion video only
+// (photokit.py:876-884).
+func TestExportVideoSlowMo(t *testing.T) {
+	fetchSlowMo := []string{"FetchAssets " + versionSlowMoID, "AssetResources " + versionSlowMoID + "/L0/001"}
+	render := "ExportComposition " + versionSlowMoID + " 0"
+	slowMoErr := &bridge.PhotoKitError{Domain: "AVFoundationErrorDomain", Code: -11800}
+
+	t.Run("current", func(t *testing.T) {
+		b, want, _ := slowMoFake(t)
+		dir := t.TempDir()
+		progress := 0
+		o := ExportOptions{Progress: func(float64) { progress++ }}
+		if err := (&Library{b}).ExportVideo(t.Context(), versionSlowMoID, VersionCurrent, dir, "IMG_0001.mov", o); err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(dir, "IMG_0001.mov")
+		if got, err := os.ReadFile(path); err != nil || !bytes.Equal(got, want) {
+			t.Errorf("file = %d bytes, %v; want the %d bytes of the render", len(got), err, len(want))
+		}
+		if fi, err := os.Stat(path); err != nil || fi.Mode().Perm() != 0o600 {
+			t.Errorf("Stat = %v, %v; want mode 0600", fi, err)
+		}
+		if progress != 0 {
+			t.Errorf("Progress called %d times, want none, as upstream has no progress", progress)
+		}
+		// The render of a personal video must stay inside dir, out of sight and out of reach of other users.
+		if tmp, mode := b.LastRenderDir(); filepath.Dir(tmp) != dir || !strings.HasPrefix(filepath.Base(tmp), ".osxphotos-") || !mode.IsDir() || mode.Perm() != 0o700 {
+			t.Errorf("render in %q of mode %v, want a directory .osxphotos-* of mode 0700 inside dir", tmp, mode)
+		}
+		onlyEntries(t, dir, 1)
+		wantCalls(t, b, append(fetchSlowMo, render)...)
+	})
+
+	t.Run("other versions", func(t *testing.T) {
+		for _, v := range []Version{VersionUnadjusted, VersionOriginal} {
+			b, _, file := slowMoFake(t)
+			dir := t.TempDir()
+			if err := (&Library{b}).ExportVideo(t.Context(), versionSlowMoID, v, dir, "IMG_0001.MOV", ExportOptions{}); err != nil {
+				t.Fatalf("version %d: %v", v, err)
+			}
+			if got, err := os.ReadFile(filepath.Join(dir, "IMG_0001.MOV")); err != nil || !bytes.Equal(got, file) {
+				t.Errorf("version %d: file = %d bytes, %v; want the %d bytes of the file of PhotoKit", v, len(got), err, len(file))
+			}
+			wantCalls(t, b, append(fetchSlowMo, "RequestVideo "+versionSlowMoID+" 1")...)
+		}
+	})
+
+	t.Run("current of a video that is not slow motion", func(t *testing.T) {
+		b, _, file := slowMoFake(t)
+		dir := t.TempDir()
+		if err := (&Library{b}).ExportVideo(t.Context(), versionVideoID, VersionCurrent, dir, "IMG_0001.MOV", ExportOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := os.ReadFile(filepath.Join(dir, "IMG_0001.MOV")); err != nil || !bytes.Equal(got, file) {
+			t.Errorf("file = %d bytes, %v; want the %d bytes of the file of PhotoKit", len(got), err, len(file))
+		}
+		wantCalls(t, b, "FetchAssets "+versionVideoID, "AssetResources "+versionVideoID+"/L0/001", "RequestVideo "+versionVideoID+" 0")
+	})
+
+	// The class of upstream is PhotoKitMediaTypeError for an AVAsset that is not
+	// a composition of two tracks (photokit.py:938-942) and PhotoKitExportError
+	// for a failed session (826-828).
+	for _, tt := range []struct {
+		name string
+		set  func(*fake.Bridge)
+		want error
+		text string
+	}{
+		{"not a composition", func(b *fake.Bridge) { clear(b.Compositions) }, ErrMediaType, ": not a slow-motion composition"},
+		{"failed session", func(b *fake.Bridge) { b.DoneErr = slowMoErr }, ErrExport, "AVFoundationErrorDomain code -11800"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			b, _, _ := slowMoFake(t)
+			tt.set(b)
+			dir := t.TempDir()
+			err := (&Library{b}).ExportVideo(t.Context(), versionSlowMoID, VersionCurrent, dir, "IMG_0001.mov", ExportOptions{})
+			if !errors.Is(err, tt.want) || !strings.HasSuffix(err.Error(), tt.text) {
+				t.Errorf("err = %v, want %v ending in %q", err, tt.want, tt.text)
+			}
+			if want := errors.Is(tt.want, ErrExport); errors.Is(err, ErrExport) != want {
+				t.Errorf("err = %v: ErrExport %t, want %t", err, !want, want)
+			}
+			onlyEntries(t, dir, 0)
+			wantCalls(t, b, append(fetchSlowMo, render)...)
+		})
+	}
+
+	t.Run("directory of the render", func(t *testing.T) {
+		old := mkdirTemp
+		mkdirTemp = func(string, string) (string, error) {
+			return "", &fs.PathError{Op: "mkdirtemp", Path: "/x/.osxphotos-1", Err: fs.ErrPermission}
+		}
+		t.Cleanup(func() { mkdirTemp = old })
+		b, _, _ := slowMoFake(t)
+		dir := t.TempDir()
+		err := (&Library{b}).ExportVideo(t.Context(), versionSlowMoID, VersionCurrent, dir, "IMG_0001.mov", ExportOptions{})
+		if !errors.Is(err, fs.ErrPermission) || strings.Contains(err.Error(), "/x/") {
+			t.Errorf("err = %v, want fs.ErrPermission without the path", err)
+		}
+		onlyEntries(t, dir, 0)
+		wantCalls(t, b, fetchSlowMo...)
+	})
+
+	t.Run("canceled during the render", func(t *testing.T) {
+		old := cancelGrace
+		cancelGrace = 100 * time.Millisecond
+		t.Cleanup(func() { cancelGrace = old })
+		b, _, _ := slowMoFake(t)
+		b.HoldRequest = make(chan struct{})
+		t.Cleanup(func() { close(b.HoldRequest) })
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		go func() {
+			for ctx.Err() == nil && !slices.Contains(b.Calls(), render) {
+				time.Sleep(time.Millisecond)
+			}
+			cancel()
+		}()
+		dir := t.TempDir()
+		if err := (&Library{b}).ExportVideo(ctx, versionSlowMoID, VersionCurrent, dir, "IMG_0001.mov", ExportOptions{}); !errors.Is(err, context.Canceled) {
+			t.Errorf("err = %v, want context.Canceled", err)
+		}
+		onlyEntries(t, dir, 0)
+		wantCalls(t, b, append(fetchSlowMo, render, "Cancel "+versionSlowMoID)...)
+	})
+
+	// The render has three chunks of the copy left after the first.
+	t.Run("canceled during the copy of the render", func(t *testing.T) {
+		b, _, _ := slowMoFake(t)
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		old, writes := fileWrite, 0
+		fileWrite = func(f *os.File, p []byte) (int, error) {
+			writes++
+			cancel()
+			return old(f, p)
+		}
+		t.Cleanup(func() { fileWrite = old })
+		dir := t.TempDir()
+		if err := (&Library{b}).ExportVideo(ctx, versionSlowMoID, VersionCurrent, dir, "IMG_0001.mov", ExportOptions{}); !errors.Is(err, context.Canceled) {
+			t.Errorf("err = %v, want context.Canceled", err)
+		}
+		if writes != 1 {
+			t.Errorf("%d chunks written, want the copy to stop after the first", writes)
+		}
+		onlyEntries(t, dir, 0)
+		wantCalls(t, b, append(fetchSlowMo, render)...)
+	})
+
+	t.Run("existing file", func(t *testing.T) {
+		b, want, _ := slowMoFake(t)
+		dir := t.TempDir()
+		path := filepath.Join(dir, "IMG_0001.mov")
+		if err := os.WriteFile(path, []byte("old"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		lib := &Library{b}
+		b.DoneErr = slowMoErr
+		if err := lib.ExportVideo(t.Context(), versionSlowMoID, VersionCurrent, dir, "IMG_0001.mov", ExportOptions{Overwrite: true}); !errors.Is(err, ErrExport) {
+			t.Errorf("Overwrite, failed session: err = %v, want ErrExport", err)
+		}
+		if got, err := os.ReadFile(path); err != nil || string(got) != "old" {
+			t.Errorf("Overwrite, failed session: file = %q, %v; want it kept", got, err)
+		}
+		onlyEntries(t, dir, 1)
+		first, _ := b.LastRenderDir()
+		b.DoneErr = nil
+		if err := lib.ExportVideo(t.Context(), versionSlowMoID, VersionCurrent, dir, "IMG_0001.mov", ExportOptions{Overwrite: true}); err != nil {
+			t.Fatal(err)
+		}
+		// A fixed name would fail on the directory that a killed export left.
+		if second, _ := b.LastRenderDir(); second == first {
+			t.Errorf("both renders in %q, want a new name for each", first)
+		}
+		if got, err := os.ReadFile(path); err != nil || !bytes.Equal(got, want) {
+			t.Errorf("Overwrite: file = %d bytes, %v; want the %d bytes of the render", len(got), err, len(want))
+		}
+		if fi, err := os.Stat(path); err != nil || fi.Mode().Perm() != 0o600 {
+			t.Errorf("Overwrite: Stat = %v, %v; want mode 0600", fi, err)
+		}
+		onlyEntries(t, dir, 1)
+	})
+
+	t.Run("invalid name", func(t *testing.T) {
+		b, _, _ := slowMoFake(t)
+		dir := t.TempDir()
+		if err := (&Library{b}).ExportVideo(t.Context(), versionSlowMoID, VersionCurrent, dir, "../x", ExportOptions{}); !errors.Is(err, ErrInvalidName) {
+			t.Errorf("err = %v, want ErrInvalidName", err)
+		}
+		onlyEntries(t, dir, 0)
+		wantCalls(t, b)
+	})
+}
+
 // The data of each resource names its type, so that a test sees which one was
 // written.
 func liveFake(types ...ResourceType) *fake.Bridge {

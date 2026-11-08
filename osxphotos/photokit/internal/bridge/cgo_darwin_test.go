@@ -51,6 +51,8 @@ func TestRequestFinish(t *testing.T) {
 		{"canceled without an NSError", true, false, "", 0, ErrCanceled},
 		{"no image data", false, false, "", 3, ErrNoResource},
 		{"canceled without image data", true, false, "", 3, ErrCanceled},
+		{"not a composition", false, false, "", 6, ErrNoComposition},
+		{"canceled with another AVAsset", true, false, "", 6, ErrCanceled},
 		{"exception in a handler", false, false, "", 1, errors.New("photokit: Objective-C exception: ")},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -198,6 +200,26 @@ func TestRequestStop(t *testing.T) {
 	}
 }
 
+// pk_render reads the answer to start no session for a request that Go has
+// canceled or forgotten.
+func TestRequestCanceled(t *testing.T) {
+	const h = 1<<40 + 2
+	r := &cgoRequest{}
+	requests.Store(uintptr(h), r)
+	defer requests.Delete(uintptr(h))
+	if bool(pk_go_canceled(h)) {
+		t.Error("pk_go_canceled before Cancel = true, want false")
+	}
+	r.Cancel()
+	if !bool(pk_go_canceled(h)) {
+		t.Error("pk_go_canceled after Cancel = false, want true")
+	}
+	requests.Delete(uintptr(h))
+	if !bool(pk_go_canceled(h)) {
+		t.Error("pk_go_canceled of an ended request = false, want true")
+	}
+}
+
 func TestRequestCancel(t *testing.T) {
 	runs := 0
 	r := &cgoRequest{cancel: func() { runs++ }}
@@ -249,11 +271,12 @@ func TestReadsBeforePhotoKit(t *testing.T) {
 	image, imageErr := b.RequestImage("\xff", 0, nil)
 	resource, resourceErr := b.RequestResource("\xff", 1, nil)
 	video, videoErr := b.RequestVideo("\xff", 1, nil)
-	if image != nil || resource != nil || video != nil {
-		t.Errorf("requests of an id not UTF-8 = %v, %v, %v; want none", image, resource, video)
+	composition, compositionErr := b.ExportComposition("\xff", 0, "/x/render.mov")
+	if image != nil || resource != nil || video != nil || composition != nil {
+		t.Errorf("requests of an id not UTF-8 = %v, %v, %v, %v; want none", image, resource, video, composition)
 	}
 	if after := known(); after != before {
-		t.Errorf("%d requests known after three that did not start, want %d", after, before)
+		t.Errorf("%d requests known after four that did not start, want %d", after, before)
 	}
 	resources, resourcesErr := b.AssetResources("\xff")
 	assets, assetsErr := b.FetchAssets([]string{"\xff"})
@@ -268,6 +291,7 @@ func TestReadsBeforePhotoKit(t *testing.T) {
 		{"RequestImage", imageErr},
 		{"RequestResource", resourceErr},
 		{"RequestVideo", videoErr},
+		{"ExportComposition", compositionErr},
 		{"AssetResources", resourcesErr},
 		{"FetchAssets", assetsErr},
 		{"FetchBurst", burstErr},
@@ -295,6 +319,9 @@ func TestCodeError(t *testing.T) {
 	}
 	if err := codeError(5, ""); !errors.Is(err, ErrNoAsset) {
 		t.Errorf("codeError(5) = %v, want ErrNoAsset", err)
+	}
+	if err := codeError(6, ""); !errors.Is(err, ErrNoComposition) {
+		t.Errorf("codeError(6) = %v, want ErrNoComposition", err)
 	}
 	for _, tt := range []struct{ name, message, want string }{
 		{"valid", "IMG_0001.HEIC caf\U000000e9", "photokit: Objective-C exception: IMG_0001.HEIC caf\U000000e9"},

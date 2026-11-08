@@ -5,6 +5,8 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -44,6 +46,14 @@ import (
 // RequestResource does without data, and gives the entry to path unless it is
 // "", as PhotoKit gives no file of an AVComposition.
 //
+// ExportComposition logs the id and the version and, from a goroutine,
+// delivers bridge.ErrNoComposition by Done when Compositions has no entry for
+// id+"/"+version, as PhotoKit tells it only in its handler. Otherwise, before
+// it returns, it keeps the directory of path and its mode for LastRenderDir
+// and writes the entry into path, which must not exist, with mode 0644; then
+// from a goroutine it delivers the error of the write, if any, or runs as
+// RequestResource does without data.
+//
 // Import keeps the record and the timeout for LastImport and, when HoldImport
 // is not nil, waits for it to be closed or the timeout to pass, as Hold does;
 // then it returns ImportID and ImportErr.
@@ -73,6 +83,7 @@ type Bridge struct {
 	Chunk                 int
 	Images                map[string]ImageData
 	Videos                map[string]string
+	Compositions          map[string][]byte
 	DoneErr               error
 	HoldRequest           chan struct{}
 	ImportID              string
@@ -93,6 +104,8 @@ type Bridge struct {
 	lastTimeout time.Duration
 	lastIDs     []string
 	lastPatch   bridge.PatchRecord
+	renderDir   string
+	renderMode  fs.FileMode
 }
 
 var _ bridge.Bridge = (*Bridge)(nil)
@@ -203,6 +216,47 @@ func (b *Bridge) RequestVideo(id string, version int, path func(string)) (bridge
 	}), nil
 }
 
+// ExportComposition implements bridge.Bridge.
+func (b *Bridge) ExportComposition(id string, version int, path string) (bridge.Request, error) {
+	b.log(fmt.Sprintf("ExportComposition %s %d", id, version))
+	err := bridge.ErrNoComposition
+	if data, ok := b.Compositions[id+"/"+strconv.Itoa(version)]; ok {
+		err = b.render(path, data)
+	}
+	return b.start(id, nil, func(r *request) error {
+		if err != nil {
+			return err
+		}
+		return r.run(nil, 0, nil, nil)
+	}), nil
+}
+
+// The file is written before ExportComposition returns, so that a cancel never
+// races the removal of its directory.
+func (b *Bridge) render(path string, data []byte) error {
+	fi, err := os.Stat(filepath.Dir(path))
+	if err != nil {
+		return err
+	}
+	b.mu.Lock()
+	b.renderDir, b.renderMode = filepath.Dir(path), fi.Mode()
+	b.mu.Unlock()
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gosec // G302, G304: the mode AVFoundation leaves under the default umask, so that a test tells the copy from the file of the session, at a path photokit made
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(data)
+	return cmp.Or(err, f.Close())
+}
+
+// LastRenderDir returns the directory of the path of the latest
+// ExportComposition that had an entry and its mode, "" and 0 before one.
+func (b *Bridge) LastRenderDir() (string, fs.FileMode) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.renderDir, b.renderMode
+}
+
 func (b *Bridge) start(id string, sink bridge.ResourceSink, run func(*request) error) *request {
 	b.mu.Lock()
 	b.sink = sink
@@ -213,7 +267,7 @@ func (b *Bridge) start(id string, sink bridge.ResourceSink, run func(*request) e
 }
 
 // LastSink returns the sink of the latest RequestResource or RequestImage, nil
-// before one and after RequestVideo.
+// before one and after RequestVideo and ExportComposition.
 func (b *Bridge) LastSink() bridge.ResourceSink {
 	b.mu.Lock()
 	defer b.mu.Unlock()

@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-enum { PK_OK, PK_EXCEPTION, PK_TIMEOUT, PK_NO_RESOURCE, PK_NOT_FOUND, PK_NO_ASSET };
+enum { PK_OK, PK_EXCEPTION, PK_TIMEOUT, PK_NO_RESOURCE, PK_NOT_FOUND, PK_NO_ASSET, PK_NO_COMPOSITION };
 
 // message is NULL unless code is PK_EXCEPTION; the caller frees it.
 typedef struct {
@@ -17,7 +17,8 @@ typedef struct {
 // the call, and a pk_* function checks only the state of PhotoKit. One that is
 // not UTF-8 is a bug of the caller and raises before any change, and before
 // PhotoKit is asked for a read (PK_EXCEPTION); C cuts one at a NUL, which only
-// photokit sees.
+// photokit sees. A render_path has no NUL either, as photokit has just created
+// its directory, and its bytes are taken as they are, not decoded.
 
 pk_result pk_authorization_status(int *status);
 // A timeout_ms of 0 does not wait.
@@ -81,12 +82,21 @@ pk_result pk_request_image(const char *local_id, int64_t version, uintptr_t hand
 
 // Starts requestAVAssetForVideo for the asset local_id with version, a
 // PHVideoRequestOptionsVersion, and sets *request_id; no such asset or a hidden
-// one is PK_NO_RESOURCE and starts nothing. Once started, the request calls
-// pk_go_video once when PhotoKit gives an AVURLAsset of a file URL, with its
-// path (NULL when the URL gives none), and, at most once, pk_go_done with
-// handle: an NSError, or no domain with PK_OK or PK_EXCEPTION.
-pk_result pk_request_video(const char *local_id, int64_t version, uintptr_t handle, int32_t *request_id);
-void pk_cancel_video(int32_t request_id);
+// one is PK_NO_RESOURCE and starts nothing. Once started, the request calls,
+// with handle, pk_go_video once when render_path is NULL and PhotoKit gives an
+// AVURLAsset of a file URL, with its path (NULL when the URL gives none), and,
+// at most once, pk_go_done: an NSError, or no domain with PK_OK or
+// PK_EXCEPTION. A render_path is not read after the return: an AVComposition of
+// two tracks is rendered by an AVAssetExportSession into that file, which must
+// not exist, and pk_go_done comes once the session ends, with its NSError when
+// it failed, PK_OK when it completed and PK_EXCEPTION otherwise; another
+// AVAsset is PK_NO_COMPOSITION.
+pk_result pk_request_video(const char *local_id, int64_t version, const char *render_path, uintptr_t handle, int32_t *request_id);
+// Cancels the request (cancelImageRequest:) and the session of handle
+// (cancelExport); a session not started yet does not start, as long as
+// pk_go_canceled answers true for handle from before the call. pk_go_done
+// still comes.
+void pk_cancel_video(int32_t request_id, uintptr_t handle);
 
 // A path or the name is "" when not given, and photo is "" for a video; the
 // date, seconds since 1970, and the coordinates hold only with their has_ field.

@@ -408,18 +408,78 @@ pk_result pk_request_image(const char *local_id, int64_t version, uintptr_t hand
 	return r;
 }
 
+// A session is made in the result handler of PhotoKit, and pk_cancel_video,
+// another call, must reach it: the sessions that run are kept here by handle,
+// under the lock of the dictionary.
+static NSMutableDictionary<NSNumber *, AVAssetExportSession *> *pk_sessions(void) {
+	static NSMutableDictionary<NSNumber *, AVAssetExportSession *> *sessions;
+	static dispatch_once_t once;
+	dispatch_once(&once, ^{
+		sessions = [NSMutableDictionary dictionary];
+	});
+	return sessions;
+}
+
+// SlowMoVideoExporter (photokit.py:775-841). Upstream polls the status
+// (816-829), as it found no other way to wait; here the completion handler
+// ends the wait, as for every request of the bridge. Upstream takes any status
+// but Completed for an error (820-828): a canceled session is one, which Go
+// reports as the cancel. The cancel of Go is read, and the session registered
+// and started, under the lock of pk_cancel_video: a Cancel before finds no
+// session, one after finds a started session, and a completion that comes at
+// once finds its entry to remove. A request canceled before the start renders
+// nothing, so that no file is written for it.
+static BOOL pk_render(AVComposition *video, NSURL *url, uintptr_t handle) {
+	AVAssetExportSession *session = [[AVAssetExportSession alloc] initWithAsset:video presetName:AVAssetExportPresetHighestQuality];
+	if (session == nil) [NSException raise:NSGenericException format:@"no export session"];
+	session.outputURL = url;
+	session.outputFileType = AVFileTypeQuickTimeMovie;
+	session.shouldOptimizeForNetworkUse = YES;
+	@synchronized(pk_sessions()) {
+		if (pk_go_canceled(handle)) return NO;
+		pk_sessions()[@(handle)] = session;
+		[session exportAsynchronouslyWithCompletionHandler:^{
+			@autoreleasepool {
+				int64_t code = PK_EXCEPTION;
+				NSString *domain = nil;
+				@try {
+					@synchronized(pk_sessions()) {
+						[pk_sessions() removeObjectForKey:@(handle)];
+					}
+					if (session.status == AVAssetExportSessionStatusCompleted) {
+						code = PK_OK;
+					} else if (session.status == AVAssetExportSessionStatusFailed) {
+						// A nil error must still fail; the description may name a file.
+						code = session.error.code;
+						domain = session.error.domain ?: @"";
+					}
+				} @catch (NSException *e) {
+					code = PK_EXCEPTION;
+					domain = nil;
+				}
+				pk_go_done(handle, code, domain == nil ? NULL : (char *)(domain.UTF8String ?: ""));
+			}
+		}];
+	}
+	return YES;
+}
+
 // _request_video_data (photokit.py:967-1015) waits on an event; here Go waits,
 // as for pk_request_resource. PhotoKit calls the handler on a serial queue of
 // its own, not the main queue, so unlike pk_request_image the request is
-// asynchronous and has an id for cancelImageRequest:. The handler holds only
-// handle and calls pk_go_done once; an exception must not leave it. The
-// description of an NSError is left out, as in pk_request_resource.
-pk_result pk_request_video(const char *local_id, int64_t version, uintptr_t handle, int32_t *request_id) {
+// asynchronous and has an id for cancelImageRequest:. An exception must not
+// leave the handler, which runs outside this @try. The description of an
+// NSError is left out, as in pk_request_resource. _export_slow_mo requests the
+// AVAsset of a render once too (photokit.py:937); url holds the bytes of
+// render_path, which Go frees after the return.
+pk_result pk_request_video(const char *local_id, int64_t version, const char *render_path, uintptr_t handle, int32_t *request_id) {
 	pk_result r = {PK_NO_RESOURCE, NULL};
 	@autoreleasepool {
 		@try {
 			PHAsset *asset = pk_asset_of(local_id);
 			if (asset != nil) {
+				BOOL render = render_path != NULL;
+				NSURL *url = render ? [NSURL fileURLWithFileSystemRepresentation:render_path isDirectory:NO relativeToURL:nil] : nil;
 				PHVideoRequestOptions *options = [[PHVideoRequestOptions alloc] init];
 				// A video kept only in iCloud is downloaded (photokit.py:988).
 				options.networkAccessAllowed = YES;
@@ -431,21 +491,35 @@ pk_result pk_request_video(const char *local_id, int64_t version, uintptr_t hand
 						@autoreleasepool {
 							int64_t code = PK_OK;
 							NSString *domain = nil;
+							BOOL rendering = NO;
 							@try {
 								NSError *error = info[PHImageErrorKey];
 								if (error != nil) {
 									code = error.code;
 									domain = error.domain ?: @"";
-								} else if ([video isKindOfClass:AVURLAsset.class] && ((AVURLAsset *)video).URL.isFileURL) {
-									// An AVComposition, a slow-motion video of the current version, has no file
-									// (photokit.py:876-884, 901), and a URL of another scheme names none.
-									pk_go_video(handle, (char *)((AVURLAsset *)video).URL.fileSystemRepresentation);
+								} else if (!render) {
+									if ([video isKindOfClass:AVURLAsset.class] && ((AVURLAsset *)video).URL.isFileURL) {
+										// An AVComposition, a slow-motion video of the current version, has no file
+										// (photokit.py:876-884, 901), and a URL of another scheme names none.
+										pk_go_video(handle, (char *)((AVURLAsset *)video).URL.fileSystemRepresentation);
+									}
+								} else if (![video isKindOfClass:AVComposition.class] || ((AVComposition *)video).tracks.count != 2) {
+									// Upstream renders a composition of two tracks only (photokit.py:938-942).
+									code = PK_NO_COMPOSITION;
+								} else {
+									rendering = pk_render((AVComposition *)video, url, handle);
 								}
 							} @catch (NSException *e) {
+								// A start that raised leaves its session registered, and no completion removes it.
+								@synchronized(pk_sessions()) {
+									[pk_sessions() removeObjectForKey:@(handle)];
+								}
 								code = PK_EXCEPTION;
 								domain = nil;
 							}
-							pk_go_done(handle, code, domain == nil ? NULL : (char *)(domain.UTF8String ?: ""));
+							if (!rendering) {
+								pk_go_done(handle, code, domain == nil ? NULL : (char *)(domain.UTF8String ?: ""));
+							}
 						}
 					}];
 				r.code = PK_OK;
@@ -457,11 +531,18 @@ pk_result pk_request_video(const char *local_id, int64_t version, uintptr_t hand
 	return r;
 }
 
-// cancelImageRequest: of an ended request does nothing, as cancelDataRequest: in pk_cancel_resource.
-void pk_cancel_video(int32_t request_id) {
+// cancelImageRequest: and cancelExport do nothing to what has ended, as
+// cancelDataRequest: in pk_cancel_resource; pk_render does not start a session
+// after this call.
+void pk_cancel_video(int32_t request_id, uintptr_t handle) {
 	@autoreleasepool {
 		@try {
 			[[PHImageManager defaultManager] cancelImageRequest:request_id];
+			AVAssetExportSession *session;
+			@synchronized(pk_sessions()) {
+				session = pk_sessions()[@(handle)];
+			}
+			[session cancelExport];
 		} @catch (NSException *e) {
 			// An exception must not unwind into Go; ExportVideo stops waiting after its grace.
 		}
