@@ -32,18 +32,22 @@ type ImportRequest struct {
 
 // Import creates one asset from r in one change of PhotoKit and returns its
 // LocalIdentifier, as Fetch gives it. An import shows no dialog, a Hidden one
-// too; a refusal of the user would be ErrUserCanceled. Before the change, a
-// bad file or name is ErrImportFile and an album that the library does not
-// have, or that cannot take an asset, ErrNotFound. A failure of PhotoKit is
-// ErrImport. A ctx done before the call is ctx.Err(), and nothing was changed;
-// a ctx done before the outcome is ErrOutcomeUnknown with ctx.Err(), and the
-// request goes on in PhotoKit, as a change cannot be canceled. Without a
-// deadline in ctx Import waits as long as PhotoKit does. The asset of a Hidden
-// request is not found by Fetch.
+// too; a refusal of the user would be ErrUserCanceled. Before any call, a bad
+// file or name is ErrImportFile and an album that is empty, has a NUL or is not
+// UTF-8 ErrNotFound; so is, before the change, one not in the library or that
+// cannot take an asset. A failure of PhotoKit is ErrImport. A ctx done before
+// the call is ctx.Err(), and nothing was changed; a ctx done before the outcome
+// is ErrOutcomeUnknown with ctx.Err(), and the request goes on in PhotoKit, as
+// a change cannot be canceled. Without a deadline in ctx Import waits as long
+// as PhotoKit does. The asset of a Hidden request is not found by Fetch.
 // extension: not in osxphotos
 func (l *Library) Import(ctx context.Context, r ImportRequest) (string, error) {
 	if err := checkImportFiles(r); err != nil {
 		return "", err
+	}
+	// The bridge takes an album as UTF-8; C would cut one at a NUL and add the asset to another.
+	if slices.ContainsFunc(r.Albums, func(a string) bool { return !isCString(a) }) {
+		return "", fmt.Errorf("%w: album", ErrNotFound)
 	}
 	rec := importRecord(r)
 	id, err := change(ctx, func(timeout time.Duration) (string, error) { return l.b.Import(rec, timeout) })

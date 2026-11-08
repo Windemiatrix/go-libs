@@ -13,6 +13,12 @@ typedef struct {
 	char *message;
 } pk_result;
 
+// Every identifier and title, except the ids of the fetches and the resources,
+// is UTF-8 without NUL: photokit checks it before the call, and a pk_* function
+// checks only the state of PhotoKit. One that is not UTF-8 is a bug of the
+// caller and raises before any change (PK_EXCEPTION); C cuts one at a NUL,
+// which only photokit sees. The excepted ids that are not UTF-8 find no asset.
+
 pk_result pk_authorization_status(int *status);
 // A timeout_ms of 0 does not wait.
 pk_result pk_request_authorization(int64_t timeout_ms, int *status);
@@ -66,8 +72,8 @@ typedef struct {
 // Creates the asset of r in its n_albums albums, LocalIdentifiers or UUIDs in
 // one form per album, in one performChanges, and waits up to timeout_ms for its
 // completion (0 does not wait); r and albums are not read after the return. An
-// album not found, not UTF-8, or that cannot take an asset is PK_NOT_FOUND and
-// changes nothing; an exception in a change that PhotoKit commits is PK_TIMEOUT.
+// album not found or that cannot take an asset is PK_NOT_FOUND and changes
+// nothing; an exception in a change that PhotoKit commits is PK_TIMEOUT.
 // An original_filename that is not UTF-8 keeps the name of the file, so the
 // caller checks it. A failed change sets *ns_domain, "" when the NSError has
 // none, and *ns_code; otherwise *identifier is the LocalIdentifier. The caller
@@ -89,13 +95,11 @@ void pk_free_collections(pk_collection *collections, int count);
 
 // Each runs one performChanges and waits as pk_import does, and reads no string
 // after the return. A collection, or a parent ("" is the top level), that is not
-// found, not UTF-8 or cannot take the change is PK_NOT_FOUND and changes
-// nothing; a title that is not UTF-8 is PK_EXCEPTION. *ns_code, *ns_domain and
-// the *identifier of the created collection are as for pk_import.
-// pk_delete_collections deletes all of the n ids, each once, or none. A folder
-// as the album of pk_album_assets is PK_NOT_FOUND; an asset that is not found,
-// not UTF-8 or hidden is PK_NO_ASSET and changes nothing. An asset that is not
-// UTF-8 is reported before the album is looked up.
+// found or cannot take the change is PK_NOT_FOUND and changes nothing.
+// *ns_code, *ns_domain and the *identifier of the created collection are as for
+// pk_import. pk_delete_collections deletes all of the n ids, each once, or
+// none. A folder as the album of pk_album_assets is PK_NOT_FOUND; an asset that
+// is not found or hidden is PK_NO_ASSET and changes nothing.
 pk_result pk_create_collection(const char *title, const char *parent, bool folder, int64_t timeout_ms, char **identifier, int64_t *ns_code, char **ns_domain);
 pk_result pk_rename_collection(const char *local_id, const char *title, int64_t timeout_ms, int64_t *ns_code, char **ns_domain);
 pk_result pk_delete_collections(const char *const *ids, int64_t n, int64_t timeout_ms, int64_t *ns_code, char **ns_domain);
@@ -103,9 +107,9 @@ pk_result pk_album_assets(const char *album, const char *const *assets, int64_t 
 
 // Deletes the n assets, UUIDs or LocalIdentifiers in one form per asset, in one
 // performChanges and waits up to timeout_ms as pk_import does; ids are not read
-// after the return. An asset that is not found, not UTF-8, hidden or cannot be
-// deleted is PK_NO_ASSET and changes nothing. *ns_code and *ns_domain are as
-// for pk_import.
+// after the return. An asset that is not found, hidden or cannot be deleted is
+// PK_NO_ASSET and changes nothing. *ns_code and *ns_domain are as for
+// pk_import.
 pk_result pk_delete_assets(const char *const *ids, int64_t n, int64_t timeout_ms, int64_t *ns_code, char **ns_domain);
 
 // A value holds only with its has_ field; the date is seconds since 1970, the
@@ -117,9 +121,9 @@ typedef struct {
 
 // Changes the asset local_id, a UUID or a LocalIdentifier, in one
 // performChanges and waits up to timeout_ms as pk_import does; local_id and p
-// are not read after the return. An asset that is not found, not UTF-8, hidden
-// or cannot be changed is PK_NO_ASSET and changes nothing. *ns_code and
-// *ns_domain are as for pk_import.
+// are not read after the return. An asset that is not found, hidden or cannot
+// be changed is PK_NO_ASSET and changes nothing. *ns_code and *ns_domain are as
+// for pk_import.
 pk_result pk_update_asset(const char *local_id, const pk_patch *p, int64_t timeout_ms, int64_t *ns_code, char **ns_domain);
 
 typedef struct {
