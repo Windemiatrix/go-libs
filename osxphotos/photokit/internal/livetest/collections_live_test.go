@@ -25,7 +25,7 @@ const (
 	maxCollections   = 7
 )
 
-// No change here should raise a dialog; one that does waits for the owner.
+// A change may wait for the owner to answer its dialog.
 const collectionTimeout = 2 * time.Minute
 
 // The marker album is only read: the run changes its own folders and albums
@@ -180,14 +180,13 @@ func TestLiveCollections(t *testing.T) {
 	})
 
 	t.Run("delete", func(t *testing.T) {
-		ctx := changeContext(t)
 		// The album alone first: deleting its folder could take it along. It is
 		// named twice, which PhotoKit must not see.
-		succeed(t, "DeleteCollections of the album", lib.DeleteCollections(ctx, []string{albumID, albumID}))
+		succeed(t, "DeleteCollections of the album", lib.DeleteCollections(changeContext(t), []string{albumID, albumID}))
 		if got := filter(c.list(t), prefixed); len(got) != 1 || got[0].LocalIdentifier != folderID {
 			t.Errorf("after DeleteCollections of the album, Collections lists %s, want the folder only", shape(got, folderID))
 		}
-		succeed(t, "DeleteCollections of the folder", lib.DeleteCollections(ctx, []string{folderID}))
+		succeed(t, "DeleteCollections of the folder", lib.DeleteCollections(changeContext(t), []string{folderID}))
 		if n := count(c.list(t), prefixed); n > 0 {
 			t.Errorf("Collections lists %d collections with the prefix after their deletion", n)
 		}
@@ -197,21 +196,20 @@ func TestLiveCollections(t *testing.T) {
 		const albumTitle = collectionPrefix + "album-of-deleted-folder"
 		folder := c.made(t, collectionPrefix+"deleted-folder", "", true)
 		album := c.made(t, albumTitle, folder, false)
-		succeed(t, "DeleteCollections of a folder that holds an album", lib.DeleteCollections(ctx, []string{folder}))
+		succeed(t, "DeleteCollections of a folder that holds an album", lib.DeleteCollections(changeContext(t), []string{folder}))
 		all := c.list(t)
 		listed := func(id string) bool {
 			return slices.ContainsFunc(all, func(x photokit.Collection) bool { return x.LocalIdentifier == id })
 		}
-		// Neither Collections nor the removal reaches an album that outlives its
-		// folder; photosdb tells it from a deleted one.
+		// An album that outlives its folder may be missing from Collections, and so
+		// from the removal; photosdb holds it either way.
 		db := reopenUntil(t, func(db *photosdb.DB) bool { return ownCount(db) == 0 })
 		inDB := slices.ContainsFunc(db.AlbumInfo(), func(a *albuminfo.AlbumInfo) bool { return a.Title == albumTitle })
-		t.Logf("after the deletion of a folder, the album that was in it: listed by Collections %t, in photosdb %t", listed(album), inDB)
 		if listed(folder) {
 			t.Error("Collections lists the deleted folder")
 		}
-		if inDB && !listed(album) {
-			t.Errorf("photosdb holds the album of the deleted folder, which Collections does not list; delete the folders and albums %s* in Photos", collectionPrefix)
+		if listed(album) || inDB {
+			t.Errorf("the album of the deleted folder outlives it: listed by Collections %t, in photosdb %t; delete the folders and albums %s* in Photos", listed(album), inDB, collectionPrefix)
 		}
 	})
 }
