@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -133,6 +134,17 @@ func TestImport(t *testing.T) {
 			}
 			if got, want := err.Error(), ErrImportFile.Error()+": "+tt.field; got != want {
 				t.Errorf("err = %q, want %q: the field only", got, want)
+			}
+			wantCalls(t, b)
+		})
+	}
+
+	for _, album := range badIdentifiers {
+		t.Run("album "+strconv.Quote(album), func(t *testing.T) {
+			b := &fake.Bridge{ImportID: importID}
+			id, err := (&Library{b}).Import(t.Context(), ImportRequest{Photo: photo, Albums: []string{importAlbum, album}})
+			if id != "" || !errors.Is(err, ErrNotFound) || err.Error() != ErrNotFound.Error()+": album" {
+				t.Errorf("Import = %q, %v; want ErrNotFound: album", id, err)
 			}
 			wantCalls(t, b)
 		})

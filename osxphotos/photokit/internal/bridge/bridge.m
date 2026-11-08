@@ -370,15 +370,13 @@ static pk_result pk_perform_changes(void (^changes)(OSXPhotosChangeRequest *), i
 	return r;
 }
 
-// A string that is not UTF-8 names no object: nil, so that the caller fails
-// rather than act on the others. Each identifier is kept once, since PhotoKit
-// finds an object once however often it is named and the callers compare counts.
+// Each identifier is kept once, since PhotoKit finds an object once however
+// often it is named and the callers compare counts. A string that breaks the
+// rule of bridge.h gives nil, on which addObject: raises.
 static NSArray<NSString *> *pk_identifiers(const char *const *ids, int64_t n) {
 	NSMutableOrderedSet<NSString *> *out = [NSMutableOrderedSet orderedSetWithCapacity:(NSUInteger)n];
 	for (int64_t i = 0; i < n; i++) {
-		NSString *s = [NSString stringWithUTF8String:ids[i]];
-		if (s == nil) return nil;
-		[out addObject:s];
+		[out addObject:[NSString stringWithUTF8String:ids[i]]];
 	}
 	return out.array;
 }
@@ -408,7 +406,6 @@ pk_result pk_import(const pk_import_request *r, const char *const *albums, int64
 			CLLocation *location = r->has_location ? [[CLLocation alloc] initWithLatitude:r->latitude longitude:r->longitude] : nil;
 			BOOL favorite = r->favorite, hidden = r->hidden;
 			NSArray<NSString *> *ids = pk_identifiers(albums, n_albums);
-			if (ids == nil) return result;
 			PHFetchResult<PHAssetCollection *> *collections = [PHAssetCollection fetchAssetCollectionsWithLocalIdentifiers:ids options:nil];
 			// A smart or shared album takes no asset, which would be created outside it.
 			BOOL editable = collections.count == ids.count;
@@ -509,16 +506,16 @@ void pk_free_collections(pk_collection *collections, int count) {
 	free(collections);
 }
 
-// A string that is not UTF-8 names no collection, and @[nil] would raise.
+// A string that breaks the rule of bridge.h gives nil, on which @[ ] raises.
 static PHCollection *pk_collection_of(const char *local_id) {
 	NSString *identifier = [NSString stringWithUTF8String:local_id];
-	if (identifier == nil) return nil;
 	PHCollection *list = [PHCollectionList fetchCollectionListsWithLocalIdentifiers:@[ identifier ] options:nil].firstObject;
 	return list ?: [PHAssetCollection fetchAssetCollectionsWithLocalIdentifiers:@[ identifier ] options:nil].firstObject;
 }
 
 // extension: not in osxphotos, which changes albums through AppleScript. As in
-// pk_import, every string becomes an object before performChanges.
+// pk_import, every string becomes an object before performChanges; a nil title
+// (stringWithUTF8String: does not raise) would not raise until the change.
 pk_result pk_create_collection(const char *title, const char *parent, bool folder, int64_t timeout_ms, char **identifier, int64_t *ns_code, char **ns_domain) {
 	pk_result result = {PK_NOT_FOUND, NULL};
 	@autoreleasepool {
@@ -599,14 +596,13 @@ pk_result pk_delete_collections(const char *const *ids, int64_t n, int64_t timeo
 }
 
 // extension: not in osxphotos, as pk_create_collection. The assets are read
-// before the album, so that the CI tests reach an identifier that is not UTF-8
-// without a fetch of PhotoKit.
+// before the album, so that the CI tests reach an asset that breaks the rule of
+// bridge.h without a fetch of PhotoKit.
 pk_result pk_album_assets(const char *album, const char *const *assets, int64_t n, bool add, int64_t timeout_ms, int64_t *ns_code, char **ns_domain) {
 	pk_result result = {PK_NOT_FOUND, NULL};
 	@autoreleasepool {
 		@try {
 			NSArray<NSString *> *ids = pk_identifiers(assets, n);
-			if (ids == nil) return (pk_result){PK_NO_ASSET, NULL};
 			PHCollection *c = pk_collection_of(album);
 			// A folder holds no asset, and a smart or a shared album takes no change.
 			if (![c isKindOfClass:PHAssetCollection.class] || ![c canPerformEditOperation:(add ? PHCollectionEditOperationAddContent : PHCollectionEditOperationRemoveContent)]) return result;
@@ -637,7 +633,6 @@ pk_result pk_delete_assets(const char *const *ids, int64_t n, int64_t timeout_ms
 	@autoreleasepool {
 		@try {
 			NSArray<NSString *> *list = pk_identifiers(ids, n);
-			if (list == nil) return result;
 			// The default options leave a hidden asset out, as for pk_fetch_assets.
 			PHFetchResult<PHAsset *> *found = [PHAsset fetchAssetsWithLocalIdentifiers:list options:nil];
 			if (found.count != list.count) return result;
@@ -662,7 +657,6 @@ pk_result pk_update_asset(const char *local_id, const pk_patch *p, int64_t timeo
 	@autoreleasepool {
 		@try {
 			NSArray<NSString *> *ids = pk_identifiers(&local_id, 1);
-			if (ids == nil) return result;
 			// The default options leave a hidden asset out, as for pk_fetch_assets.
 			PHFetchResult<PHAsset *> *found = [PHAsset fetchAssetsWithLocalIdentifiers:ids options:nil];
 			PHAsset *asset = found.firstObject;

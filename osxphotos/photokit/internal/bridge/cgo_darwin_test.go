@@ -84,20 +84,22 @@ func TestChangeResult(t *testing.T) {
 	}
 }
 
-// The call fails before a change is requested, which the tests must not reach.
+// A string that breaks the rule of bridge.h is a bug of photokit: it must
+// raise before performChanges, which the tests must not reach.
+const brokenRule = "photokit: Objective-C exception: NSInvalidArgumentException"
+
 func TestImportBeforeChange(t *testing.T) {
 	r := ImportRecord{Photo: "/x/IMG_0001.JPG", Albums: []string{"\xff"}}
-	if id, err := New().Import(r, time.Second); id != "" || !errors.Is(err, ErrNoAlbum) || err.Error() != ErrNoAlbum.Error() {
-		t.Errorf("Import with an album not UTF-8 = %q, %v, want ErrNoAlbum", id, err)
+	if id, err := New().Import(r, time.Second); id != "" || err == nil || err.Error() != brokenRule {
+		t.Errorf("Import with an album not UTF-8 = %q, %v, want %q", id, err, brokenRule)
 	}
 }
 
-// Every call stops before performChanges whatever the order of the checks, so
-// a broken check fails here without changing the library.
+// Each call breaks the rule with one string, and PhotoKit has nothing the others
+// name, so a deleted check fails here without changing the library.
 func TestCollectionChangesBeforeChange(t *testing.T) {
-	const exception = "photokit: Objective-C exception: NSInvalidArgumentException"
 	b := New()
-	titleID, titleErr := b.CreateCollection("\xff", "\xff", true, time.Second)
+	titleID, titleErr := b.CreateCollection("\xff", "Trips", true, time.Second)
 	parentID, parentErr := b.CreateCollection("Trips", "\xff", false, time.Second)
 	if titleID != "" || parentID != "" {
 		t.Errorf("CreateCollection = %q and %q, want no identifier", titleID, parentID)
@@ -105,21 +107,20 @@ func TestCollectionChangesBeforeChange(t *testing.T) {
 	for _, tt := range []struct {
 		name string
 		err  error
-		want string
 	}{
-		{"title and parent not UTF-8", titleErr, exception},
-		{"parent not UTF-8", parentErr, ErrNoAlbum.Error()},
-		{"new title and collection not UTF-8", b.RenameCollection("\xff", "\xff", time.Second), exception},
-		{"collection not UTF-8", b.RenameCollection("\xff", "Trips", time.Second), ErrNoAlbum.Error()},
-		{"one collection to delete not UTF-8", b.DeleteCollections([]string{"\xff"}, time.Second), ErrNoAlbum.Error()},
-		{"album not UTF-8", b.AlbumAssets("\xff", []string{"x"}, true, time.Second), ErrNoAlbum.Error()},
-		{"asset not UTF-8", b.AlbumAssets("Trips", []string{"\xff"}, false, time.Second), ErrNoAsset.Error()},
-		{"asset to delete not UTF-8", b.DeleteAssets([]string{"\xff"}, time.Second), ErrNoAsset.Error()},
+		{"title not UTF-8", titleErr},
+		{"parent not UTF-8", parentErr},
+		{"new title not UTF-8", b.RenameCollection("Trips", "\xff", time.Second)},
+		{"collection not UTF-8", b.RenameCollection("\xff", "Trips", time.Second)},
+		{"one collection to delete not UTF-8", b.DeleteCollections([]string{"\xff"}, time.Second)},
+		{"album not UTF-8", b.AlbumAssets("\xff", []string{"x"}, true, time.Second)},
+		{"asset not UTF-8", b.AlbumAssets("Trips", []string{"\xff"}, false, time.Second)},
+		{"asset to delete not UTF-8", b.DeleteAssets([]string{"\xff"}, time.Second)},
 		// Favorite, not Hidden: a broken check must not reach a dialog.
-		{"asset to update not UTF-8", b.UpdateAsset("\xff", PatchRecord{HasFavorite: true}, time.Second), ErrNoAsset.Error()},
+		{"asset to update not UTF-8", b.UpdateAsset("\xff", PatchRecord{HasFavorite: true}, time.Second)},
 	} {
-		if tt.err == nil || tt.err.Error() != tt.want || (tt.want == ErrNoAlbum.Error() && !errors.Is(tt.err, ErrNoAlbum)) || (tt.want == ErrNoAsset.Error() && !errors.Is(tt.err, ErrNoAsset)) {
-			t.Errorf("%s: error %v, want %q", tt.name, tt.err, tt.want)
+		if tt.err == nil || tt.err.Error() != brokenRule {
+			t.Errorf("%s: error %v, want %q", tt.name, tt.err, brokenRule)
 		}
 	}
 }
@@ -229,23 +230,27 @@ func TestDuration(t *testing.T) {
 	}
 }
 
-// The calls return before PhotoKit, which the tests must not reach: an
-// identifier that is not UTF-8 names nothing.
-func TestIdentifierPairsNone(t *testing.T) {
+// With nil ids the calls return nothing, and an id that is not UTF-8 raises:
+// both before PhotoKit, which the tests must not reach.
+func TestIdentifierPairsBeforePhotoKit(t *testing.T) {
 	b := New()
-	for _, ids := range [][]string{nil, {"\xff"}} {
-		if got, err := b.CloudIdentifiers(ids); got != nil || err != nil {
-			t.Errorf("CloudIdentifiers(%q) = %v, %v, want nil, nil", ids, got, err)
+	for name, call := range map[string]func([]string) ([]IdentifierPair, error){"CloudIdentifiers": b.CloudIdentifiers, "LocalIdentifiers": b.LocalIdentifiers} {
+		if got, err := call(nil); got != nil || err != nil {
+			t.Errorf("%s(nil) = %v, %v, want nil, nil", name, got, err)
 		}
-		if got, err := b.LocalIdentifiers(ids); got != nil || err != nil {
-			t.Errorf("LocalIdentifiers(%q) = %v, %v, want nil, nil", ids, got, err)
+		if got, err := call([]string{"\xff"}); got != nil || err == nil || err.Error() != brokenRule {
+			t.Errorf("%s of an id not UTF-8 = %v, %v, want %q", name, got, err, brokenRule)
 		}
 	}
 }
 
-// The call returns before PhotoKit, which the tests must not reach.
+// The calls return before PhotoKit reads the library, which the tests must not
+// reach.
 func TestFetchAssetsNone(t *testing.T) {
 	if got, err := New().FetchAssets(nil); got != nil || err != nil {
 		t.Errorf("FetchAssets(nil) = %v, %v, want nil, nil", got, err)
+	}
+	if got, err := New().FetchBurst("\xff", false); got != nil || err != nil {
+		t.Errorf("FetchBurst of an id not UTF-8 = %v, %v, want nil, nil", got, err)
 	}
 }

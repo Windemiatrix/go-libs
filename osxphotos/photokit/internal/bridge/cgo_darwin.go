@@ -19,7 +19,6 @@ import (
 	"context"
 	"errors"
 	"math"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -115,10 +114,6 @@ func (*cgoBridge) RequestResource(id string, typ int, sink ResourceSink) (Reques
 }
 
 func (*cgoBridge) Import(r ImportRecord, timeout time.Duration) (string, error) {
-	// C would cut an album at a NUL and add the asset to another one.
-	if strings.ContainsRune(strings.Join(r.Albums, ""), 0) {
-		return "", ErrNoAlbum
-	}
 	strs, free := cStrings(append([]string{r.Photo, r.Video, r.PairedVideo, r.AlternatePhoto, r.OriginalFilename}, r.Albums...))
 	defer free()
 	req := C.pk_import_request{
