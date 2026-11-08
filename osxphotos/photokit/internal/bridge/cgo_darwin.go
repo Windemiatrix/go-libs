@@ -6,12 +6,14 @@ package bridge
 // every user of the library. CI adds it through CGO_CFLAGS. CoreLocation holds
 // the CLLocation of an imported asset, which Photos declares but does not link.
 // ImageIO reads the properties of an image, as Quartz does upstream
-// (photokit.py:669-673).
+// (photokit.py:669-673). AVFoundation holds the AVURLAsset of a video, whose
+// URL upstream copies (photokit.py:901).
 
 /*
 #cgo CFLAGS: -Wall -Wextra -fobjc-arc
 #cgo LDFLAGS: -framework Photos -framework Foundation -framework CoreLocation
 #cgo LDFLAGS: -framework ImageIO
+#cgo LDFLAGS: -framework AVFoundation
 #include <stdlib.h>
 #include "bridge.h"
 */
@@ -104,7 +106,7 @@ func (*cgoBridge) RequestResource(id string, typ int, sink ResourceSink) (Reques
 	cid := C.CString(id)
 	defer C.free(unsafe.Pointer(cid)) //nolint:gosec // G103: the C.CString buffer of this call is freed here
 	var rid C.int32_t
-	return startRequest(sink, func() { C.pk_cancel_resource(rid) }, func(h C.uintptr_t) C.pk_result {
+	return startRequest(&cgoRequest{sink: sink, cancel: func() { C.pk_cancel_resource(rid) }}, func(h C.uintptr_t) C.pk_result {
 		return C.pk_request_resource(cid, C.int64_t(typ), h, &rid)
 	})
 }
@@ -113,13 +115,22 @@ func (*cgoBridge) RequestResource(id string, typ int, sink ResourceSink) (Reques
 func (*cgoBridge) RequestImage(id string, version int, sink ImageSink) (Request, error) {
 	cid := C.CString(id)
 	defer C.free(unsafe.Pointer(cid)) //nolint:gosec // G103: the C.CString buffer of this call is freed here
-	return startRequest(sink, nil, func(h C.uintptr_t) C.pk_result { return C.pk_request_image(cid, C.int64_t(version), h) })
+	return startRequest(&cgoRequest{sink: sink}, func(h C.uintptr_t) C.pk_result { return C.pk_request_image(cid, C.int64_t(version), h) })
+}
+
+func (*cgoBridge) RequestVideo(id string, version int, path func(string)) (Request, error) {
+	cid := C.CString(id)
+	defer C.free(unsafe.Pointer(cid)) //nolint:gosec // G103: the C.CString buffer of this call is freed here
+	var rid C.int32_t
+	return startRequest(&cgoRequest{path: path, cancel: func() { C.pk_cancel_video(rid) }}, func(h C.uintptr_t) C.pk_result {
+		return C.pk_request_video(cid, C.int64_t(version), h, &rid)
+	})
 }
 
 // The completion handler may run long after the export returned, or never: the
 // request stays known until it runs.
-func startRequest(sink ResourceSink, cancel func(), start func(C.uintptr_t) C.pk_result) (Request, error) {
-	r := &cgoRequest{sink: sink, cancel: cancel, done: make(chan error, 1)}
+func startRequest(r *cgoRequest, start func(C.uintptr_t) C.pk_result) (Request, error) {
+	r.done = make(chan error, 1)
 	h := lastRequest.Add(1)
 	requests.Store(h, r)
 	if err := check(start(C.uintptr_t(h))); err != nil {
@@ -310,6 +321,7 @@ func cStrings(ss []string) ([]*C.char, func()) {
 
 type cgoRequest struct {
 	sink             ResourceSink
+	path             func(string)
 	cancel           func()
 	done             chan error
 	failed, canceled atomic.Bool
@@ -333,9 +345,9 @@ func (r *cgoRequest) Cancel() {
 
 func (r *cgoRequest) Done() <-chan error { return r.done }
 
-// The four below do not recover: a panic recovered here would leave a partial
-// file looking whole or Export waiting forever; unrecovered, it ends the
-// process, as in any goroutine.
+// The exported functions below do not recover: a panic recovered here would
+// leave a partial file looking whole or Export waiting forever; unrecovered,
+// it ends the process, as in any goroutine.
 
 //export pk_go_write
 func pk_go_write(h C.uintptr_t, p unsafe.Pointer, n C.size_t) {
@@ -375,6 +387,15 @@ func pk_go_image(h C.uintptr_t, p unsafe.Pointer, n C.size_t, info *C.pk_image_i
 	})
 }
 
+// NULL is a URL that names no file: no file, as for an AVComposition.
+//
+//export pk_go_video
+func pk_go_video(h C.uintptr_t, path *C.char) {
+	if r, ok := requests.Load(uintptr(h)); ok && path != nil {
+		r.(*cgoRequest).path(C.GoString(path))
+	}
+}
+
 //export pk_go_done
 func pk_go_done(h C.uintptr_t, code C.int64_t, domain *C.char) {
 	r, ok := requests.LoadAndDelete(uintptr(h))
@@ -402,8 +423,8 @@ func metadataBytes(p unsafe.Pointer, n int64) []byte {
 	return bytes.Clone(unsafe.Slice((*byte)(p), n)) //nolint:gosec // G103: n is the length of the NSData of the call, kept by bridge.m until it returns
 }
 
-// Without an NSError, code is one of bridge.h: an image request reports with it
-// no data or an exception in its handler.
+// Without an NSError, code is one of bridge.h: an image request reports with
+// it no data or an exception in its handler, a video request an exception.
 func (r *cgoRequest) finish(failed bool, domain string, code int64) {
 	err := codeError(int(code), "")
 	if failed {
