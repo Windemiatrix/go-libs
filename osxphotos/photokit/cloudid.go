@@ -11,10 +11,13 @@ import (
 
 // CloudIdentifiers returns the cloud identifier, the stringValue of
 // PHCloudIdentifier that LocalIdentifiers takes, of the assets ids, UUIDs or
-// LocalIdentifiers as for Fetch, by the identifier as given. An id that
-// names no asset (a hidden one too) or whose asset has no cloud identifier
-// is left out: the map is empty for none, nil for no ids. An id that is not
-// a valid string is ErrNotFound. ctx is checked only before the call.
+// LocalIdentifiers as for Fetch, by the identifier as given. A cloud identifier
+// is longer than the CloudAssetGUID of PhotoInfo and has been seen to contain
+// it when the asset has one, so never match by equality; an asset without a
+// CloudAssetGUID may have a cloud identifier too. An id that names no asset (a
+// hidden one too) or whose asset has no cloud identifier is left out: the map
+// is empty for none, nil for no ids. An id that is not a valid string is
+// ErrNotFound. ctx is checked only before the call.
 // extension: not in osxphotos
 func (l *Library) CloudIdentifiers(ctx context.Context, ids []string) (map[string]string, error) {
 	return identifiers(ctx, ids, l.b.CloudIdentifiers, func(p bridge.IdentifierPair, id string) (string, bool) {

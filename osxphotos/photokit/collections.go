@@ -69,8 +69,16 @@ func (l *Library) RenameCollection(ctx context.Context, id, title string) error 
 }
 
 // DeleteCollections removes the folders and albums ids, not their assets, in
-// one change, all or none: one that is missing or cannot be deleted is
-// ErrNotFound. An empty ids changes nothing; the other errors are as for CreateFolder.
+// one change, all or none; an album inside a deleted folder is deleted with
+// it. A change that deletes a folder asks the user once; one that deletes
+// only albums shows no dialog. Before the change, and without a dialog, a
+// collection that is missing or cannot be deleted is ErrNotFound. A refusal of
+// the user is ErrUserCanceled and nothing was deleted. A ctx done before the
+// outcome is ErrOutcomeUnknown with ctx.Err(), as for Delete: the change may
+// still take effect, and with a folder the dialog stays open and a later
+// answer may still delete, so read the collections again before the next
+// change. An empty ids changes nothing; the other errors are as for
+// CreateFolder.
 // extension: not in osxphotos
 func (l *Library) DeleteCollections(ctx context.Context, ids []string) error {
 	if len(ids) == 0 {
