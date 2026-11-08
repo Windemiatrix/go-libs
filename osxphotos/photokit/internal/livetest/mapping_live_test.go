@@ -19,20 +19,25 @@ import (
 // before patch_live_test.go, which hides one of them.
 
 // A cloud identifier names an asset in the iCloud of the owner: only counts
-// are printed. The test only reads.
+// and errors are printed. An error of these calls names no identifier: the
+// bridge reports an exception by its name only (pk_exception_name), and Go adds
+// fixed texts. The test only reads.
 func TestLiveMapping(t *testing.T) {
 	lib := openLibrary(t)
+	// Two, as whether PhotoKit parses the all-zero UUID is not known.
+	unknown := []string{"00000000-0000-0000-0000-000000000000", "not a cloud identifier"}
 
 	// First, so that a failed mapping below does not hide them; these are the
 	// only live calls of LocalIdentifiers on a library without iCloud.
 	t.Run("errors", func(t *testing.T) {
-		const none = "00000000-0000-0000-0000-000000000000"
 		for _, m := range []struct {
 			name string
 			call func(context.Context, []string) (map[string]string, error)
 		}{{"CloudIdentifiers", lib.CloudIdentifiers}, {"LocalIdentifiers", lib.LocalIdentifiers}} {
-			if got, err := m.call(t.Context(), []string{none}); err != nil || got == nil || len(got) > 0 {
-				t.Errorf("%s of an unknown identifier: %d identifiers, %s; want an empty map", m.name, len(got), changeFailure(err))
+			for _, id := range unknown {
+				if got, err := m.call(t.Context(), []string{id}); err != nil || got == nil || len(got) > 0 {
+					t.Errorf("%s of %q: %d identifiers, %v; want an empty map", m.name, id, len(got), err)
+				}
 			}
 			if _, err := m.call(t.Context(), []string{"a\x00b"}); !errors.Is(err, photokit.ErrNotFound) || !strings.HasSuffix(err.Error(), ": identifier") {
 				t.Errorf("%s of an identifier with a NUL: %s, want ErrNotFound: identifier", m.name, changeFailure(err))
@@ -92,7 +97,8 @@ func TestLiveMapping(t *testing.T) {
 	t.Logf("the cloud identifier equals CloudAssetGUID of photosdb for %d of %d assets, CloudMasterGUID for %d", agree(asset, equal), len(clouds), agree(master, equal))
 	t.Logf("the cloud identifier contains CloudAssetGUID of photosdb for %d of %d assets, CloudMasterGUID for %d", agree(asset, strings.Contains), len(clouds), agree(master, strings.Contains))
 
-	back, err := lib.LocalIdentifiers(t.Context(), slices.Collect(maps.Values(clouds)))
+	// The unknown first: one that PhotoKit cannot parse must not hide the others.
+	back, err := lib.LocalIdentifiers(t.Context(), slices.Concat(unknown, slices.Collect(maps.Values(clouds))))
 	if err != nil {
 		t.Fatalf("LocalIdentifiers: %s", changeFailure(err))
 	}
