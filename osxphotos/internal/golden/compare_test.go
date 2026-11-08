@@ -960,7 +960,7 @@ func TestCompareNulls(t *testing.T) {
 		{"Score Overall", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Score.Overall = 0.5 }), "score"},
 		{"Score Behavioral", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Score.Behavioral = 0.5 }), "score"},
 		{"Place zero is not {}", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Place = &placeinfo.PlaceInfo{} }), "place"},
-		{"SearchInfo without records", func(l *Library) { l.SearchInfo[emptyPhoto] = searchinfo.New(nil) }, ""},
+		{"SearchInfo without records", func(l *Library) { l.SearchInfo[emptyPhoto] = searchinfo.New([]searchinfo.Record{}) }, ""},
 		{"SearchInfo of one term", func(l *Library) {
 			l.SearchInfo[emptyPhoto] = searchinfo.New([]searchinfo.Record{{Category: searchinfo.CategoryCity, Content: "x", Normalized: "x"}})
 		}, "search_info search_info_normalized"},

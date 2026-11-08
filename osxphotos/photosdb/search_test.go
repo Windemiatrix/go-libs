@@ -16,6 +16,7 @@ import (
 
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/testlib"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/searchinfo"
 )
 
 // An asset of psi.sqlite that the synthetic library does not have.
@@ -64,8 +65,13 @@ func psiHalves(t *testing.T, uuid string) (lo, hi int64) {
 	return int64(binary.LittleEndian.Uint64(b[:8])), int64(binary.LittleEndian.Uint64(b[8:]))
 }
 
-// Photo a has the label Dog twice, the label Beach and a city; photo b the
-// label Beach; the foreign asset the label Cat.
+// Photo a has Dog twice, so that the counts are of records, not of photos
+// (_photosdb_process_searchinfo.py:386, 398). Photo b has dog, a label of its
+// own whose normalized string is that of Dog: each map counts on its own. The
+// Beach of a is normalized to shore, so that the reader is seen to take
+// normalized_string rather than lower(content). The foreign asset has Cat, so
+// that the labels of an asset the library lacks are counted, as upstream counts
+// them.
 func psiFixture(t *testing.T, a, b string) []string {
 	t.Helper()
 	var assets []string
@@ -76,8 +82,9 @@ func psiFixture(t *testing.T, a, b string) []string {
 	return append(slices.Clone(searchPSITables),
 		"INSERT INTO assets (rowid, uuid_0, uuid_1) VALUES "+strings.Join(assets, ", "),
 		"INSERT INTO groups (rowid, category, content_string, normalized_string) VALUES "+
-			"(1, 1500, 'Dog', 'dog'), (2, 1500, 'Beach', 'beach'), (3, 5, 'Townsville', 'townsville'), (4, 1500, 'Cat', 'cat')",
-		"INSERT INTO ga (assetid, groupid) VALUES (1, 1), (1, 2), (1, 1), (1, 3), (2, 2), (3, 4)",
+			"(1, 1500, 'Dog', 'dog'), (2, 1500, 'Beach', 'beach'), (3, 5, 'Townsville', 'townsville'), (4, 1500, 'Cat', 'cat'), "+
+			"(5, 1500, 'dog', 'dog'), (6, 1500, 'Beach', 'shore')",
+		"INSERT INTO ga (assetid, groupid) VALUES (1, 1), (1, 6), (1, 1), (1, 3), (2, 2), (2, 5), (3, 4)",
 	)
 }
 
@@ -132,12 +139,12 @@ func TestSearchInfoOf(t *testing.T) {
 		got, want []string
 	}{
 		{"labels of a", sa.Labels(), []string{"Beach", "Dog", "Dog"}},
-		{"normalized labels of a", sa.Normalized().Labels(), []string{"beach", "dog", "dog"}},
-		{"labels of b", db.SearchInfoOf(b).Labels(), []string{"Beach"}},
+		{"normalized labels of a", sa.Normalized().Labels(), []string{"dog", "dog", "shore"}},
+		{"labels of b", db.SearchInfoOf(b).Labels(), []string{"Beach", "dog"}},
+		{"normalized labels of b", db.SearchInfoOf(b).Normalized().Labels(), []string{"beach", "dog"}},
 		{"labels of a photo without terms", db.SearchInfoOf(c).Labels(), nil},
-		// The foreign asset is no photo of the library: its label Cat is left out.
-		{"labels of the library", db.Labels(), []string{"Beach", "Dog"}},
-		{"normalized labels of the library", db.LabelsNormalized(), []string{"beach", "dog"}},
+		{"labels of the search database", db.Labels(), []string{"Beach", "Cat", "Dog", "dog"}},
+		{"normalized labels of the search database", db.LabelsNormalized(), []string{"beach", "cat", "dog", "shore"}},
 	} {
 		if !slices.Equal(tc.got, tc.want) {
 			t.Errorf("%s = %q, want %q", tc.name, tc.got, tc.want)
@@ -146,14 +153,15 @@ func TestSearchInfoOf(t *testing.T) {
 	if sa.City() != "Townsville" || db.SearchInfoOf(c).City() != "" {
 		t.Errorf("City of a, c = %q, %q; want Townsville and none", sa.City(), db.SearchInfoOf(c).City())
 	}
-	if len(db.search) != 2 {
-		t.Errorf("terms kept for %d photos, want 2: those of an asset the library lacks are not kept", len(db.search))
+	if len(db.search) != 3 {
+		t.Errorf("terms kept for %d assets, want 3: those of an asset the library lacks too", len(db.search))
 	}
-	// labels_as_dict counts records, the label Dog of a twice (_photosdb_process_searchinfo.py:261-269, 386).
-	if got, want := db.LabelCounts(), map[string]int{"Beach": 2, "Dog": 2}; !maps.Equal(got, want) {
+	// Upstream would give Beach 1 and the normalized dog 1: its shared try starts
+	// both lists anew when either label is new (_photosdb_process_searchinfo.py:264-269).
+	if got, want := db.LabelCounts(), map[string]int{"Beach": 2, "Cat": 1, "Dog": 2, "dog": 1}; !maps.Equal(got, want) {
 		t.Errorf("LabelCounts = %v, want %v", got, want)
 	}
-	if got, want := db.LabelCountsNormalized(), map[string]int{"beach": 2, "dog": 2}; !maps.Equal(got, want) {
+	if got, want := db.LabelCountsNormalized(), map[string]int{"beach": 1, "cat": 1, "dog": 3, "shore": 1}; !maps.Equal(got, want) {
 		t.Errorf("LabelCountsNormalized = %v, want %v", got, want)
 	}
 
@@ -180,16 +188,17 @@ func TestSearchDatabases(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	psiLabels, psiNormalized := []string{"Beach", "Dog", "Dog"}, []string{"dog", "dog", "shore"}
 	tests := []struct {
-		name  string
-		setup []func(t *testing.T, lib string)
-		want  []string
+		name             string
+		setup            []func(t *testing.T, lib string)
+		want, normalized []string
 	}{
-		{"psi.sqlite", []func(*testing.T, string){psi}, []string{"Beach", "Dog", "Dog"}},
-		{"leo.sqlite without psi.sqlite", []func(*testing.T, string){leo}, []string{"Fox"}},
-		{"leo.sqlite when psi.sqlite is empty", []func(*testing.T, string){leo, emptyPSI}, []string{"Fox"}},
-		{"psi.sqlite before leo.sqlite", []func(*testing.T, string){leo, psi}, []string{"Beach", "Dog", "Dog"}},
-		{"no search database", nil, nil},
+		{"psi.sqlite", []func(*testing.T, string){psi}, psiLabels, psiNormalized},
+		{"leo.sqlite without psi.sqlite", []func(*testing.T, string){leo}, []string{"Fox"}, []string{"fox"}},
+		{"leo.sqlite when psi.sqlite is empty", []func(*testing.T, string){leo, emptyPSI}, []string{"Fox"}, []string{"fox"}},
+		{"psi.sqlite before leo.sqlite", []func(*testing.T, string){leo, psi}, psiLabels, psiNormalized},
+		{"no search database", nil, nil, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -204,37 +213,69 @@ func TestSearchDatabases(t *testing.T) {
 				t.Fatal(err)
 			}
 			assertNoCopies(t, tmp)
-			p := &photoinfo.PhotoInfo{UUID: a}
-			if got := db.SearchInfoOf(p).Labels(); !slices.Equal(got, tt.want) {
+			s := db.SearchInfoOf(&photoinfo.PhotoInfo{UUID: a})
+			if got := s.Labels(); !slices.Equal(got, tt.want) {
 				t.Errorf("labels = %q, want %q", got, tt.want)
 			}
-			if want := strings.ToLower(strings.Join(tt.want, ",")); strings.Join(db.SearchInfoOf(p).Normalized().Labels(), ",") != want {
-				t.Errorf("normalized labels = %q, want %q", db.SearchInfoOf(p).Normalized().Labels(), want)
+			if got := s.Normalized().Labels(); !slices.Equal(got, tt.normalized) {
+				t.Errorf("normalized labels = %q, want %q", got, tt.normalized)
 			}
 		})
 	}
+
+	// Open looks for the search directory beside the database it reads, not in
+	// Options.LibraryPath (_photosdb_process_searchinfo.py:154).
+	t.Run("a database file with another library path", func(t *testing.T) {
+		t.Parallel()
+		lib := testlib.OpenPristine(t, "synthetic")
+		psi(t, lib)
+		db, err := Open(t.Context(), filepath.Join(lib, "database", "Photos.sqlite"), Options{TempDir: t.TempDir(), LibraryPath: t.TempDir()})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := db.SearchInfoOf(&photoinfo.PhotoInfo{UUID: a}).Labels(); !slices.Equal(got, psiLabels) {
+			t.Errorf("labels = %q, want %q", got, psiLabels)
+		}
+	})
 }
 
-// A search database that cannot be read fails Open, as upstream fails; the
-// messages hold no value of the database.
+// A search database that cannot be read fails Open, as upstream fails, and so
+// does one whose status cannot be read (searchSize); the messages hold no value
+// of the database.
 func TestSearchDatabaseErrors(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name        string
-		setup       func(t *testing.T, lib string)
-		unsupported bool
-		want        string
-	}{
-		{"psi.sqlite is a directory", func(t *testing.T, lib string) {
-			dir := filepath.Join(lib, "database", "search", "psi.sqlite")
+	// A file inside gives the directory a size, so that it is taken as a database.
+	directory := func(name string) func(t *testing.T, lib string) {
+		return func(t *testing.T, lib string) {
+			dir := filepath.Join(lib, "database", "search", name)
 			if err := os.MkdirAll(dir, 0o700); err != nil {
 				t.Fatal(err)
 			}
 			if err := os.WriteFile(filepath.Join(dir, "x"), []byte("x"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-		}, false, "not a regular file"},
+		}
+	}
+	tests := []struct {
+		name        string
+		setup       func(t *testing.T, lib string)
+		unsupported bool
+		want        string
+	}{
+		{"psi.sqlite is a directory", directory("psi.sqlite"), false, "not a regular file"},
+		{"leo.sqlite is a directory", directory("leo.sqlite"), false, "not a regular file"},
+		{"the search directory cannot be read", func(t *testing.T, lib string) {
+			if os.Geteuid() == 0 {
+				t.Skip("root reads a directory without permissions")
+			}
+			writeSearchDB(t, lib, "psi.sqlite", searchPSITables...)
+			dir := filepath.Join(lib, "database", "search")
+			if err := os.Chmod(dir, 0o000); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = os.Chmod(dir, 0o700) }) //nolint:gosec // G302: a directory needs the search bit to be removed
+		}, false, "permission denied"},
 		{"psi.sqlite is not a database", func(t *testing.T, lib string) {
 			writeSearchDB(t, lib, "leo.sqlite", searchLeoTables...)
 			if err := os.WriteFile(filepath.Join(lib, "database", "search", "psi.sqlite"), []byte(strings.Repeat("SECRET-CONTENT\n", 300)), 0o600); err != nil {
@@ -270,7 +311,7 @@ func TestSearchDatabaseErrors(t *testing.T) {
 
 // Not vacuous: the search databases of upstream hold labels (its
 // tests/test_*.py check them). The oracle of the terms kept is the reader:
-// those of the photos of the library. The messages hold counts only.
+// all of them, as upstream keeps them. The messages hold counts only.
 func TestSearchLibraries(t *testing.T) {
 	t.Parallel()
 
@@ -287,30 +328,30 @@ func TestSearchLibraries(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				ofPhotos := 0
-				for _, term := range terms {
-					if _, ok := db.Photo(term.UUID); ok {
-						ofPhotos++
+				switch lib.name {
+				case "synthetic":
+					if len(terms) != 0 {
+						t.Errorf("%d terms, want none: the library has no search database", len(terms))
+					}
+				case "Test-26.1": // its psi.sqlite holds no terms
+				default:
+					if len(terms) == 0 {
+						t.Error("no terms: the search database was not read")
 					}
 				}
-				records, photoLabels := 0, 0
-				for _, p := range db.Photos() {
-					records += len(db.search[p.UUID])
-					photoLabels += len(db.SearchInfoOf(p).Labels())
+				records, labelRecords := 0, 0
+				for _, r := range db.search {
+					records += len(r)
+					labelRecords += len(searchinfo.New(r).Labels())
 				}
 				counted := 0
 				for _, n := range db.LabelCounts() {
 					counted += n
 				}
-				if records != ofPhotos || counted != photoLabels || len(db.Labels()) != len(db.LabelCounts()) {
-					t.Errorf("%d records of %d terms of photos; %d labels counted of %d; %d labels, %d counts",
-						records, ofPhotos, counted, photoLabels, len(db.Labels()), len(db.LabelCounts()))
+				if records != len(terms) || counted != labelRecords {
+					t.Errorf("%d records of %d terms; %d labels counted of %d", records, len(terms), counted, labelRecords)
 				}
-				if lib.name == "synthetic" && len(terms) != 0 {
-					t.Errorf("synthetic: %d terms, want none: it has no search database", len(terms))
-				}
-				t.Logf("%d terms, %d of assets the library lacks; %d photos with terms; %d labels of photos, %d distinct",
-					len(terms), len(terms)-ofPhotos, len(db.search), photoLabels, len(db.Labels()))
+				t.Logf("%d terms of %d assets; %d labels, %d distinct", len(terms), len(db.search), labelRecords, len(db.Labels()))
 				labels.Add(int64(len(db.Labels())))
 			})
 		}

@@ -32,9 +32,9 @@ import (
 //
 // The search database beside the database, search/psi.sqlite or, when that is
 // missing or empty, search/leo.sqlite, is read the same way, from a copy of
-// its own (SearchInfoOf). Without either Open reads no terms; one that is not
-// a regular file, or that cannot be read, is an error, and a missing table or
-// column of it wraps ErrUnsupportedSchema.
+// its own (SearchInfoOf). A missing or empty search database is taken as
+// absent; one that has a size but is not a regular file, or cannot be read, is
+// an error, and a missing table or column of it wraps ErrUnsupportedSchema.
 //
 // A TempDir inside the library derived from path, inside
 // o.LibraryPath or inside the library of the database file with its symbolic

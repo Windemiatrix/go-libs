@@ -40,7 +40,7 @@ type DB struct {
 
 	cloudMeta map[string][]byte // the ZDATA of ZCLOUDMASTERMEDIAMETADATA by photo UUID, decoded by CloudMetadataOf
 
-	search map[string][]searchinfo.Record // the terms of psi.sqlite or leo.sqlite by photo UUID, in rowid order
+	search map[string][]searchinfo.Record // the terms of psi.sqlite or leo.sqlite by asset UUID, also of an asset Photos.sqlite lacks
 
 	renderer template.Renderer // of RenderTemplate: one Renderer is one process of osxphotos, whose {counter} grows from photo to photo
 

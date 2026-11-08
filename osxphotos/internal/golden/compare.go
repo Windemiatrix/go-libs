@@ -436,7 +436,7 @@ func redact(field, value string) string {
 	}
 	switch field {
 	case "exif_info", "place", "cloud_metadata", "search_info", "search_info_normalized":
-		return redactValues(value)
+		return redactAs[map[string]any](value)
 	case "labels", "labels_normalized":
 		return redactAs[[]any](value)
 	}
@@ -463,8 +463,6 @@ func redact(field, value string) string {
 // place and its search terms are personal data too: the keys and the lengths
 // of the lists stay, so that a null or "" can be told from a value and a
 // difference located.
-func redactValues(value string) string { return redactAs[map[string]any](value) }
-
 func redactAs[T map[string]any | []any](value string) string {
 	var v T
 	if json.Unmarshal([]byte(value), &v) != nil {

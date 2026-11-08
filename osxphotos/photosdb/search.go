@@ -4,15 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
 	"slices"
+	"syscall"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/searchinfo"
 )
+
+type searchReader func(*sqlread.DB, context.Context) ([]sqlread.SearchTerm, error)
 
 // Upstream takes psi.sqlite when it exists with a size, else leo.sqlite, else
 // nothing with a warning (_photosdb_process_searchinfo.py:154-181). A
@@ -20,21 +24,37 @@ import (
 // what is not a regular file.
 func openSearch(ctx context.Context, dbPath, tmp string) ([]sqlread.SearchTerm, error) {
 	dir := filepath.Join(filepath.Dir(dbPath), "search")
-	if psi := filepath.Join(dir, "psi.sqlite"); hasSize(psi) {
-		return readSearch(ctx, psi, tmp, (*sqlread.DB).SearchTerms)
-	}
-	if leo := filepath.Join(dir, "leo.sqlite"); hasSize(leo) {
-		return readSearch(ctx, leo, tmp, (*sqlread.DB).LeoTerms)
+	for _, search := range []struct {
+		name string
+		read searchReader
+	}{{"psi.sqlite", (*sqlread.DB).SearchTerms}, {"leo.sqlite", (*sqlread.DB).LeoTerms}} {
+		path := filepath.Join(dir, search.name)
+		size, err := searchSize(path)
+		if err != nil {
+			return nil, err
+		}
+		if size > 0 {
+			return readSearch(ctx, path, tmp, search.read)
+		}
 	}
 	return nil, nil
 }
 
-func hasSize(path string) bool {
+// A missing file is no search database, as exists() of upstream takes it. Any
+// other error of stat fails Open: taking a database that cannot be seen as
+// absent would silently lose its terms.
+func searchSize(path string) (int64, error) {
 	fi, err := os.Stat(path)
-	return err == nil && fi.Size() > 0
+	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("photosdb: search database: %w", err)
+	}
+	return fi.Size(), nil
 }
 
-func readSearch(ctx context.Context, path, tmp string, read func(*sqlread.DB, context.Context) ([]sqlread.SearchTerm, error)) (terms []sqlread.SearchTerm, err error) {
+func readSearch(ctx context.Context, path, tmp string, read searchReader) (terms []sqlread.SearchTerm, err error) {
 	src, err := sqlread.Open(ctx, path, tmp)
 	if err != nil {
 		return nil, err
@@ -58,9 +78,9 @@ func (db *DB) SearchInfoOf(p *photoinfo.PhotoInfo) searchinfo.SearchInfo {
 }
 
 // Labels returns osxphotos PhotosDB.labels
-// (photosdb/_photosdb_process_searchinfo.py:359-366): the labels of the photos
-// of the library, sorted, each once, nil without any; upstream keeps the order
-// of first occurrence.
+// (photosdb/_photosdb_process_searchinfo.py:359-366): the labels of the search
+// database, sorted, each once, nil without any; upstream keeps the order of
+// first occurrence.
 func (db *DB) Labels() []string { return slices.Sorted(maps.Keys(db.LabelCounts())) }
 
 // LabelsNormalized returns osxphotos labels_normalized
@@ -71,10 +91,12 @@ func (db *DB) LabelsNormalized() []string {
 }
 
 // LabelCounts returns osxphotos labels_as_dict
-// (photosdb/_photosdb_process_searchinfo.py:379-388): each label of the photos
-// of the library with its number of records, a photo that has a label twice
+// (photosdb/_photosdb_process_searchinfo.py:379-388): each label of the search
+// database with its number of records, an asset that has a label twice
 // counted twice, as upstream counts; an empty map without labels. A Go map
-// does not keep the order by count of upstream.
+// does not keep the order by count of upstream. The labels and the normalized
+// labels are counted apart, where upstream starts both lists anew when either
+// of the two is new (264-269, 346-351).
 func (db *DB) LabelCounts() map[string]int { return db.labelCounts(false) }
 
 // LabelCountsNormalized returns osxphotos labels_normalized_as_dict
@@ -86,12 +108,13 @@ func (db *DB) labelCounts(normalized bool) map[string]int {
 	counts := map[string]int{}
 	for _, records := range db.search {
 		for _, r := range records {
-			label := r.Content
-			if normalized {
-				label = r.Normalized
+			if r.Category != searchinfo.CategoryLabel {
+				continue
 			}
-			if r.Category == searchinfo.CategoryLabel {
-				counts[label]++
+			if normalized {
+				counts[r.Normalized]++
+			} else {
+				counts[r.Content]++
 			}
 		}
 	}
