@@ -71,6 +71,7 @@ linters:
             - "**/osxphotos/personinfo/**"
             - "**/osxphotos/momentinfo/**"
             - "**/osxphotos/scoreinfo/**"
+            - "**/osxphotos/searchinfo/**"
             - "**/osxphotos/query/**"
             - "**/osxphotos/internal/schema/**"
             - "!$test"
