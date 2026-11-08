@@ -45,8 +45,9 @@ var (
 	// identifier that is missing, not a valid string or cannot take the change,
 	// by Delete for an asset that is missing or cannot be deleted, and by Update
 	// for an asset that is missing or cannot be changed; by Delete, Update,
-	// CloudIdentifiers and LocalIdentifiers also for an identifier that is not a
-	// valid string, never for a missing asset, which the two leave out.
+	// CloudIdentifiers and LocalIdentifiers also for an identifier that is not
+	// a valid string. CloudIdentifiers and LocalIdentifiers never return it for
+	// a missing asset, which they leave out.
 	ErrNotFound = errors.New("photokit: not found")
 	// ErrMediaType is wrapped, with the MediaType PhotoKit gave, when a fetched
 	// asset is neither an image, a video nor a Live Photo

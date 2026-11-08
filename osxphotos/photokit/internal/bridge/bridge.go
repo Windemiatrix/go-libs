@@ -36,9 +36,8 @@ var (
 // PHAuthorizationStatus value for read-write access. No fetch finds a hidden
 // asset: upstream fetches with the default PHFetchOptions
 // (photokit.py:1234-1237, 1281-1285). Every identifier and title given to a
-// method other than a fetch, a resource, an image or a video one is UTF-8
-// without NUL, which photokit checks: the bridge checks only the state of
-// PhotoKit.
+// method is UTF-8 without NUL, which photokit checks: the bridge checks only
+// the state of PhotoKit.
 type Bridge interface {
 	AuthorizationStatus() (int, error)
 	// RequestAuthorization blocks up to timeout, then returns
