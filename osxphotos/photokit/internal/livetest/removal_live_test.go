@@ -5,6 +5,7 @@ package livetest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -27,15 +28,17 @@ const (
 	maxRemovals   = 3 * maxImports
 )
 
-// In the deadline step the owner answers the dialog after lateTimeout, and the
-// late answer may take effect up to lateWait after it.
+// In the deadline step the owner answers the dialog lateAnswer after its
+// prompt: the wait is timed by hand, so ten seconds keep the answer past
+// lateTimeout. The late answer may take effect up to lateWait after it.
 const (
 	lateTimeout = 30 * time.Second
+	lateAnswer  = lateTimeout + 10*time.Second
 	lateWait    = 2 * time.Minute
 )
 
 // Only a person answers the dialog of a deletion: the owner refuses the first,
-// answers the second after lateTimeout and confirms the third.
+// answers the second after lateAnswer and confirms the third.
 func TestLiveRemoval(t *testing.T) {
 	lib := openLibrary(t)
 	db := reopenLibrary(t)
@@ -98,6 +101,7 @@ func TestLiveRemoval(t *testing.T) {
 
 	// A second dialog while the first is open would mix up the answers.
 	if !t.Run("cancel", func(t *testing.T) {
+		dialog(t, "refuse")
 		switch err := lib.Delete(changeContext(t), uuids[:1]); {
 		case err == nil:
 			t.Error("Delete returned no error where the owner was to refuse the dialog")
@@ -119,6 +123,7 @@ func TestLiveRemoval(t *testing.T) {
 		if i < 0 {
 			t.Skip("no photo with the prefix is left to delete")
 		}
+		dialog(t, fmt.Sprintf("wait %v, then confirm", lateAnswer))
 		ctx, cancel := context.WithTimeout(t.Context(), lateTimeout)
 		defer cancel()
 		start := time.Now()
@@ -128,9 +133,9 @@ func TestLiveRemoval(t *testing.T) {
 		t.Logf("Delete returned after %v", took.Round(time.Second))
 		switch {
 		case errors.Is(err, photokit.ErrUserCanceled):
-			t.Fatalf("the dialog was refused before the deadline: answer it after %v, with Delete", lateTimeout)
+			t.Fatalf("the dialog was refused before the deadline: answer it after %v, with Delete", lateAnswer)
 		case err == nil:
-			t.Fatalf("the dialog was confirmed before the deadline: answer it after %v, with Delete", lateTimeout)
+			t.Fatalf("the dialog was confirmed before the deadline: answer it after %v, with Delete", lateAnswer)
 		case !errors.Is(err, photokit.ErrOutcomeUnknown) || !errors.Is(err, context.DeadlineExceeded):
 			t.Fatalf("Delete with a deadline of %v: %s, want ErrOutcomeUnknown with DeadlineExceeded", lateTimeout, changeFailure(err))
 		case (took - lateTimeout).Abs() > 5*time.Second:
@@ -150,6 +155,7 @@ func TestLiveRemoval(t *testing.T) {
 		if len(rest) == 0 {
 			t.Skip("no photo with the prefix is left to delete")
 		}
+		dialog(t, "confirm")
 		if err := lib.Delete(changeContext(t), rest); err != nil {
 			t.Fatalf("Delete confirmed in the dialog: %s; a dialog may still be open: answer it, then delete the photos %s* of the album %s in Photos",
 				changeFailure(err), removalPrefix, markerAlbum)

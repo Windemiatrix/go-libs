@@ -182,10 +182,12 @@ func TestLiveCollections(t *testing.T) {
 	t.Run("delete", func(t *testing.T) {
 		// The album alone first: deleting its folder could take it along. It is
 		// named twice, which PhotoKit must not see.
+		dialog(t, "confirm")
 		succeed(t, "DeleteCollections of the album", lib.DeleteCollections(changeContext(t), []string{albumID, albumID}))
 		if got := filter(c.list(t), prefixed); len(got) != 1 || got[0].LocalIdentifier != folderID {
 			t.Errorf("after DeleteCollections of the album, Collections lists %s, want the folder only", shape(got, folderID))
 		}
+		dialog(t, "confirm")
 		succeed(t, "DeleteCollections of the folder", lib.DeleteCollections(changeContext(t), []string{folderID}))
 		if n := count(c.list(t), prefixed); n > 0 {
 			t.Errorf("Collections lists %d collections with the prefix after their deletion", n)
@@ -196,6 +198,7 @@ func TestLiveCollections(t *testing.T) {
 		const albumTitle = collectionPrefix + "album-of-deleted-folder"
 		folder := c.made(t, collectionPrefix+"deleted-folder", "", true)
 		album := c.made(t, albumTitle, folder, false)
+		dialog(t, "confirm")
 		succeed(t, "DeleteCollections of a folder that holds an album", lib.DeleteCollections(changeContext(t), []string{folder}))
 		all := c.list(t)
 		listed := func(id string) bool {
@@ -282,6 +285,9 @@ func (c *collector) remove(t *testing.T) int {
 		t.Errorf("a folder %s* holds a collection without the prefix; move it out and delete the folders and albums %s* in Photos", collectionPrefix, collectionPrefix)
 		return 0
 	}
+	if len(ids) > 0 {
+		dialog(t, "confirm")
+	}
 	if err := c.lib.DeleteCollections(ctx, ids); err != nil {
 		t.Errorf("DeleteCollections of %d collections: %s; delete the folders and albums %s* in Photos", len(ids), changeFailure(err), collectionPrefix)
 		return 0
@@ -293,6 +299,14 @@ func changeContext(t *testing.T) context.Context {
 	ctx, cancel := context.WithTimeout(t.Context(), collectionTimeout)
 	t.Cleanup(cancel)
 	return ctx
+}
+
+// The number of dialogs depends on the run, so the owner answers each from
+// the terminal; with -test.v the line shows before the call waits for the
+// answer.
+func dialog(t *testing.T, answer string) {
+	t.Helper()
+	t.Logf("dialog: %s", answer)
 }
 
 func succeed(t *testing.T, what string, err error) {
