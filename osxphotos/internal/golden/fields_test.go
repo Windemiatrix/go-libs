@@ -7,28 +7,12 @@ import (
 
 func TestKeysCoverFields(t *testing.T) {
 	t.Parallel()
-	fields := fieldsTxt(t)
-	photo, album := PhotoKeys(), AlbumKeys()
-	if !slices.IsSorted(photo) || !slices.IsSorted(album) {
-		t.Errorf("PhotoKeys %v and AlbumKeys %v must be sorted", photo, album)
+	keys := Keys()
+	if !slices.IsSorted(keys) || !slices.Contains(keys, "uuid") {
+		t.Errorf("Keys %v must be sorted and hold uuid", keys)
 	}
-	if !slices.Contains(photo, "uuid") {
-		t.Error("uuid is not in PhotoKeys")
-	}
-	for _, k := range photo {
-		if slices.Contains(album, k) {
-			t.Errorf("key %s is in PhotoKeys and in AlbumKeys", k)
-		}
-	}
-	all := slices.Concat(photo, album)
-	slices.Sort(all)
-	want := slices.Clone(fields)
-	slices.Sort(want)
-	if !slices.Equal(all, want) {
-		t.Errorf("PhotoKeys and AlbumKeys give %d keys, fields.txt has %d\n got %v\nwant %v", len(all), len(want), all, want)
-	}
-	if want := []string{"album_info", "albums", "burst_album_info", "burst_albums", "cloud_metadata", "comments", "folders", "import_info", "labels", "labels_normalized", "likes",
-		"person_info", "project_info", "search_info", "search_info_normalized"}; !slices.Equal(album, want) {
-		t.Errorf("AlbumKeys = %v, want %v", album, want)
+	want := slices.Sorted(slices.Values(fieldsTxt(t)))
+	if !slices.Equal(keys, want) {
+		t.Errorf("Keys gives %d keys, fields.txt has %d\n got %v\nwant %v", len(keys), len(want), keys, want)
 	}
 }

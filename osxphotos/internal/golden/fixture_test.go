@@ -1,6 +1,7 @@
 package golden
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -43,6 +44,7 @@ const (
 
 	personA       = "00000000-0000-0000-0000-0000000000d5"
 	personUnknown = "00000000-0000-0000-0000-0000000000d6"
+	faceA         = "00000000-0000-0000-0000-0000000000b9"
 )
 
 func ptr[T any](v T) *T { return &v }
@@ -51,10 +53,160 @@ func utc(y int, mo time.Month, d, h, mi, s, ns int) time.Time {
 	return time.Date(y, mo, d, h, mi, s, ns, time.UTC)
 }
 
+// goLib is the Go side of the fixture as typed values, so that a test spoils
+// a field and not a key; lib builds Library.Dicts from it as
+// photosdb.DB.AsDict(p, false) does, for the keys of fields.txt.
+type goLib struct {
+	Photos        []*photoinfo.PhotoInfo
+	Albums        []*albuminfo.AlbumInfo // user albums, trashed ones included
+	SharedAlbums  []*albuminfo.AlbumInfo // shared albums, trashed ones included
+	BurstAlbums   map[string][]string    // by photo UUID: the album UUIDs of burst_album_info
+	Imports       []*albuminfo.ImportInfo
+	Projects      []*albuminfo.AlbumInfo // trashed ones included
+	Comments      map[string][]photoinfo.CommentInfo
+	Likes         map[string][]photoinfo.LikeInfo
+	Persons       map[string][]personinfo.PersonInfo
+	Faces         map[string][]personinfo.FaceInfo
+	CloudMetadata map[string]map[string]any
+	SearchInfo    map[string]searchinfo.SearchInfo
+	Override      map[string]map[string]any // by photo UUID: values set over the dictionary, for the keys no field gives
+}
+
+func (l goLib) lib() Library {
+	dicts := make(map[string]map[string]any, len(l.Photos))
+	for _, p := range l.Photos {
+		dicts[p.UUID] = l.dict(p)
+	}
+	return Library{Photos: l.Photos, Dicts: dicts}
+}
+
+// As photosdb.DB.AlbumInfoOf: albums outside the trash, by title, then UUID.
+func (l goLib) albumsOf(uuids []string, from ...[]*albuminfo.AlbumInfo) []*albuminfo.AlbumInfo {
+	var out []*albuminfo.AlbumInfo
+	for _, id := range uuids {
+		for _, a := range slices.Concat(from...) {
+			if a.UUID == id && !a.InTrash {
+				out = append(out, a)
+			}
+		}
+	}
+	slices.SortStableFunc(out, func(a, b *albuminfo.AlbumInfo) int {
+		return cmp.Or(strings.Compare(a.Title, b.Title), strings.Compare(a.UUID, b.UUID))
+	})
+	return out
+}
+
+func titlesOf(albums []*albuminfo.AlbumInfo) []any {
+	var titles []string
+	for _, a := range albums {
+		titles = append(titles, a.Title)
+	}
+	slices.Sort(titles)
+	out := []any{}
+	for _, s := range slices.Compact(titles) {
+		out = append(out, none(s))
+	}
+	return out
+}
+
+func dictsOf[T any](items []T, asDict func(T) map[string]any) []any {
+	out := []any{}
+	for _, v := range items {
+		out = append(out, asDict(v))
+	}
+	return out
+}
+
+func none(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
+func orNone[T any](p *T) any {
+	if p == nil {
+		return nil
+	}
+	return *p
+}
+
+func (l goLib) dict(p *photoinfo.PhotoInfo) map[string]any {
+	albums := l.albumsOf(p.AlbumUUIDs, l.Albums, l.SharedAlbums)
+	burstAlbums := l.albumsOf(l.BurstAlbums[p.UUID], l.Albums, l.SharedAlbums)
+	folders := map[string]any{}
+	for _, a := range albums {
+		folders[a.Title] = append([]string{}, a.FolderNames...)
+	}
+	place := map[string]any{}
+	if p.Place != nil {
+		place = p.Place.AsDict()
+	}
+	importInfo := map[string]any{}
+	for _, s := range l.Imports {
+		if p.ImportUUID != "" && s.UUID == p.ImportUUID {
+			importInfo = s.AsDict()
+		}
+	}
+	burst := []string{}
+	for _, f := range l.Photos {
+		if p.Burst && f.Burst && f.BurstUUID == p.BurstUUID && f.UUID != p.UUID {
+			burst = append(burst, f.UUID)
+		}
+	}
+	cloud := l.CloudMetadata[p.UUID]
+	if cloud == nil {
+		cloud = map[string]any{}
+	}
+	search := l.SearchInfo[p.UUID]
+	d := map[string]any{
+		"album_info": dictsOf(albums, (*albuminfo.AlbumInfo).AsDict), "albums": titlesOf(albums),
+		"burst_album_info": dictsOf(burstAlbums, (*albuminfo.AlbumInfo).AsDict), "burst_albums": titlesOf(burstAlbums),
+		"folders": folders, "import_info": importInfo,
+		"project_info": dictsOf(l.albumsOf(p.ProjectUUIDs, l.Projects), (*albuminfo.AlbumInfo).AsDict),
+		"comments":     dictsOf(l.Comments[p.UUID], photoinfo.CommentInfo.AsDict),
+		"likes":        dictsOf(l.Likes[p.UUID], photoinfo.LikeInfo.AsDict),
+		"person_info":  dictsOf(l.Persons[p.UUID], personinfo.PersonInfo.AsDict),
+		"face_info": dictsOf(l.Faces[p.UUID], func(f personinfo.FaceInfo) map[string]any {
+			return f.AsDict(p.Width, p.Height, p.Orientation)
+		}),
+		"cloud_metadata": cloud, "labels": search.Labels(), "labels_normalized": search.Normalized().Labels(),
+		"search_info": search.AsDict(), "search_info_normalized": search.Normalized().AsDict(),
+		"burst_photos": burst, "persons": p.Persons, "keywords": p.Keywords, "path_derivatives": p.PathDerivatives,
+		"location": []any{orNone(p.Latitude), orNone(p.Longitude)}, "orientation": p.Orientation,
+		"incloud": orNone(p.InCloud), "tzoffset": orNone(p.TZOffset), "latitude": orNone(p.Latitude),
+		"longitude": orNone(p.Longitude), "adjustment_type": orNone(p.AdjustmentType),
+		"imported_by": []any{none(p.ImportedByName), none(p.ImportedByBundleID)},
+		"adjustments": map[string]any{}, "original_adjustments": map[string]any{},
+		"date": p.Date, "date_original": p.DateOriginal, "exif_info": p.ExifInfo.AsDict(), "score": p.Score.AsDict(), "place": place,
+		"date_added": *cmp.Or(p.DateAdded, &defaultDateTimeLocal), "date_modified": orNone(p.DateModified),
+		"date_trashed": orNone(p.DateTrashed),
+
+		"burst": p.Burst, "burst_default_pick": p.BurstDefaultPick, "burst_key": p.BurstKey, "burst_selected": p.BurstSelected,
+		"favorite": p.Favorite, "hidden": p.Hidden, "intrash": p.InTrash, "isphoto": p.IsPhoto, "ismovie": p.IsMovie,
+		"live_photo": p.Live, "screenshot": p.Screenshot, "screen_recording": p.ScreenRecording, "slow_mo": p.SlowMo,
+		"time_lapse": p.TimeLapse, "isreference": p.IsReference, "hasadjustments": p.HasAdjustments, "has_raw": p.HasRAW,
+		"raw_original": p.RawOriginal, "ismissing": p.IsMissing, "iscloudasset": p.IsCloudAsset, "israw": p.IsRAW,
+		"shared": p.Shared, "shared_library": p.SharedLibrary, "syndicated": p.Syndicated, "saved_to_library": p.SavedToLibrary,
+		"hdr": p.HDR, "panorama": p.Panorama, "portrait": p.Portrait, "selfie": p.Selfie, "visible": p.Visible,
+		"shared_moment": p.SharedMoment, "external_edit": p.ExternalEdit,
+
+		"uuid": p.UUID, "filename": p.Filename, "original_filename": p.OriginalFilename, "uti": p.UTI, "uti_original": p.UTIOriginal,
+		"uti_edited": none(p.UTIEdited), "uti_raw": none(p.UTIRaw), "cloud_guid": none(p.CloudMasterGUID),
+		"description": none(p.Description), "fingerprint": none(p.Fingerprint), "title": none(p.Title), "tzname": none(p.TZName),
+		"cloud_owner_hashed_id": none(p.CloudOwnerHashedID), "owner": none(p.Owner),
+
+		"width": p.Width, "height": p.Height, "original_width": p.OriginalWidth, "original_height": p.OriginalHeight,
+		"original_orientation": p.OriginalOrientation, "original_filesize": p.OriginalFilesize, "spatial": p.Spatial, "rating": 0,
+	}
+	maps.Copy(d, l.Override[p.UUID])
+	return d
+}
+
 // Every call returns new values, so that a test may spoil them.
-func fixtureLib() Library {
+func fixtureLib() goLib {
 	ist := time.FixedZone("IST", 19800)
-	return Library{
+	return goLib{
 		Photos: []*photoinfo.PhotoInfo{
 			{
 				UUID:            selectedFrame,
@@ -153,6 +305,12 @@ func fixtureLib() Library {
 			{UUID: personA, Name: "Person A", DisplayName: "Pat", KeyFace: 11, FaceCount: 3, KeyPhotoUUID: selectedFrame, Favorite: true, SortOrder: 2, FeatureLess: true},
 			{UUID: personUnknown, Name: "_UNKNOWN_"},
 		}},
+		// Size 0 and the center keep the values of FaceInfo.AsDict the same for
+		// the other widths, heights and orientations 6 to 8 that tests set.
+		Faces: map[string][]personinfo.FaceInfo{selectedFrame: {{
+			PK: 21, UUID: faceA, Name: "Person A", AssetUUID: selectedFrame, PersonPK: 31, PersonUUID: personA,
+			CenterX: 0.5, CenterY: 0.5, Quality: 0.5, Roll: 0.25, SourceWidth: 4032, SourceHeight: 3024, HasSmile: true, AgeType: 2,
+		}}},
 		// Types as howett.net/plist decodes them: a non-negative integer is a uint64, a negative one an int64.
 		CloudMetadata: map[string]map[string]any{selectedFrame: {
 			"mediaType": "image",
@@ -205,6 +363,15 @@ const refPersonInfo = `[{"displayname": "Pat", "facecount": 3, "favorite": true,
 	`", "name": "Person A", "sort_order": 2, "uuid": "` + personA + `"}, ` +
 	`{"displayname": null, "facecount": null, "favorite": false, "feature_less": false, "keyface": null, "keyphoto": null, ` +
 	`"name": "_UNKNOWN_", "sort_order": null, "uuid": "` + personUnknown + `"}]`
+
+// The face of the fixture as personinfo.py:420-455 computes it for a photo of
+// 4032 x 3024 in orientation 6.
+const refFaceInfo = `[{"_person_pk": 31, "_pk": 21, "age_type": 2, "asset_uuid": "` + selectedFrame + `", "center": [1512, 2016], ` +
+	`"center_x": 0.5, "center_y": 0.5, "eye_makeup_type": 0, "eye_state": 0, "face_rect": [[1512.0, 2016.0], [1512.0, 2016.0]], ` +
+	`"face_type": null, "facial_hair_type": 0, "gender_type": 0, "glasses_type": 0, "hair_color_type": 0, "has_smile": 1, ` +
+	`"intrash": 0, "lip_makeup_type": 0, "manual": 0, "mpri_reg_rect": {"h": 0.0, "w": 0.0, "x": 0.5, "y": 0.5}, ` +
+	`"mwg_rs_area": {"h": 0.0, "w": 0.0, "x": 0.5, "y": 0.5}, "name": "Person A", "pitch": 0, "quality": 0.5, "roll": 0.25, ` +
+	`"size": 0.0, "smile_type": 0, "source_height": 3024, "source_width": 4032, "uuid": "` + faceA + `", "yaw": 0}]`
 
 const (
 	refComments = `[{"datetime": "2020-07-01T00:00:00+00:00", "ismine": true, "text": "Comment 1", "user": "Person A"}, ` +
@@ -373,6 +540,12 @@ func refSelectedFrame() map[string]string {
 
 		"search_info":            refSearchInfo(false),
 		"search_info_normalized": refSearchInfo(true),
+
+		"adjustments":          "{}",
+		"face_info":            refFaceInfo,
+		"original_adjustments": "{}",
+		"path_derivatives":     "[]",
+		"rating":               "0",
 	}
 }
 
@@ -398,6 +571,7 @@ func refEmptyPhoto() map[string]string {
 		"comments": "[]", "likes": "[]", "cloud_metadata": "{}",
 		"date_original": `"1970-01-01T00:00:00+00:00"`, "exif_info": refExifNull, "owner": "null", "place": "{}", "score": refScoreZero,
 		"labels": "[]", "labels_normalized": "[]", "search_info": refSearchInfoEmpty, "search_info_normalized": refSearchInfoEmpty,
+		"adjustments": "{}", "face_info": "[]", "original_adjustments": "{}", "path_derivatives": "[]", "rating": "0",
 	}
 }
 
@@ -420,11 +594,9 @@ func refOf(query ...Object) *Reference {
 // unselectedFrame is not in the reference: osxphotos does not return it.
 func fixtureRef() *Reference { return refOf(refObj(refSelectedFrame()), refObj(refEmptyPhoto())) }
 
-func everyKey() []string { return slices.Concat(PhotoKeys(), AlbumKeys()) }
-
-func compare(t *testing.T, ref *Reference, lib Library, divs ...Divergence) *Report {
+func compare(t *testing.T, ref *Reference, lib goLib, divs ...Divergence) *Report {
 	t.Helper()
-	rep, err := Compare(ref, lib, everyKey(), divs)
+	rep, err := Compare(ref, lib.lib(), Keys(), divs)
 	if err != nil {
 		t.Fatalf("Compare: %v", err)
 	}

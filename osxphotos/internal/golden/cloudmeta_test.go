@@ -8,12 +8,10 @@ import (
 	"time"
 
 	"howett.net/plist"
-
-	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
 func goCloud(m map[string]any) (string, error) {
-	v, err := rules[cloudKey].got(&env{cloudMeta: map[string]map[string]any{"U": m}}, &photoinfo.PhotoInfo{UUID: "U"}, nil)
+	v, err := rules[cloudKey].got(map[string]any{cloudKey: m}, nil)
 	if err != nil {
 		return "", err
 	}

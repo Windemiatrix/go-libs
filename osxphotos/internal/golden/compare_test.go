@@ -34,8 +34,8 @@ func TestCompareNoDifferences(t *testing.T) {
 	if !rep.OK() || len(rep.Diffs) != 0 || len(rep.Explained) != 0 || len(rep.Stale) != 0 {
 		t.Fatalf("report = %+v, want no differences", rep)
 	}
-	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 87 {
-		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 87", rep.Library, rep.Objects, len(rep.Keys))
+	if rep.Library != "lib" || rep.Objects != 2 || len(rep.Keys) != 92 {
+		t.Errorf("Library = %q, Objects = %d, Keys = %d; want lib, 2, 92", rep.Library, rep.Objects, len(rep.Keys))
 	}
 	if !slices.IsSorted(rep.Keys) {
 		t.Error("Keys are not sorted")
@@ -44,15 +44,15 @@ func TestCompareNoDifferences(t *testing.T) {
 
 type mutation struct {
 	name   string
-	mutate func(l *Library)
+	mutate func(l *goLib)
 	want   string
 }
 
-func photo(f func(p *photoinfo.PhotoInfo)) func(l *Library) {
-	return func(l *Library) { f(l.Photos[0]) }
+func photo(f func(p *photoinfo.PhotoInfo)) func(l *goLib) {
+	return func(l *goLib) { f(l.Photos[0]) }
 }
 
-func albumOf(l *Library, uuid string) *albuminfo.AlbumInfo {
+func albumOf(l *goLib, uuid string) *albuminfo.AlbumInfo {
 	for _, a := range slices.Concat(l.Albums, l.SharedAlbums) {
 		if a.UUID == uuid {
 			return a
@@ -61,8 +61,8 @@ func albumOf(l *Library, uuid string) *albuminfo.AlbumInfo {
 	panic("no album " + uuid)
 }
 
-func album(uuid string, f func(a *albuminfo.AlbumInfo)) func(l *Library) {
-	return func(l *Library) { f(albumOf(l, uuid)) }
+func album(uuid string, f func(a *albuminfo.AlbumInfo)) func(l *goLib) {
+	return func(l *goLib) { f(albumOf(l, uuid)) }
 }
 
 func photoMutations() []mutation {
@@ -205,11 +205,11 @@ func photoMutations() []mutation {
 		{"Persons with a repeat", p(func(x *photoinfo.PhotoInfo) { x.Persons = []string{"Person A", "Person A", "_UNKNOWN_"} }), "persons"},
 		{"Persons nil", p(func(x *photoinfo.PhotoInfo) { x.Persons = nil }), "persons"},
 
-		{"BurstUUID of the other frame", func(l *Library) { l.Photos[1].BurstUUID = "BURST-B" }, "burst_photos"},
+		{"BurstUUID of the other frame", func(l *goLib) { l.Photos[1].BurstUUID = "BURST-B" }, "burst_photos"},
 		// The other frame is then a plain photo, which osxphotos would return.
-		{"the other frame is not a burst frame", func(l *Library) { l.Photos[1].Burst = false }, "burst_photos uuid"},
+		{"the other frame is not a burst frame", func(l *goLib) { l.Photos[1].Burst = false }, "burst_photos uuid"},
 		{"BurstUUID of the frame", p(func(x *photoinfo.PhotoInfo) { x.BurstUUID = "BURST-B" }), "burst_photos"},
-		{"a third frame, not a photo and in the trash", func(l *Library) {
+		{"a third frame, not a photo and in the trash", func(l *goLib) {
 			l.Photos = append(l.Photos, &photoinfo.PhotoInfo{UUID: "00000000-0000-0000-0000-000000000004", Burst: true, BurstUUID: "BURST-A", InTrash: true})
 		}, "burst_photos"},
 
@@ -221,11 +221,11 @@ func photoMutations() []mutation {
 			x.AlbumUUIDs = []string{albumAInFolderX, albumSharedS, albumSharedTitledA}
 		}), "album_info folders"},
 		{"AlbumUUIDs without the shared albums", p(func(x *photoinfo.PhotoInfo) { x.AlbumUUIDs = []string{albumAInFolderX, albumAInFolderY} }), "album_info albums folders"},
-		{"BurstAlbums empty", func(l *Library) { l.BurstAlbums[selectedFrame] = nil }, "burst_album_info burst_albums"},
-		{"BurstAlbums without Album B", func(l *Library) {
+		{"BurstAlbums empty", func(l *goLib) { l.BurstAlbums[selectedFrame] = nil }, "burst_album_info burst_albums"},
+		{"BurstAlbums without Album B", func(l *goLib) {
 			l.BurstAlbums[selectedFrame] = []string{albumAInFolderX, albumAInFolderY, albumSharedS}
 		}, "burst_album_info burst_albums"},
-		{"an album in the trash is listed", func(l *Library) { l.BurstAlbums[selectedFrame] = append(l.BurstAlbums[selectedFrame], albumTrashed) }, ""},
+		{"an album in the trash is listed", func(l *goLib) { l.BurstAlbums[selectedFrame] = append(l.BurstAlbums[selectedFrame], albumTrashed) }, ""},
 		{"an album of the library is listed", p(func(x *photoinfo.PhotoInfo) { x.AlbumUUIDs = append(x.AlbumUUIDs, albumOfNoPhoto) }), "album_info albums folders"},
 		{"Album A in Folder X goes to the trash", album(albumAInFolderX, func(a *albuminfo.AlbumInfo) { a.InTrash = true }), "album_info burst_album_info"},
 		{"Album title", album(albumAInFolderY, func(a *albuminfo.AlbumInfo) { a.Title = "Album Z" }), "album_info albums burst_album_info burst_albums folders"},
@@ -245,68 +245,68 @@ func photoMutations() []mutation {
 		{"Shared album creation date", album(albumSharedS, func(a *albuminfo.AlbumInfo) { a.CreationDate = nil }), "album_info burst_album_info"},
 		{"Shared album with the title of a user album goes to the trash", album(albumSharedTitledA, func(a *albuminfo.AlbumInfo) { a.InTrash = true }), "album_info"},
 		{"Shared album parent", album(albumSharedS, func(a *albuminfo.AlbumInfo) { a.ParentUUID = folderX }), "album_info burst_album_info"},
-		{"Shared album with a parent among the user albums", func(l *Library) {
+		{"Shared album with a parent among the user albums", func(l *goLib) {
 			l.SharedAlbums[0].ParentUUID = folderX
 			l.Albums, l.SharedAlbums = append(l.Albums, l.SharedAlbums[0]), l.SharedAlbums[1:]
 		}, "album_info burst_album_info"},
 
 		{"ImportUUID empty", p(func(x *photoinfo.PhotoInfo) { x.ImportUUID = "" }), "import_info"},
 		{"ImportUUID of another session", p(func(x *photoinfo.PhotoInfo) { x.ImportUUID = importBare }), "import_info"},
-		{"Import title", func(l *Library) { l.Imports[0].Title = "Import 2" }, "import_info"},
-		{"Import title empty", func(l *Library) { l.Imports[0].Title = "" }, "import_info"},
-		{"Import creation date", func(l *Library) { l.Imports[0].CreationDate = nil }, "import_info"},
-		{"Import start date", func(l *Library) { l.Imports[0].StartDate = nil }, "import_info"},
-		{"Import end date by 1us", func(l *Library) { l.Imports[0].EndDate = ptr(l.Imports[0].EndDate.Add(time.Microsecond)) }, "import_info"},
-		{"Import start and end dates swapped", func(l *Library) {
+		{"Import title", func(l *goLib) { l.Imports[0].Title = "Import 2" }, "import_info"},
+		{"Import title empty", func(l *goLib) { l.Imports[0].Title = "" }, "import_info"},
+		{"Import creation date", func(l *goLib) { l.Imports[0].CreationDate = nil }, "import_info"},
+		{"Import start date", func(l *goLib) { l.Imports[0].StartDate = nil }, "import_info"},
+		{"Import end date by 1us", func(l *goLib) { l.Imports[0].EndDate = ptr(l.Imports[0].EndDate.Add(time.Microsecond)) }, "import_info"},
+		{"Import start and end dates swapped", func(l *goLib) {
 			l.Imports[0].StartDate, l.Imports[0].EndDate = l.Imports[0].EndDate, l.Imports[0].StartDate
 		}, "import_info"},
-		{"Import UUID", func(l *Library) { l.Imports[0].UUID, l.Imports[1].UUID = importBare, importSession }, "import_info"},
+		{"Import UUID", func(l *goLib) { l.Imports[0].UUID, l.Imports[1].UUID = importBare, importSession }, "import_info"},
 
 		{"ProjectUUIDs empty", p(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = nil }), "project_info"},
 		{"ProjectUUIDs without the project outside the trash", p(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = []string{projectTrashed} }), "project_info"},
-		{"Project goes to the trash", func(l *Library) { l.Projects[0].InTrash = true }, "project_info"},
-		{"Project in the trash comes out of it", func(l *Library) { l.Projects[1].InTrash = false }, "project_info"},
-		{"Project title", func(l *Library) { l.Projects[0].Title = "Project Q" }, "project_info"},
-		{"Project folder names", func(l *Library) { l.Projects[0].FolderNames = []string{"Folder X"} }, "project_info"},
-		{"Project creation date", func(l *Library) { l.Projects[0].CreationDate = nil }, "project_info"},
-		{"Project end date", func(l *Library) { l.Projects[0].EndDate = ptr(utc(2020, 4, 5, 0, 0, 0, 0)) }, "project_info"},
-		{"a project among the albums of the photo", func(l *Library) {
+		{"Project goes to the trash", func(l *goLib) { l.Projects[0].InTrash = true }, "project_info"},
+		{"Project in the trash comes out of it", func(l *goLib) { l.Projects[1].InTrash = false }, "project_info"},
+		{"Project title", func(l *goLib) { l.Projects[0].Title = "Project Q" }, "project_info"},
+		{"Project folder names", func(l *goLib) { l.Projects[0].FolderNames = []string{"Folder X"} }, "project_info"},
+		{"Project creation date", func(l *goLib) { l.Projects[0].CreationDate = nil }, "project_info"},
+		{"Project end date", func(l *goLib) { l.Projects[0].EndDate = ptr(utc(2020, 4, 5, 0, 0, 0, 0)) }, "project_info"},
+		{"a project among the albums of the photo", func(l *goLib) {
 			l.Projects = l.Projects[1:]
 			l.Albums = append(l.Albums, &albuminfo.AlbumInfo{UUID: projectP, Title: "Project P", ParentUUID: folderX, CreationDate: ptr(utc(2020, 4, 4, 4, 4, 4, 0))})
 			l.Photos[0].AlbumUUIDs = append(l.Photos[0].AlbumUUIDs, projectP)
 			l.Photos[0].ProjectUUIDs = []string{projectTrashed}
 		}, "album_info albums folders project_info"},
 
-		{"Comments nil", func(l *Library) { l.Comments = nil }, "comments"},
-		{"Comments swapped", func(l *Library) { c := l.Comments[selectedFrame]; c[0], c[1] = c[1], c[0] }, "comments"},
-		{"Comment date by 1us", func(l *Library) {
+		{"Comments nil", func(l *goLib) { l.Comments = nil }, "comments"},
+		{"Comments swapped", func(l *goLib) { c := l.Comments[selectedFrame]; c[0], c[1] = c[1], c[0] }, "comments"},
+		{"Comment date by 1us", func(l *goLib) {
 			c := &l.Comments[selectedFrame][1]
 			c.Datetime = ptr(c.Datetime.Add(time.Microsecond))
 		}, "comments"},
-		{"Comment date nil", func(l *Library) { l.Comments[selectedFrame][0].Datetime = nil }, "comments"},
-		{"Comment user", func(l *Library) { l.Comments[selectedFrame][0].User = "" }, "comments"},
-		{"Comment user of null", func(l *Library) { l.Comments[selectedFrame][1].User = "Person B" }, "comments"},
-		{"Comment IsMine", func(l *Library) { l.Comments[selectedFrame][0].IsMine = false }, "comments"},
-		{"Comment text", func(l *Library) { l.Comments[selectedFrame][1].Text = "Comment 3" }, "comments"},
-		{"Comment of another photo", func(l *Library) {
+		{"Comment date nil", func(l *goLib) { l.Comments[selectedFrame][0].Datetime = nil }, "comments"},
+		{"Comment user", func(l *goLib) { l.Comments[selectedFrame][0].User = "" }, "comments"},
+		{"Comment user of null", func(l *goLib) { l.Comments[selectedFrame][1].User = "Person B" }, "comments"},
+		{"Comment IsMine", func(l *goLib) { l.Comments[selectedFrame][0].IsMine = false }, "comments"},
+		{"Comment text", func(l *goLib) { l.Comments[selectedFrame][1].Text = "Comment 3" }, "comments"},
+		{"Comment of another photo", func(l *goLib) {
 			l.Comments[emptyPhoto], l.Comments[selectedFrame] = l.Comments[selectedFrame], nil
 		}, "comments"},
-		{"Likes nil", func(l *Library) { l.Likes = nil }, "likes"},
-		{"Like date", func(l *Library) { c := &l.Likes[selectedFrame][0]; c.Datetime = ptr(c.Datetime.Add(time.Second)) }, "likes"},
-		{"Like user", func(l *Library) { l.Likes[selectedFrame][0].User = "" }, "likes"},
-		{"Like IsMine", func(l *Library) { l.Likes[selectedFrame][0].IsMine = true }, "likes"},
-		{"a second like", func(l *Library) {
+		{"Likes nil", func(l *goLib) { l.Likes = nil }, "likes"},
+		{"Like date", func(l *goLib) { c := &l.Likes[selectedFrame][0]; c.Datetime = ptr(c.Datetime.Add(time.Second)) }, "likes"},
+		{"Like user", func(l *goLib) { l.Likes[selectedFrame][0].User = "" }, "likes"},
+		{"Like IsMine", func(l *goLib) { l.Likes[selectedFrame][0].IsMine = true }, "likes"},
+		{"a second like", func(l *goLib) {
 			l.Likes[selectedFrame] = append(l.Likes[selectedFrame], photoinfo.LikeInfo{Datetime: ptr(utc(2020, 7, 4, 0, 0, 0, 0))})
 		}, "likes"},
 
-		{"Persons nil", func(l *Library) { l.Persons = nil }, "person_info"},
-		{"Persons of another photo", func(l *Library) { l.Persons[emptyPhoto], l.Persons[selectedFrame] = l.Persons[selectedFrame], nil }, "person_info"},
+		{"Persons nil", func(l *goLib) { l.Persons = nil }, "person_info"},
+		{"Persons of another photo", func(l *goLib) { l.Persons[emptyPhoto], l.Persons[selectedFrame] = l.Persons[selectedFrame], nil }, "person_info"},
 		// A person per face (photoinfo.py:605-611): a repeat is not merged.
-		{"Persons with a repeat", func(l *Library) {
+		{"Persons with a repeat", func(l *goLib) {
 			l.Persons[selectedFrame] = append(l.Persons[selectedFrame], l.Persons[selectedFrame][1])
 		}, "person_info"},
 		// Upstream gives the persons of a photo by name (photoinfo.py:605-611); the rule does not sort them.
-		{"Persons in another order", func(l *Library) { p := l.Persons[selectedFrame]; p[0], p[1] = p[1], p[0] }, "person_info"},
+		{"Persons in another order", func(l *goLib) { p := l.Persons[selectedFrame]; p[0], p[1] = p[1], p[0] }, "person_info"},
 		{"PersonInfo UUID", person(0, func(x *personinfo.PersonInfo) { x.UUID = personUnknown }), "person_info"},
 		{"PersonInfo Name", person(0, func(x *personinfo.PersonInfo) { x.Name = "Person B" }), "person_info"},
 		{"PersonInfo Name of the unknown person empty", person(1, func(x *personinfo.PersonInfo) { x.Name = "" }), "person_info"},
@@ -319,8 +319,27 @@ func photoMutations() []mutation {
 		{"PersonInfo FeatureLess", person(0, func(x *personinfo.PersonInfo) { x.FeatureLess = false }), "person_info"},
 		{"PersonInfo FeatureLess of the unknown person", person(1, func(x *personinfo.PersonInfo) { x.FeatureLess = true }), "person_info"},
 
-		{"CloudMetadata nil", func(l *Library) { l.CloudMetadata = nil }, "cloud_metadata"},
-		{"CloudMetadata of another photo", func(l *Library) {
+		{"Faces nil", func(l *goLib) { l.Faces = nil }, "face_info"},
+		{"Faces of another photo", func(l *goLib) { l.Faces[emptyPhoto], l.Faces[selectedFrame] = l.Faces[selectedFrame], nil }, "face_info"},
+		{"Faces with a repeat", func(l *goLib) { l.Faces[selectedFrame] = append(l.Faces[selectedFrame], l.Faces[selectedFrame][0]) }, "face_info"},
+		{"FaceInfo PK", face(func(x *personinfo.FaceInfo) { x.PK++ }), "face_info"},
+		{"FaceInfo Name", face(func(x *personinfo.FaceInfo) { x.Name = "Person B" }), "face_info"},
+		{"FaceInfo Name empty", face(func(x *personinfo.FaceInfo) { x.Name = "" }), "face_info"},
+		{"FaceInfo AssetUUID", face(func(x *personinfo.FaceInfo) { x.AssetUUID = emptyPhoto }), "face_info"},
+		{"FaceInfo CenterX", face(func(x *personinfo.FaceInfo) { x.CenterX = 0.25 }), "face_info"},
+		{"FaceInfo Size", face(func(x *personinfo.FaceInfo) { x.Size = 0.5 }), "face_info"},
+		{"FaceInfo HasSmile", face(func(x *personinfo.FaceInfo) { x.HasSmile = false }), "face_info"},
+		{"FaceInfo Roll", face(func(x *personinfo.FaceInfo) { x.Roll = 0 }), "face_info"},
+
+		{"PathDerivatives", p(func(x *photoinfo.PhotoInfo) {
+			x.PathDerivatives = []string{"resources/derivatives/0/IMG_0001_1_105_c.jpeg"}
+		}), "path_derivatives"},
+		{"rating", override("rating", 1), "rating"},
+		{"adjustments", override("adjustments", map[string]any{"editor": "com.example.editor"}), "adjustments"},
+		{"original_adjustments", override("original_adjustments", map[string]any{"editor": "com.example.editor"}), "original_adjustments"},
+
+		{"CloudMetadata nil", func(l *goLib) { l.CloudMetadata = nil }, "cloud_metadata"},
+		{"CloudMetadata of another photo", func(l *goLib) {
 			l.CloudMetadata[emptyPhoto], l.CloudMetadata[selectedFrame] = l.CloudMetadata[selectedFrame], nil
 		}, "cloud_metadata"},
 		{"CloudMetadata string", cloudMeta(func(m map[string]any) { m["mediaType"] = "video" }), "cloud_metadata"},
@@ -332,8 +351,8 @@ func photoMutations() []mutation {
 		{"CloudMetadata date without microseconds", cloudMeta(func(m map[string]any) { m["when"] = utc(2020, 1, 2, 3, 4, 5, 0) }), "cloud_metadata"},
 		{"CloudMetadata list swapped", cloudMeta(func(m map[string]any) { m["nested"] = map[string]any{"list": []any{"x", int64(-1)}} }), "cloud_metadata"},
 
-		{"SearchInfo nil", func(l *Library) { l.SearchInfo = nil }, "labels labels_normalized search_info search_info_normalized"},
-		{"SearchInfo of another photo", func(l *Library) {
+		{"SearchInfo nil", func(l *goLib) { l.SearchInfo = nil }, "labels labels_normalized search_info search_info_normalized"},
+		{"SearchInfo of another photo", func(l *goLib) {
 			l.SearchInfo[emptyPhoto], l.SearchInfo[selectedFrame] = l.SearchInfo[selectedFrame], searchinfo.SearchInfo{}
 		}, "labels labels_normalized search_info search_info_normalized"},
 		{"a label", searchTerms(func(r []searchinfo.Record) []searchinfo.Record { r[0].Content = "Cat"; return r }), "labels search_info"},
@@ -350,17 +369,26 @@ func photoMutations() []mutation {
 	}
 }
 
-func cloudMeta(f func(m map[string]any)) func(l *Library) {
-	return func(l *Library) { f(l.CloudMetadata[selectedFrame]) }
+func cloudMeta(f func(m map[string]any)) func(l *goLib) {
+	return func(l *goLib) { f(l.CloudMetadata[selectedFrame]) }
 }
 
-func searchTerms(f func(r []searchinfo.Record) []searchinfo.Record) func(l *Library) {
-	return func(l *Library) { l.SearchInfo[selectedFrame] = searchinfo.New(f(searchRecords())) }
+func searchTerms(f func(r []searchinfo.Record) []searchinfo.Record) func(l *goLib) {
+	return func(l *goLib) { l.SearchInfo[selectedFrame] = searchinfo.New(f(searchRecords())) }
 }
 
-// i indexes Library.Persons of selectedFrame: 0 is Person A, 1 the unknown person.
-func person(i int, f func(x *personinfo.PersonInfo)) func(l *Library) {
-	return func(l *Library) { f(&l.Persons[selectedFrame][i]) }
+// i indexes goLib.Persons of selectedFrame: 0 is Person A, 1 the unknown person.
+func person(i int, f func(x *personinfo.PersonInfo)) func(l *goLib) {
+	return func(l *goLib) { f(&l.Persons[selectedFrame][i]) }
+}
+
+func face(f func(x *personinfo.FaceInfo)) func(l *goLib) {
+	return func(l *goLib) { f(&l.Faces[selectedFrame][0]) }
+}
+
+// For the keys that no field of the fixture gives.
+func override(key string, v any) func(l *goLib) {
+	return func(l *goLib) { l.Override = map[string]map[string]any{selectedFrame: {key: v}} }
 }
 
 // The expectations and the reference are literals, not computed by the package.
@@ -518,7 +546,7 @@ func TestCompareValues(t *testing.T) {
 	lib.Photos[0].Keywords = []string{"beta", "alpha"}
 	lib.Photos[0].InCloud = nil
 	lib.Photos[0].Latitude = ptr(1.5)
-	lib.Photos[0].Width = 7
+	lib.Photos[0].Width = 4033 // the center of the face stays where it is
 	lib.Photos[0].Title = "A \"quoted\" <title> & more"
 	lib.Photos[0].BurstDefaultPick = false
 	rep := compare(t, fixtureRef(), lib)
@@ -532,7 +560,7 @@ func TestCompareValues(t *testing.T) {
 		"incloud":            {`true`, `null`},
 		"latitude":           {`48.8566`, `1.5`},
 		"location":           {`[48.8566,2.3522]`, `[1.5,2.3522]`},
-		"width":              {`4032`, `7`},
+		"width":              {`4032`, `4033`},
 		"title":              {`"Title A"`, `"A \"quoted\" <title> & more"`},
 		"burst_default_pick": {`true`, `false`},
 	}
@@ -779,17 +807,48 @@ func TestWriteDetailsComments(t *testing.T) {
 	}
 }
 
+func TestWriteDetailsFaceInfo(t *testing.T) {
+	t.Parallel()
+	lib := fixtureLib()
+	lib.Faces[selectedFrame][0].Name = "SECRET-NAME"
+	stale := Divergence{Library: "lib", UUID: emptyPhoto, Field: "face_info", Want: []byte(`[{"name":"SECRET-STALE","uuid":null}]`), Reason: "r", Upstream: "a.py:1"}
+	unparsed := Divergence{Library: "lib", UUID: selectedFrame, Field: "face_info", Want: []byte(`{"name":"SECRET-OBJECT"}`), Reason: "r", Upstream: "a.py:1"}
+	rep := compare(t, fixtureRef(), lib, stale, unparsed)
+	if got := diffKeys(rep); !slices.Equal(got, []string{"face_info"}) {
+		t.Fatalf("differences in %v, want face_info", got)
+	}
+	var b strings.Builder
+	if err := rep.WriteDetails(&b); err != nil {
+		t.Fatal(err)
+	}
+	for _, leak := range []string{"SECRET", "Person A"} {
+		if strings.Contains(b.String(), leak) {
+			t.Errorf("WriteDetails writes %q", leak)
+		}
+	}
+	// want 1 + got 1, the stale record 1.
+	if n := strings.Count(b.String(), `"name":"<name>"`); n != 3 {
+		t.Errorf("%d names written as <name>, want 3:\n%s", n, b.String())
+	}
+	if !strings.Contains(b.String(), faceA) || !strings.Contains(b.String(), `"uuid":null`) {
+		t.Errorf("WriteDetails lost the UUIDs or the nulls:\n%s", b.String())
+	}
+	if line := "stale face_info " + selectedFrame + " want=<unparsed> got=*\n"; !strings.Contains(b.String(), line) {
+		t.Errorf("WriteDetails has no line %q:\n%s", line, b.String())
+	}
+}
+
 func TestCompareEquivalent(t *testing.T) {
 	t.Parallel()
 	cases := []mutation{
 		{"Date in the zone of the same offset", photo(func(x *photoinfo.PhotoInfo) { x.Date = x.Date.In(time.FixedZone("X", 19800)) }), ""},
 		{"DateAdded in UTC", photo(func(x *photoinfo.PhotoInfo) { x.DateAdded = ptr(x.DateAdded.UTC()) }), ""},
-		{"albums in another order, a repeat", func(l *Library) {
+		{"albums in another order, a repeat", func(l *goLib) {
 			l.Photos[0].AlbumUUIDs = []string{albumSharedS, albumAInFolderX, albumAInFolderX, albumTrashed, albumAInFolderY, albumSharedTitledA, albumAInFolderY}
 			l.BurstAlbums[selectedFrame] = []string{albumAInFolderY, albumSharedS, albumAInFolderX, albumBNoFolder}
 		}, ""},
 		{"an explicit 2001 for the creation date that osxphotos defaults", album(albumAInFolderY, func(a *albuminfo.AlbumInfo) { a.CreationDate = ptr(utc(2001, 1, 1, 0, 0, 0, 0)) }), ""},
-		{"the unselected frame with another pick", func(l *Library) { l.Photos[1].BurstPickType = 4 }, ""},
+		{"the unselected frame with another pick", func(l *goLib) { l.Photos[1].BurstPickType = 4 }, ""},
 		{"an album of a trashed state not listed", album(albumOfNoPhoto, func(a *albuminfo.AlbumInfo) { a.InTrash = true }), ""},
 		// json() sorts the pair (photoinfo.py:2279-2285): a Cyrillic name follows its bundle ID.
 		{"an imported_by name after its bundle ID in byte order", photo(func(x *photoinfo.PhotoInfo) {
@@ -797,9 +856,9 @@ func TestCompareEquivalent(t *testing.T) {
 		}), ""},
 		{"projects in another order, a repeat", photo(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = []string{projectTrashed, projectP, projectP} }), ""},
 		// osxphotos writes the parent of a project as null when the parent row holds no folder or user album.
-		{"the parent of a project is not compared", func(l *Library) { l.Projects[0].ParentUUID = "" }, ""},
+		{"the parent of a project is not compared", func(l *goLib) { l.Projects[0].ParentUUID = "" }, ""},
 		// osxphotos writes these dates in the zone of the computer (photos_datetime.py:70-89).
-		{"a comment date in another zone, the same moment", func(l *Library) {
+		{"a comment date in another zone, the same moment", func(l *goLib) {
 			c := &l.Comments[selectedFrame][0]
 			c.Datetime = ptr(c.Datetime.In(time.FixedZone("X", -7*3600)))
 		}, ""},
@@ -886,14 +945,16 @@ func TestCompareEquivalent(t *testing.T) {
 
 func TestCompareKeepsInput(t *testing.T) {
 	t.Parallel()
-	spoil := func(l Library) Library {
+	spoil := func(l goLib) Library {
 		l.Photos[0].Keywords = []string{"beta", "alpha"} // unsorted lists that a careless sort would reorder
 		l.Photos[0].AlbumUUIDs = []string{albumAInFolderY, albumAInFolderX, albumAInFolderY}
-		return l
+		l.Photos[0].ImportedByName, l.Photos[0].ImportedByBundleID = "z", "a"
+		l.Photos[0].Owner = "" // nil, which a careless rule would set to ""
+		return l.lib()
 	}
 	lib, ref := spoil(fixtureLib()), fixtureRef()
 	divs := []Divergence{{Library: "lib", UUID: "*", Field: "title", Want: []byte(`"x"`), Got: []byte(`"y"`)}}
-	if _, err := Compare(ref, lib, everyKey(), divs); err != nil {
+	if _, err := Compare(ref, lib, Keys(), divs); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(lib, spoil(fixtureLib())) {
@@ -906,7 +967,7 @@ func TestCompareKeepsInput(t *testing.T) {
 
 func TestCompareNulls(t *testing.T) {
 	t.Parallel()
-	onEmptyPhoto := func(f func(x *photoinfo.PhotoInfo)) func(l *Library) { return func(l *Library) { f(l.Photos[2]) } }
+	onEmptyPhoto := func(f func(x *photoinfo.PhotoInfo)) func(l *goLib) { return func(l *goLib) { f(l.Photos[2]) } }
 	cases := []mutation{
 		{"nothing", onEmptyPhoto(func(*photoinfo.PhotoInfo) {}), ""},
 		{"Title", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Title = "x" }), "title"},
@@ -940,15 +1001,15 @@ func TestCompareNulls(t *testing.T) {
 		{"Keywords empty, not nil", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Keywords = []string{} }), ""},
 		{"Persons", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Persons = []string{"_UNKNOWN_"} }), "persons"},
 		{"Persons empty, not nil", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Persons = []string{} }), ""},
-		{"AlbumUUIDs of a trashed album", func(l *Library) { l.Photos[2].AlbumUUIDs = []string{albumTrashed} }, ""},
-		{"AlbumUUIDs", func(l *Library) { l.Photos[2].AlbumUUIDs = []string{albumBNoFolder} }, "album_info albums folders"},
+		{"AlbumUUIDs of a trashed album", func(l *goLib) { l.Photos[2].AlbumUUIDs = []string{albumTrashed} }, ""},
+		{"AlbumUUIDs", func(l *goLib) { l.Photos[2].AlbumUUIDs = []string{albumBNoFolder} }, "album_info albums folders"},
 		{"ImportUUID", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ImportUUID = importBare }), "import_info"},
 		{"ProjectUUIDs of a trashed project", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = []string{projectTrashed} }), ""},
 		{"ProjectUUIDs", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ProjectUUIDs = []string{projectP} }), "project_info"},
-		{"Comments empty, not nil", func(l *Library) { l.Comments[emptyPhoto] = []photoinfo.CommentInfo{} }, ""},
-		{"Likes", func(l *Library) { l.Likes[emptyPhoto] = []photoinfo.LikeInfo{{}} }, "likes"},
-		{"PersonInfo", func(l *Library) { l.Persons[emptyPhoto] = []personinfo.PersonInfo{{Name: "_UNKNOWN_"}} }, "person_info"},
-		{"PersonInfo empty, not nil", func(l *Library) { l.Persons[emptyPhoto] = []personinfo.PersonInfo{} }, ""},
+		{"Comments empty, not nil", func(l *goLib) { l.Comments[emptyPhoto] = []photoinfo.CommentInfo{} }, ""},
+		{"Likes", func(l *goLib) { l.Likes[emptyPhoto] = []photoinfo.LikeInfo{{}} }, "likes"},
+		{"PersonInfo", func(l *goLib) { l.Persons[emptyPhoto] = []personinfo.PersonInfo{{Name: "_UNKNOWN_"}} }, "person_info"},
+		{"PersonInfo empty, not nil", func(l *goLib) { l.Persons[emptyPhoto] = []personinfo.PersonInfo{} }, ""},
 		{"Owner", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Owner = "x" }), "owner"},
 		{"DateOriginal", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.DateOriginal = time.Unix(1, 0).UTC() }), "date_original"},
 		{"ExifInfo FlashFired false is not null", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.ExifInfo.FlashFired = ptr(false) }), "exif_info"},
@@ -960,8 +1021,8 @@ func TestCompareNulls(t *testing.T) {
 		{"Score Overall", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Score.Overall = 0.5 }), "score"},
 		{"Score Behavioral", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Score.Behavioral = 0.5 }), "score"},
 		{"Place zero is not {}", onEmptyPhoto(func(x *photoinfo.PhotoInfo) { x.Place = &placeinfo.PlaceInfo{} }), "place"},
-		{"SearchInfo without records", func(l *Library) { l.SearchInfo[emptyPhoto] = searchinfo.New([]searchinfo.Record{}) }, ""},
-		{"SearchInfo of one term", func(l *Library) {
+		{"SearchInfo without records", func(l *goLib) { l.SearchInfo[emptyPhoto] = searchinfo.New([]searchinfo.Record{}) }, ""},
+		{"SearchInfo of one term", func(l *goLib) {
 			l.SearchInfo[emptyPhoto] = searchinfo.New([]searchinfo.Record{{Category: searchinfo.CategoryCity, Content: "x", Normalized: "x"}})
 		}, "search_info search_info_normalized"},
 	}
@@ -996,7 +1057,7 @@ func TestCompareSets(t *testing.T) {
 	type setCase struct {
 		name  string
 		ref   func() *Reference
-		lib   func() Library
+		lib   func() goLib
 		diffs []Diff
 	}
 	cases := []setCase{
@@ -1006,7 +1067,7 @@ func TestCompareSets(t *testing.T) {
 			[]Diff{{UUID: only, Field: "uuid", Want: "true", Got: "false"}}},
 		{"an object only in Go",
 			fixtureRef,
-			func() Library { l := fixtureLib(); l.Photos = append(l.Photos, emptyGo(only)); return l },
+			func() goLib { l := fixtureLib(); l.Photos = append(l.Photos, emptyGo(only)); return l },
 			[]Diff{{UUID: only, Field: "uuid", Want: "false", Got: "true"}}},
 		{"an object only in deleted.json of the reference",
 			func() *Reference {
@@ -1014,7 +1075,7 @@ func TestCompareSets(t *testing.T) {
 				r.Deleted = append(r.Deleted, withUUID(only, map[string]string{"intrash": "true"}))
 				return r
 			},
-			func() Library {
+			func() goLib {
 				l := fixtureLib()
 				x := emptyGo(only)
 				x.InTrash = true
@@ -1028,11 +1089,11 @@ func TestCompareSets(t *testing.T) {
 				r.Deleted = append(r.Deleted, withUUID(only, map[string]string{"intrash": "true"}))
 				return r
 			},
-			func() Library { l := fixtureLib(); l.Photos = append(l.Photos, emptyGo(only)); return l },
+			func() goLib { l := fixtureLib(); l.Photos = append(l.Photos, emptyGo(only)); return l },
 			[]Diff{{UUID: only, Field: "intrash", Want: "true", Got: "false"}}},
 		{"an unselected burst frame only in Go",
 			fixtureRef,
-			func() Library {
+			func() goLib {
 				l := fixtureLib()
 				l.Photos = append(l.Photos, &photoinfo.PhotoInfo{UUID: only, IsPhoto: true, Burst: true, BurstUUID: "BURST-B", BurstPickType: 4})
 				return l
@@ -1040,7 +1101,7 @@ func TestCompareSets(t *testing.T) {
 			nil},
 		{"an object that is neither a photo nor a movie, only in Go",
 			fixtureRef,
-			func() Library {
+			func() goLib {
 				l := fixtureLib()
 				x := emptyGo(only)
 				x.IsPhoto = false
@@ -1050,7 +1111,7 @@ func TestCompareSets(t *testing.T) {
 			nil},
 		{"an object that is neither a photo nor a movie, in both",
 			func() *Reference { r := fixtureRef(); r.Query = append(r.Query, withUUID(only)); return r },
-			func() Library {
+			func() goLib {
 				l := fixtureLib()
 				x := emptyGo(only)
 				x.IsPhoto = false
@@ -1060,19 +1121,19 @@ func TestCompareSets(t *testing.T) {
 			[]Diff{{UUID: only, Field: "uuid", Want: "true", Got: "false"}}},
 		{"a selected frame turned unselected",
 			fixtureRef,
-			func() Library { l := fixtureLib(); l.Photos[0].BurstPickType = 4; return l },
+			func() goLib { l := fixtureLib(); l.Photos[0].BurstPickType = 4; return l },
 			[]Diff{{UUID: selectedFrame, Field: "uuid", Want: "true", Got: "false"}}},
 		{"a frame without a pick is in the set",
 			fixtureRef,
-			func() Library { l := fixtureLib(); l.Photos[0].BurstPickType = 0; return l },
+			func() goLib { l := fixtureLib(); l.Photos[0].BurstPickType = 0; return l },
 			nil},
 		{"the key frame is in the set",
 			fixtureRef,
-			func() Library { l := fixtureLib(); l.Photos[0].BurstPickType = 16; return l },
+			func() goLib { l := fixtureLib(); l.Photos[0].BurstPickType = 16; return l },
 			nil},
 		{"a photo that is not a photo",
 			fixtureRef,
-			func() Library { l := fixtureLib(); l.Photos[0].IsPhoto = false; return l },
+			func() goLib { l := fixtureLib(); l.Photos[0].IsPhoto = false; return l },
 			[]Diff{{UUID: selectedFrame, Field: "uuid", Want: "true", Got: "false"}}},
 		{"a movie",
 			func() *Reference {
@@ -1080,7 +1141,7 @@ func TestCompareSets(t *testing.T) {
 				r.Query[1] = withUUID(emptyPhoto, map[string]string{"isphoto": "false", "ismovie": "true"})
 				return r
 			},
-			func() Library { l := fixtureLib(); l.Photos[2].IsPhoto, l.Photos[2].IsMovie = false, true; return l },
+			func() goLib { l := fixtureLib(); l.Photos[2].IsPhoto, l.Photos[2].IsMovie = false, true; return l },
 			nil},
 		{"the reference has an unselected frame",
 			func() *Reference { r := fixtureRef(); r.Query = append(r.Query, withUUID(unselectedFrame)); return r },
@@ -1110,18 +1171,12 @@ func TestCompareErrors(t *testing.T) {
 	cases := []struct {
 		name string
 		ref  func() *Reference
-		lib  func() Library
+		lib  func() goLib
 		keys []string
 		want string
 	}{
 		{"unknown key", fixtureRef, fixtureLib, []string{"title", "nonsense"}, `unknown key "nonsense"`},
-		{"album key without albums", fixtureRef, func() Library { l := fixtureLib(); l.Albums = nil; return l }, []string{"albums"}, "an album of a photo is missing from Library.Albums"},
-		{"photo keys without albums", fixtureRef, func() Library { l := fixtureLib(); l.Albums = nil; return l }, []string{"title"}, ""},
-		{"an album of a photo that Library does not have", fixtureRef, func() Library { l := fixtureLib(); l.Albums = l.Albums[1:]; return l },
-			[]string{"album_info"}, "query.json element 1: key album_info: an album of a photo is missing"},
-		{"an album UUID repeated", fixtureRef, func() Library { l := fixtureLib(); l.Albums = append(l.Albums, l.Albums[0]); return l },
-			[]string{"albums"}, "an album UUID is repeated"},
-		{"a UUID repeated in Library.Photos", fixtureRef, func() Library { l := fixtureLib(); l.Photos = append(l.Photos, l.Photos[0]); return l },
+		{"a UUID repeated in Library.Photos", fixtureRef, func() goLib { l := fixtureLib(); l.Photos = append(l.Photos, l.Photos[0]); return l },
 			[]string{"title"}, "UUID is repeated in Library.Photos"},
 		{"a UUID repeated in query.json", func() *Reference { r := fixtureRef(); r.Query = append(r.Query, r.Query[0]); return r }, fixtureLib,
 			[]string{"title"}, "query.json element 3: the uuid repeats that of query.json element 1"},
@@ -1167,17 +1222,25 @@ func TestCompareErrors(t *testing.T) {
 		}, fixtureLib, []string{"album_info"}, "album_info[0]: want an album with values of the types osxphotos writes"},
 		{"a malformed album_info is not read for albums", func() *Reference { r := fixtureRef(); r.Query[0]["album_info"] = []byte(`[5]`); return r }, fixtureLib,
 			[]string{"albums", "folders"}, ""},
-		{"a shared album with the UUID of an album", fixtureRef, func() Library {
-			l := fixtureLib()
-			l.SharedAlbums = append(l.SharedAlbums, &albuminfo.AlbumInfo{UUID: albumOfNoPhoto})
-			return l
-		}, []string{"album_info"}, "an album UUID is repeated in Library.Albums, Library.SharedAlbums or Library.Projects"},
-		{"an album of a photo found only among the shared albums is found", fixtureRef, func() Library {
-			l := fixtureLib()
-			l.SharedAlbums = append(l.SharedAlbums, l.Albums[0])
-			l.Albums = l.Albums[1:]
-			return l
-		}, []string{"albums"}, ""},
+		{"an album without folder_list", func() *Reference {
+			r := fixtureRef()
+			r.Query[0]["album_info"] = []byte("[" + strings.Replace(elemSharedS, `"folder_list": [], `, ``, 1) + "]")
+			return r
+		}, fixtureLib, []string{"album_info"}, "album_info[0].folder_list: want a value (the key is missing)"},
+		{"a folder_list that is null", func() *Reference {
+			r := fixtureRef()
+			r.Query[0]["album_info"] = []byte("[" + strings.Replace(elemSharedS, `"folder_list": []`, `"folder_list": null`, 1) + "]")
+			return r
+		}, fixtureLib, []string{"album_info"}, "album_info[0].folder_list: want a list of strings"},
+		{"face_info that is an object", withValue("face_info", `{"name": "`+marker+`"}`), fixtureLib, []string{"face_info"},
+			"query.json element 1: face_info: want a list of objects"},
+		{"a face that is a string", withValue("face_info", `["`+marker+`"]`), fixtureLib, []string{"face_info"},
+			"query.json element 1: face_info: want a list of objects"},
+		{"adjustments that is null", withValue("adjustments", `null`), fixtureLib, []string{"adjustments"},
+			"query.json element 1: adjustments: want an object"},
+		{"a rating that is a float", withValue("rating", `0.0`), fixtureLib, []string{"rating"}, "query.json element 1: rating: want an integer"},
+		{"path_derivatives with a number", withValue("path_derivatives", `[5]`), fixtureLib, []string{"path_derivatives"},
+			"query.json element 1: path_derivatives: want a list of strings"},
 		{"folders that is a list", func() *Reference { r := fixtureRef(); r.Query[0]["folders"] = []byte(`[]`); return r }, fixtureLib,
 			[]string{"folders"}, "folders: want an object"},
 		{"a hasadjustments that is null while orientation is compared", func() *Reference { r := fixtureRef(); r.Query[0]["hasadjustments"] = []byte(`null`); return r }, fixtureLib,
@@ -1187,27 +1250,8 @@ func TestCompareErrors(t *testing.T) {
 			r.Query = append(r.Query, refObj(refEmptyPhoto(), map[string]string{"uuid": `"00000000-0000-0000-0000-0000000000e1"`, "width": `"` + marker + `"`}))
 			return r
 		}, fixtureLib, []string{"width"}, "query.json element 3: width: want an integer"},
-		{"NaN from Go", fixtureRef, func() Library { l := fixtureLib(); l.Photos[0].Latitude = ptr(math.NaN()); return l },
+		{"NaN from Go", fixtureRef, func() goLib { l := fixtureLib(); l.Photos[0].Latitude = ptr(math.NaN()); return l },
 			[]string{"latitude"}, "key latitude: the Go value cannot be written as JSON"},
-		{"an import session of a photo that Library does not have", fixtureRef, func() Library { l := fixtureLib(); l.Imports = l.Imports[1:]; return l },
-			[]string{"import_info"}, "query.json element 1: key import_info: an import session of a photo is missing from Library.Imports"},
-		{"an import session UUID repeated", fixtureRef, func() Library { l := fixtureLib(); l.Imports = append(l.Imports, l.Imports[0]); return l },
-			[]string{"import_info"}, "an import session UUID is repeated"},
-		{"a project of a photo that Library does not have", fixtureRef, func() Library { l := fixtureLib(); l.Projects = l.Projects[1:]; return l },
-			[]string{"project_info"}, "query.json element 1: key project_info: a project of a photo is missing from Library.Projects"},
-		{"an album of a photo found only among the projects", fixtureRef, func() Library {
-			l := fixtureLib()
-			l.Projects = append(l.Projects, l.Albums[0])
-			l.Albums = l.Albums[1:]
-			return l
-		}, []string{"album_info"}, "an album of a photo is missing from Library.Albums"},
-		{"a project UUID repeated", fixtureRef, func() Library { l := fixtureLib(); l.Projects = append(l.Projects, l.Projects[0]); return l },
-			[]string{"project_info"}, "an album UUID is repeated in Library.Albums, Library.SharedAlbums or Library.Projects"},
-		{"a project with the UUID of an album", fixtureRef, func() Library {
-			l := fixtureLib()
-			l.Projects = append(l.Projects, &albuminfo.AlbumInfo{UUID: albumOfNoPhoto})
-			return l
-		}, []string{"project_info"}, "an album UUID is repeated in Library.Albums, Library.SharedAlbums or Library.Projects"},
 		{"an import_info that is a list", func() *Reference { r := fixtureRef(); r.Query[0]["import_info"] = []byte(`[]`); return r }, fixtureLib,
 			[]string{"import_info"}, "query.json element 1: import_info: want an object"},
 		{"an import_info without a title key", func() *Reference { r := fixtureRef(); r.Query[0]["import_info"] = []byte(`{"uuid": "x"}`); return r }, fixtureLib,
@@ -1230,7 +1274,7 @@ func TestCompareErrors(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := Compare(c.ref(), c.lib(), c.keys, nil)
+			_, err := Compare(c.ref(), c.lib().lib(), c.keys, nil)
 			if c.want == "" {
 				if err != nil {
 					t.Fatalf("Compare: %v", err)
@@ -1252,7 +1296,7 @@ func TestCompareErrors(t *testing.T) {
 		t.Parallel()
 		r := fixtureRef()
 		r.Query[0]["favorite"] = []byte(`null`)
-		_, err := Compare(r, fixtureLib(), []string{"favorite"}, nil)
+		_, err := Compare(r, fixtureLib().lib(), []string{"favorite"}, nil)
 		var se *shapeError
 		if !errors.As(err, &se) || se.path != "favorite" {
 			t.Errorf("error = %v, want a *shapeError for favorite", err)
@@ -1262,7 +1306,7 @@ func TestCompareErrors(t *testing.T) {
 		t.Parallel()
 		r := fixtureRef()
 		r.Query[0]["favorite"] = []byte(`null`) // not looked at
-		rep, err := Compare(r, fixtureLib(), nil, nil)
+		rep, err := Compare(r, fixtureLib().lib(), nil, nil)
 		if err != nil || !rep.OK() || len(rep.Keys) != 0 || rep.Objects != 2 {
 			t.Errorf("Compare = %+v, %v; want no differences and no keys", rep, err)
 		}
@@ -1271,22 +1315,66 @@ func TestCompareErrors(t *testing.T) {
 		t.Parallel()
 		lib := fixtureLib()
 		lib.Photos[0].Title = ""
-		rep, err := Compare(fixtureRef(), lib, []string{"title", "uuid", "title"}, nil)
+		rep, err := Compare(fixtureRef(), lib.lib(), []string{"title", "uuid", "title"}, nil)
 		if err != nil || len(rep.Diffs) != 1 || !slices.Equal(rep.Keys, []string{"title", "uuid"}) {
 			t.Errorf("Compare = %+v, %v; want one difference and the keys title and uuid", rep, err)
 		}
 	})
+	t.Run("a key compared that the dictionary of a photo lacks", func(t *testing.T) {
+		t.Parallel()
+		for name, spoil := range map[string]func(l Library){
+			"the key":   func(l Library) { delete(l.Dicts[selectedFrame], "title") },
+			"the photo": func(l Library) { delete(l.Dicts, selectedFrame) },
+		} {
+			lib := fixtureLib().lib()
+			spoil(lib)
+			_, err := Compare(fixtureRef(), lib, []string{"title"}, nil)
+			want := "query.json element 1: key title: the key is missing from the dictionary of the photo in Library.Dicts"
+			if err == nil || !strings.Contains(err.Error(), want) || strings.Contains(err.Error(), selectedFrame) {
+				t.Errorf("%s: error = %v, want %q without the UUID", name, err, want)
+			}
+		}
+	})
+}
+
+// A rule that read the photo instead of its dictionary would not see the
+// value planted there. folders also reads album_info: the reference keeps
+// one album of a title, which may be any album of album_info of that title.
+func TestCompareReadsDicts(t *testing.T) {
+	t.Parallel()
+	for _, key := range fieldsTxt(t) {
+		if key == "uuid" {
+			continue
+		}
+		t.Run(key, func(t *testing.T) {
+			t.Parallel()
+			lib := fixtureLib().lib()
+			lib.Dicts[selectedFrame][key] = "SPOILED"
+			want := []string{key}
+			if key == "album_info" {
+				want = []string{"album_info", "folders"}
+			}
+			rep, err := Compare(fixtureRef(), lib, Keys(), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := diffKeys(rep); !slices.Equal(got, want) {
+				t.Errorf("differences in %v, want %v", got, want)
+			}
+		})
+	}
 }
 
 func TestCompareAlbumRules(t *testing.T) {
 	t.Parallel()
-	albumKeys := AlbumKeys()
+	albumKeys := []string{"album_info", "albums", "burst_album_info", "burst_albums", "cloud_metadata", "comments", "folders",
+		"import_info", "labels", "labels_normalized", "likes", "person_info", "project_info", "search_info", "search_info_normalized"}
 	// The other photos of the library would be differences.
-	run := func(t *testing.T, ref Object, lib Library) *Report {
+	run := func(t *testing.T, ref Object, lib goLib) *Report {
 		t.Helper()
 		id, _ := decode[string](ref, "uuid", false, "")
 		lib.Photos = slices.DeleteFunc(slices.Clone(lib.Photos), func(p *photoinfo.PhotoInfo) bool { return p.UUID != id })
-		rep, err := Compare(refOf(ref), lib, albumKeys, nil)
+		rep, err := Compare(refOf(ref), lib.lib(), albumKeys, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1300,11 +1388,13 @@ func TestCompareAlbumRules(t *testing.T) {
 			t.Errorf("differences %+v, want none", rep.Diffs)
 		}
 	})
+	// DEFAULT_DATETIME_LOCAL is in the zone of the computer (photos_datetime.py:19-21).
 	t.Run("a like without a date is the default of upstream", func(t *testing.T) {
 		t.Parallel()
 		lib := fixtureLib()
 		lib.Likes[selectedFrame][0].Datetime = nil
-		ref := refObj(refSelectedFrame(), map[string]string{"likes": `[{"datetime": "1970-01-01T00:00:00+00:00", "ismine": false, "user": "Person A"}]`})
+		local := time.Date(1970, 1, 1, 0, 0, 0, 0, time.Local).Format(time.RFC3339)
+		ref := refObj(refSelectedFrame(), map[string]string{"likes": `[{"datetime": "` + local + `", "ismine": false, "user": "Person A"}]`})
 		if rep := run(t, ref, lib); !rep.OK() {
 			t.Errorf("differences %+v, want none", rep.Diffs)
 		}
@@ -1387,7 +1477,7 @@ func TestCompareAlbumRules(t *testing.T) {
 		if want := `{"Album A":["Folder Q"],"Shared S":[]}`; rep.Diffs[0].Want != want {
 			t.Errorf("Want = %s, want %s", rep.Diffs[0].Want, want)
 		}
-		// With no value to match, the smaller folder list is shown: that of the shared album.
+		// With no value to match, folders of the dictionary is shown: the last album of the title, the shared one.
 		if want := `{"Album A":[],"Shared S":[]}`; rep.Diffs[0].Got != want {
 			t.Errorf("Got = %s, want %s", rep.Diffs[0].Got, want)
 		}
@@ -1404,7 +1494,7 @@ func TestCompareAlbumRules(t *testing.T) {
 		// In code point order (and in UTF-8 order) U+FF5E comes before U+1F600; in
 		// UTF-16 order it comes after, because the emoji is a pair of surrogates.
 		const b1, b2 = "00000000-0000-0000-0000-0000000000b1", "00000000-0000-0000-0000-0000000000b2"
-		lib := Library{
+		lib := goLib{
 			Photos: []*photoinfo.PhotoInfo{{UUID: emptyPhoto, IsPhoto: true, AlbumUUIDs: []string{b2, b1}}},
 			Albums: []*albuminfo.AlbumInfo{{UUID: b1, Title: "\U0001F600"}, {UUID: b2, Title: "～"}},
 		}
@@ -1419,7 +1509,7 @@ func TestCompareAlbumRules(t *testing.T) {
 		}
 		swapped := refObj(refEmptyPhoto(), map[string]string{"albums": `["😀", "～"]`})
 		lib.Albums = lib.Albums[:2]
-		rep, err := Compare(refOf(swapped), lib, []string{"albums"}, nil)
+		rep, err := Compare(refOf(swapped), lib.lib(), []string{"albums"}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1451,7 +1541,7 @@ func TestCompareBurstPhotos(t *testing.T) {
 		refObj(refEmptyPhoto(), map[string]string{"uuid": `"` + q2 + `"`, "burst": "true", "burst_photos": `["` + q1 + `"]`}),
 		refObj(refEmptyPhoto(), map[string]string{"uuid": `"` + q3 + `"`}),
 	)
-	rep, err := Compare(ref, Library{Photos: []*photoinfo.PhotoInfo{c, b, a}}, []string{"burst", "burst_photos"}, nil)
+	rep, err := Compare(ref, goLib{Photos: []*photoinfo.PhotoInfo{c, b, a}}.lib(), []string{"burst", "burst_photos"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1461,7 +1551,7 @@ func TestCompareBurstPhotos(t *testing.T) {
 	own := refOf(
 		refObj(refEmptyPhoto(), map[string]string{"uuid": `"` + q1 + `"`, "burst": "true", "burst_photos": `["` + q1 + `", "` + q2 + `"]`}),
 	)
-	rep, err = Compare(own, Library{Photos: []*photoinfo.PhotoInfo{a, b}}, []string{"burst_photos"}, nil)
+	rep, err = Compare(own, goLib{Photos: []*photoinfo.PhotoInfo{a, b}}.lib(), []string{"burst_photos"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1476,7 +1566,7 @@ func TestCompareBurstPhotos(t *testing.T) {
 		return refObj(refEmptyPhoto(), map[string]string{"uuid": `"` + uuid + `"`, "burst": "true", "burst_photos": others})
 	}
 	sorted := refOf(burst("B", `["Z", "a"]`), burst("Z", `["B", "a"]`), burst("a", `["B", "Z"]`))
-	rep, err = Compare(sorted, Library{Photos: []*photoinfo.PhotoInfo{a, c, b}}, []string{"burst_photos"}, nil)
+	rep, err = Compare(sorted, goLib{Photos: []*photoinfo.PhotoInfo{a, c, b}}.lib(), []string{"burst_photos"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

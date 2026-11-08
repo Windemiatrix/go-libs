@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/exifinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/personinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/scoreinfo"
@@ -36,13 +38,14 @@ func refCanon(key string, raw string, more ...string) (string, error) {
 	return canonical(v)
 }
 
-func goCanon(t *testing.T, key string, p *photoinfo.PhotoInfo) string {
+// v is the value of key in the dictionary of a photo.
+func goCanon(t *testing.T, key string, v any) string {
 	t.Helper()
-	v, err := rules[key].got(&env{}, p, nil)
+	got, err := rules[key].got(map[string]any{key: v}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := canonical(v)
+	s, err := canonical(got)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -464,6 +467,20 @@ func TestNormalize(t *testing.T) {
 		{name: "search_info_normalized empty", key: "search_info_normalized", raw: `{}`,
 			wantErr: "search_info_normalized.activities: want a value (the key is missing)"},
 
+		{name: "face_info of equal names by _pk, null as \"\"", key: "face_info",
+			raw:  `[{"_pk": 10, "name": null, "uuid": "F", "asset_uuid": null, "center": [1, 2]}, {"_pk": 9, "name": "", "uuid": null, "asset_uuid": "P", "center": [1.0, 2.5]}]`,
+			want: `[{"_pk":10,"asset_uuid":"","center":[1,2],"name":"","uuid":"F"},{"_pk":9,"asset_uuid":"P","center":[1,2.5],"name":"","uuid":""}]`},
+		{name: "face_info empty", key: "face_info", raw: `[]`, want: `[]`},
+		{name: "face_info null", key: "face_info", raw: `null`, wantErr: "face_info: want a list of objects"},
+		{name: "face_info of numbers", key: "face_info", raw: `[424242]`, wantErr: "face_info: want a list of objects"},
+		{name: "rating", key: "rating", raw: `0`, want: `0`},
+		{name: "rating as a float", key: "rating", raw: `0.0`, wantErr: "rating: want an integer"},
+		{name: "adjustments of a photo without the file", key: "adjustments", raw: `{}`, want: `{}`},
+		{name: "original_adjustments null", key: "original_adjustments", raw: `null`, wantErr: "original_adjustments: want an object"},
+		{name: "original_adjustments list", key: "original_adjustments", raw: `[]`, wantErr: "original_adjustments: want an object"},
+		{name: "path_derivatives in the order of the reference", key: "path_derivatives", raw: `["b", "a"]`, want: `["b","a"]`},
+		{name: "path_derivatives null", key: "path_derivatives", raw: `null`, wantErr: "path_derivatives: want a list of strings"},
+
 		{name: "no key", key: "title", raw: ``, wantErr: "title: want a value (the key is missing)"},
 	}
 	for _, c := range cases {
@@ -511,73 +528,95 @@ func TestNormalizeGoSide(t *testing.T) {
 			`["2020-06-06T14:15:24.725564Z",0]`, `["2020-06-06T14:15:24.725564Z",19800]`,
 			`["2020-06-06T14:15:24.725564Z",-25200]`, `["2020-06-06T14:15:24.725564Z",5668]`,
 		} {
-			p := &photoinfo.PhotoInfo{Date: when.In(zones[i])}
-			if got := goCanon(t, "date", p); got != want {
+			if got := goCanon(t, "date", when.In(zones[i])); got != want {
 				t.Errorf("zone %v: %s, want %s", zones[i], got, want)
 			}
 		}
 	})
 	t.Run("date_original and the date of exif_info are the moment and the offset of their zone", func(t *testing.T) {
 		t.Parallel()
-		p := &photoinfo.PhotoInfo{DateOriginal: when}
-		p.ExifInfo.Date = ptr(when.In(zones[2]))
-		if got := goCanon(t, "date_original", p); got != `["2020-06-06T14:15:24.725564Z",19800]` {
+		if got := goCanon(t, "date_original", when); got != `["2020-06-06T14:15:24.725564Z",19800]` {
 			t.Errorf("date_original %s", got)
 		}
-		if got := goCanon(t, "exif_info", p); !strings.Contains(got, `"date":["2020-06-06T14:15:24.725564Z",-25200]`) {
+		if got := goCanon(t, "exif_info", exifinfo.ExifInfo{Date: ptr(when.In(zones[2]))}.AsDict()); !strings.Contains(got, `"date":["2020-06-06T14:15:24.725564Z",-25200]`) {
 			t.Errorf("exif_info %s", got)
 		}
 	})
 	t.Run("date_added is a moment in any zone", func(t *testing.T) {
 		t.Parallel()
 		for _, loc := range zones {
-			p := &photoinfo.PhotoInfo{DateAdded: ptr(when.In(loc))}
-			if got := goCanon(t, "date_added", p); got != `"2020-06-06T14:15:24.725564Z"` {
+			if got := goCanon(t, "date_added", when.In(loc)); got != `"2020-06-06T14:15:24.725564Z"` {
 				t.Errorf("zone %v: %s", loc, got)
 			}
 		}
 	})
 	t.Run("nanoseconds are not rounded", func(t *testing.T) {
 		t.Parallel()
-		p := &photoinfo.PhotoInfo{Date: when.Add(time.Nanosecond)}
-		if got := goCanon(t, "date", p); got != `["2020-06-06T14:15:24.725564001Z",19800]` {
+		if got := goCanon(t, "date", when.Add(time.Nanosecond)); got != `["2020-06-06T14:15:24.725564001Z",19800]` {
 			t.Errorf("got %s", got)
 		}
 	})
-	t.Run("defaults of nil", func(t *testing.T) {
+	t.Run("None where the reference reads null", func(t *testing.T) {
 		t.Parallel()
-		p := &photoinfo.PhotoInfo{}
-		want := map[string]string{
-			"date_added": `"1970-01-01T00:00:00Z"`, "date_modified": `null`, "date_trashed": `null`,
-			"tzoffset": `null`, "incloud": `null`, "latitude": `null`, "longitude": `null`,
-			"location": `[null,null]`, "keywords": `[]`, "burst_photos": `[]`, "title": `""`, "width": `0`,
-			"persons": `[]`, "burst_default_pick": `false`,
-			"adjustment_type": `null`, "imported_by": `["",""]`, "spatial": `0`, "tzname": `""`, "visible": `false`,
-			"import_info": `{}`, "project_info": `[]`, "comments": `[]`, "likes": `[]`, "person_info": `[]`,
-			"owner": `""`, "exif_info": zeroExif, "place": `{}`, "score": zeroScore,
-			"labels": `[]`, "labels_normalized": `[]`, "search_info": zeroSearchInfo, "search_info_normalized": zeroSearchInfo,
-		}
-		for key, w := range want {
-			if got := goCanon(t, key, p); got != w {
-				t.Errorf("%s: %s, want %s", key, got, w)
+		for _, c := range []struct {
+			key  string
+			v    any
+			want string
+		}{
+			{"title", nil, `""`},
+			{"owner", nil, `""`},
+			{"tzoffset", nil, `null`},
+			{"date_modified", nil, `null`},
+			{"location", []any{nil, nil}, `[null,null]`},
+			{"albums", []any{nil, "A"}, `["","A"]`},
+			{"imported_by", []any{"z", nil}, `["","z"]`},
+			{"burst_photos", []string{"b", "a"}, `["a","b"]`},
+			{"exif_info", exifinfo.ExifInfo{}.AsDict(), zeroExif},
+			{"score", scoreinfo.ScoreInfo{}.AsDict(), zeroScore},
+			{"place", map[string]any{}, `{}`},
+			{"place", placeinfo.PlaceInfo{}.AsDict(), strings.NewReplacer(wantPlaceAddress, `{"city":"","country":"","iso_country_code":"",`+
+				`"postal_code":"","state_province":"","street":"","sub_administrative_area":"","sub_locality":""}`,
+				`"address_str":"1 Example Street, Townsville"`, `"address_str":""`, `"country_code":"EX"`, `"country_code":""`,
+				`"ishome":true`, `"ishome":false`, `"name":"Example Park, Townsville, Exampleland"`, `"name":""`,
+				`["Example Park"]`, `[]`, `["Townsville","Greater Townsville"]`, `[]`, `["Exampleland"]`, `[]`, `["Field Thirteen"]`, `[]`).Replace(wantPlace)},
+			{"import_info", map[string]any{}, `{}`},
+			{"import_info", (&albuminfo.ImportInfo{UUID: "U"}).AsDict(),
+				`{"creation_date":"2001-01-01T00:00:00Z","end_date":null,"start_date":null,"title":"","uuid":"U"}`},
+			{"album_info", []any{
+				(&albuminfo.AlbumInfo{UUID: "B", SortOrder: albuminfo.AlbumSortTitle}).AsDict(),
+				(&albuminfo.AlbumInfo{UUID: "A", Title: "T", Owner: "O", ParentUUID: "P", FolderNames: []string{"F"}, FolderUUIDs: []string{"G"}}).AsDict(),
+				(&albuminfo.AlbumInfo{UUID: "B"}).AsDict(),
+			}, `[{"creation_date":"2001-01-01T00:00:00Z","end_date":null,"folder_list":["G"],"folder_names":["F"],"owner":"O","parent":"P",` +
+				`"sort_order":null,"start_date":null,"title":"T","uuid":"A"},{"creation_date":"2001-01-01T00:00:00Z","end_date":null,` +
+				`"folder_list":[],"folder_names":[],"owner":"","parent":"","sort_order":null,"start_date":null,"title":"","uuid":"B"}]`},
+			{"project_info", []any{(&albuminfo.AlbumInfo{UUID: "A", ParentUUID: "P"}).AsDict()},
+				`[{"creation_date":"2001-01-01T00:00:00Z","end_date":null,"folder_list":[],"folder_names":[],"owner":"",` +
+					`"sort_order":null,"start_date":null,"title":"","uuid":"A"}]`},
+			{"comments", []any{photoinfo.CommentInfo{Datetime: ptr(when), IsMine: true, Text: "t"}.AsDict()},
+				`[{"datetime":"2020-06-06T14:15:24.725564Z","ismine":true,"text":"t","user":""}]`},
+			{"person_info", []any{
+				personinfo.PersonInfo{UUID: "U-2", Name: "A"}.AsDict(),
+				personinfo.PersonInfo{UUID: "U-1", Name: "A", DisplayName: "D", KeyPhotoUUID: "K"}.AsDict(),
+			}, `[{"displayname":"D","facecount":0,"favorite":false,"feature_less":false,"keyface":0,"keyphoto":"K","name":"A","sort_order":0,"uuid":"U-1"},` +
+				wantPerson("U-2", "A") + `]`},
+			{"face_info", []any{
+				map[string]any{"_pk": int64(9), "name": nil, "uuid": nil, "asset_uuid": "P"},
+				map[string]any{"_pk": int64(8), "name": nil, "uuid": "F", "asset_uuid": nil},
+			}, `[{"_pk":8,"asset_uuid":"","name":"","uuid":"F"},{"_pk":9,"asset_uuid":"P","name":"","uuid":""}]`},
+			{"adjustments", map[string]any{"data": []byte("x"), "editor": nil, "timestamp": when}, `{"data":null,"editor":null,"timestamp":"2020-06-06T14:15:24.725564Z"}`},
+		} {
+			if got := goCanon(t, c.key, c.v); got != c.want {
+				t.Errorf("%s of %v: %s, want %s", c.key, c.v, got, c.want)
 			}
-		}
-	})
-	t.Run("score is the 27 values of ScoreInfo by key", func(t *testing.T) {
-		t.Parallel()
-		p := &photoinfo.PhotoInfo{Score: scoreinfo.ScoreInfo{Overall: 0.01, Behavioral: 0.05, WellTimedShot: 0.27}}
-		want := strings.NewReplacer(`"overall":0`, `"overall":0.01`, `"behavioral":0`, `"behavioral":0.05`, `"well_timed_shot":0`, `"well_timed_shot":0.27`).Replace(zeroScore)
-		if got := goCanon(t, "score", p); got != want {
-			t.Errorf("got %s, want %s", got, want)
 		}
 	})
 	t.Run("the list of the Go side is not sorted", func(t *testing.T) {
 		t.Parallel()
-		p := &photoinfo.PhotoInfo{Keywords: []string{"b", "a"}}
-		if got := goCanon(t, "keywords", p); got != `["b","a"]` {
+		keywords := []string{"b", "a"}
+		if got := goCanon(t, "keywords", keywords); got != `["b","a"]` {
 			t.Errorf("got %s", got)
 		}
-		if p.Keywords[0] != "b" {
+		if keywords[0] != "b" {
 			t.Error("the list of the photo was sorted in place")
 		}
 	})

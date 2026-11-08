@@ -1,6 +1,7 @@
 package golden
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,150 +11,132 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/personinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 )
 
 type rule struct {
-	key         string
-	needsAlbums bool
+	key string
 
 	ref  func(o Object) (any, error)
 	skip func(o Object) (bool, error)
-	// got receives the canonical reference value because the Go side of
-	// folders depends on it (two albums with one title).
-	got func(e *env, p *photoinfo.PhotoInfo, want any) (any, error)
+	// got receives the dictionary of the photo and the canonical reference
+	// value: folders reads album_info too and depends on the reference (two
+	// albums with one title).
+	got func(d map[string]any, want any) (any, error)
 }
 
 var rules = buildRules()
 
-// PhotoKeys returns, sorted, the keys of fields.txt that Compare computes
-// from Library.Photos alone; AlbumKeys returns those that also need the other
-// fields of Library. Together they are exactly the keys of fields.txt.
-func PhotoKeys() []string { return keysOf(false) }
+// Keys returns the keys of fields.txt, sorted.
+func Keys() []string { return slices.Sorted(maps.Keys(rules)) }
 
-// AlbumKeys returns, sorted, the keys of fields.txt that need more of Library
-// than Library.Photos.
-func AlbumKeys() []string { return keysOf(true) }
-
-func keysOf(needsAlbums bool) []string {
-	var keys []string
-	for k, r := range rules {
-		if r.needsAlbums == needsAlbums {
-			keys = append(keys, k)
-		}
-	}
-	slices.Sort(keys)
-	return keys
-}
-
-// Defaults of upstream for a missing date (photos_datetime.py:19-21 and the
-// 0 of photosdb.py:1937-1938, which is 2001-01-01 in Core Data seconds).
-var (
-	defaultDateTimeLocal = time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
-	defaultCreationDate  = time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
-)
+// The default of upstream for a missing date (photos_datetime.py:19-21), which
+// the order of the reference takes as this moment.
+var defaultDateTimeLocal = time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
 
 func buildRules() map[string]rule {
 	list := []rule{
 		// uuid has no Go side: the sets of objects are compared by Compare itself.
 		{key: "uuid", ref: func(o Object) (any, error) { return decode[string](o, "uuid", false, "a string") }},
-		albumInfoRule("album_info", ownAlbums),
-		albumInfoRule("burst_album_info", burstAlbums),
-		albumsRule("albums", ownAlbums),
-		albumsRule("burst_albums", burstAlbums),
+		albumInfoRule("album_info"),
+		albumInfoRule("burst_album_info"),
+		projectInfoRule(),
+		stringList("albums", false),
+		stringList("burst_albums", false),
 		foldersRule(),
 		importInfoRule(),
-		projectInfoRule(),
-		commentsRule("comments", true, func(e *env) map[string][]photoinfo.CommentInfo { return e.comments },
-			func(c photoinfo.CommentInfo) map[string]any {
-				return commentElem(c.Datetime, c.User, c.IsMine, &c.Text)
-			}),
-		commentsRule("likes", false, func(e *env) map[string][]photoinfo.LikeInfo { return e.likes },
-			func(l photoinfo.LikeInfo) map[string]any { return commentElem(l.Datetime, l.User, l.IsMine, nil) }),
+		commentsRule("comments", true),
+		commentsRule("likes", false),
 		personInfoRule(),
+		faceInfoRule(),
 		cloudMetadataRule(),
-		labelsRule("labels", false),
-		labelsRule("labels_normalized", true),
-		searchInfoRule("search_info", false),
-		searchInfoRule("search_info_normalized", true),
-		burstPhotosRule(),
-		stringList("persons", func(p *photoinfo.PhotoInfo) []string { return p.Persons }),
-		stringList("keywords", func(p *photoinfo.PhotoInfo) []string { return p.Keywords }),
+		stringList("labels", false),
+		stringList("labels_normalized", false),
+		searchInfoRule("search_info"),
+		searchInfoRule("search_info_normalized"),
+		stringList("burst_photos", true),
+		stringList("persons", false),
+		stringList("keywords", false),
+		stringList("path_derivatives", false),
 		location(),
 		orientation(),
-		value("incloud", true, "a boolean or null", func(p *photoinfo.PhotoInfo) *bool { return p.InCloud }),
-		value("tzoffset", true, "an integer or null", func(p *photoinfo.PhotoInfo) *int { return p.TZOffset }),
-		value("latitude", true, "a number or null", func(p *photoinfo.PhotoInfo) *float64 { return p.Latitude }),
-		value("longitude", true, "a number or null", func(p *photoinfo.PhotoInfo) *float64 { return p.Longitude }),
-		value("adjustment_type", true, "an integer or null", func(p *photoinfo.PhotoInfo) *int { return p.AdjustmentType }),
+		value[*bool]("incloud", true, "a boolean or null", pyValue),
+		value[*int]("tzoffset", true, "an integer or null", pyValue),
+		value[*float64]("latitude", true, "a number or null", pyValue),
+		value[*float64]("longitude", true, "a number or null", pyValue),
+		value[*int]("adjustment_type", true, "an integer or null", pyValue),
 		importedBy(),
+		// json() writes {} for a photo without the file (photoinfo.py:2212-2214, 2248-2250).
+		value[map[string]any]("adjustments", false, "an object", pyValue),
+		value[map[string]any]("original_adjustments", false, "an object", pyValue),
 
-		zonedDate("date", func(p *photoinfo.PhotoInfo) time.Time { return p.Date }),
-		zonedDate("date_original", func(p *photoinfo.PhotoInfo) time.Time { return p.DateOriginal }),
+		zonedDate("date"),
+		zonedDate("date_original"),
 		exifInfoRule(),
 		scoreRule(),
 		placeRule(),
-		moment("date_added", defaultDateTimeLocal, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateAdded }),
-		moment("date_modified", time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateModified }),
-		moment("date_trashed", time.Time{}, func(p *photoinfo.PhotoInfo) *time.Time { return p.DateTrashed }),
+		moment("date_added"),
+		moment("date_modified"),
+		moment("date_trashed"),
 
-		flag("burst", func(p *photoinfo.PhotoInfo) bool { return p.Burst }),
-		flag("burst_default_pick", func(p *photoinfo.PhotoInfo) bool { return p.BurstDefaultPick }),
-		flag("burst_key", func(p *photoinfo.PhotoInfo) bool { return p.BurstKey }),
-		flag("burst_selected", func(p *photoinfo.PhotoInfo) bool { return p.BurstSelected }),
-		flag("favorite", func(p *photoinfo.PhotoInfo) bool { return p.Favorite }),
-		flag("hidden", func(p *photoinfo.PhotoInfo) bool { return p.Hidden }),
-		flag("intrash", func(p *photoinfo.PhotoInfo) bool { return p.InTrash }),
-		flag("isphoto", func(p *photoinfo.PhotoInfo) bool { return p.IsPhoto }),
-		flag("ismovie", func(p *photoinfo.PhotoInfo) bool { return p.IsMovie }),
-		flag("live_photo", func(p *photoinfo.PhotoInfo) bool { return p.Live }),
-		flag("screenshot", func(p *photoinfo.PhotoInfo) bool { return p.Screenshot }),
-		flag("screen_recording", func(p *photoinfo.PhotoInfo) bool { return p.ScreenRecording }),
-		flag("slow_mo", func(p *photoinfo.PhotoInfo) bool { return p.SlowMo }),
-		flag("time_lapse", func(p *photoinfo.PhotoInfo) bool { return p.TimeLapse }),
-		flag("isreference", func(p *photoinfo.PhotoInfo) bool { return p.IsReference }),
-		flag("hasadjustments", func(p *photoinfo.PhotoInfo) bool { return p.HasAdjustments }),
-		flag("has_raw", func(p *photoinfo.PhotoInfo) bool { return p.HasRAW }),
-		flag("raw_original", func(p *photoinfo.PhotoInfo) bool { return p.RawOriginal }),
-		flag("ismissing", func(p *photoinfo.PhotoInfo) bool { return p.IsMissing }),
-		flag("iscloudasset", func(p *photoinfo.PhotoInfo) bool { return p.IsCloudAsset }),
-		flag("israw", func(p *photoinfo.PhotoInfo) bool { return p.IsRAW }),
-		flag("shared", func(p *photoinfo.PhotoInfo) bool { return p.Shared }),
-		flag("shared_library", func(p *photoinfo.PhotoInfo) bool { return p.SharedLibrary }),
-		flag("syndicated", func(p *photoinfo.PhotoInfo) bool { return p.Syndicated }),
-		flag("saved_to_library", func(p *photoinfo.PhotoInfo) bool { return p.SavedToLibrary }),
-		flag("hdr", func(p *photoinfo.PhotoInfo) bool { return p.HDR }),
-		flag("panorama", func(p *photoinfo.PhotoInfo) bool { return p.Panorama }),
-		flag("portrait", func(p *photoinfo.PhotoInfo) bool { return p.Portrait }),
-		flag("selfie", func(p *photoinfo.PhotoInfo) bool { return p.Selfie }),
-		flag("visible", func(p *photoinfo.PhotoInfo) bool { return p.Visible }),
-		flag("shared_moment", func(p *photoinfo.PhotoInfo) bool { return p.SharedMoment }),
-		flag("external_edit", func(p *photoinfo.PhotoInfo) bool { return p.ExternalEdit }),
+		flag("burst"),
+		flag("burst_default_pick"),
+		flag("burst_key"),
+		flag("burst_selected"),
+		flag("favorite"),
+		flag("hidden"),
+		flag("intrash"),
+		flag("isphoto"),
+		flag("ismovie"),
+		flag("live_photo"),
+		flag("screenshot"),
+		flag("screen_recording"),
+		flag("slow_mo"),
+		flag("time_lapse"),
+		flag("isreference"),
+		flag("hasadjustments"),
+		flag("has_raw"),
+		flag("raw_original"),
+		flag("ismissing"),
+		flag("iscloudasset"),
+		flag("israw"),
+		flag("shared"),
+		flag("shared_library"),
+		flag("syndicated"),
+		flag("saved_to_library"),
+		flag("hdr"),
+		flag("panorama"),
+		flag("portrait"),
+		flag("selfie"),
+		flag("visible"),
+		flag("shared_moment"),
+		flag("external_edit"),
 
-		text("filename", false, func(p *photoinfo.PhotoInfo) string { return p.Filename }),
-		text("original_filename", false, func(p *photoinfo.PhotoInfo) string { return p.OriginalFilename }),
-		text("uti", false, func(p *photoinfo.PhotoInfo) string { return p.UTI }),
-		text("uti_original", false, func(p *photoinfo.PhotoInfo) string { return p.UTIOriginal }),
-		text("uti_edited", true, func(p *photoinfo.PhotoInfo) string { return p.UTIEdited }),
-		text("uti_raw", true, func(p *photoinfo.PhotoInfo) string { return p.UTIRaw }),
-		text("cloud_guid", true, func(p *photoinfo.PhotoInfo) string { return p.CloudMasterGUID }),
-		text("description", true, func(p *photoinfo.PhotoInfo) string { return p.Description }),
-		text("fingerprint", true, func(p *photoinfo.PhotoInfo) string { return p.Fingerprint }),
-		text("title", true, func(p *photoinfo.PhotoInfo) string { return p.Title }),
-		text("tzname", true, func(p *photoinfo.PhotoInfo) string { return p.TZName }),
-		text("cloud_owner_hashed_id", true, func(p *photoinfo.PhotoInfo) string { return p.CloudOwnerHashedID }),
-		text("owner", true, func(p *photoinfo.PhotoInfo) string { return p.Owner }),
+		text("filename", false),
+		text("original_filename", false),
+		text("uti", false),
+		text("uti_original", false),
+		text("uti_edited", true),
+		text("uti_raw", true),
+		text("cloud_guid", true),
+		text("description", true),
+		text("fingerprint", true),
+		text("title", true),
+		text("tzname", true),
+		text("cloud_owner_hashed_id", true),
+		text("owner", true),
 
-		number("width", func(p *photoinfo.PhotoInfo) int64 { return int64(p.Width) }),
-		number("height", func(p *photoinfo.PhotoInfo) int64 { return int64(p.Height) }),
-		number("original_width", func(p *photoinfo.PhotoInfo) int64 { return int64(p.OriginalWidth) }),
-		number("original_height", func(p *photoinfo.PhotoInfo) int64 { return int64(p.OriginalHeight) }),
-		number("original_orientation", func(p *photoinfo.PhotoInfo) int64 { return int64(p.OriginalOrientation) }),
-		number("original_filesize", func(p *photoinfo.PhotoInfo) int64 { return p.OriginalFilesize }),
-		number("spatial", func(p *photoinfo.PhotoInfo) int64 { return int64(p.Spatial) }),
+		number("width"),
+		number("height"),
+		number("original_width"),
+		number("original_height"),
+		number("original_orientation"),
+		number("original_filesize"),
+		number("spatial"),
+		// iPhoto only: upstream gives 0 for Photos (photoinfo.py:822-825).
+		number("rating"),
 	}
 	m := make(map[string]rule, len(list))
 	for _, r := range list {
@@ -165,58 +148,53 @@ func buildRules() map[string]rule {
 	return m
 }
 
-func simple(key string, ref func(Object) (any, error), got func(*photoinfo.PhotoInfo) any) rule {
+func simple(key string, ref func(Object) (any, error), got func(v any) any) rule {
 	return rule{
 		key: key,
 		ref: ref,
-		got: func(_ *env, p *photoinfo.PhotoInfo, _ any) (any, error) { return got(p), nil },
+		got: func(d map[string]any, _ any) (any, error) { return got(d[key]), nil },
 	}
 }
 
-func value[T any](key string, nullOK bool, want string, get func(*photoinfo.PhotoInfo) T) rule {
-	return simple(key,
-		func(o Object) (any, error) { return decode[T](o, key, nullOK, want) },
-		func(p *photoinfo.PhotoInfo) any { return get(p) })
+func value[T any](key string, nullOK bool, want string, got func(any) any) rule {
+	return simple(key, func(o Object) (any, error) { return decode[T](o, key, nullOK, want) }, got)
 }
 
 // A null boolean is a mistake of the form: upstream gives None only for Photos
 // before 7, which the reference does not cover.
-func flag(key string, get func(*photoinfo.PhotoInfo) bool) rule {
-	return value(key, false, "a boolean", get)
-}
+func flag(key string) rule { return value[bool](key, false, "a boolean", pyValue) }
 
-func text(key string, nullOK bool, get func(*photoinfo.PhotoInfo) string) rule {
-	want := "a string"
+// The reference reads null as "" where nullOK (rule 3), and so does the Go
+// side, where DB.AsDict gives nil for a string the port holds as "".
+func text(key string, nullOK bool) rule {
 	if nullOK {
-		want += " or null"
+		return value[string](key, true, "a string or null", emptyIfNull)
 	}
-	return value(key, nullOK, want, get)
+	return value[string](key, false, "a string", pyValue)
 }
 
 // A number written with a fraction or an exponent (3024.0) is not an integer:
 // osxphotos writes these keys from integer columns.
-func number(key string, get func(*photoinfo.PhotoInfo) int64) rule {
-	return value(key, true, "an integer", get)
-}
+func number(key string) rule { return value[int64](key, true, "an integer", pyValue) }
 
 // Upstream gives these dates in the zone of the computer that wrote the
 // reference (photos_datetime_local, photosdb/photosdb.py:2157, 2293, 2317), so
 // only the moment counts.
-func moment(key string, missingDefault time.Time, get func(*photoinfo.PhotoInfo) *time.Time) rule {
+func moment(key string) rule {
 	return simple(key,
 		func(o Object) (any, error) {
 			t, err := refTime(o, key, true)
 			if err != nil {
 				return nil, err
 			}
-			return goMoment(t, time.Time{}), nil
+			return momentOrNil(t), nil
 		},
-		func(p *photoinfo.PhotoInfo) any { return goMoment(get(p), missingDefault) })
+		pyValue)
 }
 
 // Upstream gives date and date_original in the zone of the photo
 // (photos_datetime.py:47-67), so the offset counts too.
-func zonedDate(key string, get func(*photoinfo.PhotoInfo) time.Time) rule {
+func zonedDate(key string) rule {
 	return simple(key,
 		func(o Object) (any, error) {
 			t, err := refTime(o, key, false)
@@ -225,7 +203,10 @@ func zonedDate(key string, get func(*photoinfo.PhotoInfo) time.Time) rule {
 			}
 			return zonedMoment(*t), nil
 		},
-		func(p *photoinfo.PhotoInfo) any { return zonedMoment(get(p)) })
+		func(v any) any {
+			t, _ := v.(time.Time)
+			return zonedMoment(t)
+		})
 }
 
 func zonedMoment(t time.Time) []any {
@@ -255,9 +236,8 @@ var exifKeys = []string{
 func exifInfoRule() rule {
 	const key = "exif_info"
 	fields := reflect.TypeOf(photoinfo.PhotoInfo{}.ExifInfo)
-	return rule{
-		key: key,
-		ref: func(o Object) (any, error) {
+	return simple(key,
+		func(o Object) (any, error) {
 			raw, err := decode[map[string]json.RawMessage](o, key, false, "an object")
 			if err != nil {
 				return nil, err
@@ -289,20 +269,18 @@ func exifInfoRule() rule {
 			}
 			return out, nil
 		},
-		got: func(_ *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
-			v := reflect.ValueOf(p.ExifInfo)
-			out := make(map[string]any, len(exifKeys))
-			for i, k := range exifKeys {
-				out[k] = v.Field(i).Interface()
+		func(v any) any {
+			out := emptyFor(pyValue(v), "camera_make", "camera_model", "codec", "lens_model", "tzname")
+			raw, _ := v.(map[string]any)
+			if t, ok := raw["date"].(time.Time); ok {
+				out.(map[string]any)["date"] = zonedMoment(t)
 			}
-			out["date"] = zonedOrNil(p.ExifInfo.Date)
-			return out, nil
-		},
-	}
+			return out
+		})
 }
 
-// The keys of score in the order of the fields of scoreinfo.ScoreInfo, which
-// the rule reads by position (scoreinfo.py:14-40).
+// The keys of score in the order of the fields of scoreinfo.ScoreInfo
+// (scoreinfo.py:14-40).
 var scoreKeys = []string{
 	"overall", "curation", "promotion", "highlight_visibility", "behavioral", "failure", "harmonious_color",
 	"immersiveness", "interaction", "interesting_subject", "intrusive_object_presence", "lively_color", "low_light",
@@ -317,9 +295,8 @@ var scoreKeys = []string{
 // 11 on (_photosdb_process_scoreinfo.py:62-76), where the module has 0.
 func scoreRule() rule {
 	const key = "score"
-	return rule{
-		key: key,
-		ref: func(o Object) (any, error) {
+	return simple(key,
+		func(o Object) (any, error) {
 			raw, err := decode[map[string]json.RawMessage](o, key, false, "an object")
 			if err != nil {
 				return nil, err
@@ -337,15 +314,7 @@ func scoreRule() rule {
 			}
 			return out, nil
 		},
-		got: func(_ *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
-			v := reflect.ValueOf(p.Score)
-			out := make(map[string]any, len(scoreKeys))
-			for i, k := range scoreKeys {
-				out[k] = v.Field(i).Float()
-			}
-			return out, nil
-		},
-	}
+		pyValue)
 }
 
 // The keys of place.names and place.address in the order of the fields of
@@ -366,9 +335,8 @@ var (
 // an object also without a postal address (placeinfo.py:622-625, 708-716).
 func placeRule() rule {
 	const key = "place"
-	return rule{
-		key: key,
-		ref: func(o Object) (any, error) {
+	return simple(key,
+		func(o Object) (any, error) {
 			raw, err := decode[map[string]json.RawMessage](o, key, false, "an object")
 			if err != nil {
 				return nil, err
@@ -382,8 +350,13 @@ func placeRule() rule {
 			}
 			return placeValue(&pl), nil
 		},
-		got: func(_ *env, p *photoinfo.PhotoInfo, _ any) (any, error) { return placeValue(p.Place), nil },
-	}
+		func(v any) any {
+			out := emptyFor(pyValue(v), "name", "country_code", "address_str")
+			if m, ok := out.(map[string]any); ok {
+				emptyFor(m["address"], addressKeys...)
+			}
+			return out
+		})
 }
 
 func decodePlace(raw map[string]json.RawMessage) (placeinfo.PlaceInfo, error) {
@@ -438,22 +411,23 @@ func placeValue(pl *placeinfo.PlaceInfo) map[string]any {
 // Not compared for an adjusted photo: upstream reads the adjustments plist,
 // which the test libraries do not have, and gives 0 (photoinfo.py:1390-1404).
 func orientation() rule {
-	r := number("orientation", func(p *photoinfo.PhotoInfo) int64 { return int64(p.Orientation) })
+	r := number("orientation")
 	r.skip = func(o Object) (bool, error) { return decode[bool](o, "hasadjustments", false, "a boolean") }
 	return r
 }
 
-// The reference list is sorted by upstream json() (photoinfo.py:2279-2285).
-func stringList(key string, get func(*photoinfo.PhotoInfo) []string) rule {
+// The reference list is sorted by upstream json() (photoinfo.py:2279-2285);
+// sorted sorts a list that DB.AsDict leaves to json().
+func stringList(key string, sorted bool) rule {
 	return simple(key,
 		func(o Object) (any, error) { return refStrings(o, key) },
-		func(p *photoinfo.PhotoInfo) any { return strs(get(p)) })
+		func(v any) any { return goStrings(v, sorted) })
 }
 
 func location() rule {
 	return simple("location",
 		func(o Object) (any, error) { return refPair[*float64](o, "location", "a list of two numbers or nulls") },
-		func(p *photoinfo.PhotoInfo) any { return []*float64{p.Latitude, p.Longitude} })
+		pyValue)
 }
 
 // photoinfo.py:682-694. json() sorts the pair, None as "" (photoinfo.py:2279-2285),
@@ -467,9 +441,7 @@ func importedBy() rule {
 			}
 			return derefAll(pair), nil
 		},
-		func(p *photoinfo.PhotoInfo) any {
-			return slices.Sorted(slices.Values([]string{p.ImportedByName, p.ImportedByBundleID}))
-		})
+		func(v any) any { return goStrings(v, true) })
 }
 
 func refPair[T any](o Object, key, want string) ([]T, error) {
@@ -482,12 +454,10 @@ func refPair[T any](o Object, key, want string) ([]T, error) {
 
 // The asdict of CommentInfo and LikeInfo (commentinfo.py:10-32), unsorted as
 // upstream json() (photoinfo.py:2284); a date is in the computer's zone
-// (_photosdb_process_comments.py:130), so only its moment counts, nil as date_added.
-func commentsRule[T any](key string, hasText bool, byPhoto func(*env) map[string][]T, elem func(T) map[string]any) rule {
-	return rule{
-		key:         key,
-		needsAlbums: true,
-		ref: func(o Object) (any, error) {
+// (_photosdb_process_comments.py:130), so only its moment counts.
+func commentsRule(key string, hasText bool) rule {
+	return simple(key,
+		func(o Object) (any, error) {
 			want := "a list of " + key + " as osxphotos writes them"
 			items, err := decode[[]struct {
 				Datetime, User, Text *string
@@ -502,52 +472,37 @@ func commentsRule[T any](key string, hasText bool, byPhoto func(*env) map[string
 				if err != nil || t == nil || it.IsMine == nil || (hasText && it.Text == nil) {
 					return nil, shape(key, want)
 				}
-				out[i] = commentElem(t, deref(it.User), *it.IsMine, it.Text)
+				elem := map[string]any{"datetime": momentString(*t), "user": deref(it.User), "ismine": *it.IsMine}
+				if it.Text != nil {
+					elem["text"] = *it.Text
+				}
+				out[i] = elem
 			}
 			return out, nil
 		},
-		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
-			out := []any{}
-			for _, v := range byPhoto(e)[p.UUID] {
-				out = append(out, elem(v))
-			}
-			return out, nil
-		},
-	}
+		func(v any) any { return eachEmptyFor(v, "user") })
 }
 
-func commentElem(date *time.Time, user string, mine bool, text *string) map[string]any {
-	elem := map[string]any{"datetime": goMoment(date, defaultDateTimeLocal), "user": user, "ismine": mine}
-	if text != nil {
-		elem["text"] = *text
-	}
-	return elem
-}
-
-// The asdict of PersonInfo (personinfo.py:110-123). json() sorts no list of
-// objects, and upstream sorts the persons of a photo by name only, equal names
-// in the order of SQLite (photoinfo.py:605-611): both sides are compared in
-// order, persons of equal name sorted by uuid, and a person stays once per face.
+// The asdict of PersonInfo (personinfo.py:110-123), a person once per face.
 func personInfoRule() rule {
 	const key = "person_info"
-	return rule{
-		key:         key,
-		needsAlbums: true,
-		ref: func(o Object) (any, error) {
+	return simple(key,
+		func(o Object) (any, error) {
 			items, err := decode[[]json.RawMessage](o, key, false, "a list of objects")
 			if err != nil {
 				return nil, err
 			}
-			persons := make([]personinfo.PersonInfo, len(items))
+			persons := make([]any, len(items))
 			for i, it := range items {
-				if persons[i], err = decodePerson(it, fmt.Sprintf("%s[%d]", key, i)); err != nil {
+				p, err := decodePerson(it, fmt.Sprintf("%s[%d]", key, i))
+				if err != nil {
 					return nil, err
 				}
+				persons[i] = p.AsDict()
 			}
 			return personElems(persons), nil
 		},
-		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) { return personElems(e.persons[p.UUID]), nil },
-	}
+		personElems)
 }
 
 func decodePerson(raw json.RawMessage, path string) (personinfo.PersonInfo, error) {
@@ -574,46 +529,61 @@ func decodePerson(raw json.RawMessage, path string) (personinfo.PersonInfo, erro
 	}, nil
 }
 
-// The result is never nil: it is written as [], not null. The list of Library
-// is not sorted in place: Compare leaves its input as it is.
-func personElems(persons []personinfo.PersonInfo) []any {
-	sorted := slices.Clone(persons)
-	for i := 0; i < len(sorted); {
-		j := i + 1
-		for j < len(sorted) && sorted[j].Name == sorted[i].Name {
-			j++
-		}
-		slices.SortStableFunc(sorted[i:j], func(a, b personinfo.PersonInfo) int { return strings.Compare(a.UUID, b.UUID) })
-		i = j
-	}
-	out := make([]any, len(sorted))
-	for i, p := range sorted {
-		out[i] = map[string]any{
-			"uuid": p.UUID, "name": p.Name, "displayname": p.DisplayName, "keyface": p.KeyFace, "facecount": p.FaceCount,
-			"keyphoto": p.KeyPhotoUUID, "favorite": p.Favorite, "sort_order": p.SortOrder, "feature_less": p.FeatureLess,
-		}
+// json() sorts no list of objects, and upstream sorts the persons of a photo
+// by name only, equal names in the order of SQLite (photoinfo.py:605-611): both
+// sides are compared in order, persons of equal name sorted by uuid.
+func personElems(v any) any {
+	out := eachEmptyFor(v, "uuid", "displayname", "keyphoto")
+	if list, ok := out.([]any); ok {
+		sortRuns(list, "uuid")
 	}
 	return out
 }
 
-// The frames are found among all photos of the library, selected or not,
-// trashed or not.
-func burstPhotosRule() rule {
-	return rule{
-		key: "burst_photos",
-		ref: func(o Object) (any, error) { return refStrings(o, "burst_photos") },
-		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
-			out := []string{}
-			if !p.Burst {
-				return out, nil
+// The asdict of FaceInfo (personinfo.py:420-455), sorted by upstream by name
+// only, equal names in the order of SQLite (photoinfo.py:613-623): faces of
+// equal name are compared sorted by _pk. A number of the reference is a
+// float64, which equals an integer of the Go side of that value.
+func faceInfoRule() rule {
+	const key = "face_info"
+	return simple(key,
+		func(o Object) (any, error) {
+			items, err := decode[[]map[string]any](o, key, false, "a list of objects")
+			if err != nil {
+				return nil, err
 			}
-			for _, id := range e.bursts[p.BurstUUID] {
-				if id != p.UUID {
-					out = append(out, id)
-				}
+			faces := make([]any, len(items))
+			for i, it := range items {
+				faces[i] = it
 			}
-			return out, nil
+			return faceElems(faces), nil
 		},
+		faceElems)
+}
+
+func faceElems(v any) any {
+	out := eachEmptyFor(v, "uuid", "name", "asset_uuid")
+	if list, ok := out.([]any); ok {
+		sortRuns(list, "_pk")
+	}
+	return out
+}
+
+// The canonical form is that of both sides: a number of the reference is a
+// float64, one of the Go side may be an integer.
+func sortRuns(list []any, then string) {
+	field := func(e any, k string) string {
+		m, _ := e.(map[string]any)
+		s, _ := canonical(m[k]) // a value of the reference or of DB.AsDict, not NaN
+		return s
+	}
+	for i := 0; i < len(list); {
+		j := i + 1
+		for j < len(list) && field(list[j], "name") == field(list[i], "name") {
+			j++
+		}
+		slices.SortStableFunc(list[i:j], func(a, b any) int { return strings.Compare(field(a, then), field(b, then)) })
+		i = j
 	}
 }
 
@@ -636,7 +606,7 @@ func refAlbums(o Object, key string) ([]refAlbum, error) {
 	return out, nil
 }
 
-var albumElemKeys = []string{"uuid", "title", "parent", "folder_names", "creation_date", "start_date", "end_date", "owner"}
+var albumElemKeys = []string{"uuid", "title", "parent", "folder_names", "folder_list", "sort_order", "creation_date", "start_date", "end_date", "owner"}
 
 func refAlbumElem(raw json.RawMessage, path string) (refAlbum, error) {
 	var keys map[string]json.RawMessage
@@ -653,6 +623,8 @@ func refAlbumElem(raw json.RawMessage, path string) (refAlbum, error) {
 		Title        *string   `json:"title"`
 		Parent       *string   `json:"parent"`
 		FolderNames  []*string `json:"folder_names"`
+		FolderList   []*string `json:"folder_list"`
+		SortOrder    any       `json:"sort_order"`
 		CreationDate *string   `json:"creation_date"`
 		StartDate    *string   `json:"start_date"`
 		EndDate      *string   `json:"end_date"`
@@ -665,6 +637,8 @@ func refAlbumElem(raw json.RawMessage, path string) (refAlbum, error) {
 		return refAlbum{}, shape(path+".uuid", "a string")
 	case e.FolderNames == nil:
 		return refAlbum{}, shape(path+".folder_names", "a list of strings")
+	case e.FolderList == nil:
+		return refAlbum{}, shape(path+".folder_list", "a list of strings")
 	}
 	elem := map[string]any{
 		"uuid":         *e.UUID,
@@ -672,6 +646,8 @@ func refAlbumElem(raw json.RawMessage, path string) (refAlbum, error) {
 		"owner":        deref(e.Owner),
 		"parent":       deref(e.Parent),
 		"folder_names": derefAll(e.FolderNames),
+		"folder_list":  derefAll(e.FolderList),
+		"sort_order":   e.SortOrder,
 	}
 	for _, d := range []struct {
 		key string
@@ -681,22 +657,14 @@ func refAlbumElem(raw json.RawMessage, path string) (refAlbum, error) {
 		if err != nil {
 			return refAlbum{}, err
 		}
-		elem[d.key] = goMoment(t, time.Time{})
+		elem[d.key] = momentOrNil(t)
 	}
 	return refAlbum{uuid: *e.UUID, elem: elem}, nil
 }
 
-type albumUUIDs func(*env, *photoinfo.PhotoInfo) []string
-
-func ownAlbums(_ *env, p *photoinfo.PhotoInfo) []string { return p.AlbumUUIDs }
-
-func burstAlbums(e *env, p *photoinfo.PhotoInfo) []string { return e.burstAlbums[p.UUID] }
-
-func albumInfoRule(key string, uuids albumUUIDs) rule {
-	return rule{
-		key:         key,
-		needsAlbums: true,
-		ref: func(o Object) (any, error) {
+func albumInfoRule(key string) rule {
+	return simple(key,
+		func(o Object) (any, error) {
 			albums, err := refAlbums(o, key)
 			if err != nil {
 				return nil, err
@@ -709,10 +677,27 @@ func albumInfoRule(key string, uuids albumUUIDs) rule {
 			}
 			return sortedElems(byUUID), nil
 		},
-		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
-			return e.elemsOf(members(e.albums, errAlbumMissing, uuids(e, p)))
-		},
+		func(v any) any { return goAlbums(v) })
+}
+
+// The albums of a photo are a set by uuid (rule 5).
+func goAlbums(v any, drop ...string) any {
+	list, ok := eachEmptyFor(v, "title", "owner", "parent").([]any)
+	if !ok {
+		return pyValue(v)
 	}
+	byUUID := map[string]map[string]any{}
+	for _, e := range list {
+		m, _ := e.(map[string]any)
+		for _, k := range drop {
+			delete(m, k)
+		}
+		id, _ := m["uuid"].(string)
+		if _, dup := byUUID[id]; !dup {
+			byUUID[id] = m
+		}
+	}
+	return sortedElems(byUUID)
 }
 
 // A project is an album without folders (albuminfo.py:368-392) and has the
@@ -721,9 +706,10 @@ func albumInfoRule(key string, uuids albumUUIDs) rule {
 // parent row holds a folder or a user album outside the trash
 // (albuminfo.py:296, 525-527), which depends on the other rows under that
 // parent, not on the project; TestProjects checks ParentUUID against the
-// database. newEnv leaves it out of the Go side.
+// database.
 func projectInfoRule() rule {
-	r := albumInfoRule("project_info", nil)
+	const key = "project_info"
+	r := albumInfoRule(key)
 	ref := r.ref
 	r.ref = func(o Object) (any, error) {
 		v, err := ref(o)
@@ -737,21 +723,8 @@ func projectInfoRule() rule {
 		}
 		return elems, nil
 	}
-	r.got = func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
-		return e.elemsOf(members(e.projects, errProjectMissing, p.ProjectUUIDs))
-	}
+	r.got = func(d map[string]any, _ any) (any, error) { return goAlbums(d[key], "parent"), nil }
 	return r
-}
-
-func (e *env) elemsOf(albums []*albuminfo.AlbumInfo, err error) (any, error) {
-	if err != nil {
-		return nil, err
-	}
-	byUUID := map[string]map[string]any{}
-	for _, a := range albums {
-		byUUID[a.UUID] = e.goAlbumElems[a.UUID]
-	}
-	return sortedElems(byUUID), nil
 }
 
 func sortedElems(byUUID map[string]map[string]any) []any {
@@ -762,39 +735,14 @@ func sortedElems(byUUID map[string]map[string]any) []any {
 	return out
 }
 
-func albumsRule(key string, uuids albumUUIDs) rule {
-	return rule{
-		key:         key,
-		needsAlbums: true,
-		ref:         func(o Object) (any, error) { return refStrings(o, key) },
-		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
-			albums, err := members(e.albums, errAlbumMissing, uuids(e, p))
-			if err != nil {
-				return nil, err
-			}
-			set := map[string]bool{}
-			for _, a := range albums {
-				set[a.Title] = true
-			}
-			titles := slices.Sorted(maps.Keys(set))
-			if titles == nil {
-				titles = []string{} // written as [], not null
-			}
-			return titles, nil
-		},
-	}
-}
-
 var importElemKeys = []string{"uuid", "title", "creation_date", "start_date", "end_date"}
 
 // A photo without a session is {} (photoinfo.py:2223-2225); a session is the
 // asdict of albuminfo.py:350-358.
 func importInfoRule() rule {
 	const key = "import_info"
-	return rule{
-		key:         key,
-		needsAlbums: true,
-		ref: func(o Object) (any, error) {
+	return simple(key,
+		func(o Object) (any, error) {
 			raw, err := decode[map[string]json.RawMessage](o, key, false, "an object")
 			if err != nil {
 				return nil, err
@@ -825,27 +773,18 @@ func importInfoRule() rule {
 				if err != nil {
 					return nil, err
 				}
-				elem[d] = goMoment(t, time.Time{})
+				elem[d] = momentOrNil(t)
 			}
 			return elem, nil
 		},
-		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
-			if p.ImportUUID == "" {
-				return map[string]any{}, nil
-			}
-			elem, ok := e.goImportElems[p.ImportUUID]
-			if !ok {
-				return nil, errImportMissing
-			}
-			return elem, nil
-		},
-	}
+		func(v any) any { return emptyFor(pyValue(v), "title") })
 }
 
+// json.dumps writes the key None of an album without a title as null
+// (photoinfo.py:2125, 2286-2288).
 func foldersRule() rule {
 	return rule{
-		key:         "folders",
-		needsAlbums: true,
+		key: "folders",
 		ref: func(o Object) (any, error) {
 			const want = "an object of lists of strings"
 			dict, err := decode[map[string][]*string](o, "folders", false, want)
@@ -861,29 +800,26 @@ func foldersRule() rule {
 			}
 			return out, nil
 		},
-		got: func(e *env, p *photoinfo.PhotoInfo, want any) (any, error) {
-			albums, err := members(e.albums, errAlbumMissing, p.AlbumUUIDs)
-			if err != nil {
-				return nil, err
-			}
-			candidates := map[string][][]string{}
-			for _, a := range albums {
-				title := a.Title
-				if title == "" {
-					title = "null"
-				}
-				candidates[title] = append(candidates[title], strs(a.FolderNames))
-			}
-			wantDict, _ := want.(map[string]any)
+		got: func(d map[string]any, want any) (any, error) {
 			out := map[string]any{}
-			for title, list := range candidates {
-				// The reference keeps one value per title; with several albums of one
-				// title it has to match the folders of one of them.
-				chosen := slices.MinFunc(list, slices.Compare[[]string])
-				if w, ok := wantDict[title].([]string); ok && slices.ContainsFunc(list, func(c []string) bool { return slices.Equal(c, w) }) {
-					chosen = w
+			folders, _ := d["folders"].(map[string]any)
+			for title, names := range folders {
+				out[cmp.Or(title, "null")] = pyValue(names)
+			}
+			// The reference keeps one value per title, of the last album in the
+			// order of upstream; with several albums of one title it has to
+			// match the folders of one of them.
+			wantDict, _ := want.(map[string]any)
+			albums, _ := pyValue(d["album_info"]).([]any)
+			for _, el := range albums {
+				m, _ := el.(map[string]any)
+				title, _ := m["title"].(string)
+				title = cmp.Or(title, "null")
+				names, _ := m["folder_names"].([]string)
+				w, ok := wantDict[title].([]string)
+				if _, kept := out[title]; kept && ok && slices.Equal(names, w) {
+					out[title] = w
 				}
-				out[title] = chosen
 			}
 			return out, nil
 		},

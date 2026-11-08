@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"strconv"
 	"time"
-
-	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
 const cloudKey = "cloud_metadata"
@@ -18,8 +16,7 @@ const cloudKey = "cloud_metadata"
 // so a real that is a whole number equals the integer of that value.
 func cloudMetadataRule() rule {
 	return rule{
-		key:         cloudKey,
-		needsAlbums: true,
+		key: cloudKey,
 		ref: func(o Object) (any, error) {
 			raw, ok := o[cloudKey]
 			if !ok {
@@ -35,9 +32,7 @@ func cloudMetadataRule() rule {
 			}
 			return cloudTree(v, refNumber)
 		},
-		got: func(e *env, p *photoinfo.PhotoInfo, _ any) (any, error) {
-			return cloudTree(e.cloudMeta[p.UUID], goLeaf)
-		},
+		got: func(d map[string]any, _ any) (any, error) { return cloudTree(d[cloudKey], goLeaf) },
 	}
 }
 
