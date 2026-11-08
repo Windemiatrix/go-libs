@@ -13,6 +13,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/placeinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/scoreinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/searchinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/template"
 )
 
@@ -136,7 +137,7 @@ func TestFields(t *testing.T) {
 			t.Errorf("Field(%q) of %s = %+v, %v; want %+v, true", tt.name, tt.p.UUID, got, ok, tt.want)
 		}
 	}
-	for _, name := range []string{"photo.labels", "searchinfo.season", "label", "label_normalized", "shortuuid", "nosuch"} {
+	for _, name := range []string{"searchinfo.nonsense", "shortuuid", "nosuch"} {
 		if got, ok := db.Fields(p1).Field(name); ok {
 			t.Errorf("Field(%q) = %+v, true; want false", name, got)
 		}
@@ -248,9 +249,6 @@ func TestRenderTemplate(t *testing.T) {
 			t.Errorf("RenderTemplate({counter}) = %q, %v; want %q: one Renderer for the DB", got, err, want)
 		}
 	}
-	if got, err := tmplRender(t, db, p1, "{searchinfo.season}", o); !errors.Is(err, template.ErrUnsupportedField) {
-		t.Errorf("RenderTemplate({searchinfo.season}) = %q, %v; want ErrUnsupportedField", got, err)
-	}
 	if got, err := tmplRender(t, db, db.byUUID["P-3"], "{album_seq}", template.RenderOptions{DestPath: "/out/Beach"}); !errors.Is(err, template.ErrRender) {
 		t.Errorf("RenderTemplate({album_seq}) of a photo that is not in Beach = %q, %v; want ErrRender", got, err)
 	}
@@ -350,7 +348,7 @@ func TestRenderTemplatePhoto(t *testing.T) {
 			t.Errorf("RenderTemplate(%q) = %q, %v; want %q", tt.in, got, err, tt.want)
 		}
 	}
-	for _, in := range []string{"{photo.labels}", "{photo.nonsense}", "{photo.burst_uuid}", "{photo.date.year}", "{photo.score}", "{photo.place}"} {
+	for _, in := range []string{"{photo.nonsense}", "{photo.burst_uuid}", "{photo.date.year}", "{photo.score}", "{photo.place}"} {
 		if got, err := tmplRender(t, db, p, in, o); !errors.Is(err, template.ErrUnsupportedField) {
 			t.Errorf("RenderTemplate(%q) = %q, %v; want ErrUnsupportedField", in, got, err)
 		}
@@ -402,6 +400,63 @@ func TestRenderTemplatePhotoNoneChain(t *testing.T) {
 		if got, err := tmplRender(t, db, none, in, o); err != nil || !slices.Equal(got, []string{"_"}) {
 			t.Errorf("RenderTemplate(%q) of a photo without the property = %q, %v; want _", in, got, err)
 		}
+	}
+}
+
+// The records of each category are out of order and the labels differ from
+// their normalized form, so that a field that does not sort, gives more than
+// one season or reads the other form shows (phototemplate.py:959-960,
+// 1279-1286, 1318-1339, 1346-1382).
+func TestRenderTemplateSearch(t *testing.T) {
+	t.Parallel()
+	db := tmplDB()
+	p1, p2 := db.byUUID["P-1"], db.byUUID["P-2"]
+	db.search = map[string][]searchinfo.Record{"P-1": {
+		{Category: searchinfo.CategorySeason, Content: "Winter", Normalized: "winter"},
+		{Category: searchinfo.CategorySeason, Content: "Summer", Normalized: "summer"},
+		{Category: searchinfo.CategoryHoliday, Content: "New Year", Normalized: "new year"},
+		{Category: searchinfo.CategoryHoliday, Content: "Easter", Normalized: "easter"},
+		{Category: searchinfo.CategoryActivity, Content: "Swimming", Normalized: "swimming"},
+		{Category: searchinfo.CategoryActivity, Content: "Hiking", Normalized: "hiking"},
+		{Category: searchinfo.CategoryVenue, Content: "Museum", Normalized: "museum"},
+		{Category: searchinfo.CategoryVenue, Content: "Cafe", Normalized: "cafe"},
+		{Category: searchinfo.CategoryVenueType, Content: "Restaurant", Normalized: "restaurant"},
+		{Category: searchinfo.CategoryVenueType, Content: "Park", Normalized: "park"},
+		{Category: searchinfo.CategoryLabel, Content: "Sky", Normalized: "sky"},
+		{Category: searchinfo.CategoryLabel, Content: "Beach", Normalized: "beach"},
+	}}
+	o, vals := template.RenderOptions{}, func(s ...string) []string { return s }
+	for _, tt := range []struct {
+		in   string
+		want []string
+	}{
+		{"{searchinfo.season}", vals("Summer")},
+		{"{searchinfo.holiday}", vals("Easter", "New Year")},
+		{"{searchinfo.activity}", vals("Hiking", "Swimming")},
+		{"{searchinfo.venue}", vals("Cafe", "Museum")},
+		{"{searchinfo.venue_type}", vals("Park", "Restaurant")},
+		{"{label}", vals("Beach", "Sky")},
+		{"{label_normalized}", vals("beach", "sky")},
+		{"{photo.labels}", vals("Beach", "Sky")},
+		{"{photo.labels_normalized}", vals("beach", "sky")},
+	} {
+		if got, err := tmplRender(t, db, p1, tt.in, o); err != nil || !slices.Equal(got, tt.want) {
+			t.Errorf("RenderTemplate(%q) = %q, %v; want %q", tt.in, got, err, tt.want)
+		}
+		if got, err := tmplRender(t, db, p2, tt.in, o); err != nil || !slices.Equal(got, []string{"_"}) {
+			t.Errorf("RenderTemplate(%q) of a photo without search terms = %q, %v; want _", tt.in, got, err)
+		}
+	}
+	if got, err := tmplRender(t, db, p1, "{photo.labels.x}", o); !errors.Is(err, template.ErrUnsupportedField) {
+		t.Errorf("RenderTemplate({photo.labels.x}) = %q, %v; want ErrUnsupportedField", got, err)
+	}
+	// Upstream has no such field (phototemplate.py:849-883): Render never asks for it.
+	tmpl, err := template.Parse("{searchinfo.nonsense}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values, unmatched, err := db.RenderTemplate(p1, tmpl, o); err != nil || values != nil || !slices.Equal(unmatched, []string{"searchinfo.nonsense"}) {
+		t.Errorf("RenderTemplate({searchinfo.nonsense}) = %q, unmatched %q, %v; want unmatched", values, unmatched, err)
 	}
 }
 

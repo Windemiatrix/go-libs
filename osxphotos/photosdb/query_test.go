@@ -55,6 +55,7 @@ type queryRef struct {
 	SharedMoment     bool              `json:"shared_moment"`
 	Keywords         []string          `json:"keywords"`
 	Persons          []string          `json:"persons"`
+	Labels           []string          `json:"labels"`
 	Title            string            `json:"title"`
 	Description      string            `json:"description"`
 	OriginalFilename string            `json:"original_filename"`
@@ -251,6 +252,7 @@ func queryTextCases(refs []queryRef) []queryCase {
 	}{
 		{"keyword", "keywords", func(r queryRef) []string { return r.Keywords }, func(v []string) query.Options { return query.Options{Keyword: v} }},
 		{"person", "persons", func(r queryRef) []string { return r.Persons }, func(v []string) query.Options { return query.Options{Person: v} }},
+		{"label", "labels", func(r queryRef) []string { return r.Labels }, func(v []string) query.Options { return query.Options{Label: v} }},
 	} {
 		for i, k := range queryValues(refs, f.list) {
 			cases = append(cases, queryCase{fmt.Sprintf("%s %d", f.name, i), f.key, []string{f.key}, f.option([]string{k}),
@@ -493,7 +495,7 @@ func TestQueryGolden(t *testing.T) {
 			})
 		}
 	})
-	for _, f := range []string{"flags", "keywords", "persons", "texts", "albums", "folders", "dates"} {
+	for _, f := range []string{"flags", "keywords", "persons", "labels", "texts", "albums", "folders", "dates"} {
 		if expected[f] == 0 {
 			t.Errorf("family %s: no case of any library expects a photo; the test is vacuous", f)
 		}
