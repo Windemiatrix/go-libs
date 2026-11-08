@@ -25,6 +25,8 @@ func (*stub) RequestResource(string, int, ResourceSink) (Request, error) { retur
 
 func (*stub) RequestImage(string, int, ImageSink) (Request, error) { return nil, ErrNotSupported }
 
+func (*stub) RequestVideo(string, int, func(string)) (Request, error) { return nil, ErrNotSupported }
+
 func (*stub) Import(ImportRecord, time.Duration) (string, error) { return "", ErrNotSupported }
 
 func (*stub) Collections() ([]CollectionRecord, error) { return nil, ErrNotSupported }

@@ -13,11 +13,12 @@ typedef struct {
 	char *message;
 } pk_result;
 
-// Every identifier and title, except the ids of the fetches and the resources,
-// is UTF-8 without NUL: photokit checks it before the call, and a pk_* function
-// checks only the state of PhotoKit. One that is not UTF-8 is a bug of the
-// caller and raises before any change (PK_EXCEPTION); C cuts one at a NUL,
-// which only photokit sees. The excepted ids that are not UTF-8 find no asset.
+// Every identifier and title, except the ids of the fetches, the resources, the
+// images and the videos, is UTF-8 without NUL: photokit checks it before the
+// call, and a pk_* function checks only the state of PhotoKit. One that is not
+// UTF-8 is a bug of the caller and raises before any change (PK_EXCEPTION); C
+// cuts one at a NUL, which only photokit sees. The excepted ids that are not
+// UTF-8 find no asset.
 
 pk_result pk_authorization_status(int *status);
 // A timeout_ms of 0 does not wait.
@@ -60,6 +61,33 @@ void pk_free_resources(pk_resource *resources, int count);
 // stalled iCloud download may never end.
 pk_result pk_request_resource(const char *local_id, int64_t type, uintptr_t handle, int32_t *request_id);
 void pk_cancel_resource(int32_t request_id);
+
+// The pointers live until pk_go_image returns. A string is NULL when PhotoKit
+// gives none; metadata is NULL when the properties cannot be serialized.
+typedef struct {
+	const char *uti, *path;
+	const void *metadata;
+	int64_t metadata_len;
+	int orientation;
+	bool degraded;
+} pk_image_info;
+
+// Starts requestImageDataAndOrientationForAsset for the asset local_id with
+// version; no such asset or a hidden one is PK_NO_RESOURCE and starts nothing.
+// Once started, the request calls pk_go_progress, whose answer true stops it,
+// pk_go_image once when PhotoKit gives data, and pk_go_done once with handle:
+// an NSError, or no domain with PK_OK, PK_NO_RESOURCE when PhotoKit gives no
+// data, or PK_EXCEPTION.
+pk_result pk_request_image(const char *local_id, int64_t version, uintptr_t handle);
+
+// Starts requestAVAssetForVideo for the asset local_id with version, a
+// PHVideoRequestOptionsVersion, and sets *request_id; no such asset or a hidden
+// one is PK_NO_RESOURCE and starts nothing. Once started, the request calls
+// pk_go_video once when PhotoKit gives an AVURLAsset of a file URL, with its
+// path (NULL when the URL gives none), and, at most once, pk_go_done with
+// handle: an NSError, or no domain with PK_OK or PK_EXCEPTION.
+pk_result pk_request_video(const char *local_id, int64_t version, uintptr_t handle, int32_t *request_id);
+void pk_cancel_video(int32_t request_id);
 
 // A path or the name is "" when not given, and photo is "" for a video; the
 // date, seconds since 1970, and the coordinates hold only with their has_ field.

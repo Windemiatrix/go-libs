@@ -39,6 +39,11 @@ import (
 // it gives no data; otherwise it runs as RequestResource does, with the data
 // in one chunk, and gives the Record to Info after the data.
 //
+// RequestVideo logs the id and the version and returns bridge.ErrNoResource
+// when Videos has no entry for id+"/"+version. Otherwise it runs as
+// RequestResource does without data, and gives the entry to path unless it is
+// "", as PhotoKit gives no file of an AVComposition.
+//
 // Import keeps the record and the timeout for LastImport and, when HoldImport
 // is not nil, waits for it to be closed or the timeout to pass, as Hold does;
 // then it returns ImportID and ImportErr.
@@ -67,6 +72,7 @@ type Bridge struct {
 	Data                  map[string][]byte
 	Chunk                 int
 	Images                map[string]ImageData
+	Videos                map[string]string
 	DoneErr               error
 	HoldRequest           chan struct{}
 	ImportID              string
@@ -181,6 +187,22 @@ func (b *Bridge) RequestImage(id string, version int, sink bridge.ImageSink) (br
 	}), nil
 }
 
+// RequestVideo implements bridge.Bridge.
+func (b *Bridge) RequestVideo(id string, version int, path func(string)) (bridge.Request, error) {
+	b.log(fmt.Sprintf("RequestVideo %s %d", id, version))
+	p, ok := b.Videos[id+"/"+strconv.Itoa(version)]
+	if !ok {
+		return nil, bridge.ErrNoResource
+	}
+	return b.start(id, nil, func(r *request) error {
+		return r.run(nil, 0, nil, func() {
+			if p != "" {
+				path(p)
+			}
+		})
+	}), nil
+}
+
 func (b *Bridge) start(id string, sink bridge.ResourceSink, run func(*request) error) *request {
 	b.mu.Lock()
 	b.sink = sink
@@ -191,7 +213,7 @@ func (b *Bridge) start(id string, sink bridge.ResourceSink, run func(*request) e
 }
 
 // LastSink returns the sink of the latest RequestResource or RequestImage, nil
-// before one.
+// before one and after RequestVideo.
 func (b *Bridge) LastSink() bridge.ResourceSink {
 	b.mu.Lock()
 	defer b.mu.Unlock()

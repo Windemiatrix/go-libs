@@ -287,3 +287,456 @@ func TestExportImageRace(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// The file of PhotoKit lies outside dir, as in the library, and is read-only,
+// so that an export that opens it for writing fails. Both versions of
+// PHVideoRequestOptionsVersion give it.
+func videoFake(t *testing.T, size int) (*fake.Bridge, string, []byte) {
+	t.Helper()
+	b, _ := versionFake(1, nil)
+	data := make([]byte, size)
+	for i := range data {
+		data[i] = byte(i % 251)
+	}
+	src := filepath.Join(t.TempDir(), "IMG_0001.MOV")
+	if err := os.WriteFile(src, data, 0o400); err != nil {
+		t.Fatal(err)
+	}
+	b.Videos = map[string]string{versionVideoID + "/0": src, versionVideoID + "/1": src}
+	return b, src, data
+}
+
+func TestExportVideo(t *testing.T) {
+	fetchVideo := []string{"FetchAssets " + versionVideoID, "AssetResources " + versionVideoID + "/L0/001"}
+	fetchPhoto := []string{"FetchAssets " + versionPhotoID, "AssetResources " + versionPhotoID + "/L0/001"}
+	requestOriginal := "RequestVideo " + versionVideoID + " 1"
+
+	// The size is not a multiple of the chunk, so that a copy that drops the
+	// last part of the file fails here.
+	t.Run("video", func(t *testing.T) {
+		for _, tt := range []struct {
+			v       Version
+			version int
+		}{{VersionCurrent, 0}, {VersionUnadjusted, 1}, {VersionOriginal, 1}} {
+			b, src, data := videoFake(t, 3<<20+17)
+			before, err := os.Stat(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dir := t.TempDir()
+			progress := 0
+			o := ExportOptions{Progress: func(float64) { progress++ }}
+			if err := (&Library{b}).ExportVideo(t.Context(), versionVideoID, tt.v, dir, "IMG_0001.MOV", o); err != nil {
+				t.Fatalf("version %d: %v", tt.v, err)
+			}
+			if progress != 0 {
+				t.Errorf("version %d: Progress called %d times, want none, as upstream has no progress", tt.v, progress)
+			}
+			path := filepath.Join(dir, "IMG_0001.MOV")
+			if got, err := os.ReadFile(path); err != nil || !bytes.Equal(got, data) {
+				t.Errorf("version %d: file = %d bytes, %v; want the %d bytes of the file of PhotoKit", tt.v, len(got), err, len(data))
+			}
+			if fi, err := os.Stat(path); err != nil || fi.Mode().Perm() != 0o600 {
+				t.Errorf("version %d: Stat = %v, %v; want mode 0600", tt.v, fi, err)
+			}
+			if got, err := os.ReadFile(src); err != nil || !bytes.Equal(got, data) {
+				t.Errorf("version %d: the file of PhotoKit = %d bytes, %v; want it as it was", tt.v, len(got), err)
+			}
+			if fi, err := os.Stat(src); err != nil || !fi.ModTime().Equal(before.ModTime()) || fi.Mode() != before.Mode() {
+				t.Errorf("version %d: the file of PhotoKit changed its time or mode: %v", tt.v, err)
+			}
+			wantCalls(t, b, append(fetchVideo, fmt.Sprintf("RequestVideo %s %d", versionVideoID, tt.version))...)
+		}
+	})
+
+	canceled, cancel := context.WithCancel(t.Context())
+	cancel()
+	for _, tt := range []struct {
+		name  string
+		ctx   context.Context
+		set   func(b *fake.Bridge, src string)
+		uuid  string
+		v     Version
+		want  error
+		cause error
+		text  string
+		calls []string
+	}{
+		{"no such asset", t.Context(), nil, unknownID, VersionOriginal, ErrNotFound, nil, "", []string{"FetchAssets " + unknownID}},
+		{"no such asset, version 3", t.Context(), nil, unknownID, Version(3), ErrNotFound, nil, "", []string{"FetchAssets " + unknownID}},
+		{"photo", t.Context(), nil, versionPhotoID, VersionOriginal, ErrMediaType, nil, ": 1", fetchPhoto},
+		{"photo, version 3", t.Context(), nil, versionPhotoID, Version(3), ErrMediaType, nil, ": 1", fetchPhoto},
+		{"Live Photo", t.Context(), nil, versionLiveID, VersionOriginal, ErrMediaType, nil, ": 1", []string{"FetchAssets " + versionLiveID, "AssetResources " + versionLiveID + "/L0/001"}},
+		{"version 3", t.Context(), nil, versionVideoID, Version(3), ErrInvalidVersion, nil, ": 3", fetchVideo},
+		{"version -1", t.Context(), nil, versionVideoID, Version(-1), ErrInvalidVersion, nil, ": -1", fetchVideo},
+		{"asset gone at the request", t.Context(), func(b *fake.Bridge, _ string) { clear(b.Videos) }, versionVideoID, VersionOriginal, ErrNoResource, nil, "", append(fetchVideo, requestOriginal)},
+		{"no file", t.Context(), func(b *fake.Bridge, _ string) { b.Videos[versionVideoID+"/1"] = "" }, versionVideoID, VersionOriginal, ErrNoResource, fs.ErrNotExist, "", append(fetchVideo, requestOriginal)},
+		{"file gone", t.Context(), func(b *fake.Bridge, src string) { b.Videos[versionVideoID+"/1"] = src + ".gone" }, versionVideoID, VersionOriginal, ErrNoResource, fs.ErrNotExist, "", append(fetchVideo, requestOriginal)},
+		{"not a file", t.Context(), func(b *fake.Bridge, src string) { b.Videos[versionVideoID+"/1"] = filepath.Dir(src) }, versionVideoID, VersionOriginal, ErrNoResource, nil, "", append(fetchVideo, requestOriginal)},
+		{"PhotoKit error", t.Context(), func(b *fake.Bridge, _ string) {
+			b.DoneErr = &bridge.PhotoKitError{Domain: "PHPhotosErrorDomain", Code: 3164}
+		}, versionVideoID, VersionOriginal, ErrExport, nil, "PHPhotosErrorDomain code 3164", append(fetchVideo, requestOriginal)},
+		{"canceled", canceled, nil, versionVideoID, VersionOriginal, context.Canceled, nil, "", nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			b, src, _ := videoFake(t, 1<<10)
+			if tt.set != nil {
+				tt.set(b, src)
+			}
+			dir := t.TempDir()
+			err := (&Library{b}).ExportVideo(tt.ctx, tt.uuid, tt.v, dir, "IMG_0001.MOV", ExportOptions{})
+			if !errors.Is(err, tt.want) || !strings.HasSuffix(err.Error(), tt.text) {
+				t.Errorf("err = %v, want %v ending in %q", err, tt.want, tt.text)
+			}
+			if tt.cause != nil && !errors.Is(err, tt.cause) {
+				t.Errorf("err = %v, want it to wrap %v", err, tt.cause)
+			}
+			// The path is inside the library, which the error of an export must not show.
+			if err != nil && strings.Contains(err.Error(), filepath.Dir(src)) {
+				t.Errorf("err = %v, want it without the path of the file of PhotoKit", err)
+			}
+			noFile(t, filepath.Join(dir, "IMG_0001.MOV"))
+			wantCalls(t, b, tt.calls...)
+		})
+	}
+
+	// The cancel comes with the first chunk, so that the copy has 63 MiB left
+	// whatever the load of the runner.
+	t.Run("canceled during the copy", func(t *testing.T) {
+		b, _, _ := videoFake(t, 1)
+		src := filepath.Join(t.TempDir(), "IMG_0002.MOV")
+		if err := os.WriteFile(src, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Truncate(src, 64<<20); err != nil {
+			t.Fatal(err)
+		}
+		b.Videos[versionVideoID+"/1"] = src
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		old, writes, largest := fileWrite, 0, 0
+		fileWrite = func(f *os.File, p []byte) (int, error) {
+			writes++
+			largest = max(largest, len(p))
+			cancel()
+			return old(f, p)
+		}
+		t.Cleanup(func() { fileWrite = old })
+		dir := t.TempDir()
+		if err := (&Library{b}).ExportVideo(ctx, versionVideoID, VersionOriginal, dir, "IMG_0001.MOV", ExportOptions{}); !errors.Is(err, context.Canceled) {
+			t.Errorf("err = %v, want context.Canceled", err)
+		}
+		if writes != 1 || largest > 1<<20 {
+			t.Errorf("%d chunks written, the largest of %d bytes; want the copy to stop after the first, of 1 MiB at most", writes, largest)
+		}
+		noFile(t, filepath.Join(dir, "IMG_0001.MOV"))
+		wantCalls(t, b, append(fetchVideo, requestOriginal)...)
+	})
+
+	t.Run("write error", func(t *testing.T) {
+		diskFull := errors.New("disk full")
+		old := fileWrite
+		fileWrite = func(*os.File, []byte) (int, error) { return 0, diskFull }
+		t.Cleanup(func() { fileWrite = old })
+		b, _, _ := videoFake(t, 1<<10)
+		dir := t.TempDir()
+		if err := (&Library{b}).ExportVideo(t.Context(), versionVideoID, VersionOriginal, dir, "IMG_0001.MOV", ExportOptions{}); !errors.Is(err, diskFull) {
+			t.Errorf("err = %v, want the error of the write", err)
+		}
+		noFile(t, filepath.Join(dir, "IMG_0001.MOV"))
+	})
+
+	// FileUtil.copy raises on a file that is_file() accepts but open() refuses
+	// (photokit.py:904-905, 912), as one is without Full Disk Access.
+	t.Run("file that cannot be opened", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("root opens a file of mode 0000")
+		}
+		b, src, _ := videoFake(t, 1<<10)
+		if err := os.Chmod(src, 0); err != nil {
+			t.Fatal(err)
+		}
+		dir := t.TempDir()
+		err := (&Library{b}).ExportVideo(t.Context(), versionVideoID, VersionOriginal, dir, "IMG_0001.MOV", ExportOptions{})
+		if !errors.Is(err, fs.ErrPermission) || errors.Is(err, ErrNoResource) || strings.Contains(err.Error(), filepath.Dir(src)) {
+			t.Errorf("err = %v, want fs.ErrPermission, not ErrNoResource, without the path of the file of PhotoKit", err)
+		}
+		noFile(t, filepath.Join(dir, "IMG_0001.MOV"))
+		wantCalls(t, b, append(fetchVideo, requestOriginal)...)
+	})
+
+	t.Run("existing file", func(t *testing.T) {
+		b, src, data := videoFake(t, 1<<10)
+		dir := t.TempDir()
+		path := filepath.Join(dir, "IMG_0001.MOV")
+		if err := os.WriteFile(path, []byte("old"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		lib := &Library{b}
+		if err := lib.ExportVideo(t.Context(), versionVideoID, VersionOriginal, dir, "IMG_0001.MOV", ExportOptions{}); !errors.Is(err, fs.ErrExist) {
+			t.Errorf("without Overwrite: err = %v, want fs.ErrExist", err)
+		}
+		wantCalls(t, b, fetchVideo...)
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		old := fileWrite
+		t.Cleanup(func() { fileWrite = old })
+		// In this order: the second case cancels ctx for good.
+		for _, tt := range []struct {
+			name string
+			set  func()
+			want error
+		}{
+			{"file gone", func() { b.Videos[versionVideoID+"/1"] = src + ".gone" }, ErrNoResource},
+			{"canceled during the copy", func() {
+				b.Videos[versionVideoID+"/1"] = src
+				fileWrite = func(f *os.File, p []byte) (int, error) {
+					cancel()
+					return old(f, p)
+				}
+			}, context.Canceled},
+		} {
+			tt.set()
+			if err := lib.ExportVideo(ctx, versionVideoID, VersionOriginal, dir, "IMG_0001.MOV", ExportOptions{Overwrite: true}); !errors.Is(err, tt.want) {
+				t.Errorf("Overwrite, %s: err = %v, want %v", tt.name, err, tt.want)
+			}
+			if got, err := os.ReadFile(path); err != nil || string(got) != "old" {
+				t.Errorf("Overwrite, %s: file = %q, %v; want it kept", tt.name, got, err)
+			}
+			if entries, err := os.ReadDir(dir); err != nil || len(entries) != 1 {
+				t.Errorf("Overwrite, %s: %d entries in dir, %v; want the old file only", tt.name, len(entries), err)
+			}
+		}
+		fileWrite = old
+		if err := lib.ExportVideo(t.Context(), versionVideoID, VersionOriginal, dir, "IMG_0001.MOV", ExportOptions{Overwrite: true}); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := os.ReadFile(path); err != nil || !bytes.Equal(got, data) {
+			t.Errorf("file = %d bytes, %v; want the %d bytes of the file of PhotoKit", len(got), err, len(data))
+		}
+	})
+
+	t.Run("invalid name", func(t *testing.T) {
+		for _, name := range []string{"", ".", "..", "a/b", "a\x00"} {
+			b, _, _ := videoFake(t, 1)
+			dir := t.TempDir()
+			if err := (&Library{b}).ExportVideo(t.Context(), versionVideoID, VersionOriginal, dir, name, ExportOptions{}); !errors.Is(err, ErrInvalidName) {
+				t.Errorf("ExportVideo(%q): err = %v, want ErrInvalidName", name, err)
+			}
+			if entries, err := os.ReadDir(dir); err != nil || len(entries) != 0 {
+				t.Errorf("ExportVideo(%q): %d entries in dir, %v; want none", name, len(entries), err)
+			}
+			wantCalls(t, b)
+		}
+	})
+
+	t.Run("canceled during the request", func(t *testing.T) {
+		old := cancelGrace
+		cancelGrace = 100 * time.Millisecond
+		t.Cleanup(func() { cancelGrace = old })
+		b, _, _ := videoFake(t, 1)
+		b.HoldRequest = make(chan struct{})
+		t.Cleanup(func() { close(b.HoldRequest) })
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		go func() {
+			for ctx.Err() == nil && !slices.Contains(b.Calls(), requestOriginal) {
+				time.Sleep(time.Millisecond)
+			}
+			cancel()
+		}()
+		dir := t.TempDir()
+		if err := (&Library{b}).ExportVideo(ctx, versionVideoID, VersionOriginal, dir, "IMG_0001.MOV", ExportOptions{}); !errors.Is(err, context.Canceled) {
+			t.Errorf("err = %v, want context.Canceled", err)
+		}
+		noFile(t, filepath.Join(dir, "IMG_0001.MOV"))
+		wantCalls(t, b, append(fetchVideo, requestOriginal, "Cancel "+versionVideoID)...)
+	})
+}
+
+// The data of each resource names its type, so that a test sees which one was
+// written.
+func liveFake(types ...ResourceType) *fake.Bridge {
+	b, _ := versionFake(1, nil)
+	b.Resources, b.Data = map[string][]bridge.ResourceRecord{}, map[string][]byte{}
+	for _, typ := range types {
+		b.Resources[versionLiveID] = append(b.Resources[versionLiveID], bridge.ResourceRecord{Type: int(typ)})
+		b.Data[fmt.Sprintf("%s/%d", versionLiveID, typ)] = fmt.Appendf(nil, "resource %d", typ)
+	}
+	return b
+}
+
+func TestExportLivePhoto(t *testing.T) {
+	fetchLive := []string{"FetchAssets " + versionLiveID, "AssetResources " + versionLiveID + "/L0/001", "AssetResources " + versionLiveID}
+	requestPhoto := "RequestResource " + versionLiveID + " 1"
+	plain := []ResourceType{ResourcePhoto, ResourcePairedVideo}
+	// AdjustmentBasePhoto has data, so that an Unadjusted version taken from it fails.
+	edited := []ResourceType{ResourcePhoto, ResourcePairedVideo, ResourceFullSizePhoto, ResourceFullSizePairedVideo, ResourceAdjustmentData, ResourceAdjustmentBasePhoto}
+	photoEdited := []ResourceType{ResourcePhoto, ResourcePairedVideo, ResourceFullSizePhoto, ResourceAdjustmentData}
+	videoEdited := []ResourceType{ResourcePhoto, ResourcePairedVideo, ResourceFullSizePairedVideo, ResourceAdjustmentData}
+
+	t.Run("resource of the version", func(t *testing.T) {
+		for _, tt := range []struct {
+			name      string
+			resources []ResourceType
+			kind      ResourceType
+			byVersion [3]ResourceType
+		}{
+			{"photo without edits", plain, ResourcePhoto, [3]ResourceType{ResourcePhoto, ResourcePhoto, ResourcePhoto}},
+			{"video without edits", plain, ResourcePairedVideo, [3]ResourceType{ResourcePairedVideo, ResourcePairedVideo, ResourcePairedVideo}},
+			{"edited photo", edited, ResourcePhoto, [3]ResourceType{ResourceFullSizePhoto, ResourcePhoto, ResourcePhoto}},
+			{"edited video", edited, ResourcePairedVideo, [3]ResourceType{ResourceFullSizePairedVideo, ResourcePairedVideo, ResourcePairedVideo}},
+			{"photo of a photo-only edit", photoEdited, ResourcePhoto, [3]ResourceType{ResourceFullSizePhoto, ResourcePhoto, ResourcePhoto}},
+			{"video of a photo-only edit", photoEdited, ResourcePairedVideo, [3]ResourceType{ResourcePairedVideo, ResourcePairedVideo, ResourcePairedVideo}},
+			{"photo of a video-only edit", videoEdited, ResourcePhoto, [3]ResourceType{ResourcePhoto, ResourcePhoto, ResourcePhoto}},
+			{"video of a video-only edit", videoEdited, ResourcePairedVideo, [3]ResourceType{ResourceFullSizePairedVideo, ResourcePairedVideo, ResourcePairedVideo}},
+		} {
+			for _, v := range imageVersions {
+				t.Run(fmt.Sprintf("%s, version %d", tt.name, v), func(t *testing.T) {
+					b := liveFake(tt.resources...)
+					dir := t.TempDir()
+					progress := 0
+					o := ExportOptions{Progress: func(float64) { progress++ }}
+					if err := (&Library{b}).ExportLivePhoto(t.Context(), versionLiveID, v, tt.kind, dir, "IMG_0001.HEIC", o); err != nil {
+						t.Fatal(err)
+					}
+					want := tt.byVersion[v]
+					path := filepath.Join(dir, "IMG_0001.HEIC")
+					if got, err := os.ReadFile(path); err != nil || string(got) != fmt.Sprintf("resource %d", want) {
+						t.Errorf("file = %q, %v; want the resource of type %d", got, err, want)
+					}
+					if fi, err := os.Stat(path); err != nil || fi.Mode().Perm() != 0o600 {
+						t.Errorf("Stat = %v, %v; want mode 0600", fi, err)
+					}
+					if progress == 0 {
+						t.Error("Progress never called, want it called as by Export")
+					}
+					wantCalls(t, b, append(fetchLive, fmt.Sprintf("RequestResource %s %d", versionLiveID, want))...)
+				})
+			}
+		}
+	})
+
+	t.Run("existing file", func(t *testing.T) {
+		b := liveFake(plain...)
+		dir := t.TempDir()
+		path := filepath.Join(dir, "IMG_0001.HEIC")
+		if err := os.WriteFile(path, []byte("old"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		lib := &Library{b}
+		if err := lib.ExportLivePhoto(t.Context(), versionLiveID, VersionOriginal, ResourcePhoto, dir, "IMG_0001.HEIC", ExportOptions{}); !errors.Is(err, fs.ErrExist) {
+			t.Errorf("without Overwrite: err = %v, want fs.ErrExist", err)
+		}
+		if got, err := os.ReadFile(path); err != nil || string(got) != "old" {
+			t.Errorf("without Overwrite: file = %q, %v; want it kept", got, err)
+		}
+		wantCalls(t, b, fetchLive...)
+		if err := lib.ExportLivePhoto(t.Context(), versionLiveID, VersionOriginal, ResourcePhoto, dir, "IMG_0001.HEIC", ExportOptions{Overwrite: true}); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := os.ReadFile(path); err != nil || string(got) != fmt.Sprintf("resource %d", ResourcePhoto) {
+			t.Errorf("Overwrite: file = %q, %v; want the Photo resource", got, err)
+		}
+		if entries, err := os.ReadDir(dir); err != nil || len(entries) != 1 {
+			t.Errorf("Overwrite: %d entries in dir, %v; want the file only", len(entries), err)
+		}
+	})
+
+	t.Run("invalid name", func(t *testing.T) {
+		for _, tt := range []struct {
+			name string
+			kind ResourceType
+			want error
+		}{
+			{"../x", ResourcePhoto, ErrInvalidName},
+			{"", ResourcePairedVideo, ErrInvalidName},
+			{"../x", ResourceVideo, ErrNoResource},
+		} {
+			b := liveFake(plain...)
+			dir := t.TempDir()
+			if err := (&Library{b}).ExportLivePhoto(t.Context(), versionLiveID, VersionOriginal, tt.kind, dir, tt.name, ExportOptions{}); !errors.Is(err, tt.want) {
+				t.Errorf("ExportLivePhoto(%d, %q): err = %v, want %v", tt.kind, tt.name, err, tt.want)
+			}
+			if entries, err := os.ReadDir(dir); err != nil || len(entries) != 0 {
+				t.Errorf("ExportLivePhoto(%d, %q): %d entries in dir, %v; want none", tt.kind, tt.name, len(entries), err)
+			}
+			wantCalls(t, b)
+		}
+	})
+
+	canceled, cancel := context.WithCancel(t.Context())
+	cancel()
+	for _, tt := range []struct {
+		name  string
+		ctx   context.Context
+		set   func(*fake.Bridge)
+		uuid  string
+		v     Version
+		kind  ResourceType
+		want  error
+		text  string
+		calls []string
+	}{
+		{"Video as kind", t.Context(), nil, versionLiveID, VersionCurrent, ResourceVideo, ErrNoResource, ": 2", nil},
+		{"FullSizePhoto as kind", t.Context(), nil, versionLiveID, VersionCurrent, ResourceFullSizePhoto, ErrNoResource, ": 5", nil},
+		{"no paired video", t.Context(), func(b *fake.Bridge) {
+			b.Resources[versionLiveID] = []bridge.ResourceRecord{{Type: int(ResourcePhoto)}}
+		}, versionLiveID, VersionOriginal, ResourcePairedVideo, ErrNoResource, ": 9", fetchLive},
+		{"asset gone after the fetch", t.Context(), func(b *fake.Bridge) { delete(b.Resources, versionLiveID) }, versionLiveID, VersionOriginal, ResourcePhoto, ErrNotFound, "", fetchLive},
+		{"not a Live Photo", t.Context(), nil, versionPhotoID, VersionOriginal, ResourcePhoto, ErrMediaType, ": 1", []string{"FetchAssets " + versionPhotoID, "AssetResources " + versionPhotoID + "/L0/001"}},
+		{"not a Live Photo, version 3", t.Context(), nil, versionPhotoID, Version(3), ResourcePhoto, ErrMediaType, ": 1", []string{"FetchAssets " + versionPhotoID, "AssetResources " + versionPhotoID + "/L0/001"}},
+		{"video", t.Context(), nil, versionVideoID, VersionOriginal, ResourcePairedVideo, ErrMediaType, ": 2", []string{"FetchAssets " + versionVideoID, "AssetResources " + versionVideoID + "/L0/001"}},
+		{"video, version 3", t.Context(), nil, versionVideoID, Version(3), ResourcePairedVideo, ErrMediaType, ": 2", []string{"FetchAssets " + versionVideoID, "AssetResources " + versionVideoID + "/L0/001"}},
+		{"version 3", t.Context(), nil, versionLiveID, Version(3), ResourcePhoto, ErrInvalidVersion, ": 3", []string{"FetchAssets " + versionLiveID, "AssetResources " + versionLiveID + "/L0/001"}},
+		{"no such asset", t.Context(), nil, unknownID, VersionOriginal, ResourcePhoto, ErrNotFound, "", []string{"FetchAssets " + unknownID}},
+		{"resource gone at the request", t.Context(), func(b *fake.Bridge) { clear(b.Data) }, versionLiveID, VersionOriginal, ResourcePhoto, ErrNoResource, "", append(fetchLive, requestPhoto)},
+		{"PhotoKit error", t.Context(), func(b *fake.Bridge) {
+			b.DoneErr = &bridge.PhotoKitError{Domain: "PHPhotosErrorDomain", Code: 3164}
+		}, versionLiveID, VersionOriginal, ResourcePhoto, ErrExport, "PHPhotosErrorDomain code 3164", append(fetchLive, requestPhoto)},
+		{"canceled", canceled, nil, versionLiveID, VersionOriginal, ResourcePhoto, context.Canceled, "", nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			b := liveFake(plain...)
+			if tt.set != nil {
+				tt.set(b)
+			}
+			dir := t.TempDir()
+			err := (&Library{b}).ExportLivePhoto(tt.ctx, tt.uuid, tt.v, tt.kind, dir, "IMG_0001.HEIC", ExportOptions{})
+			if !errors.Is(err, tt.want) || !strings.HasSuffix(err.Error(), tt.text) {
+				t.Errorf("err = %v, want %v ending in %q", err, tt.want, tt.text)
+			}
+			noFile(t, filepath.Join(dir, "IMG_0001.HEIC"))
+			wantCalls(t, b, tt.calls...)
+		})
+	}
+
+	// A cancel from Progress puts the cancel inside the request whatever the
+	// load of the runner.
+	t.Run("canceled, completion never comes", func(t *testing.T) {
+		old := cancelGrace
+		cancelGrace = 100 * time.Millisecond
+		t.Cleanup(func() { cancelGrace = old })
+		b := liveFake(plain...)
+		b.HoldRequest = make(chan struct{})
+		t.Cleanup(func() { close(b.HoldRequest) })
+		dir := t.TempDir()
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		o := ExportOptions{Progress: func(float64) { cancel() }}
+		done := make(chan error, 1)
+		go func() {
+			done <- (&Library{b}).ExportLivePhoto(ctx, versionLiveID, VersionOriginal, ResourcePhoto, dir, "IMG_0001.HEIC", o)
+		}()
+		select {
+		case err := <-done:
+			if !errors.Is(err, context.Canceled) {
+				t.Errorf("err = %v, want context.Canceled", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("ExportLivePhoto still waits 5 s after the cancel, want it to return within the grace")
+		}
+		noFile(t, filepath.Join(dir, "IMG_0001.HEIC"))
+		wantCalls(t, b, append(fetchLive, requestPhoto, "Cancel "+versionLiveID)...)
+	})
+}
