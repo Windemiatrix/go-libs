@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 	"unsafe"
@@ -229,9 +230,13 @@ func TestMetadataBytes(t *testing.T) {
 	}
 }
 
-// An id that is not UTF-8 names no asset before PhotoKit, which the tests must
-// not reach.
-func TestRequestsNoAsset(t *testing.T) {
+// The reads raise with the reason of the exception, not its name as the
+// changes do.
+const brokenRuleOfRead = "photokit: Objective-C exception: "
+
+// An id that breaks the rule of bridge.h must make the call raise, not return
+// nothing as for an asset that is not found.
+func TestReadsBeforePhotoKit(t *testing.T) {
 	known := func() (n int) {
 		requests.Range(func(_, _ any) bool {
 			n++
@@ -240,17 +245,36 @@ func TestRequestsNoAsset(t *testing.T) {
 		return n
 	}
 	before := known()
-	if r, err := New().RequestImage("\xff", 0, nil); r != nil || !errors.Is(err, ErrNoResource) {
-		t.Errorf("RequestImage of an id not UTF-8 = %v, %v; want ErrNoResource", r, err)
-	}
-	if r, err := New().RequestResource("\xff", 1, nil); r != nil || !errors.Is(err, ErrNoResource) {
-		t.Errorf("RequestResource of an id not UTF-8 = %v, %v; want ErrNoResource", r, err)
-	}
-	if r, err := New().RequestVideo("\xff", 1, nil); r != nil || !errors.Is(err, ErrNoResource) {
-		t.Errorf("RequestVideo of an id not UTF-8 = %v, %v; want ErrNoResource", r, err)
+	b := New()
+	image, imageErr := b.RequestImage("\xff", 0, nil)
+	resource, resourceErr := b.RequestResource("\xff", 1, nil)
+	video, videoErr := b.RequestVideo("\xff", 1, nil)
+	if image != nil || resource != nil || video != nil {
+		t.Errorf("requests of an id not UTF-8 = %v, %v, %v; want none", image, resource, video)
 	}
 	if after := known(); after != before {
 		t.Errorf("%d requests known after three that did not start, want %d", after, before)
+	}
+	resources, resourcesErr := b.AssetResources("\xff")
+	assets, assetsErr := b.FetchAssets([]string{"\xff"})
+	bursts, burstErr := b.FetchBurst("\xff", false)
+	if resources != nil || assets != nil || bursts != nil {
+		t.Errorf("AssetResources, FetchAssets and FetchBurst of an id not UTF-8 = %v, %v, %v; want none", resources, assets, bursts)
+	}
+	for _, tt := range []struct {
+		name string
+		err  error
+	}{
+		{"RequestImage", imageErr},
+		{"RequestResource", resourceErr},
+		{"RequestVideo", videoErr},
+		{"AssetResources", resourcesErr},
+		{"FetchAssets", assetsErr},
+		{"FetchBurst", burstErr},
+	} {
+		if tt.err == nil || !strings.HasPrefix(tt.err.Error(), brokenRuleOfRead) {
+			t.Errorf("%s of an id not UTF-8: error %v, want the prefix %q", tt.name, tt.err, brokenRuleOfRead)
+		}
 	}
 }
 
@@ -333,13 +357,10 @@ func TestIdentifierPairsBeforePhotoKit(t *testing.T) {
 	}
 }
 
-// The calls return before PhotoKit reads the library, which the tests must not
+// The call returns before PhotoKit reads the library, which the tests must not
 // reach.
 func TestFetchAssetsNone(t *testing.T) {
 	if got, err := New().FetchAssets(nil); got != nil || err != nil {
 		t.Errorf("FetchAssets(nil) = %v, %v, want nil, nil", got, err)
-	}
-	if got, err := New().FetchBurst("\xff", false); got != nil || err != nil {
-		t.Errorf("FetchBurst of an id not UTF-8 = %v, %v, want nil, nil", got, err)
 	}
 }
