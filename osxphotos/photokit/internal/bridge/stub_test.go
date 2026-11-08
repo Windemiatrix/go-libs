@@ -28,6 +28,9 @@ func TestStubNotSupported(t *testing.T) {
 	if got, err := b.RequestResource("id", 1, nil); got != nil || !errors.Is(err, ErrNotSupported) {
 		t.Errorf("RequestResource = %v, %v; want ErrNotSupported", got, err)
 	}
+	if got, err := b.RequestImage("id", 2, nil); got != nil || !errors.Is(err, ErrNotSupported) {
+		t.Errorf("RequestImage = %v, %v; want ErrNotSupported", got, err)
+	}
 	if got, err := b.Import(ImportRecord{Photo: "/IMG_0001.JPG"}, time.Minute); got != "" || !errors.Is(err, ErrNotSupported) {
 		t.Errorf("Import = %q, %v; want ErrNotSupported", got, err)
 	}

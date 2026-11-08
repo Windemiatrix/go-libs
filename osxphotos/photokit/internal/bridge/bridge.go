@@ -14,17 +14,21 @@ var (
 	// without PhotoKit; photokit exports it.
 	ErrNotSupported = errors.New("photokit: not supported on this platform")
 	// ErrNoResource is returned by RequestResource when the asset has no
-	// resource of the type; photokit exports it.
+	// resource of the type and by RequestImage when there is no such asset,
+	// and delivered by Done of RequestImage when PhotoKit gives no data;
+	// photokit exports it.
 	ErrNoResource = errors.New("photokit: the asset has no resource of that type")
 	// ErrCanceled is delivered by Done after Cancel, whatever PhotoKit reports
 	// then.
 	ErrCanceled = errors.New("photokit: the request was canceled")
-	// ErrNoAlbum is returned by Import and the collection methods when an album
-	// or a collection is not found or cannot take the change; nothing was changed.
+	// ErrNoAlbum is returned by Import and the collection methods when an
+	// album or a collection is not found or cannot take the change; nothing
+	// was changed.
 	ErrNoAlbum = errors.New("photokit: no such album")
 	// ErrNoAsset is returned by AlbumAssets for an asset not found, by
 	// DeleteAssets for one not found or that cannot be deleted, and by
-	// UpdateAsset for one not found or that cannot be changed; nothing was changed.
+	// UpdateAsset for one not found or that cannot be changed; nothing was
+	// changed.
 	ErrNoAsset = errors.New("photokit: no such asset")
 )
 
@@ -32,8 +36,8 @@ var (
 // PHAuthorizationStatus value for read-write access. No fetch finds a hidden
 // asset: upstream fetches with the default PHFetchOptions
 // (photokit.py:1234-1237, 1281-1285). Every identifier and title given to a
-// method other than a fetch or a resource one is UTF-8 without NUL, which
-// photokit checks: the bridge checks only the state of PhotoKit.
+// method other than a fetch, a resource or an image one is UTF-8 without
+// NUL, which photokit checks: the bridge checks only the state of PhotoKit.
 type Bridge interface {
 	AuthorizationStatus() (int, error)
 	// RequestAuthorization blocks up to timeout, then returns
@@ -50,13 +54,20 @@ type Bridge interface {
 	// networkAccessAllowed for the first resource of type typ of the asset id;
 	// no such asset or resource is ErrNoResource.
 	RequestResource(id string, typ int, sink ResourceSink) (Request, error)
+	// RequestImage starts requestImageDataAndOrientationForAsset for the asset
+	// id with version, networkAccessAllowed and HighQualityFormat; no such
+	// asset is ErrNoResource. The data goes to sink until Done; Cancel is
+	// cancelImageRequest:. Done delivers ErrNoResource when PhotoKit gives no
+	// data (photokit.py:591-592).
+	RequestImage(id string, version int, sink ImageSink) (Request, error)
 	// Import runs one performChanges that creates the asset of r and adds it to
 	// its albums, and blocks until the completion handler, or up to timeout,
 	// then returns context.DeadlineExceeded while the change goes on; so does an
 	// exception in a change that PhotoKit commits. It returns the LocalIdentifier
 	// of the created asset; a failed change is a *PhotoKitError.
 	Import(r ImportRecord, timeout time.Duration) (string, error)
-	// Collections returns the user folders and albums, parents first, in the order of PhotoKit; none with an error.
+	// Collections returns the user folders and albums, parents first, in the
+	// order of PhotoKit; none with an error.
 	Collections() ([]CollectionRecord, error)
 	// CreateCollection, which returns the LocalIdentifier of the collection,
 	// RenameCollection, DeleteCollections, AlbumAssets and DeleteAssets run one
@@ -123,10 +134,31 @@ type ResourceSink interface {
 	Progress(fraction float64)
 }
 
-// Request is a running RequestResource. Done delivers at most once, without
-// waiting for a receiver: nil, a *PhotoKitError, or ErrCanceled after Cancel,
-// since PhotoKit calls the completion handler after cancelDataRequest: too,
-// unless a stalled iCloud download holds it back. A second Cancel does nothing.
+// ImageSink receives one image: Write gets the bytes once, Info the record,
+// both on a queue of PhotoKit before Done, neither when PhotoKit gives no
+// data.
+type ImageSink interface {
+	ResourceSink
+	Info(ImageRecord)
+}
+
+// ImageRecord is the ImageInfo of photokit for the bridge; Metadata is the
+// binary property list of the CGImageSource properties, nil when PhotoKit gave
+// none or they could not be serialized.
+type ImageRecord struct {
+	UTI         string
+	Orientation int
+	Degraded    bool
+	Path        string
+	Metadata    []byte
+}
+
+// Request is a running RequestResource or RequestImage. Done delivers at most
+// once, without waiting for a receiver: nil, a *PhotoKitError, ErrNoResource
+// of an image without data, or ErrCanceled after Cancel, since PhotoKit calls
+// the completion handler after cancelDataRequest: and cancelImageRequest:
+// too, unless a stalled iCloud download holds it back. A second Cancel does
+// nothing.
 type Request interface {
 	Cancel()
 	Done() <-chan error

@@ -113,6 +113,10 @@ func (*cgoBridge) RequestResource(id string, typ int, sink ResourceSink) (Reques
 	return r, nil
 }
 
+// bridge.m does not request an image yet: pk_request_image comes with the
+// Objective-C side of RequestImage.
+func (*cgoBridge) RequestImage(string, int, ImageSink) (Request, error) { return nil, ErrNotSupported }
+
 func (*cgoBridge) Import(r ImportRecord, timeout time.Duration) (string, error) {
 	strs, free := cStrings(append([]string{r.Photo, r.Video, r.PairedVideo, r.AlternatePhoto, r.OriginalFilename}, r.Albums...))
 	defer free()
