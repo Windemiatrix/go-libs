@@ -28,7 +28,8 @@ type FaceInfo struct {
 	UUID       string // ZDETECTEDFACE.ZUUID
 	Name       string // ZPERSON.ZFULLNAME in NFC; "" for a person without a name, where PersonInfo.Name is "_UNKNOWN_" (_photosdb_process_faceinfo.py:283)
 	AssetUUID  string
-	PersonUUID string // ZPERSONUUID of the person (upstream keeps the Z_PK, _person_pk)
+	PersonPK   int64  // ZPERSON.Z_PK of the person, upstream _person_pk
+	PersonUUID string // ZPERSONUUID of the person: the key of DB.Person, upstream person_info (personinfo.py:208-215)
 
 	CenterX, CenterY, Size, Quality float64
 	SourceWidth, SourceHeight       int
