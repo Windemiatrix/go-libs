@@ -1,6 +1,7 @@
 [
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -45,6 +46,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "8846E3E6-8AC8-4857-8448-E3D025784410.tiff",
     "fingerprint": "ASkk75asO1LysOyOM6CYu5E7U6d6",
@@ -105,6 +107,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_1693.tif",
     "original_filesize": 48774438,
     "original_height": 3024,
@@ -112,11 +115,13 @@
     "original_width": 4032,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -283,6 +288,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2020-08-31T04:05:11.367272+00:00",
@@ -421,6 +427,7 @@
       "white_balance": 0
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "3DD2C897-F19E-4CA6-8C22-B027D5A71907.jpeg",
     "fingerprint": "AcrntWs8LmFJvDyxMB5XCKyKFMEN",
@@ -478,6 +485,7 @@
     ],
     "longitude": 138.59686167,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_4547.jpg",
     "original_filesize": 1477654,
     "original_height": 2754,
@@ -485,6 +493,7 @@
     "original_width": 2754,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {
@@ -543,6 +552,7 @@
     },
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -711,6 +721,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2019-07-27T13:19:13.706262+00:00",
@@ -811,6 +822,118 @@
       "white_balance": 0
     },
     "external_edit": false,
+    "face_info": [
+      {
+        "_person_pk": 5,
+        "_pk": 2,
+        "age_type": 2,
+        "asset_uuid": "F12384F6-CD17-4151-ACBA-AE0E3688539E",
+        "center": [
+          1466,
+          576
+        ],
+        "center_x": 0.7159803900867701,
+        "center_y": 0.5776732861995697,
+        "eye_makeup_type": 0,
+        "eye_state": 2,
+        "face_rect": [
+          [
+            1404.339153289795,
+            514.3391532897949
+          ],
+          [
+            1527.660846710205,
+            637.6608467102051
+          ]
+        ],
+        "face_type": null,
+        "facial_hair_type": 1,
+        "gender_type": 2,
+        "glasses_type": 3,
+        "hair_color_type": 3,
+        "has_smile": 0,
+        "intrash": 0,
+        "lip_makeup_type": 0,
+        "manual": 0,
+        "mpri_reg_rect": {
+          "h": 0.06021567061543465,
+          "w": 0.09034556294535542,
+          "x": 0.6858725547790527,
+          "y": 0.3771539323277526
+        },
+        "mwg_rs_area": {
+          "h": 0.09034556294535542,
+          "w": 0.06021567061543465,
+          "x": 0.7159803900867701,
+          "y": 0.4223267138004303
+        },
+        "name": "Katie",
+        "pitch": 0,
+        "quality": 0.335693359375,
+        "roll": 0.0,
+        "size": 0.06021567061543465,
+        "smile_type": 2,
+        "source_height": 1365,
+        "source_width": 2048,
+        "uuid": "B4F58AA9-C782-4DD2-844F-617FE436905B",
+        "yaw": 0
+      },
+      {
+        "_person_pk": 7,
+        "_pk": 1,
+        "age_type": 2,
+        "asset_uuid": "F12384F6-CD17-4151-ACBA-AE0E3688539E",
+        "center": [
+          649,
+          459
+        ],
+        "center_x": 0.31709057837724686,
+        "center_y": 0.6631178297102451,
+        "eye_makeup_type": 0,
+        "eye_state": 1,
+        "face_rect": [
+          [
+            581.2181243896484,
+            391.21812438964844
+          ],
+          [
+            716.7818756103516,
+            526.7818756103516
+          ]
+        ],
+        "face_type": null,
+        "facial_hair_type": 1,
+        "gender_type": 2,
+        "glasses_type": 3,
+        "hair_color_type": 2,
+        "has_smile": 0,
+        "intrash": 0,
+        "lip_makeup_type": 0,
+        "manual": 0,
+        "mpri_reg_rect": {
+          "h": 0.06619323790073395,
+          "w": 0.09931410345839056,
+          "x": 0.2839939594268799,
+          "y": 0.2872251185605596
+        },
+        "mwg_rs_area": {
+          "h": 0.09931410345839056,
+          "w": 0.06619323790073395,
+          "x": 0.31709057837724686,
+          "y": 0.33688217028975487
+        },
+        "name": "Suzy",
+        "pitch": 0,
+        "quality": 0.30810546875,
+        "roll": 0.0,
+        "size": 0.06619323790073395,
+        "smile_type": 2,
+        "source_height": 1365,
+        "source_width": 2048,
+        "uuid": "CD92E5EB-C76E-4A30-8DE7-3B4CD42A73F9",
+        "yaw": 0
+      }
+    ],
     "favorite": false,
     "filename": "F12384F6-CD17-4151-ACBA-AE0E3688539E.jpeg",
     "fingerprint": "AUTEnaXpCRgZGfTY4wSdZ9UUf8Op",
@@ -886,6 +1009,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "Pumkins1.jpg",
     "original_filesize": 554127,
     "original_height": 1365,
@@ -893,6 +1017,7 @@
     "original_width": 2048,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [
       {
         "displayname": "Katie",
@@ -924,6 +1049,7 @@
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -1108,6 +1234,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -1152,6 +1279,7 @@
       "white_balance": 0
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "Pumpkins4.jpg",
     "fingerprint": "Acg7iUvHLiR8FEuZ08xqDKhpN+tR",
@@ -1194,6 +1322,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "Pumpkins4.jpg",
     "original_filesize": 700340,
     "original_height": 2048,
@@ -1201,11 +1330,13 @@
     "original_width": 1991,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -1352,6 +1483,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2019-07-27T13:19:13.706262+00:00",
@@ -1452,6 +1584,63 @@
       "white_balance": 0
     },
     "external_edit": false,
+    "face_info": [
+      {
+        "_person_pk": 5,
+        "_pk": 6,
+        "age_type": 2,
+        "asset_uuid": "D79B8D77-BFFC-460B-9312-034F2877D35B",
+        "center": [
+          806,
+          577
+        ],
+        "center_x": 0.590747520327568,
+        "center_y": 0.7178707122802734,
+        "eye_makeup_type": 0,
+        "eye_state": 2,
+        "face_rect": [
+          [
+            653.6123046875,
+            424.6123046875
+          ],
+          [
+            958.3876953125,
+            729.3876953125
+          ]
+        ],
+        "face_type": null,
+        "facial_hair_type": 1,
+        "gender_type": 2,
+        "glasses_type": 3,
+        "hair_color_type": 3,
+        "has_smile": 1,
+        "intrash": 0,
+        "lip_makeup_type": 0,
+        "manual": 0,
+        "mpri_reg_rect": {
+          "h": 0.22327867445054944,
+          "w": 0.14881610870361328,
+          "x": 0.4791081831022933,
+          "y": 0.20772123336791992
+        },
+        "mwg_rs_area": {
+          "h": 0.14881610870361328,
+          "w": 0.22327867445054944,
+          "x": 0.590747520327568,
+          "y": 0.28212928771972656
+        },
+        "name": "Katie",
+        "pitch": 0,
+        "quality": 0.59375,
+        "roll": 0.0,
+        "size": 0.14881610870361328,
+        "smile_type": 2,
+        "source_height": 2048,
+        "source_width": 1365,
+        "uuid": "3826A656-6375-46BA-B33B-210432844332",
+        "yaw": 0
+      }
+    ],
     "favorite": false,
     "filename": "D79B8D77-BFFC-460B-9312-034F2877D35B.jpeg",
     "fingerprint": "ARa9lDSd7xt40VFCM32sxtN78t3s",
@@ -1511,6 +1700,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "Pumkins2.jpg",
     "original_filesize": 541174,
     "original_height": 2048,
@@ -1518,6 +1708,7 @@
     "original_width": 1365,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [
       {
         "displayname": "Katie",
@@ -1537,6 +1728,7 @@
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -1697,6 +1889,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2019-07-27T13:19:13.706262+00:00",
@@ -1771,6 +1964,118 @@
       "white_balance": 0
     },
     "external_edit": false,
+    "face_info": [
+      {
+        "_person_pk": 5,
+        "_pk": 3,
+        "age_type": 2,
+        "asset_uuid": "1EB2B765-0765-43BA-A90C-0D0580E6172C",
+        "center": [
+          856,
+          1038
+        ],
+        "center_x": 0.6274850368499756,
+        "center_y": 0.4929262772202492,
+        "eye_makeup_type": 0,
+        "eye_state": 2,
+        "face_rect": [
+          [
+            798.8279262781143,
+            980.8279262781143
+          ],
+          [
+            913.1720737218857,
+            1095.1720737218857
+          ]
+        ],
+        "face_type": null,
+        "facial_hair_type": 1,
+        "gender_type": 2,
+        "glasses_type": 3,
+        "hair_color_type": 3,
+        "has_smile": 1,
+        "intrash": 0,
+        "lip_makeup_type": 0,
+        "manual": 0,
+        "mpri_reg_rect": {
+          "h": 0.08376860618591309,
+          "w": 0.055832103244028986,
+          "x": 0.585600733757019,
+          "y": 0.47915767115773633
+        },
+        "mwg_rs_area": {
+          "h": 0.055832103244028986,
+          "w": 0.08376860618591309,
+          "x": 0.6274850368499756,
+          "y": 0.5070737227797508
+        },
+        "name": "Katie",
+        "pitch": 0,
+        "quality": 0.5888671875,
+        "roll": 0.0,
+        "size": 0.055832103244028986,
+        "smile_type": 2,
+        "source_height": 2048,
+        "source_width": 1365,
+        "uuid": "A6BA6F33-3375-4DF3-98F6-649C9F84FD83",
+        "yaw": 0
+      },
+      {
+        "_person_pk": 7,
+        "_pk": 7,
+        "age_type": 2,
+        "asset_uuid": "1EB2B765-0765-43BA-A90C-0D0580E6172C",
+        "center": [
+          476,
+          787
+        ],
+        "center_x": 0.34910453110933304,
+        "center_y": 0.6154104359447956,
+        "eye_makeup_type": 0,
+        "eye_state": 2,
+        "face_rect": [
+          [
+            410.5470199584961,
+            721.5470199584961
+          ],
+          [
+            541.4529800415039,
+            852.4529800415039
+          ]
+        ],
+        "face_type": null,
+        "facial_hair_type": 1,
+        "gender_type": 2,
+        "glasses_type": 3,
+        "hair_color_type": 2,
+        "has_smile": 1,
+        "intrash": 0,
+        "lip_makeup_type": 0,
+        "manual": 0,
+        "mpri_reg_rect": {
+          "h": 0.09590180225861378,
+          "w": 0.06391892582178116,
+          "x": 0.30115362998002615,
+          "y": 0.3526301011443138
+        },
+        "mwg_rs_area": {
+          "h": 0.06391892582178116,
+          "w": 0.09590180225861378,
+          "x": 0.34910453110933304,
+          "y": 0.3845895640552044
+        },
+        "name": "Suzy",
+        "pitch": 0,
+        "quality": 0.58740234375,
+        "roll": 0.0,
+        "size": 0.06391892582178116,
+        "smile_type": 2,
+        "source_height": 2048,
+        "source_width": 1365,
+        "uuid": "24180F1D-06F9-4AED-9C77-95DAE1638495",
+        "yaw": 0
+      }
+    ],
     "favorite": false,
     "filename": "1EB2B765-0765-43BA-A90C-0D0580E6172C.jpeg",
     "fingerprint": "AcfhCyA9QrbLeurYu6zE5FnQe+SG",
@@ -1847,6 +2152,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "Pumpkins3.jpg",
     "original_filesize": 588140,
     "original_height": 2048,
@@ -1854,6 +2160,7 @@
     "original_width": 1365,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [
       {
         "displayname": "Katie",
@@ -1885,6 +2192,7 @@
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -2063,6 +2371,7 @@
   },
   {
     "adjustment_type": 1,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -2107,6 +2416,7 @@
       "white_balance": 0
     },
     "external_edit": true,
+    "face_info": [],
     "favorite": false,
     "filename": "DC99FBDD-7A52-4100-A5BB-344131646C30.jpeg",
     "fingerprint": "AdADRa7jIaoKGF0vlcVdYYYTkjPj",
@@ -2174,6 +2484,7 @@
     ],
     "longitude": -0.1318055,
     "orientation": 0,
+    "original_adjustments": {},
     "original_filename": "St James Park.jpg",
     "original_filesize": 1262861,
     "original_height": 1356,
@@ -2181,6 +2492,7 @@
     "original_width": 2047,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {
@@ -2239,6 +2551,7 @@
     },
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -2427,6 +2740,7 @@
   },
   {
     "adjustment_type": 1,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2020-04-11T18:05:09.224879+00:00",
@@ -2539,6 +2853,63 @@
       "white_balance": 0
     },
     "external_edit": false,
+    "face_info": [
+      {
+        "_person_pk": 3,
+        "_pk": 5,
+        "age_type": 3,
+        "asset_uuid": "E9BC5C36-7CD1-40A1-A72B-8B8FAC227D51",
+        "center": [
+          627,
+          560
+        ],
+        "center_x": 0.41150954365730286,
+        "center_y": 0.5769759267568588,
+        "eye_makeup_type": 0,
+        "eye_state": 2,
+        "face_rect": [
+          [
+            373.35952165722847,
+            306.35952165722847
+          ],
+          [
+            880.6404783427715,
+            813.6404783427715
+          ]
+        ],
+        "face_type": null,
+        "facial_hair_type": 1,
+        "gender_type": 2,
+        "glasses_type": 3,
+        "hair_color_type": 3,
+        "has_smile": 0,
+        "intrash": 0,
+        "lip_makeup_type": 0,
+        "manual": 0,
+        "mpri_reg_rect": {
+          "h": 0.3324252665042877,
+          "w": 0.3828535522155042,
+          "x": 0.245296910405159,
+          "y": 0.23159729713538907
+        },
+        "mwg_rs_area": {
+          "h": 0.3828535522155042,
+          "w": 0.3324252665042877,
+          "x": 0.41150954365730286,
+          "y": 0.4230240732431412
+        },
+        "name": "Maria",
+        "pitch": 0,
+        "quality": 0.640625,
+        "roll": 0.0,
+        "size": 0.3324252665042877,
+        "smile_type": 2,
+        "source_height": 1325,
+        "source_width": 1526,
+        "uuid": "A3D264CB-2AA6-41A2-A557-3B20DE41A351",
+        "yaw": 0
+      }
+    ],
     "favorite": true,
     "filename": "E9BC5C36-7CD1-40A1-A72B-8B8FAC227D51.jpeg",
     "fingerprint": "ASs96bJvsunOg9Vxo5hK7VU3HegE",
@@ -2599,6 +2970,7 @@
     ],
     "longitude": null,
     "orientation": 0,
+    "original_adjustments": {},
     "original_filename": "wedding.jpg",
     "original_filesize": 460483,
     "original_height": 1367,
@@ -2606,6 +2978,7 @@
     "original_width": 2048,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [
       {
         "displayname": "Maria",
@@ -2625,6 +2998,7 @@
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -2787,6 +3161,7 @@
   },
   {
     "adjustment_type": 1,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -2831,6 +3206,7 @@
       "white_balance": 0
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "6191423D-8DB8-4D4C-92BE-9BBBA308AAC4.jpeg",
     "fingerprint": "AUgz5viPNaPHi9NPSlthfeUdQUbu",
@@ -2892,6 +3268,7 @@
     ],
     "longitude": null,
     "orientation": 0,
+    "original_adjustments": {},
     "original_filename": "Tulips.jpg",
     "original_filesize": 512561,
     "original_height": 1365,
@@ -2899,11 +3276,13 @@
     "original_width": 2047,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -3072,6 +3451,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2020-05-02T14:25:15.014280+00:00",
@@ -3154,6 +3534,7 @@
       "white_balance": 0
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "D05A5FE3-15FB-49A1-A15D-AB3DA6F8B068.dng",
     "fingerprint": "AR+/+jZz0TvuBm+zF1BqtIneTrsZ",
@@ -3202,6 +3583,7 @@
     ],
     "longitude": null,
     "orientation": 8,
+    "original_adjustments": {},
     "original_filename": "DSC03584.dng",
     "original_filesize": 21473824,
     "original_height": 4000,
@@ -3209,11 +3591,13 @@
     "original_width": 6000,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -3368,6 +3752,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2020-05-02T14:25:15.014280+00:00",
@@ -3450,6 +3835,7 @@
       "white_balance": 0
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "A92D9C26-3A50-4197-9388-CB5F7DB9FA91.jpeg",
     "fingerprint": "AT6Ji2L3VO4MblxwJL/B7PjzfzGv",
@@ -3508,6 +3894,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_1994.JPG",
     "original_filesize": 2901554,
     "original_height": 3312,
@@ -3515,11 +3902,13 @@
     "original_width": 4416,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -3680,6 +4069,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2020-05-02T14:25:15.014280+00:00",
@@ -3762,6 +4152,7 @@
       "white_balance": 0
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "4D521201-92AC-43E5-8F7C-59BC41C37A96.jpeg",
     "fingerprint": "AdLY396dV18Hg6gS5YMwXpOdemH7",
@@ -3812,6 +4203,7 @@
     ],
     "longitude": null,
     "orientation": 6,
+    "original_adjustments": {},
     "original_filename": "IMG_1997.JPG",
     "original_filesize": 2991408,
     "original_height": 3312,
@@ -3819,11 +4211,13 @@
     "original_width": 4416,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": true,
     "saved_to_library": false,
     "score": {
@@ -3984,6 +4378,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2020-05-02T14:25:15.014280+00:00",
@@ -4066,6 +4461,7 @@
       "white_balance": 0
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "IMG_2000.JPG",
     "fingerprint": "AZVxdRDZsxYTjNjMmxh82cHk3MB/",
@@ -4116,6 +4512,7 @@
     ],
     "longitude": null,
     "orientation": 6,
+    "original_adjustments": {},
     "original_filename": "IMG_2000.JPG",
     "original_filesize": 3869191,
     "original_height": 3312,
@@ -4123,11 +4520,13 @@
     "original_width": 4416,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -4280,6 +4679,7 @@
   },
   {
     "adjustment_type": 1,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -4324,6 +4724,7 @@
       "white_balance": 0
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "7783E8E6-9CAC-40F3-BE22-81FB7051C266.heic",
     "fingerprint": "AbQ65MLrRyNJwYcHGqMr6cycEWug",
@@ -4388,6 +4789,7 @@
     ],
     "longitude": null,
     "orientation": 0,
+    "original_adjustments": {},
     "original_filename": "IMG_3092.heic",
     "original_filesize": 1877314,
     "original_height": 4032,
@@ -4395,11 +4797,13 @@
     "original_width": 3024,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {

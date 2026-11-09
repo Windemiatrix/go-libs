@@ -1,6 +1,7 @@
 [
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -45,6 +46,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "2CB65649-5F43-41C5-BDBE-6DC99CDDBF68.jpeg",
     "fingerprint": "AS6VXqb5HPm7gzpkj3ca+A22RZwQ",
@@ -79,6 +81,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0893.JPG",
     "original_filesize": 3481977,
     "original_height": 3024,
@@ -86,11 +89,13 @@
     "original_width": 4032,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -237,6 +242,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2024-12-19T21:02:31+00:00",
@@ -319,6 +325,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "1F797EB9-F7CE-431C-B3C1-98A5AE7A7723.heic",
     "fingerprint": "AQCZ05K36764UKWIU/vYxqQ2QUf1",
@@ -357,6 +364,7 @@
     ],
     "longitude": 90.346093,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0119.HEIC",
     "original_filesize": 1294459,
     "original_height": 6048,
@@ -364,11 +372,13 @@
     "original_width": 8064,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -515,6 +525,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2023-02-07T20:33:13.971000+00:00",
@@ -597,6 +608,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "89668F84-229C-4D85-BD02-8DB4DD4EB824.heic",
     "fingerprint": "ASYa4FZ09VjFcM7jw8kdaxunrOFT",
@@ -635,6 +647,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0155.HEIC",
     "original_filesize": 3795641,
     "original_height": 4284,
@@ -642,11 +655,13 @@
     "original_width": 5712,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -793,6 +808,7 @@
   },
   {
     "adjustment_type": 1,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2024-12-19T21:02:31+00:00",
@@ -875,6 +891,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "ABAA0A96-A831-4A58-9F28-B21C5DC294DD.jpeg",
     "fingerprint": "AVw9f0C/K9L84GlgAvAgG8ZRn3yH",
@@ -913,6 +930,7 @@
     ],
     "longitude": null,
     "orientation": 0,
+    "original_adjustments": {},
     "original_filename": "IMG_0503.JPG",
     "original_filesize": 5476037,
     "original_height": 4284,
@@ -920,11 +938,13 @@
     "original_width": 5712,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -1071,6 +1091,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -1115,6 +1136,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "92201025-6ABB-4015-B8D8-15EBF60E3839.heic",
     "fingerprint": "ARygiK9EpLzw7jfsIaEbN4rF5jRK",
@@ -1149,6 +1171,7 @@
     ],
     "longitude": 48.418845000000005,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0972.HEIC",
     "original_filesize": 2941036,
     "original_height": 6048,
@@ -1156,11 +1179,13 @@
     "original_width": 8064,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -1307,6 +1332,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2023-09-19T09:39:28.785000+00:00",
@@ -1389,6 +1415,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "5DA50FD8-24CD-4BFE-9FFB-32BF8606C67C.heic",
     "fingerprint": "AbZODtWdmKfaM4s3zf6A+RmEk+jz",
@@ -1427,6 +1454,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0682.HEIC",
     "original_filesize": 1132341,
     "original_height": 4284,
@@ -1434,11 +1462,13 @@
     "original_width": 5712,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -1585,6 +1615,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -1629,6 +1660,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "874C9FB9-FF3C-4B66-B930-2DDF24C3FC20.heic",
     "fingerprint": "AcHT/b61Zra3ZGfGWCJ/Q/jZ2rb5",
@@ -1663,6 +1695,7 @@
     ],
     "longitude": 154.607983,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0917.HEIC",
     "original_filesize": 1767769,
     "original_height": 3024,
@@ -1670,11 +1703,13 @@
     "original_width": 4032,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -1821,6 +1856,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2024-11-15T18:29:57.611000+00:00",
@@ -1903,6 +1939,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "D75A7EA6-380B-4A98-967D-444C087059BB.dng",
     "fingerprint": "AYXYXl4W0H+55AmKFaYnUWk03Nxt",
@@ -1941,6 +1978,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0371.DNG",
     "original_filesize": 33603911,
     "original_height": 3024,
@@ -1948,11 +1986,13 @@
     "original_width": 4032,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -2099,6 +2139,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2025-06-22T11:02:38+00:00",
@@ -2181,6 +2222,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "5EF670D8-E196-4A1F-977C-D3319C1DB769.jpeg",
     "fingerprint": "AcIn7rRYScD+ZxDGwI3xqS1/JrYO",
@@ -2219,6 +2261,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0488.JPG",
     "original_filesize": 4778896,
     "original_height": 3024,
@@ -2226,11 +2269,13 @@
     "original_width": 4032,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -2377,6 +2422,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2021-09-11T23:15:26+00:00",
@@ -2459,6 +2505,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "D60EA1FA-D910-4F49-A80E-FE64C8568E19.mov",
     "fingerprint": "AQh5+FJfMfCqWE1pAvTc81M3Go+Z",
@@ -2497,6 +2544,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0814.MOV",
     "original_filesize": 34785468,
     "original_height": 1080,
@@ -2504,11 +2552,13 @@
     "original_width": 1920,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -2655,6 +2705,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -2699,6 +2750,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "46607BEC-796B-4967-AFBF-8F749B4E7C00.jpeg",
     "fingerprint": "ARNjoY8bJ7JI8dTuZ3r6IGFTNR0J",
@@ -2733,6 +2785,7 @@
     ],
     "longitude": 123.04688900000002,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0239.JPG",
     "original_filesize": 2512267,
     "original_height": 6048,
@@ -2740,11 +2793,13 @@
     "original_width": 8064,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -2891,6 +2946,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -2935,6 +2991,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "B086A203-A303-4A59-A09C-D99DAC06099E.heic",
     "fingerprint": "AdOSN7oTNKMtlYfyA495V0ZCixb9",
@@ -2969,6 +3026,7 @@
     ],
     "longitude": -172.931931,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0703.HEIC",
     "original_filesize": 1723523,
     "original_height": 6048,
@@ -2976,11 +3034,13 @@
     "original_width": 8064,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -3127,6 +3187,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2026-03-31T14:57:38+00:00",
@@ -3209,6 +3270,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "EF9B45DD-6EB0-40FD-8311-3F80132CF38A.jpeg",
     "fingerprint": "AUrw2orW4WgG/vIeRt4z/WYm7Ddd",
@@ -3247,6 +3309,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0146.JPG",
     "original_filesize": 5326269,
     "original_height": 4284,
@@ -3254,11 +3317,13 @@
     "original_width": 5712,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -3405,6 +3470,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -3449,6 +3515,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "425714BE-E260-407E-8792-0A4C57D80936.heic",
     "fingerprint": "AcLi3CfA2Rx0GrRvO8n2m6aYggX/",
@@ -3483,6 +3550,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0717.HEIC",
     "original_filesize": 3650995,
     "original_height": 4284,
@@ -3490,11 +3558,13 @@
     "original_width": 5712,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -3641,6 +3711,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2025-06-22T11:02:38+00:00",
@@ -3723,6 +3794,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "FD215E32-B1BB-4312-AD31-704B8B83524D.jpeg",
     "fingerprint": "ATGSujimvMK3YUgwgNbpjtsPZwaw",
@@ -3761,6 +3833,7 @@
     ],
     "longitude": 94.76030600000001,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0482.JPG",
     "original_filesize": 2177949,
     "original_height": 6048,
@@ -3768,11 +3841,13 @@
     "original_width": 8064,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -3919,6 +3994,7 @@
   },
   {
     "adjustment_type": 2,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2023-05-05T16:39:00+00:00",
@@ -4001,6 +4077,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "1E62E341-7219-48F3-9E4A-583AC4181653.jpeg",
     "fingerprint": "AUo1h9T2LdthOZ0OGEQGjtVswQbt",
@@ -4039,6 +4116,7 @@
     ],
     "longitude": null,
     "orientation": 0,
+    "original_adjustments": {},
     "original_filename": "IMG_0271.JPG",
     "original_filesize": 4322293,
     "original_height": 4284,
@@ -4046,11 +4124,13 @@
     "original_width": 5712,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -4197,6 +4277,7 @@
   },
   {
     "adjustment_type": 2,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -4241,6 +4322,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "62B61D94-57D9-40F3-8CC5-E3B9B992ED57.dng",
     "fingerprint": "ARXzMrB5k9Dkc7rMpELqlE8QsWON",
@@ -4275,6 +4357,7 @@
     ],
     "longitude": null,
     "orientation": 0,
+    "original_adjustments": {},
     "original_filename": "IMG_0678.DNG",
     "original_filesize": 36180298,
     "original_height": 6048,
@@ -4282,11 +4365,13 @@
     "original_width": 8064,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -4433,6 +4518,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -4477,6 +4563,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "99704C73-82BF-4B7A-BF76-D36C8E23AC90.jpeg",
     "fingerprint": "AdtOKkZwPSNoDVVbYruLZjrDrbOh",
@@ -4511,6 +4598,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0515.JPG",
     "original_filesize": 5133188,
     "original_height": 3024,
@@ -4518,11 +4606,13 @@
     "original_width": 4032,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -4669,6 +4759,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -4713,6 +4804,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "0BDF442C-A149-4DD3-B9D8-0E1BE1B980DD.mp4",
     "fingerprint": "ARuao4iVkCBBmuKBpqz7K2K2kBTl",
@@ -4747,6 +4839,7 @@
     ],
     "longitude": -126.362008,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0520.MP4",
     "original_filesize": 1518008,
     "original_height": 1080,
@@ -4754,6 +4847,7 @@
     "original_width": 1920,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
@@ -4772,6 +4866,7 @@
         "uuid": "03B11B6C-AF1C-46C5-906D-F8E94AF5092D"
       }
     ],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -4918,6 +5013,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [
       {
         "creation_date": "2020-08-21T19:45:39+00:00",
@@ -4992,6 +5088,7 @@
       "white_balance": null
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "2E0F37BE-4C70-4D5C-BE8C-700CA79FEC89.jpeg",
     "fingerprint": "AW0i6+lfqHG/T5OtnsyH7m8+Cmby",
@@ -5028,6 +5125,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "IMG_0417.JPG",
     "original_filesize": 1499179,
     "original_height": 6048,
@@ -5035,11 +5133,13 @@
     "original_width": 8064,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
