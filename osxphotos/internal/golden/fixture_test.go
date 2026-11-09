@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -48,6 +49,16 @@ const (
 )
 
 func ptr[T any](v T) *T { return &v }
+
+// A photo without a row: every score 0.0, not None (photoinfo.py:1507-1537).
+func noScoreRow() scoreinfo.ScoreInfo {
+	var s scoreinfo.ScoreInfo
+	fields := reflect.ValueOf(&s).Elem()
+	for i := range fields.NumField() {
+		fields.Field(i).Set(reflect.ValueOf(new(float64)))
+	}
+	return s
+}
 
 func utc(y int, mo time.Month, d, h, mi, s, ns int) time.Time {
 	return time.Date(y, mo, d, h, mi, s, ns, time.UTC)
@@ -241,14 +252,14 @@ func fixtureLib() goLib {
 					CameraMake: "Acme", CameraModel: "Acme One", Codec: "hvc1", LensModel: "Acme One 4mm",
 					Date: ptr(utc(2020, 6, 6, 10, 0, 0, 0).In(ist)), TZOffset: ptr(19800), TZName: "Asia/Kolkata",
 				},
-				// Behavioral and Interaction are null in refScore: 0 from Photos 11 on.
+				// Behavioral and Interaction are null in refScore, as from Photos 11 on.
 				Score: scoreinfo.ScoreInfo{
-					Overall: 0.01, Curation: 0.02, Promotion: 0.03, HighlightVisibility: 0.04, Failure: 0.06,
-					HarmoniousColor: 0.07, Immersiveness: 0.08, InterestingSubject: 0.1, IntrusiveObjectPresence: 0.11,
-					LivelyColor: 0.12, LowLight: 0.13, Noise: 0.14, PleasantCameraTilt: 0.15, PleasantComposition: 0.16,
-					PleasantLighting: 0.17, PleasantPattern: 0.18, PleasantPerspective: 0.19, PleasantPostProcessing: 0.2,
-					PleasantReflection: 0.21, PleasantSymmetry: 0.22, SharplyFocusedSubject: 0.23, TastefullyBlurred: 0.24,
-					WellChosenSubject: 0.25, WellFramedSubject: 0.26, WellTimedShot: 0.27,
+					Overall: ptr(0.01), Curation: ptr(0.02), Promotion: ptr(0.03), HighlightVisibility: ptr(0.04), Failure: ptr(0.06),
+					HarmoniousColor: ptr(0.07), Immersiveness: ptr(0.08), InterestingSubject: ptr(0.1), IntrusiveObjectPresence: ptr(0.11),
+					LivelyColor: ptr(0.12), LowLight: ptr(0.13), Noise: ptr(0.14), PleasantCameraTilt: ptr(0.15), PleasantComposition: ptr(0.16),
+					PleasantLighting: ptr(0.17), PleasantPattern: ptr(0.18), PleasantPerspective: ptr(0.19), PleasantPostProcessing: ptr(0.2),
+					PleasantReflection: ptr(0.21), PleasantSymmetry: ptr(0.22), SharplyFocusedSubject: ptr(0.23), TastefullyBlurred: ptr(0.24),
+					WellChosenSubject: ptr(0.25), WellFramedSubject: ptr(0.26), WellTimedShot: ptr(0.27),
 				},
 				Place: &placeinfo.PlaceInfo{
 					Name: "Example Park, Townsville, Exampleland",
@@ -264,6 +275,7 @@ func fixtureLib() goLib {
 			{
 				UUID: emptyPhoto, Filename: "IMG_0003.JPG", OriginalFilename: "IMG_0003.JPG",
 				Date: time.Unix(0, 0).UTC(), DateOriginal: time.Unix(0, 0).UTC(), UTI: "public.jpeg", UTIOriginal: "public.jpeg", IsPhoto: true,
+				Score: noScoreRow(),
 			},
 		},
 		Albums: []*albuminfo.AlbumInfo{

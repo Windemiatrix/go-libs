@@ -1,19 +1,28 @@
 package scoreinfo
 
-// AsDict is asdict of ScoreInfo (scoreinfo.py:42-44): each score a float64, 0
-// where upstream has None, a NULL column, and for behavioral and interaction
-// from Photos 11 on (_photosdb_process_scoreinfo.py:62-76). The map is new on
-// every call.
+// AsDict is asdict of ScoreInfo (scoreinfo.py:42-44): each score a float64,
+// nil for a nil score, as None upstream. The map is new on every call.
 func (s ScoreInfo) AsDict() map[string]any {
 	return map[string]any{
-		"overall": s.Overall, "curation": s.Curation, "promotion": s.Promotion, "highlight_visibility": s.HighlightVisibility,
-		"behavioral": s.Behavioral, "failure": s.Failure, "harmonious_color": s.HarmoniousColor, "immersiveness": s.Immersiveness,
-		"interaction": s.Interaction, "interesting_subject": s.InterestingSubject, "intrusive_object_presence": s.IntrusiveObjectPresence,
-		"lively_color": s.LivelyColor, "low_light": s.LowLight, "noise": s.Noise, "pleasant_camera_tilt": s.PleasantCameraTilt,
-		"pleasant_composition": s.PleasantComposition, "pleasant_lighting": s.PleasantLighting, "pleasant_pattern": s.PleasantPattern,
-		"pleasant_perspective": s.PleasantPerspective, "pleasant_post_processing": s.PleasantPostProcessing,
-		"pleasant_reflection": s.PleasantReflection, "pleasant_symmetry": s.PleasantSymmetry,
-		"sharply_focused_subject": s.SharplyFocusedSubject, "tastefully_blurred": s.TastefullyBlurred,
-		"well_chosen_subject": s.WellChosenSubject, "well_framed_subject": s.WellFramedSubject, "well_timed_shot": s.WellTimedShot,
+		"overall": orNil(s.Overall), "curation": orNil(s.Curation), "promotion": orNil(s.Promotion),
+		"highlight_visibility": orNil(s.HighlightVisibility), "behavioral": orNil(s.Behavioral), "failure": orNil(s.Failure),
+		"harmonious_color": orNil(s.HarmoniousColor), "immersiveness": orNil(s.Immersiveness), "interaction": orNil(s.Interaction),
+		"interesting_subject": orNil(s.InterestingSubject), "intrusive_object_presence": orNil(s.IntrusiveObjectPresence),
+		"lively_color": orNil(s.LivelyColor), "low_light": orNil(s.LowLight), "noise": orNil(s.Noise),
+		"pleasant_camera_tilt": orNil(s.PleasantCameraTilt), "pleasant_composition": orNil(s.PleasantComposition),
+		"pleasant_lighting": orNil(s.PleasantLighting), "pleasant_pattern": orNil(s.PleasantPattern),
+		"pleasant_perspective": orNil(s.PleasantPerspective), "pleasant_post_processing": orNil(s.PleasantPostProcessing),
+		"pleasant_reflection": orNil(s.PleasantReflection), "pleasant_symmetry": orNil(s.PleasantSymmetry),
+		"sharply_focused_subject": orNil(s.SharplyFocusedSubject), "tastefully_blurred": orNil(s.TastefullyBlurred),
+		"well_chosen_subject": orNil(s.WellChosenSubject), "well_framed_subject": orNil(s.WellFramedSubject),
+		"well_timed_shot": orNil(s.WellTimedShot),
 	}
+}
+
+// A nil pointer in an any is not nil, which None is.
+func orNil(p *float64) any {
+	if p == nil {
+		return nil
+	}
+	return *p
 }

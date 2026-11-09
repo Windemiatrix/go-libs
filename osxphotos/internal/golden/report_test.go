@@ -190,7 +190,7 @@ func BenchmarkCompare20k(b *testing.B) {
 		burst := fmt.Sprintf("BURST-%d", i/perBurst)
 		p := &photoinfo.PhotoInfo{
 			UUID: id, Filename: "IMG_0003.JPG", OriginalFilename: "IMG_0003.JPG", Date: time.Unix(0, 0).UTC(), DateOriginal: time.Unix(0, 0).UTC(),
-			UTI: "public.jpeg", UTIOriginal: "public.jpeg",
+			UTI: "public.jpeg", UTIOriginal: "public.jpeg", Score: noScoreRow(),
 			IsPhoto: true, Burst: true, BurstUUID: burst,
 			AlbumUUIDs: []string{lib.Albums[i%30].UUID, lib.Albums[(i+1)%30].UUID, lib.Albums[(i+2)%30].UUID},
 		}

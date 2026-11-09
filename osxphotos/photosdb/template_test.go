@@ -524,12 +524,12 @@ func tmplNestedPhoto() *photoinfo.PhotoInfo {
 	return &photoinfo.PhotoInfo{
 		UUID: "N-1",
 		Score: scoreinfo.ScoreInfo{
-			Overall: 0.51, Curation: 0.02, Promotion: 0.03, HighlightVisibility: 0.04, Behavioral: 0.05, Failure: -0.06,
-			HarmoniousColor: 0.07, Immersiveness: 0.08, Interaction: 0.09, InterestingSubject: 0.1, IntrusiveObjectPresence: 0.11,
-			LivelyColor: 0.12, LowLight: 0.13, Noise: 0.14, PleasantCameraTilt: 0.15, PleasantComposition: 0.16,
-			PleasantLighting: 0.17, PleasantPattern: 0.18, PleasantPerspective: 0.19, PleasantPostProcessing: 0.2,
-			PleasantReflection: 0.21, PleasantSymmetry: 0.22, SharplyFocusedSubject: 0.23, TastefullyBlurred: 0.24,
-			WellChosenSubject: 0.25, WellFramedSubject: 0.26, WellTimedShot: 0.27,
+			Overall: ptr(0.51), Curation: ptr(0.02), Promotion: ptr(0.03), HighlightVisibility: ptr(0.04), Behavioral: ptr(0.05), Failure: ptr(-0.06),
+			HarmoniousColor: ptr(0.07), Immersiveness: ptr(0.08), Interaction: ptr(0.09), InterestingSubject: ptr(0.1), IntrusiveObjectPresence: ptr(0.11),
+			LivelyColor: ptr(0.12), LowLight: ptr(0.13), Noise: ptr(0.14), PleasantCameraTilt: ptr(0.15), PleasantComposition: ptr(0.16),
+			PleasantLighting: ptr(0.17), PleasantPattern: ptr(0.18), PleasantPerspective: ptr(0.19), PleasantPostProcessing: ptr(0.2),
+			PleasantReflection: ptr(0.21), PleasantSymmetry: ptr(0.22), SharplyFocusedSubject: ptr(0.23), TastefullyBlurred: ptr(0.24),
+			WellChosenSubject: ptr(0.25), WellFramedSubject: ptr(0.26), WellTimedShot: ptr(0.27),
 		},
 		ExifInfo: exifinfo.ExifInfo{
 			FlashFired: &fired, ISO: &iso, MeteringMode: &metering, SampleRate: &rate, TrackFormat: &track, WhiteBalance: &balance,
@@ -548,6 +548,7 @@ func TestRenderTemplateNested(t *testing.T) {
 	no := false
 	p, bare := tmplNestedPhoto(), &photoinfo.PhotoInfo{UUID: "N-0"}
 	unfired := &photoinfo.PhotoInfo{UUID: "N-2", ExifInfo: exifinfo.ExifInfo{FlashFired: &no}, Place: &placeinfo.PlaceInfo{Name: "Somewhere"}}
+	noRow := &photoinfo.PhotoInfo{UUID: "N-3", Score: noScoreRow()}
 	o := template.RenderOptions{}
 	for _, tt := range []struct {
 		p        *photoinfo.PhotoInfo
@@ -565,7 +566,7 @@ func TestRenderTemplateNested(t *testing.T) {
 		{p, "{photo.score.sharply_focused_subject}", "0.23"}, {p, "{photo.score.tastefully_blurred}", "0.24"},
 		{p, "{photo.score.well_chosen_subject}", "0.25"}, {p, "{photo.score.well_framed_subject}", "0.26"},
 		{p, "{photo.score.well_timed_shot}", "0.27"},
-		{bare, "{photo.score.overall}", "0.0"},
+		{noRow, "{photo.score.overall}", "0.0"}, {noRow, "{photo.score.behavioral}", "0.0"},
 		{p, "{photo.score.overall > 0.5?Y,N}", "Y"},
 		{p, "{photo.exif_info.flash_fired}", "flash_fired"}, {unfired, "{photo.exif_info.flash_fired}", "_"},
 		{p, "{photo.exif_info.iso}", "100"}, {p, "{photo.exif_info.metering_mode}", "5"}, {p, "{photo.exif_info.sample_rate}", "44100"},
@@ -585,12 +586,14 @@ func TestRenderTemplateNested(t *testing.T) {
 			t.Errorf("RenderTemplate(%q) of %s = %q, %v; want %q", tt.in, tt.p.UUID, got, err, tt.want)
 		}
 	}
-	// Without an EXIF row every value is None (exifinfo.py:42-45); without a place the chain stops at None (phototemplate.py:1358-1359).
-	for _, in := range []string{"{photo.exif_info.flash_fired}", "{photo.exif_info.iso}", "{photo.exif_info.aperture}", "{photo.exif_info.camera_make}",
+	// Without an EXIF row every value is None (exifinfo.py:42-45), as is a NULL score (photoinfo.py:1477-1505); without a place
+	// the chain stops at None (phototemplate.py:1358-1359).
+	for _, in := range []string{"{photo.score.overall}", "{photo.score.behavioral}", "{photo.score.well_timed_shot}",
+		"{photo.exif_info.flash_fired}", "{photo.exif_info.iso}", "{photo.exif_info.aperture}", "{photo.exif_info.camera_make}",
 		"{photo.exif_info.date}", "{photo.exif_info.tzoffset}", "{photo.exif_info.tzname}",
 		"{photo.place.name}", "{photo.place.country_code}", "{photo.place.address_str}", "{photo.place.ishome}"} {
 		if got, err := tmplRender(t, db, bare, in, o); err != nil || !slices.Equal(got, []string{"_"}) {
-			t.Errorf("RenderTemplate(%q) of a photo without EXIF data and place = %q, %v; want _", in, got, err)
+			t.Errorf("RenderTemplate(%q) of a photo without EXIF data, scores and place = %q, %v; want _", in, got, err)
 		}
 	}
 	for _, in := range []string{"{photo.place.names}", "{photo.place.address}", "{photo.place.name.city}", "{photo.place.names.city}",
@@ -607,6 +610,12 @@ func TestRenderTemplateNested(t *testing.T) {
 			if got, err := tmplRender(t, db, q, in, o); !errors.Is(err, template.ErrUnsupportedField) {
 				t.Errorf("RenderTemplate(%q) of %s = %q, %v; want ErrUnsupportedField", in, q.UUID, got, err)
 			}
+		}
+	}
+	// known gap: upstream gives no value (phototemplate.py:1358-1359)
+	for _, in := range []string{"{photo.score.overall.x}", "{photo.exif_info.iso.x}"} {
+		if got, err := tmplRender(t, db, bare, in, o); !errors.Is(err, template.ErrUnsupportedField) {
+			t.Errorf("RenderTemplate(%q) of a photo without scores and EXIF data = %q, %v; want ErrUnsupportedField", in, got, err)
 		}
 	}
 }

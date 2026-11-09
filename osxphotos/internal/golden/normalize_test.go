@@ -108,19 +108,21 @@ func TestPlaceKeysFollowFields(t *testing.T) {
 }
 
 // The keys are sorted, as the encoder of canonical writes them. wantScore is
-// refScore: null is 0.
+// refScore, nullScore every score null.
 const (
 	zeroScore = `{"behavioral":0,"curation":0,"failure":0,"harmonious_color":0,"highlight_visibility":0,"immersiveness":0,"interaction":0,` +
 		`"interesting_subject":0,"intrusive_object_presence":0,"lively_color":0,"low_light":0,"noise":0,"overall":0,"pleasant_camera_tilt":0,` +
 		`"pleasant_composition":0,"pleasant_lighting":0,"pleasant_pattern":0,"pleasant_perspective":0,"pleasant_post_processing":0,` +
 		`"pleasant_reflection":0,"pleasant_symmetry":0,"promotion":0,"sharply_focused_subject":0,"tastefully_blurred":0,` +
 		`"well_chosen_subject":0,"well_framed_subject":0,"well_timed_shot":0}`
-	wantScore = `{"behavioral":0,"curation":0.02,"failure":0.06,"harmonious_color":0.07,"highlight_visibility":0.04,"immersiveness":0.08,"interaction":0,` +
+	wantScore = `{"behavioral":null,"curation":0.02,"failure":0.06,"harmonious_color":0.07,"highlight_visibility":0.04,"immersiveness":0.08,"interaction":null,` +
 		`"interesting_subject":0.1,"intrusive_object_presence":0.11,"lively_color":0.12,"low_light":0.13,"noise":0.14,"overall":0.01,` +
 		`"pleasant_camera_tilt":0.15,"pleasant_composition":0.16,"pleasant_lighting":0.17,"pleasant_pattern":0.18,"pleasant_perspective":0.19,` +
 		`"pleasant_post_processing":0.2,"pleasant_reflection":0.21,"pleasant_symmetry":0.22,"promotion":0.03,"sharply_focused_subject":0.23,` +
 		`"tastefully_blurred":0.24,"well_chosen_subject":0.25,"well_framed_subject":0.26,"well_timed_shot":0.27}`
 )
+
+var nullScore = strings.NewReplacer(`:0,`, `:null,`, `:0}`, `:null}`).Replace(zeroScore)
 
 func scoreWith(old, value string) string { return strings.Replace(refScore, old, value, 1) }
 
@@ -407,9 +409,9 @@ func TestNormalize(t *testing.T) {
 		{name: "exif_info date that is not a date", key: "exif_info", raw: strings.Replace(refExif, `"2020-06-06T15:30:00+05:30"`, `"SECRET-DATE"`, 1), wantErr: "exif_info.date: want an ISO 8601 string"},
 		{name: "exif_info date as a number", key: "exif_info", raw: strings.Replace(refExif, `"2020-06-06T15:30:00+05:30"`, `5`, 1), wantErr: "exif_info.date: want an ISO 8601 string or null"},
 
-		{name: "score, null behavioral and interaction are 0", key: "score", raw: refScore, want: wantScore},
+		{name: "score, null behavioral and interaction stay null", key: "score", raw: refScore, want: wantScore},
 		{name: "score of a photo without a row", key: "score", raw: refScoreZero, want: zeroScore},
-		{name: "score of nulls", key: "score", raw: strings.NewReplacer(`0.0`, `null`).Replace(refScoreZero), want: zeroScore},
+		{name: "score of nulls", key: "score", raw: strings.NewReplacer(`0.0`, `null`).Replace(refScoreZero), want: nullScore},
 		{name: "score with an integer", key: "score", raw: scoreWith(`"overall": 0.01`, `"overall": 1`), want: strings.Replace(wantScore, `"overall":0.01`, `"overall":1`, 1)},
 		{name: "score with an extra key", key: "score", raw: scoreWith(`"overall": 0.01`, `"overall": 0.01, "extra": "SECRET-X"`), want: wantScore},
 		{name: "score null", key: "score", raw: `null`, wantErr: "score: want an object"},
@@ -577,7 +579,7 @@ func TestNormalizeGoSide(t *testing.T) {
 			{"imported_by", []any{"z", nil}, `["","z"]`},
 			{"burst_photos", []string{"b", "a"}, `["a","b"]`},
 			{"exif_info", exifinfo.ExifInfo{}.AsDict(), zeroExif},
-			{"score", scoreinfo.ScoreInfo{}.AsDict(), zeroScore},
+			{"score", scoreinfo.ScoreInfo{}.AsDict(), nullScore},
 			{"place", map[string]any{}, `{}`},
 			{"place", placeinfo.PlaceInfo{}.AsDict(), strings.NewReplacer(wantPlaceAddress, `{"city":"","country":"","iso_country_code":"",`+
 				`"postal_code":"","state_province":"","street":"","sub_administrative_area":"","sub_locality":""}`,

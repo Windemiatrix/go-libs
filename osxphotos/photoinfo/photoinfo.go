@@ -42,7 +42,7 @@ type PhotoInfo struct {
 
 	Place *placeinfo.PlaceInfo // the reverse geolocation Photos stored (photoinfo.py:1327-1361); nil without one, and for an archive that does not decode, where osxphotos logs a warning and gives None
 
-	Score scoreinfo.ScoreInfo // the computed scores Photos stored (photoinfo.py:1461-1537); zero without a ZCOMPUTEDASSETATTRIBUTES row, as upstream
+	Score scoreinfo.ScoreInfo // the computed scores Photos stored (photoinfo.py:1461-1537); every score 0.0, not nil, without a ZCOMPUTEDASSETATTRIBUTES row, as upstream
 
 	Width, Height, Orientation                         int
 	OriginalWidth, OriginalHeight, OriginalOrientation int
