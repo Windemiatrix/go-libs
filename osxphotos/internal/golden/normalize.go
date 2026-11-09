@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"time"
+
+	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 )
 
 // A shapeError names the key and the form, never the value: the reference may
@@ -117,20 +120,104 @@ func refTime(o Object, key string, nullOK bool) (*time.Time, error) {
 	return parseRef(s, key)
 }
 
-func goMoment(t *time.Time, missingDefault time.Time) any {
-	switch {
-	case t != nil:
-		return momentString(*t)
-	case !missingDefault.IsZero():
-		return momentString(missingDefault)
-	default:
+func momentOrNil(t *time.Time) any {
+	if t == nil {
 		return nil
 	}
+	return momentString(*t)
 }
 
 // The copy is never nil: it is written as [], not null.
 func strs(s []string) []string {
 	out := make([]string, len(s))
 	copy(out, s)
+	return out
+}
+
+// The sort order of an album and bytes are null, as the default of json()
+// writes what json has no form for (photoinfo.py:2269-2271); a date is a
+// moment by rule 2. The result is a copy: Compare leaves its input as it is.
+func pyValue(v any) any {
+	switch x := v.(type) {
+	case time.Time:
+		return momentString(x)
+	case albuminfo.AlbumSortOrder, []byte:
+		return nil
+	case []string:
+		return strs(x)
+	case []any:
+		out := make([]any, len(x))
+		for i, e := range x {
+			out[i] = pyValue(e)
+		}
+		return out
+	case map[string]any:
+		out := make(map[string]any, len(x))
+		for k, e := range x {
+			out[k] = pyValue(e)
+		}
+		return out
+	}
+	return v
+}
+
+// The reference reads null as "" for these strings (rule 3), where DB.AsDict
+// gives nil for a string the port holds as "", as None upstream.
+func emptyIfNull(v any) any {
+	if v == nil {
+		return ""
+	}
+	return pyValue(v)
+}
+
+// emptyFor is emptyIfNull for keys of an object that pyValue has copied. An
+// empty object stays {}: upstream writes it for a missing place or session. A
+// missing key stays missing, so that it is a difference, not "".
+func emptyFor(v any, keys ...string) any {
+	m, ok := v.(map[string]any)
+	if !ok || len(m) == 0 {
+		return v
+	}
+	for _, k := range keys {
+		if e, ok := m[k]; ok && e == nil {
+			m[k] = ""
+		}
+	}
+	return m
+}
+
+func eachEmptyFor(v any, keys ...string) any {
+	list, ok := pyValue(v).([]any)
+	if !ok {
+		return pyValue(v)
+	}
+	for i, e := range list {
+		list[i] = emptyFor(e, keys...)
+	}
+	return list
+}
+
+// A list of strings of DB.AsDict holds nil for None, which the sort key of
+// json() takes as "" (photoinfo.py:2285), as does the reference side.
+func goStrings(v any, sorted bool) any {
+	var out []string
+	switch x := v.(type) {
+	case []string:
+		out = strs(x)
+	case []any:
+		out = make([]string, len(x))
+		for i, e := range x {
+			s, ok := e.(string)
+			if !ok && e != nil {
+				return pyValue(v)
+			}
+			out[i] = s
+		}
+	default:
+		return pyValue(v)
+	}
+	if sorted {
+		slices.Sort(out)
+	}
 	return out
 }

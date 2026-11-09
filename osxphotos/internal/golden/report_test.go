@@ -39,7 +39,7 @@ func TestSummaryKeepsValuesOut(t *testing.T) {
 			t.Errorf("Summary has %q:\n%s", leak, sum)
 		}
 	}
-	want := "library lib: 2 objects, 87 keys compared\n" +
+	want := "library lib: 2 objects, 92 keys compared\n" +
 		"differences: 3 unexplained, 1 explained; stale divergences: 1\n" +
 		"  description: 0 unexplained, 1 explained\n" +
 		"  title: 1 unexplained, 0 explained\n" +
@@ -140,7 +140,7 @@ func TestReportOK(t *testing.T) {
 		t.Error("a report with a difference or a stale record is OK")
 	}
 	empty := compare(t, fixtureRef(), fixtureLib())
-	want := "library lib: 2 objects, 87 keys compared\ndifferences: 0 unexplained, 0 explained; stale divergences: 0\n"
+	want := "library lib: 2 objects, 92 keys compared\ndifferences: 0 unexplained, 0 explained; stale divergences: 0\n"
 	if got := empty.Summary(); got != want {
 		t.Errorf("Summary = %q, want %q", got, want)
 	}
@@ -180,7 +180,7 @@ func FuzzLoad(f *testing.F) {
 
 func BenchmarkCompare20k(b *testing.B) {
 	const n, perBurst = 20000, 5
-	lib := Library{BurstAlbums: map[string][]string{}}
+	lib := goLib{BurstAlbums: map[string][]string{}}
 	for i := 0; i < 30; i++ {
 		lib.Albums = append(lib.Albums, &albuminfo.AlbumInfo{UUID: fmt.Sprintf("00000000-0000-0000-0001-%012x", i+1), Title: fmt.Sprintf("Album %d", i)})
 	}
@@ -231,10 +231,10 @@ func BenchmarkCompare20k(b *testing.B) {
 		}
 	}
 	ref := &Reference{Library: "bench", Query: objs}
-	keys := everyKey()
+	keys, dicts := Keys(), lib.lib()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		rep, err := Compare(ref, lib, keys, nil)
+		rep, err := Compare(ref, dicts, keys, nil)
 		if err != nil {
 			b.Fatal(err)
 		}

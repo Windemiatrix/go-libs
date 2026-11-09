@@ -4,6 +4,7 @@
 // use it.
 //
 // The package reads files only: the reference data of testdata/golden or the
-// paths its caller names. What to compare it gets as plain values
-// (photoinfo.PhotoInfo, albuminfo.AlbumInfo), so it does not import photosdb.
+// paths its caller names. What to compare it gets as plain values (the
+// photos and their dictionaries of photosdb.DB.AsDict), so it does not import
+// photosdb.
 package golden

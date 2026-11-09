@@ -2,6 +2,7 @@
 # osxphotos/photoinfo.py:2119-2253) kept in testdata/golden. scripts/golden-build.sh
 # keeps only these top-level keys, each with its whole value.
 adjustment_type
+adjustments
 album_info
 albums
 burst
@@ -23,6 +24,7 @@ date_trashed
 description
 exif_info
 external_edit
+face_info
 favorite
 filename
 fingerprint
@@ -51,6 +53,7 @@ live_photo
 location
 longitude
 orientation
+original_adjustments
 original_filename
 original_filesize
 original_height
@@ -58,11 +61,13 @@ original_orientation
 original_width
 owner
 panorama
+path_derivatives
 person_info
 persons
 place
 portrait
 project_info
+rating
 raw_original
 saved_to_library
 score

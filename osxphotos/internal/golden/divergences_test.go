@@ -233,7 +233,7 @@ func TestDivergencesFile(t *testing.T) {
 	}
 }
 
-func titleDiffLib() Library {
+func titleDiffLib() goLib {
 	lib := fixtureLib()
 	lib.Photos[0].Title = ""
 	return lib
@@ -290,9 +290,9 @@ func TestExplain(t *testing.T) {
 			t.Parallel()
 			keys := c.keys
 			if keys == nil {
-				keys = everyKey()
+				keys = Keys()
 			}
-			rep, err := Compare(fixtureRef(), titleDiffLib(), keys, c.divs)
+			rep, err := Compare(fixtureRef(), titleDiffLib().lib(), keys, c.divs)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -304,7 +304,7 @@ func TestExplain(t *testing.T) {
 			}
 			rev := slices.Clone(c.divs)
 			slices.Reverse(rev)
-			again, err := Compare(fixtureRef(), titleDiffLib(), keys, rev)
+			again, err := Compare(fixtureRef(), titleDiffLib().lib(), keys, rev)
 			if err != nil || !reflect.DeepEqual(again, rep) {
 				t.Errorf("the report depends on the order of the records")
 			}
@@ -345,7 +345,7 @@ func TestExplain(t *testing.T) {
 		lib := fixtureLib()
 		lib.Photos[0].IsPhoto = false
 		d := Divergence{Library: "lib", UUID: selectedFrame, Field: "uuid", Want: []byte("true"), Got: []byte("false"), Reason: "r", Upstream: "a.py:1"}
-		rep, err := Compare(fixtureRef(), lib, nil, []Divergence{d})
+		rep, err := Compare(fixtureRef(), lib.lib(), nil, []Divergence{d})
 		if err != nil || !rep.OK() || rep.Explained["uuid"] != 1 {
 			t.Errorf("Compare = %+v, %v; want the difference of uuid explained", rep, err)
 		}

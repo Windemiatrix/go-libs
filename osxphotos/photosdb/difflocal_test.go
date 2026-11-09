@@ -5,7 +5,6 @@ package photosdb
 import (
 	"flag"
 	"path/filepath"
-	"slices"
 	"testing"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/golden"
@@ -35,7 +34,7 @@ func TestDiffLocal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ref, err := golden.LoadFiles("local", *diffLocalQuery, *diffLocalDeleted, slices.Concat(golden.PhotoKeys(), golden.AlbumKeys()))
+	ref, err := golden.LoadFiles("local", *diffLocalQuery, *diffLocalDeleted, golden.Keys())
 	if err != nil {
 		t.Fatal(err)
 	}

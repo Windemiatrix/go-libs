@@ -1,6 +1,7 @@
 [
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -45,6 +46,63 @@
       "white_balance": 0
     },
     "external_edit": false,
+    "face_info": [
+      {
+        "_person_pk": 19,
+        "_pk": 8,
+        "age_type": 0,
+        "asset_uuid": "6FD38366-3BF2-407D-81FE-7153EB6125B6",
+        "center": [
+          655,
+          496
+        ],
+        "center_x": 0.4293108995839787,
+        "center_y": 0.6253720238095238,
+        "eye_makeup_type": 0,
+        "eye_state": 0,
+        "face_rect": [
+          [
+            342.1310505270958,
+            183.1310505270958
+          ],
+          [
+            967.8689494729042,
+            808.8689494729042
+          ]
+        ],
+        "face_type": null,
+        "facial_hair_type": 0,
+        "gender_type": 0,
+        "glasses_type": 0,
+        "hair_color_type": 0,
+        "has_smile": 0,
+        "intrash": 0,
+        "lip_makeup_type": 0,
+        "manual": 1,
+        "mpri_reg_rect": {
+          "h": 0.41005104780197144,
+          "w": 0.47225501807230824,
+          "x": 0.224285375682993,
+          "y": 0.13850046715432204
+        },
+        "mwg_rs_area": {
+          "h": 0.47225501807230824,
+          "w": 0.41005104780197144,
+          "x": 0.4293108995839787,
+          "y": 0.37462797619047616
+        },
+        "name": "Maria",
+        "pitch": 0,
+        "quality": -1.0,
+        "roll": 0.0,
+        "size": 0.41005104780197144,
+        "smile_type": 0,
+        "source_height": 1325,
+        "source_width": 1526,
+        "uuid": "8CC3C881-28F2-4535-8289-C22084DDDDE1",
+        "yaw": 0
+      }
+    ],
     "favorite": false,
     "filename": "6FD38366-3BF2-407D-81FE-7153EB6125B6.jpeg",
     "fingerprint": "Aat1NYuhSj160/i1faP4GKpM5Igq",
@@ -87,6 +145,7 @@
     ],
     "longitude": null,
     "orientation": 1,
+    "original_adjustments": {},
     "original_filename": "wedding_edited.jpg",
     "original_filesize": 536126,
     "original_height": 1325,
@@ -94,6 +153,7 @@
     "original_width": 1526,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [
       {
         "displayname": "Maria",
@@ -113,6 +173,7 @@
     "place": {},
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {
@@ -259,6 +320,7 @@
   },
   {
     "adjustment_type": 0,
+    "adjustments": {},
     "album_info": [],
     "albums": [],
     "burst": false,
@@ -303,6 +365,7 @@
       "white_balance": 0
     },
     "external_edit": false,
+    "face_info": [],
     "favorite": false,
     "filename": "71E3E212-00EB-430D-8A63-5E294B268554.jpeg",
     "fingerprint": "AeWnctwQGgm6QYwwefJ8b0TmMn8M",
@@ -343,6 +406,7 @@
     ],
     "longitude": -77.04176383000001,
     "orientation": 6,
+    "original_adjustments": {},
     "original_filename": "IMG_1064.jpeg",
     "original_filesize": 2175827,
     "original_height": 3024,
@@ -350,6 +414,7 @@
     "original_width": 4032,
     "owner": null,
     "panorama": false,
+    "path_derivatives": [],
     "person_info": [],
     "persons": [],
     "place": {
@@ -403,6 +468,7 @@
     },
     "portrait": false,
     "project_info": [],
+    "rating": 0,
     "raw_original": false,
     "saved_to_library": false,
     "score": {

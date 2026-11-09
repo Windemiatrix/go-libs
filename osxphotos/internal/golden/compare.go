@@ -10,37 +10,15 @@ import (
 	"maps"
 	"slices"
 	"strings"
-	"time"
 
-	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
-	"github.com/Windemiatrix/go-libs/osxphotos/personinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/query"
-	"github.com/Windemiatrix/go-libs/osxphotos/searchinfo"
 )
 
-// Library is the Go side of a comparison, as plain values.
+// Library is the Go side of a comparison.
 type Library struct {
-	Photos       []*photoinfo.PhotoInfo // every photo of the database: photosdb.DB.Photos()
-	Albums       []*albuminfo.AlbumInfo // every user album, trashed ones included; may be nil without AlbumKeys
-	SharedAlbums []*albuminfo.AlbumInfo // every shared album, trashed ones included; may be nil without AlbumKeys
-
-	// BurstAlbums holds, by photo UUID, the album UUIDs of osxphotos
-	// burst_album_info (photosdb.DB.BurstAlbumInfoOf); each must be in Albums
-	// or SharedAlbums, and Compare ignores albums in the trash, as in AlbumUUIDs.
-	// A photo without an entry has none; may be nil without AlbumKeys.
-	BurstAlbums map[string][]string
-
-	Imports  []*albuminfo.ImportInfo            // every import session, trashed ones included: the sessions of PhotoInfo.ImportUUID; may be nil without AlbumKeys
-	Projects []*albuminfo.AlbumInfo             // every project, trashed ones included: the projects of PhotoInfo.ProjectUUIDs (photosdb.DB.Project); may be nil without AlbumKeys
-	Comments map[string][]photoinfo.CommentInfo // by photo UUID: photosdb.DB.Comments; a photo without an entry has none; may be nil without AlbumKeys
-	Likes    map[string][]photoinfo.LikeInfo    // by photo UUID: photosdb.DB.Likes; as Comments
-
-	Persons map[string][]personinfo.PersonInfo // by photo UUID: photosdb.DB.PersonInfoOf; as Comments
-
-	CloudMetadata map[string]map[string]any // by photo UUID: photosdb.DB.CloudMetadataOf; as Comments
-
-	SearchInfo map[string]searchinfo.SearchInfo // by photo UUID: photosdb.DB.SearchInfoOf; a photo without an entry has no terms; may be nil without AlbumKeys
+	Photos []*photoinfo.PhotoInfo    // every photo of the database: photosdb.DB.Photos()
+	Dicts  map[string]map[string]any // by photo UUID: photosdb.DB.AsDict(p, false), the values compared
 }
 
 // Diff is one difference between the reference and Go.
@@ -64,108 +42,7 @@ type Report struct {
 // OK reports no unexplained differences and no stale records.
 func (r *Report) OK() bool { return len(r.Diffs) == 0 && len(r.Stale) == 0 }
 
-type env struct {
-	albums        map[string]*albuminfo.AlbumInfo // user and shared albums
-	projects      map[string]*albuminfo.AlbumInfo
-	goAlbumElems  map[string]map[string]any // albums, shared albums and projects
-	goImportElems map[string]map[string]any
-	bursts        map[string][]string
-	burstAlbums   map[string][]string
-	comments      map[string][]photoinfo.CommentInfo
-	likes         map[string][]photoinfo.LikeInfo
-	persons       map[string][]personinfo.PersonInfo
-	cloudMeta     map[string]map[string]any
-	search        map[string]searchinfo.SearchInfo
-}
-
-var (
-	errAlbumMissing   = errors.New("an album of a photo is missing from Library.Albums and Library.SharedAlbums")
-	errImportMissing  = errors.New("an import session of a photo is missing from Library.Imports")
-	errProjectMissing = errors.New("a project of a photo is missing from Library.Projects")
-)
-
-func newEnv(lib Library) (*env, error) {
-	e := &env{
-		albums:        map[string]*albuminfo.AlbumInfo{},
-		projects:      map[string]*albuminfo.AlbumInfo{},
-		goAlbumElems:  map[string]map[string]any{},
-		goImportElems: map[string]map[string]any{},
-		bursts:        map[string][]string{},
-		burstAlbums:   lib.BurstAlbums,
-		comments:      lib.Comments,
-		likes:         lib.Likes,
-		persons:       lib.Persons,
-		cloudMeta:     lib.CloudMetadata,
-		search:        lib.SearchInfo,
-	}
-	for _, set := range []struct {
-		albums []*albuminfo.AlbumInfo
-		index  map[string]*albuminfo.AlbumInfo
-		parent bool // false: project_info does not compare it (projectInfoRule)
-	}{
-		{lib.Albums, e.albums, true},
-		{lib.SharedAlbums, e.albums, true},
-		{lib.Projects, e.projects, false},
-	} {
-		for _, a := range set.albums {
-			if _, dup := e.goAlbumElems[a.UUID]; dup {
-				return nil, errors.New("golden: an album UUID is repeated in Library.Albums, Library.SharedAlbums or Library.Projects")
-			}
-			set.index[a.UUID] = a
-			elem := withDates(map[string]any{
-				"uuid":         a.UUID,
-				"title":        a.Title,
-				"owner":        a.Owner,
-				"folder_names": strs(a.FolderNames),
-			}, a.CreationDate, a.StartDate, a.EndDate)
-			if set.parent {
-				elem["parent"] = a.ParentUUID
-			}
-			e.goAlbumElems[a.UUID] = elem
-		}
-	}
-	for _, s := range lib.Imports {
-		if _, dup := e.goImportElems[s.UUID]; dup {
-			return nil, errors.New("golden: an import session UUID is repeated in Library.Imports")
-		}
-		e.goImportElems[s.UUID] = withDates(map[string]any{"uuid": s.UUID, "title": s.Title}, s.CreationDate, s.StartDate, s.EndDate)
-	}
-	for _, p := range lib.Photos {
-		if p.Burst {
-			e.bursts[p.BurstUUID] = append(e.bursts[p.BurstUUID], p.UUID)
-		}
-	}
-	for _, ids := range e.bursts {
-		slices.Sort(ids)
-	}
-	return e, nil
-}
-
-// Albums and import sessions share their dates (AlbumInfoBaseClass,
-// albuminfo.py:56-107).
-func withDates(elem map[string]any, created, start, end *time.Time) map[string]any {
-	elem["creation_date"] = goMoment(created, defaultCreationDate)
-	elem["start_date"] = goMoment(start, time.Time{})
-	elem["end_date"] = goMoment(end, time.Time{})
-	return elem
-}
-
-func members(index map[string]*albuminfo.AlbumInfo, missing error, uuids []string) ([]*albuminfo.AlbumInfo, error) {
-	var out []*albuminfo.AlbumInfo
-	seen := map[string]bool{}
-	for _, id := range uuids {
-		a, ok := index[id]
-		if !ok {
-			return nil, missing
-		}
-		if a.InTrash || seen[id] {
-			continue
-		}
-		seen[id] = true
-		out = append(out, a)
-	}
-	return out, nil
-}
+var errKeyMissing = errors.New("the key is missing from the dictionary of the photo in Library.Dicts")
 
 type refObject struct {
 	obj  Object
@@ -219,15 +96,13 @@ func selectRules(keys []string) (selected []rule, names []string, err error) {
 	return selected, names, nil
 }
 
-// Compare compares lib with ref on keys (each in PhotoKeys or AlbumKeys).
-// The sets of objects (key uuid) are compared always, whether or not keys
-// lists uuid; the Go set is what upstream photos() returns
-// (photosdb/photosdb.py:3346-3360). An error is a problem of the input, not
-// a difference: an unknown key, a reference value of the wrong shape, an
-// album UUID missing from lib.Albums and lib.SharedAlbums, a project missing
-// from lib.Projects or an import session missing from lib.Imports, a UUID
-// repeated in ref (Query and Deleted together), in lib.Photos, in lib.Albums,
-// lib.SharedAlbums and lib.Projects together or in lib.Imports. Errors carry
+// Compare compares lib with ref on keys (each in Keys). The sets of objects
+// (key uuid) are compared always, whether or not keys lists uuid; the Go set
+// is what upstream photos() returns (photosdb/photosdb.py:3346-3360). The Go
+// value of a key is that of lib.Dicts. An error is a problem of the input,
+// not a difference: an unknown key, a reference value of the wrong shape, a
+// key compared that the dictionary of a photo of the Go set lacks, a UUID
+// repeated in ref (Query and Deleted together) or in lib.Photos. Errors carry
 // no UUID and no value.
 func Compare(ref *Reference, lib Library, keys []string, divs []Divergence) (*Report, error) {
 	selected, names, err := selectRules(keys)
@@ -242,10 +117,6 @@ func Compare(ref *Reference, lib Library, keys []string, divs []Divergence) (*Re
 	if err != nil {
 		return nil, err
 	}
-	e, err := newEnv(lib)
-	if err != nil {
-		return nil, err
-	}
 
 	var diffs []Diff
 	inRef := make(map[string]bool, len(objs))
@@ -256,7 +127,7 @@ func Compare(ref *Reference, lib Library, keys []string, divs []Divergence) (*Re
 			if r.got == nil { // uuid: the sets are compared below
 				continue
 			}
-			d, err := compareKey(e, r, ro, p, ref.Library)
+			d, err := compareKey(r, ro, p != nil, lib.Dicts[ro.uuid], ref.Library)
 			if err != nil {
 				return nil, err
 			}
@@ -295,7 +166,7 @@ func indexGo(lib Library) (map[string]*photoinfo.PhotoInfo, error) {
 	return set, nil
 }
 
-func compareKey(e *env, r rule, ro refObject, p *photoinfo.PhotoInfo, library string) (*Diff, error) {
+func compareKey(r rule, ro refObject, inGo bool, d map[string]any, library string) (*Diff, error) {
 	fail := func(err error) error {
 		return fmt.Errorf("%s: key %s: %w", ro.where(library), r.key, err)
 	}
@@ -312,10 +183,13 @@ func compareKey(e *env, r rule, ro refObject, p *photoinfo.PhotoInfo, library st
 			return nil, nil
 		}
 	}
-	if p == nil {
+	if !inGo {
 		return nil, nil
 	}
-	got, err := r.got(e, p, want)
+	if _, ok := d[r.key]; !ok {
+		return nil, fail(errKeyMissing)
+	}
+	got, err := r.got(d, want)
 	if err != nil {
 		return nil, fail(err)
 	}
@@ -394,16 +268,18 @@ func (r *Report) Summary() string {
 }
 
 // WriteDetails writes one line per difference and per stale record, with
-// UUIDs and values; a value of persons is written as its number of names, the
-// owner of a photo or of an album, the user of a comment or a like and the
-// name and the display name of a person of person_info as "<name>", the text
-// of a comment as "<text>", a value of exif_info, place, cloud_metadata,
-// search_info, search_info_normalized, labels or labels_normalized that is not
-// null or "" as "<value>", the keys and the lengths of the lists kept, and a
-// value of album_info, burst_album_info, project_info, comments, likes,
-// person_info, labels or labels_normalized that is not a list, or of
-// exif_info, place, cloud_metadata, search_info or search_info_normalized that
-// is not an object, as "<unparsed>".
+// UUIDs and values; a value of persons is written as its number of names; the
+// owner of a photo or of an album, the user of a comment or a like, the name
+// and the display name of a person of person_info and the name of a face of
+// face_info as "<name>"; the text of a comment as "<text>"; a value of
+// exif_info, place, cloud_metadata, search_info, search_info_normalized,
+// adjustments, original_adjustments, labels, labels_normalized or
+// path_derivatives that is not null or "" as "<value>", the keys and the
+// lengths of the lists kept; and a value of album_info, burst_album_info,
+// project_info, comments, likes, person_info, face_info, labels,
+// labels_normalized or path_derivatives that is not a list, or of exif_info,
+// place, cloud_metadata, search_info, search_info_normalized, adjustments or
+// original_adjustments that is not an object, as "<unparsed>".
 func (r *Report) WriteDetails(w io.Writer) error {
 	for _, d := range r.Diffs {
 		if _, err := fmt.Fprintf(w, "%s %s want=%s got=%s\n", d.Field, d.UUID, redact(d.Field, d.Want), redact(d.Field, d.Got)); err != nil {
@@ -424,6 +300,7 @@ func (r *Report) WriteDetails(w io.Writer) error {
 var redacted = map[string]map[string]string{
 	"album_info": {"owner": "<name>"}, "burst_album_info": {"owner": "<name>"}, "project_info": {"owner": "<name>"},
 	"comments": {"user": "<name>", "text": "<text>"}, "likes": {"user": "<name>"}, "person_info": {"name": "<name>", "displayname": "<name>"},
+	"face_info": {"name": "<name>"},
 }
 
 func redact(field, value string) string {
@@ -435,9 +312,9 @@ func redact(field, value string) string {
 		return "<name>"
 	}
 	switch field {
-	case "exif_info", "place", "cloud_metadata", "search_info", "search_info_normalized":
+	case "exif_info", "place", "cloud_metadata", "search_info", "search_info_normalized", "adjustments", "original_adjustments":
 		return redactAs[map[string]any](value)
-	case "labels", "labels_normalized":
+	case "labels", "labels_normalized", "path_derivatives":
 		return redactAs[[]any](value)
 	}
 	placeholders, ok := redacted[field]
@@ -460,9 +337,9 @@ func redact(field, value string) string {
 }
 
 // The coordinates and the camera of a photo, the names and the address of its
-// place and its search terms are personal data too: the keys and the lengths
-// of the lists stay, so that a null or "" can be told from a value and a
-// difference located.
+// place, its search terms, its edits and the paths of the machine are personal
+// data too: the keys and the lengths of the lists stay, so that a null or ""
+// can be told from a value and a difference located.
 func redactAs[T map[string]any | []any](value string) string {
 	var v T
 	if json.Unmarshal([]byte(value), &v) != nil {

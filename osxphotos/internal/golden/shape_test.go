@@ -5,9 +5,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-
-	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
-	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
 // A reference without the key is a mistake of the input for every rule, not a null.
@@ -97,40 +94,6 @@ func TestAlbumShape(t *testing.T) {
 			t.Errorf("error = %v", err)
 		}
 	})
-}
-
-func TestAlbumsMissingOnTheGoSide(t *testing.T) {
-	t.Parallel()
-	for _, key := range AlbumKeys() {
-		switch key {
-		case "comments", "likes", "person_info", "cloud_metadata", "labels", "labels_normalized", "search_info", "search_info_normalized":
-			continue // keyed by photo UUID: a missing entry is a difference, not an error
-		}
-		t.Run(key, func(t *testing.T) {
-			t.Parallel()
-			lib := Library{
-				Photos: []*photoinfo.PhotoInfo{{
-					UUID: selectedFrame, IsPhoto: true, AlbumUUIDs: []string{albumAInFolderX}, ProjectUUIDs: []string{projectP}, ImportUUID: importSession,
-				}},
-				Albums:      []*albuminfo.AlbumInfo{{UUID: albumOfNoPhoto}},
-				BurstAlbums: map[string][]string{selectedFrame: {albumAInFolderX}},
-				Imports:     []*albuminfo.ImportInfo{{UUID: importBare}},
-				Projects:    []*albuminfo.AlbumInfo{{UUID: projectTrashed}},
-			}
-			missing := map[string]string{"import_info": "missing from Library.Imports", "project_info": "missing from Library.Projects"}[key]
-			if missing == "" {
-				missing = "missing from Library.Albums"
-			}
-			ref := refOf(refObj(refSelectedFrame()))
-			_, err := Compare(ref, lib, []string{key}, nil)
-			if err == nil || !strings.Contains(err.Error(), missing) || !strings.Contains(err.Error(), "key "+key) {
-				t.Errorf("error = %v, want one about a missing album, import session or project for %s", err, key)
-			}
-			if err != nil && (strings.Contains(err.Error(), albumAInFolderX) || strings.Contains(err.Error(), importSession) || strings.Contains(err.Error(), projectP)) {
-				t.Errorf("the error names the album, the import session or the project: %v", err)
-			}
-		})
-	}
 }
 
 func TestOrderKeyErrors(t *testing.T) {
