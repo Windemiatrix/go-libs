@@ -1,6 +1,7 @@
 package golden
 
 import (
+	"encoding/json"
 	"errors"
 	"math"
 	"reflect"
@@ -662,6 +663,15 @@ func TestOrientationSkip(t *testing.T) {
 	}
 	if _, err := skip(Object{}); err == nil {
 		t.Error("no error without hasadjustments")
+	}
+}
+
+func TestPyValueNumber(t *testing.T) {
+	t.Parallel()
+	got := pyValue(map[string]any{"a": []any{json.Number("1.0"), json.Number("2")}})
+	want := map[string]any{"a": []any{1.0, 2.0}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("pyValue = %#v, want %#v", got, want)
 	}
 }
 

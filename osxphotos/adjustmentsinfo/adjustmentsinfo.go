@@ -8,7 +8,8 @@ import "time"
 // (adjustmentsinfo.py:34-231). A field is the upstream property in CamelCase
 // without adj_, except AdjustmentFormatVersion (adj_format_version), as
 // FormatVersion is format_version. Values in any are as howett.net/plist
-// (uint64 or int64 for an integer) or encoding/json (float64) decode them.
+// (uint64 or int64 for an integer) or encoding/json with UseNumber
+// (json.Number) decode them.
 // The fields after Timestamp are nil, Orientation 0, when adjustmentData does
 // not decode.
 type AdjustmentsInfo struct {

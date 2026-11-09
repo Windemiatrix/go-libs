@@ -67,7 +67,7 @@ func decodeAdjustments(file []byte) *adjustmentsinfo.AdjustmentsInfo {
 	a.Editor, _ = dict["adjustmentEditorBundleID"].(string)
 	a.FormatID, _ = dict["adjustmentFormatIdentifier"].(string)
 	if t, ok := dict["adjustmentTimestamp"].(time.Time); ok {
-		t = t.UTC() // adjustmentsinfo.py:44-46 is always UTC
+		t = t.UTC().Round(time.Microsecond) // adjustmentsinfo.py:44-46 is always UTC; plistlib rounds a date to the microsecond
 		a.Timestamp = &t
 	}
 	a.Data, _ = dict["adjustmentData"].([]byte)
@@ -113,8 +113,10 @@ func inflate(r io.Reader) []byte {
 
 func decodeBytes(b []byte) any {
 	v := plistAny(b)
-	if v == nil && json.Unmarshal(b, &v) != nil {
-		return nil
+	if v == nil && json.Valid(b) { // Decode stops after one value, json.loads fails on what follows it
+		d := json.NewDecoder(bytes.NewReader(b))
+		d.UseNumber()    // json.loads keeps an integer an int (adjustmentsinfo.py:94)
+		_ = d.Decode(&v) // b is valid JSON
 	}
 	return v
 }

@@ -232,6 +232,8 @@ func photoProperty(db *DB, p *photoinfo.PhotoInfo, name string) (template.Value,
 		return noneDropped(scalars["latitude"], scalars["longitude"]), true
 	case "imported_by":
 		return noneDropped(p.ImportedByName, p.ImportedByBundleID), true
+	case "hexdigest": // not in scalars, which every {photo.X} builds: the digest writes the whole photo (photoinfo.py:1733-1737)
+		return singleValue(db.Hexdigest(p)), true
 	}
 	return template.Value{}, false
 }
