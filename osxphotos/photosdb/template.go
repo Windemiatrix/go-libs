@@ -21,7 +21,8 @@ import (
 // isoformat() in the zone of the value, so DateAdded, DateModified and
 // DateTrashed in UTC, and a DateAdded the database does not have as
 // 1970-01-01T00:00:00+00:00; photo.score.X, photo.exif_info.X and photo.place.X
-// give the scalars of those objects; photo.search_info.X and
+// give the scalars of those objects, no value for a nil one, as upstream None
+// (phototemplate.py:1365-1366); photo.search_info.X and
 // photo.search_info_normalized.X give the attribute X of the SearchInfo of the
 // photo, a list, or one string that renders even when it is ""
 // (searchinfo.py:23, 31-345, phototemplate.py:1369-1376). place.X,
@@ -254,10 +255,11 @@ func searchProperty(s searchinfo.SearchInfo, uuid, name string) (template.Value,
 // the chain of getattr stops at None, whatever follows
 // (phototemplate.py:1358-1359).
 func nestedProperty(p *photoinfo.PhotoInfo, object, name string) (template.Value, bool) {
+	num := func(v *float64) string { return formatOrNone(v, template.FloatString) }
 	var values map[string]string
 	switch object {
 	case "score":
-		s, f := p.Score, template.FloatString
+		s, f := p.Score, num
 		values = map[string]string{
 			"overall": f(s.Overall), "curation": f(s.Curation), "promotion": f(s.Promotion),
 			"highlight_visibility": f(s.HighlightVisibility), "behavioral": f(s.Behavioral), "failure": f(s.Failure),
@@ -275,7 +277,6 @@ func nestedProperty(p *photoinfo.PhotoInfo, object, name string) (template.Value
 	case "exif_info":
 		e := p.ExifInfo
 		whole := func(v *int) string { return formatOrNone(v, strconv.Itoa) }
-		num := func(v *float64) string { return formatOrNone(v, template.FloatString) }
 		values = map[string]string{
 			"iso": whole(e.ISO), "metering_mode": whole(e.MeteringMode), "sample_rate": whole(e.SampleRate),
 			"track_format": whole(e.TrackFormat), "white_balance": whole(e.WhiteBalance), "tzoffset": whole(e.TZOffset),

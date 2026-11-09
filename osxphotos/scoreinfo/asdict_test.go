@@ -1,6 +1,7 @@
 package scoreinfo_test
 
 import (
+	"maps"
 	"reflect"
 	"testing"
 
@@ -18,24 +19,28 @@ var keys = []string{
 }
 
 func TestAsDict(t *testing.T) {
-	filled := scoreinfo.ScoreInfo{
-		Overall: 1, Curation: 2, Promotion: 3, HighlightVisibility: 4, Behavioral: 5, Failure: 6, HarmoniousColor: 7,
-		Immersiveness: 8, Interaction: 9, InterestingSubject: 10, IntrusiveObjectPresence: 11, LivelyColor: 12, LowLight: 13,
-		Noise: 14, PleasantCameraTilt: 15, PleasantComposition: 16, PleasantLighting: 17, PleasantPattern: 18,
-		PleasantPerspective: 19, PleasantPostProcessing: 20, PleasantReflection: 21, PleasantSymmetry: 22,
-		SharplyFocusedSubject: 23, TastefullyBlurred: 24, WellChosenSubject: 25, WellFramedSubject: 26, WellTimedShot: 27,
+	var filled scoreinfo.ScoreInfo
+	fields := reflect.ValueOf(&filled).Elem()
+	if fields.NumField() != len(keys) {
+		t.Fatalf("ScoreInfo has %d fields, scoreinfo.py:14-40 %d", fields.NumField(), len(keys))
 	}
-	wantFilled, wantZero := map[string]any{}, map[string]any{}
+	wantFilled, wantNone := map[string]any{}, map[string]any{}
 	for i, k := range keys {
-		wantFilled[k], wantZero[k] = float64(i+1), 0.0
+		v := float64(i + 1)
+		fields.Field(i).Set(reflect.ValueOf(&v))
+		wantFilled[k], wantNone[k] = v, nil
 	}
+	zero := 0.0
+	wantZeroBehavioral := maps.Clone(wantNone)
+	wantZeroBehavioral["behavioral"] = 0.0
 	for _, tt := range []struct {
 		name string
 		s    scoreinfo.ScoreInfo
 		want map[string]any
 	}{
 		{"filled", filled, wantFilled},
-		{"no row: 0.0, as upstream", scoreinfo.ScoreInfo{}, wantZero},
+		{"every score None", scoreinfo.ScoreInfo{}, wantNone},
+		{"0.0 is not None", scoreinfo.ScoreInfo{Behavioral: &zero}, wantZeroBehavioral},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.s.AsDict(); !reflect.DeepEqual(got, tt.want) {

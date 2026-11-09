@@ -196,7 +196,8 @@ func load(t tables) (*catalog, error) {
 		if e, ok := exif[a.PK]; ok {
 			p.ExifInfo = exifInfo(e)
 		}
-		p.Score = scoreInfo(scores[a.PK])
+		score, hasRow := scores[a.PK]
+		p.Score = scoreInfo(score, hasRow)
 		p.Place = placeOf(places[a.PK])
 		if data := cloudMeta[a.PK]; len(data) > 0 {
 			c.cloudMeta[p.UUID] = data

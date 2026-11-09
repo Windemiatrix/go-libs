@@ -289,9 +289,9 @@ var scoreKeys = []string{
 }
 
 // json() writes the object for every photo, zeros for a photo without a row
-// (photoinfo.py:1507-1537, 2128, 2190). A null is 0: upstream keeps a NULL
-// column as None and selects null for behavioral and interaction from Photos
-// 11 on (_photosdb_process_scoreinfo.py:62-76), where the module has 0.
+// (photoinfo.py:1507-1537, 2128, 2190). A null is None: a NULL column, and
+// behavioral and interaction from Photos 11 on
+// (_photosdb_process_scoreinfo.py:62-76); DB.AsDict gives nil there.
 func scoreRule() rule {
 	const key = "score"
 	return simple(key,
@@ -307,7 +307,7 @@ func scoreRule() rule {
 				if !ok {
 					return nil, shape(path, "a value (the key is missing)")
 				}
-				if out[k], err = decodeRaw[float64](m, path, true, "a number or null"); err != nil {
+				if out[k], err = decodeRaw[*float64](m, path, true, "a number or null"); err != nil {
 					return nil, err
 				}
 			}
