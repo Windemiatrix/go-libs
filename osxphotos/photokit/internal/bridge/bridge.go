@@ -31,8 +31,9 @@ var (
 	// changed.
 	ErrNoAsset = errors.New("photokit: no such asset")
 	// ErrNoComposition is delivered by Done of ExportComposition when the
-	// current AVAsset of the asset is not an AVComposition of two tracks
-	// (photokit.py:938-942); photokit reports it as ErrMediaType.
+	// current AVAsset of the asset is neither an AVComposition of two tracks
+	// (photokit.py:938-942) nor an AVURLAsset of a file URL; photokit reports it
+	// as ErrMediaType.
 	ErrNoComposition = errors.New("photokit: the asset is not a slow-motion composition")
 )
 
@@ -67,22 +68,25 @@ type Bridge interface {
 	RequestImage(id string, version int, sink ImageSink) (Request, error)
 	// RequestVideo starts requestAVAssetForVideo for the asset id with
 	// version, a PHVideoRequestOptionsVersion, networkAccessAllowed and
-	// HighQualityFormat; no such asset is ErrNoResource. path gets the file of
-	// an AVURLAsset of a file URL once, on a queue of PhotoKit before Done; it
-	// is not called for an AVAsset without a file, such as an AVComposition.
+	// HighQualityFormat; no such asset is ErrNoResource. path, which must not
+	// be nil, gets the file of an AVURLAsset of a file URL once, on a queue of
+	// PhotoKit before Done; it is not called for an AVAsset without a file, such
+	// as an AVComposition.
 	// Cancel is cancelImageRequest:.
 	RequestVideo(id string, version int, path func(string)) (Request, error)
 	// ExportComposition starts requestAVAssetForVideo for the asset id as
 	// RequestVideo does, then renders the AVComposition it gives into the file
 	// path, which must not exist, through AVAssetExportSession with
 	// AVAssetExportPresetHighestQuality, AVFileTypeQuickTimeMovie and
-	// shouldOptimizeForNetworkUse (photokit.py:799-806). No such asset is
-	// ErrNoResource. Done delivers nil once the session has completed, the
+	// shouldOptimizeForNetworkUse (photokit.py:799-806). An AVURLAsset of a file
+	// URL is not rendered: file, which must not be nil, gets its path as path of
+	// RequestVideo does, and nothing is written to path. No such asset is ErrNoResource. Done delivers
+	// nil once the session has completed or file has its path, the
 	// *PhotoKitError of the request or of a failed session, ErrNoComposition for
-	// an AVAsset that is not a composition of two tracks, or ErrCanceled after
-	// Cancel, which cancels the request or the session, whichever runs, and
-	// keeps a session that has not started from starting.
-	ExportComposition(id string, version int, path string) (Request, error)
+	// an AVAsset that is neither a composition of two tracks nor such a file, or
+	// ErrCanceled after Cancel, which cancels the request or the session,
+	// whichever runs, and keeps a session that has not started from starting.
+	ExportComposition(id string, version int, path string, file func(string)) (Request, error)
 	// Import runs one performChanges that creates the asset of r and adds it to
 	// its albums, and blocks until the completion handler, or up to timeout,
 	// then returns context.DeadlineExceeded while the change goes on; so does an

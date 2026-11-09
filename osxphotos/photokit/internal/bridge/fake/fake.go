@@ -46,13 +46,15 @@ import (
 // RequestResource does without data, and gives the entry to path unless it is
 // "", as PhotoKit gives no file of an AVComposition.
 //
-// ExportComposition logs the id and the version and, from a goroutine,
-// delivers bridge.ErrNoComposition by Done when Compositions has no entry for
-// id+"/"+version, as PhotoKit tells it only in its handler. Otherwise, before
-// it returns, it keeps the directory of path and its mode for LastRenderDir
-// and writes the entry into path, which must not exist, with mode 0644; then
-// from a goroutine it delivers the error of the write, if any, or runs as
-// RequestResource does without data.
+// ExportComposition logs the id and the version. An entry of Videos for
+// id+"/"+version other than "" is the file of an AVURLAsset: it runs as
+// RequestVideo does and gives the entry to file. Otherwise, from a goroutine,
+// it delivers bridge.ErrNoComposition by Done when Compositions has no entry
+// for id+"/"+version, as PhotoKit tells it only in its handler. Otherwise,
+// before it returns, it keeps the directory of path and its mode for
+// LastRenderDir and writes the entry into path, which must not exist, with
+// mode 0644; then from a goroutine it delivers the error of the write, if any,
+// or runs as RequestResource does without data.
 //
 // Import keeps the record and the timeout for LastImport and, when HoldImport
 // is not nil, waits for it to be closed or the timeout to pass, as Hold does;
@@ -217,10 +219,14 @@ func (b *Bridge) RequestVideo(id string, version int, path func(string)) (bridge
 }
 
 // ExportComposition implements bridge.Bridge.
-func (b *Bridge) ExportComposition(id string, version int, path string) (bridge.Request, error) {
+func (b *Bridge) ExportComposition(id string, version int, path string, file func(string)) (bridge.Request, error) {
 	b.log(fmt.Sprintf("ExportComposition %s %d", id, version))
+	key := id + "/" + strconv.Itoa(version)
+	if p := b.Videos[key]; p != "" {
+		return b.start(id, nil, func(r *request) error { return r.run(nil, 0, nil, func() { file(p) }) }), nil
+	}
 	err := bridge.ErrNoComposition
-	if data, ok := b.Compositions[id+"/"+strconv.Itoa(version)]; ok {
+	if data, ok := b.Compositions[key]; ok {
 		err = b.render(path, data)
 	}
 	return b.start(id, nil, func(r *request) error {
@@ -250,7 +256,8 @@ func (b *Bridge) render(path string, data []byte) error {
 }
 
 // LastRenderDir returns the directory of the path of the latest
-// ExportComposition that had an entry and its mode, "" and 0 before one.
+// ExportComposition that had an entry of Compositions and its mode, "" and 0
+// before one.
 func (b *Bridge) LastRenderDir() (string, fs.FileMode) {
 	b.mu.Lock()
 	defer b.mu.Unlock()

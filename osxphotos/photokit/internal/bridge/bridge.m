@@ -497,17 +497,20 @@ pk_result pk_request_video(const char *local_id, int64_t version, const char *re
 								if (error != nil) {
 									code = error.code;
 									domain = error.domain ?: @"";
-								} else if (!render) {
-									if ([video isKindOfClass:AVURLAsset.class] && ((AVURLAsset *)video).URL.isFileURL) {
-										// An AVComposition, a slow-motion video of the current version, has no file
-										// (photokit.py:876-884, 901), and a URL of another scheme names none.
-										pk_go_video(handle, (char *)((AVURLAsset *)video).URL.fileSystemRepresentation);
+								} else if ([video isKindOfClass:AVURLAsset.class] && ((AVURLAsset *)video).URL.isFileURL) {
+									// An AVComposition, a slow-motion video of the current version, has no file
+									// (photokit.py:876-884, 901), and a URL of another scheme names none.
+									// extension: not in osxphotos: for a render too, since PhotoKit gives the
+									// current version of some slow-motion videos as a file, where upstream
+									// raises PhotoKitMediaTypeError (photokit.py:938-942).
+									pk_go_video(handle, (char *)((AVURLAsset *)video).URL.fileSystemRepresentation);
+								} else if (render) {
+									if (![video isKindOfClass:AVComposition.class] || ((AVComposition *)video).tracks.count != 2) {
+										// Upstream renders a composition of two tracks only (photokit.py:938-942).
+										code = PK_NO_COMPOSITION;
+									} else {
+										rendering = pk_render((AVComposition *)video, url, handle);
 									}
-								} else if (![video isKindOfClass:AVComposition.class] || ((AVComposition *)video).tracks.count != 2) {
-									// Upstream renders a composition of two tracks only (photokit.py:938-942).
-									code = PK_NO_COMPOSITION;
-								} else {
-									rendering = pk_render((AVComposition *)video, url, handle);
 								}
 							} @catch (NSException *e) {
 								// A start that raised leaves its session registered, and no completion removes it.

@@ -123,10 +123,10 @@ func (*cgoBridge) RequestVideo(id string, version int, path func(string)) (Reque
 	return requestVideo(id, version, nil, &cgoRequest{path: path})
 }
 
-func (*cgoBridge) ExportComposition(id string, version int, path string) (Request, error) {
+func (*cgoBridge) ExportComposition(id string, version int, path string, file func(string)) (Request, error) {
 	cpath := C.CString(path)
 	defer C.free(unsafe.Pointer(cpath)) //nolint:gosec // G103: the C.CString buffer of this call is freed here
-	return requestVideo(id, version, cpath, &cgoRequest{})
+	return requestVideo(id, version, cpath, &cgoRequest{path: file})
 }
 
 // The cancel needs the handle: bridge.m keeps the session of a render by it.

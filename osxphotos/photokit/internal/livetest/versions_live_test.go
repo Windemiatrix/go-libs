@@ -269,7 +269,8 @@ func TestLiveVersions(t *testing.T) {
 
 // A video without edits has one file, which every version gives; the Current
 // version of a slow-motion video is an AVComposition without a file, which
-// ExportVideo renders (photokit.py:876-884).
+// ExportVideo renders (photokit.py:876-884), or for some a file, which it
+// copies.
 func TestLiveVideoVersions(t *testing.T) {
 	lib := openLibrary(t)
 	visible := visibleMarkerPhotos(t)
@@ -376,13 +377,18 @@ func TestLiveVideoVersions(t *testing.T) {
 
 	// The Current version is a new encoding of the composition
 	// (photokit.py:799-806), so it differs from the file in the library, which
-	// the other versions give.
+	// the other versions give; PhotoKit gives that of some slow-motion videos as
+	// a file, which ExportVideo copies. ExportVideo does not tell which, so an
+	// export equal to the render of an edit or to the original in the library is
+	// counted as a copy of it, and any other as a render, which may be a copy of
+	// a file outside the library. An edited one equal to the original is an
+	// error, as in "current of an edited video".
 	t.Run("slow motion", func(t *testing.T) {
 		slow := filter(videos, func(p *photoinfo.PhotoInfo) bool { return p.SlowMo })
 		if len(slow) == 0 {
 			skipNone(t, "slow-motion video")
 		}
-		rendered, empty, notMovie, sameAsFile, compared, differ := 0, 0, 0, 0, 0, 0
+		exported, rendered, asEdited, asOriginal, editedAsOriginal, empty, notMovie, compared, differ := 0, 0, 0, 0, 0, 0, 0, 0, 0
 		var longest time.Duration
 		renders := map[string]time.Duration{}
 		for _, p := range slow {
@@ -393,25 +399,35 @@ func TestLiveVideoVersions(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), exportTimeout)
 			start := time.Now()
 			err := lib.ExportVideo(ctx, p.UUID, photokit.VersionCurrent, dir, name, photokit.ExportOptions{})
+			took := time.Since(start)
 			cancel()
 			if err != nil {
 				t.Errorf("ExportVideo of the Current version of a slow-motion video: %s", exportFailure(err))
 				continue
 			}
-			renders[p.UUID] = time.Since(start)
-			longest = max(longest, renders[p.UUID])
-			rendered++
+			exported++
 			if entries, err := os.ReadDir(dir); err != nil || len(entries) != 1 {
 				t.Errorf("%d entries in the directory after the export, want 1 (read error: %t)", len(entries), err != nil)
 			}
 			path := filepath.Join(dir, name)
+			got := sum(t, path)
 			switch {
 			case size(t, path) == 0:
 				empty++
-			case string(head(t, path)[4:]) != "ftyp":
-				notMovie++
-			case p.Path != "" && !p.IsMissing && sum(t, path) == sum(t, p.Path):
-				sameAsFile++
+			case p.PathEdited != "" && got == sum(t, p.PathEdited):
+				asEdited++
+			case p.Path != "" && !p.IsMissing && got == sum(t, p.Path):
+				asOriginal++
+				if p.HasAdjustments {
+					editedAsOriginal++
+				}
+			default:
+				rendered++
+				renders[p.UUID] = took
+				longest = max(longest, took)
+				if string(head(t, path)[4:]) != "ftyp" {
+					notMovie++
+				}
 			}
 			// The renders of a library may not fit on the disk together, as its Live Photos (sumRemove).
 			if err := os.Remove(path); err != nil {
@@ -432,9 +448,9 @@ func TestLiveVideoVersions(t *testing.T) {
 				}
 			}
 		}
-		t.Logf("the Current version of %d slow-motion videos rendered, the longest in %v; %d Unadjusted and Original versions of those on disk compared with their file", rendered, longest, compared)
-		if empty > 0 || notMovie > 0 || sameAsFile > 0 {
-			t.Errorf("of %d rendered Current versions of slow-motion videos, %d empty, %d without ftyp, %d equal to the file in the library", rendered, empty, notMovie, sameAsFile)
+		t.Logf("the Current version of %d slow-motion videos exported: %d rendered or copied from a file outside the library, the longest in %v, %d copied from the render of an edit, %d from the original; %d Unadjusted and Original versions of those on disk compared with their file", exported, rendered, longest, asEdited, asOriginal, compared)
+		if empty > 0 || notMovie > 0 || editedAsOriginal > 0 {
+			t.Errorf("of %d exported Current versions of slow-motion videos, %d empty, %d rendered without ftyp, %d edited ones equal to the original", exported, empty, notMovie, editedAsOriginal)
 		}
 		if differ > 0 {
 			t.Errorf("%d of %d exported Unadjusted and Original versions of slow-motion videos differ from their file in the library", differ, compared)

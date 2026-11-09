@@ -271,7 +271,7 @@ func TestReadsBeforePhotoKit(t *testing.T) {
 	image, imageErr := b.RequestImage("\xff", 0, nil)
 	resource, resourceErr := b.RequestResource("\xff", 1, nil)
 	video, videoErr := b.RequestVideo("\xff", 1, nil)
-	composition, compositionErr := b.ExportComposition("\xff", 0, "/x/render.mov")
+	composition, compositionErr := b.ExportComposition("\xff", 0, "/x/render.mov", nil)
 	if image != nil || resource != nil || video != nil || composition != nil {
 		t.Errorf("requests of an id not UTF-8 = %v, %v, %v, %v; want none", image, resource, video, composition)
 	}

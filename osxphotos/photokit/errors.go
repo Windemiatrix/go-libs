@@ -54,8 +54,8 @@ var (
 	// (PhotoKitMediaTypeError, photokit.py:1309-1319), and by ExportImage,
 	// ExportVideo and ExportLivePhoto when the class of the asset, as
 	// _asset_factory tells it (1312-1317), does not match the method, and by
-	// ExportVideo when the current AVAsset of a slow-motion video is not a
-	// composition of two tracks (938-942).
+	// ExportVideo when the current AVAsset of a slow-motion video is neither a
+	// composition of two tracks (938-942) nor a file.
 	ErrMediaType = errors.New("photokit: unknown media type")
 	// ErrInvalidName is returned by Export, ExportImage, ExportVideo and
 	// ExportLivePhoto when the name is not one element of a path: empty, ".",
