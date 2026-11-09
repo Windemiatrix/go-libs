@@ -381,8 +381,10 @@ func TestLiveVideoVersions(t *testing.T) {
 	// a file, which ExportVideo copies. ExportVideo does not tell which, so an
 	// export equal to the render of an edit or to the original in the library is
 	// counted as a copy of it, and any other as a render, which may be a copy of
-	// a file outside the library. An edited one equal to the original is an
-	// error, as in "current of an edited video".
+	// a file outside the library. A slow-motion video has HasAdjustments whether
+	// or not it is edited, so an edit is told by PathEdited, as upstream does
+	// (cli/export.py:2502-2506): an export equal to the original when PathEdited
+	// is set is an error.
 	t.Run("slow motion", func(t *testing.T) {
 		slow := filter(videos, func(p *photoinfo.PhotoInfo) bool { return p.SlowMo })
 		if len(slow) == 0 {
@@ -418,7 +420,7 @@ func TestLiveVideoVersions(t *testing.T) {
 				asEdited++
 			case p.Path != "" && !p.IsMissing && got == sum(t, p.Path):
 				asOriginal++
-				if p.HasAdjustments {
+				if p.PathEdited != "" {
 					editedAsOriginal++
 				}
 			default:
