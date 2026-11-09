@@ -1,13 +1,25 @@
 package photosdb
 
 import (
+	"bytes"
 	"cmp"
+	"encoding/json"
+	"fmt"
 	"maps"
+	"math/big"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+	"unicode/utf16"
+
+	"howett.net/plist"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/adjustmentsinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/albuminfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/personinfo"
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
+	"github.com/Windemiatrix/go-libs/osxphotos/template"
 )
 
 // AsDict returns p as osxphotos PhotoInfo.asdict(shallow) does
@@ -19,9 +31,12 @@ import (
 // Info().LibraryPath; media_analysis and ai_caption are nil: they come from a
 // database of another program, which is not read. date_added without a value
 // is 1970-01-01T00:00:00Z, where upstream takes midnight in the zone of the
-// computer (photos_datetime.py:19-21). In folders an album without a title has
-// the key "", where upstream has None. The map is new on every call and holds
-// no reference into the library.
+// computer (photos_datetime.py:19-21). date_added, date_modified and
+// date_trashed, and the dates of albums and of the import session, are in UTC,
+// where upstream has the zone of the computer (photosdb/photosdb.py:2157, 2293,
+// 2317; albuminfo.py:76-107). In folders an album without a title has the key "",
+// where upstream has None. The map is new on every call and holds no reference
+// into the library.
 func (db *DB) AsDict(p *photoinfo.PhotoInfo, shallow bool) map[string]any {
 	albums := db.AlbumInfoOf(p)
 	folders := map[string]any{}
@@ -143,3 +158,176 @@ func pyAdjustments(a *adjustmentsinfo.AdjustmentsInfo) map[string]any {
 	}
 	return a.AsDict()
 }
+
+// JSON returns the bytes of osxphotos PhotoInfo.json(indent, shallow)
+// (photoinfo.py:2255-2290) for AsDict(p, shallow). The lists at the top level
+// are sorted, None as "", except location and lists of maps (2279-2285), and
+// written as json.dumps(sort_keys=True, indent=indent) with ensure_ascii writes
+// them (2286-2288); indent 0 or below is None of upstream. A float is its
+// repr() or NaN, Infinity, -Infinity, a date its isoformat(), naive in UTC in
+// cloud_metadata as plistlib gives it; bytes, a UID and the sort order of an
+// album are null, as the default of json() returns None for them (2269-2271).
+// The bytes hold paths of the machine and personal data (names, comments,
+// places): do not log them. JSON panics on a value of a type that AsDict and
+// CloudMetadataOf do not give, a mistake of the port. The bytes equal those of
+// upstream only where AsDict equals asdict (see AsDict).
+func (db *DB) JSON(p *photoinfo.PhotoInfo, shallow bool, indent int) []byte {
+	return dumps(db.AsDict(p, shallow), indent)
+}
+
+// Hexdigest is osxphotos PhotoInfo.hexdigest (photoinfo.py:1733-1737,
+// 2296-2320): the BLAKE2b-160 hex digest of JSON(p, true, 0) without
+// face_info, a list of objects whose order upstream does not fix, and visible,
+// which follows the state of the Photos app (2299-2302). It equals the digest
+// of upstream only where AsDict equals asdict (see AsDict): not when upstream
+// opens the library by another path or the computer is not in UTC.
+func (db *DB) Hexdigest(p *photoinfo.PhotoInfo) string {
+	d := db.AsDict(p, true)
+	delete(d, "face_info")
+	delete(d, "visible")
+	return hexdigest(string(dumps(d, 0)))
+}
+
+// dumps is the body of json and _json_hexdigest (photoinfo.py:2279-2288,
+// 2313-2320). It sorts the lists of d in place: AsDict makes them for the call.
+func dumps(d map[string]any, indent int) []byte {
+	for k, v := range d {
+		switch l := v.(type) {
+		case []string:
+			slices.Sort(l)
+		case []any:
+			if k == "location" || len(l) == 0 {
+				continue
+			}
+			if _, isDict := l[0].(map[string]any); !isDict {
+				slices.SortStableFunc(l, func(a, b any) int {
+					x, _ := a.(string)
+					y, _ := b.(string)
+					return strings.Compare(x, y)
+				})
+			}
+		}
+	}
+	naiveDates(d["cloud_metadata"])
+	return pyJSON(d, indent)
+}
+
+// plistlib gives a date of a property list as a naive datetime, rounded to the
+// microsecond as timedelta rounds, which isoformat writes without an offset;
+// the other dates of asdict are aware.
+func naiveDates(v any) any {
+	switch x := v.(type) {
+	case time.Time:
+		return strings.TrimSuffix(isoformat(x.UTC().Round(time.Microsecond)), "+00:00")
+	case []any:
+		for i, e := range x {
+			x[i] = naiveDates(e)
+		}
+	case map[string]any:
+		for k, e := range x {
+			x[k] = naiveDates(e)
+		}
+	}
+	return v
+}
+
+// pyJSON is json.dumps(v, sort_keys=True, indent=indent) of Python
+// (json/encoder.py) for the types of AsDict and CloudMetadataOf. Any other
+// type is a mistake of the port, not of the data, so it panics.
+func pyJSON(v any, indent int) []byte {
+	var b bytes.Buffer
+	writeJSON(&b, v, indent, 0)
+	return b.Bytes()
+}
+
+func writeJSON(b *bytes.Buffer, v any, indent, level int) {
+	switch x := v.(type) {
+	case nil, []byte, plist.UID, albuminfo.AlbumSortOrder: // default returns None (photoinfo.py:2269-2271); AlbumSortOrder is an Enum
+		b.WriteString("null")
+	case bool:
+		b.WriteString(strconv.FormatBool(x))
+	case int:
+		b.WriteString(strconv.Itoa(x))
+	case int64:
+		b.WriteString(strconv.FormatInt(x, 10))
+	case uint64:
+		b.WriteString(strconv.FormatUint(x, 10))
+	case float32: // a real of four bytes of a property list, a double for Python
+		b.WriteString(jsonFloat(float64(x)))
+	case float64:
+		b.WriteString(jsonFloat(x))
+	case json.Number: // json.loads gives an int of any size for a literal without a fraction or an exponent (adjustmentsinfo.py:94)
+		if i, ok := new(big.Int).SetString(string(x), 10); ok {
+			b.WriteString(i.String())
+		} else {
+			f, _ := x.Float64() // out of range is an infinity, as float() of Python gives
+			b.WriteString(jsonFloat(f))
+		}
+	case string:
+		writeString(b, x)
+	case time.Time:
+		writeString(b, isoformat(x))
+	case []string:
+		writeItems(b, '[', ']', len(x), indent, level, func(i int) { writeString(b, x[i]) })
+	case []any:
+		writeItems(b, '[', ']', len(x), indent, level, func(i int) { writeJSON(b, x[i], indent, level+1) })
+	case map[string]any:
+		keys := slices.Sorted(maps.Keys(x))
+		writeItems(b, '{', '}', len(keys), indent, level, func(i int) {
+			writeString(b, keys[i])
+			b.WriteString(": ")
+			writeJSON(b, x[keys[i]], indent, level+1)
+		})
+	default:
+		panic(fmt.Sprintf("photosdb: json has no form for a %T", v)) // the type only: a value may be personal data
+	}
+}
+
+// _iterencode_list and _iterencode_dict of json/encoder.py: an empty one has
+// no newline.
+func writeItems(b *bytes.Buffer, left, right byte, n, indent, level int, item func(int)) {
+	head, sep, tail := "", ", ", ""
+	if indent > 0 && n > 0 {
+		tail = "\n" + strings.Repeat(" ", indent*level)
+		head = tail + strings.Repeat(" ", indent)
+		sep = "," + head
+	}
+	b.WriteByte(left)
+	b.WriteString(head)
+	for i := range n {
+		if i > 0 {
+			b.WriteString(sep)
+		}
+		item(i)
+	}
+	b.WriteString(tail)
+	b.WriteByte(right)
+}
+
+// floatstr of json/encoder.py: repr() but for NaN and the infinities.
+func jsonFloat(f float64) string {
+	s := template.FloatString(f)
+	return cmp.Or(jsonNonFinite[s], s)
+}
+
+var jsonNonFinite = map[string]string{"nan": "NaN", "inf": "Infinity", "-inf": "-Infinity"}
+
+// py_encode_basestring_ascii of json/encoder.py: hex digits in lower case, a
+// character beyond the BMP as a surrogate pair.
+func writeString(b *bytes.Buffer, s string) {
+	b.WriteByte('"')
+	for _, r := range s {
+		if e, ok := jsonEscapes[r]; ok {
+			b.WriteString(e)
+		} else if r >= ' ' && r <= '~' {
+			b.WriteRune(r)
+		} else {
+			for _, u := range utf16.Encode([]rune{r}) {
+				fmt.Fprintf(b, "\\u%04x", u)
+			}
+		}
+	}
+	b.WriteByte('"')
+}
+
+var jsonEscapes = map[rune]string{'"': `\"`, '\\': `\\`, '\n': `\n`, '\r': `\r`, '\t': `\t`, '\b': `\b`, '\f': `\f`}

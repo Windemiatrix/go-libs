@@ -143,6 +143,10 @@ func pyValue(v any) any {
 		return momentString(x)
 	case albuminfo.AlbumSortOrder, []byte:
 		return nil
+	case json.Number:
+		// The reference decodes the same number as a float, so 1.0 equals 1.
+		f, _ := x.Float64()
+		return f
 	case []string:
 		return strs(x)
 	case []any:

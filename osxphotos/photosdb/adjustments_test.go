@@ -110,6 +110,7 @@ func adjDataCases(t testing.TB) []adjDataCase {
 		{"inflated to the limit", adjCompress(t, adjPaddedJSON(maxPlistSize), true), true},
 		{"inflated over the limit", adjCompress(t, adjPaddedJSON(maxPlistSize+1), true), false},
 		{"JSON null", []byte("null"), false},
+		{"JSON followed by more", []byte(adjJSON + " {}"), false},
 		{"not decodable", []byte("not adjustment data"), false},
 		{"a number", 5, false},
 		{"missing", nil, false},
@@ -247,6 +248,18 @@ func TestDecodeAdjustmentsFile(t *testing.T) {
 		want := time.Date(2024, 5, 1, 7, 30, 0, 0, time.UTC)
 		if a.Timestamp == nil || !a.Timestamp.Equal(want) || a.Timestamp.Location() != time.UTC {
 			t.Errorf("Timestamp = %v, want %v in UTC", a.Timestamp, want)
+		}
+	})
+
+	// A binary date is a double of seconds, which plistlib turns into a
+	// timedelta, rounded to the microsecond; the double holds 1900 ns to about
+	// 250 ns.
+	t.Run("binary date with a fraction of a microsecond", func(t *testing.T) {
+		t.Parallel()
+		a := decodeAdjustments(marshal(t, map[string]any{"adjustmentTimestamp": time.Date(2024, 5, 1, 7, 30, 0, 1900, time.UTC)}, plist.BinaryFormat))
+		want := time.Date(2024, 5, 1, 7, 30, 0, 2000, time.UTC)
+		if a.Timestamp == nil || !a.Timestamp.Equal(want) {
+			t.Errorf("Timestamp = %v, want %v", a.Timestamp, want)
 		}
 	})
 

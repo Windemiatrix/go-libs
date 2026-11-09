@@ -355,6 +355,18 @@ func TestRenderTemplatePhoto(t *testing.T) {
 	}
 }
 
+func TestRenderTemplateHexdigest(t *testing.T) {
+	t.Parallel()
+	db := tmplDB()
+	p, o := db.byUUID["P-1"], template.RenderOptions{}
+	if got, err := tmplRender(t, db, p, "{photo.hexdigest}", o); err != nil || len(db.Hexdigest(p)) != 40 || !slices.Equal(got, []string{db.Hexdigest(p)}) {
+		t.Errorf("RenderTemplate({photo.hexdigest}) = %q, %v; want Hexdigest %q", got, err, db.Hexdigest(p))
+	}
+	if got, err := tmplRender(t, db, p, "{photo.hexdigest.x}", o); !errors.Is(err, template.ErrUnsupportedField) {
+		t.Errorf("RenderTemplate({photo.hexdigest.x}) = %q, %v; want ErrUnsupportedField", got, err)
+	}
+}
+
 func TestRenderTemplatePhotoNoneChain(t *testing.T) {
 	t.Parallel()
 	db := tmplDB()
