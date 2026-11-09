@@ -612,6 +612,28 @@ func TestExportVideoSlowMo(t *testing.T) {
 		wantCalls(t, b, append(fetchSlowMo, render)...)
 	})
 
+	// PhotoKit gives the current version of some slow-motion videos as a file,
+	// where upstream raises PhotoKitMediaTypeError (photokit.py:938-942); one
+	// request still serves the export (937).
+	t.Run("current given as a file", func(t *testing.T) {
+		b, _, file := slowMoFake(t)
+		clear(b.Compositions)
+		b.Videos[versionSlowMoID+"/0"] = b.Videos[versionSlowMoID+"/1"]
+		dir := t.TempDir()
+		if err := (&Library{b}).ExportVideo(t.Context(), versionSlowMoID, VersionCurrent, dir, "IMG_0001.mov", ExportOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(dir, "IMG_0001.mov")
+		if got, err := os.ReadFile(path); err != nil || !bytes.Equal(got, file) {
+			t.Errorf("file = %d bytes, %v; want the %d bytes of the file of PhotoKit", len(got), err, len(file))
+		}
+		if fi, err := os.Stat(path); err != nil || fi.Mode().Perm() != 0o600 {
+			t.Errorf("Stat = %v, %v; want mode 0600", fi, err)
+		}
+		onlyEntries(t, dir, 1)
+		wantCalls(t, b, append(fetchSlowMo, render)...)
+	})
+
 	t.Run("other versions", func(t *testing.T) {
 		for _, v := range []Version{VersionUnadjusted, VersionOriginal} {
 			b, _, file := slowMoFake(t)
@@ -640,7 +662,8 @@ func TestExportVideoSlowMo(t *testing.T) {
 
 	// The class of upstream is PhotoKitMediaTypeError for an AVAsset that is not
 	// a composition of two tracks (photokit.py:938-942) and PhotoKitExportError
-	// for a failed session (826-828).
+	// for a failed session (826-828); a file given instead is copied as that of
+	// any other video (904-905).
 	for _, tt := range []struct {
 		name string
 		set  func(*fake.Bridge)
@@ -649,6 +672,15 @@ func TestExportVideoSlowMo(t *testing.T) {
 	}{
 		{"not a composition", func(b *fake.Bridge) { clear(b.Compositions) }, ErrMediaType, ": not a slow-motion composition"},
 		{"failed session", func(b *fake.Bridge) { b.DoneErr = slowMoErr }, ErrExport, "AVFoundationErrorDomain code -11800"},
+		{"failed session after a file", func(b *fake.Bridge) {
+			clear(b.Compositions)
+			b.Videos[versionSlowMoID+"/0"] = b.Videos[versionSlowMoID+"/1"]
+			b.DoneErr = slowMoErr
+		}, ErrExport, "AVFoundationErrorDomain code -11800"},
+		{"file that does not exist", func(b *fake.Bridge) {
+			clear(b.Compositions)
+			b.Videos[versionSlowMoID+"/0"] = b.Videos[versionSlowMoID+"/1"] + ".gone"
+		}, ErrNoResource, ": no such file or directory"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			b, _, _ := slowMoFake(t)

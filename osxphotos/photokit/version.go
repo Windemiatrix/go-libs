@@ -91,9 +91,11 @@ func (l *Library) ExportImage(ctx context.Context, uuid string, v Version, dir, 
 // file: it is rendered through AVAssetExportSession with
 // AVAssetExportPresetHighestQuality into a QuickTime movie, as upstream does
 // (876-884, 916-964, 799-806), so its bytes are a new encoding and may differ
-// between calls; the caller names the file .mov, as upstream does (954). A
-// slow-motion asset whose current AVAsset is not a composition of two tracks
-// is ErrMediaType (938-942). The render goes into a directory that ExportVideo
+// between calls; the caller names the file .mov, as upstream does (954). When
+// PhotoKit gives that version as a file instead, the file is copied as that of
+// any other video, where upstream raises PhotoKitMediaTypeError (938-942); a
+// current AVAsset that is neither a composition of two tracks nor a file is
+// ErrMediaType (938-942). The render goes into a directory that ExportVideo
 // creates inside dir with mode 0700 and removes before it returns; the file
 // name is then written as by every export. A failed render is ErrExport with
 // the domain and code of the error of the session (826-828).
@@ -228,13 +230,21 @@ func (l *Library) exportComposition(ctx context.Context, uuid, dir string, s *fi
 	}
 	defer os.RemoveAll(tmp) //nolint:errcheck // the result is decided; a failed removal leaves only the hidden directory
 	out := filepath.Join(tmp, "render.mov")
+	var file string
 	// 0 is PHVideoRequestOptionsVersionCurrent, the version upstream renders (photokit.py:937).
-	err = awaitRequest(ctx, s, func() (bridge.Request, error) { return l.b.ExportComposition(uuid, 0, out) })
+	err = awaitRequest(ctx, s, func() (bridge.Request, error) {
+		return l.b.ExportComposition(uuid, 0, out, func(p string) { file = p })
+	})
 	switch {
 	case errors.Is(err, bridge.ErrNoComposition):
 		return fmt.Errorf("%w: not a slow-motion composition", ErrMediaType)
 	case err != nil:
 		return err
+	case file != "":
+		// extension: not in osxphotos. PhotoKit gives the current version of some
+		// slow-motion videos as a file, where upstream raises
+		// PhotoKitMediaTypeError (photokit.py:938-942).
+		return copyVideo(ctx, file, s)
 	}
 	return copyVideo(ctx, out, s)
 }

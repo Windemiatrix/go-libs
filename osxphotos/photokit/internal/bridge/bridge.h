@@ -83,14 +83,14 @@ pk_result pk_request_image(const char *local_id, int64_t version, uintptr_t hand
 // Starts requestAVAssetForVideo for the asset local_id with version, a
 // PHVideoRequestOptionsVersion, and sets *request_id; no such asset or a hidden
 // one is PK_NO_RESOURCE and starts nothing. Once started, the request calls,
-// with handle, pk_go_video once when render_path is NULL and PhotoKit gives an
-// AVURLAsset of a file URL, with its path (NULL when the URL gives none), and,
-// at most once, pk_go_done: an NSError, or no domain with PK_OK or
-// PK_EXCEPTION. A render_path is not read after the return: an AVComposition of
-// two tracks is rendered by an AVAssetExportSession into that file, which must
-// not exist, and pk_go_done comes once the session ends, with its NSError when
-// it failed, PK_OK when it completed and PK_EXCEPTION otherwise; another
-// AVAsset is PK_NO_COMPOSITION.
+// with handle, pk_go_video once when PhotoKit gives an AVURLAsset of a file
+// URL, with its path (NULL when the URL gives none), and, at most once,
+// pk_go_done: an NSError, or no domain with PK_OK or PK_EXCEPTION. A
+// render_path is not read after the return: an AVURLAsset of a file URL is not
+// rendered, an AVComposition of two tracks is rendered by an
+// AVAssetExportSession into that file, which must not exist, and pk_go_done
+// comes once the session ends, with its NSError when it failed, PK_OK when it
+// completed and PK_EXCEPTION otherwise; another AVAsset is PK_NO_COMPOSITION.
 pk_result pk_request_video(const char *local_id, int64_t version, const char *render_path, uintptr_t handle, int32_t *request_id);
 // Cancels the request (cancelImageRequest:) and the session of handle
 // (cancelExport); a session not started yet does not start, as long as

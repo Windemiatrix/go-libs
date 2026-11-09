@@ -27,7 +27,9 @@ func (*stub) RequestImage(string, int, ImageSink) (Request, error) { return nil,
 
 func (*stub) RequestVideo(string, int, func(string)) (Request, error) { return nil, ErrNotSupported }
 
-func (*stub) ExportComposition(string, int, string) (Request, error) { return nil, ErrNotSupported }
+func (*stub) ExportComposition(string, int, string, func(string)) (Request, error) {
+	return nil, ErrNotSupported
+}
 
 func (*stub) Import(ImportRecord, time.Duration) (string, error) { return "", ErrNotSupported }
 
