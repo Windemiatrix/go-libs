@@ -4,30 +4,26 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/Windemiatrix/go-libs/osxphotos.svg)](https://pkg.go.dev/github.com/Windemiatrix/go-libs/osxphotos)
 
-A Go library for the macOS Photos library. An unofficial port of parts of [osxphotos](https://github.com/RhetTbull/osxphotos), the Python project by Rhet Turnbull (MIT). The author of osxphotos is not involved in this library; but he is the one who decoded the database format ([NOTICE](NOTICE)).
+A Go module for the macOS Photos library. It is an unofficial port of part of [osxphotos](https://github.com/RhetTbull/osxphotos), the Python project by Rhet Turnbull. The author of osxphotos is not involved in this port, but he decoded the Photos database format ([NOTICE](NOTICE)).
 
-What it does:
+Below, "photo" means a photo or a video. The module fits if your Go program needs to:
 
-- reads the library catalog: photos and videos, albums and folders, people and faces, places, keywords, EXIF, scores, search labels, file paths;
-- selects photos by filters and finds duplicates;
-- builds paths from osxphotos templates, such as `{created.year}/{album}`;
-- names export files the same way as `osxphotos export`;
-- through PhotoKit, exports and imports photos, manages albums, deletes photos and changes their date, favorite, hidden state and location (macOS only).
+- read photos, albums and folders, people, places, keywords, EXIF and file paths;
+- select photos with the filters of `osxphotos query` and find duplicates;
+- build a path from an osxphotos template, such as `{created.year}/{album}`;
+- name export files the way `osxphotos export` does;
+- export and import photos, manage albums, delete photos and change their properties.
 
-No Python, and Photos does not need to be running.
+No Python is needed. The module has no command line, does not write XMP or JSON sidecar files and does not call exiftool: use osxphotos itself for those. The API may change before `v1.0.0`.
 
-**Status:** early development; the API may change before `v1.0.0`. Releases are on the [Releases](https://github.com/Windemiatrix/go-libs/releases) page.
+## Installation
 
-## Quick start
-
-```sh
-go get github.com/Windemiatrix/go-libs/osxphotos@latest
-```
+Run `go get github.com/Windemiatrix/go-libs/osxphotos@latest`. Requires Go 1.26 or later. Every package except `photokit` is pure Go without cgo and works even on Linux with a copy of a Photos library. `photokit` works only on macOS in a cgo build. This example prints the date and original name of the photos in the system library:
 
 ```go
 lib, err := photosdb.SystemLibraryPath()
 if err != nil {
-	log.Fatal(err)
+	log.Fatal(err) // photosdb.ErrLibraryNotFound
 }
 db, err := photosdb.Open(context.Background(), lib, photosdb.Options{})
 if err != nil {
@@ -35,40 +31,38 @@ if err != nil {
 }
 defer db.Close()
 
-for _, p := range db.Query(query.Options{}) { // like osxphotos query without flags: outside the trash, no unselected burst frames
+for _, p := range db.Query(query.Options{}) { // like osxphotos query without flags: no trash, no unselected burst frames
 	fmt.Println(p.Date.Format(time.DateOnly), p.OriginalFilename)
 }
 ```
 
-Requires Go 1.26. Everything except `photokit` is pure Go without cgo and also works on Linux, given a copy of the library. `photokit` works only on macOS in a cgo build.
-
 ## Packages
-
-| Package | What it does |
-|---|---|
-| `photosdb` | Opens a library and gives you the catalog; the only package that reads the database |
-| `photoinfo`, `albuminfo`, `personinfo`, `placeinfo`, `exifinfo`, `momentinfo`, `scoreinfo`, `searchinfo`, `adjustmentsinfo` | Data of photos, albums and folders, people, places, EXIF, moments, scores, search labels and edits |
-| `query` | Filters, sorting and duplicate search, as in `osxphotos query` |
-| `template` | The osxphotos template language |
-| `export` | Export file names |
-| `photokit` | The system library through PhotoKit |
 
 All functions and types are in the [package documentation](https://pkg.go.dev/github.com/Windemiatrix/go-libs/osxphotos).
 
-## Safety of your photos
+| Package | What it does |
+|---|---|
+| `photosdb` | Opens a library and returns its data; the only package that reads the database |
+| `photoinfo`, `albuminfo`, `personinfo`, `placeinfo`, `exifinfo`, `momentinfo`, `scoreinfo`, `searchinfo`, `adjustmentsinfo` | Describe photos, albums and folders, people and faces, places, EXIF, moments, scores, search labels and edits |
+| `query` | Selects and sorts photos and finds duplicates, as `osxphotos query` does |
+| `template` | Parses and renders osxphotos templates |
+| `export` | Names export files |
+| `photokit` | Reads and changes the system library through PhotoKit |
 
-- **Only `photokit` changes the library**, and only when you call a method that changes it: import, albums, deletion, changing an asset. `photosdb` works on a copy of the database: it is created in a temporary directory with mode `0700`, opened read-only and deleted before `Open` returns. The other packages do not touch the disk.
-- **The user confirms deleting or hiding photos already in the library** in a macOS dialog. Importing straight into Hidden shows no dialog.
-- **The library does not go online by itself** and does not run programs; the linter checks this. No telemetry. When exporting, `photokit` lets macOS download the original from iCloud.
-- **macOS permissions.** A program that reads the library through `photosdb` (for example, Terminal) needs Full Disk Access. `photokit` needs the Photos permission; see [PhotoKit](#photokit).
-- **The database copy is your personal data:** places, names of people, captions. Point `photosdb.Options.TempDir` only at a directory that only you can access. `DB.JSON` and `photokit.ImageInfo` hold paths and personal data; do not write them to logs.
-- Do not attach `Photos.sqlite` to an issue: the macOS version is enough. Report vulnerabilities privately, see [SECURITY.md](https://github.com/Windemiatrix/go-libs/blob/main/SECURITY.md).
+## Data safety and macOS permissions
+
+- Only `photokit` changes a library, and only in its import, album, delete and `Update` methods. Packages other than `photosdb` and `photokit` do not touch the disk.
+- `photosdb` reads a read-only copy of the database in a new directory with mode `0700`. `Open` deletes the copy before it returns, even after an error. If the copy is damaged, `Open` copies the database again, up to three attempts. The check of the copy finds only structural damage. It does not guarantee that a copy made while Photos is writing to the database is complete.
+- The copy holds personal data: places, names of people, captions. Set `photosdb.Options.TempDir` to a directory outside the library that only you can access. `DB.JSON`, `photokit.ImageInfo` and sharing data (links, participants, comments, likes) hold personal data too: do not log them.
+- The module does not go online or run programs by itself; the linter checks this. There is no telemetry. When exporting, `photokit` lets macOS download the original from iCloud.
+- A program that reads a library through `photosdb` needs Full Disk Access; when run from Terminal, Terminal needs it. `photokit` needs the Photos permission; see [PhotoKit](#photokit).
+- Do not attach `Photos.sqlite` to an issue; just state your macOS version. Report vulnerabilities privately, as described in [SECURITY.en.md](https://github.com/Windemiatrix/go-libs/blob/main/SECURITY.en.md).
 
 ## macOS versions
 
-The database schema is detected by its model number. Supported:
+The module detects the database schema by the Core Data model version stored in the database. Supported:
 
-| macOS | Photos | Database model |
+| macOS | Photos | Model version |
 |---|---|---|
 | 13 | 8 | 16320–16999 |
 | 14.0–14.5 | 9 | 17000–17599 |
@@ -78,11 +72,11 @@ The database schema is detected by its model number. Supported:
 | 26.1+ | 11.1 | 19320–19999 |
 | 27 | 12 | 270000000–270999999 |
 
-For any other model `Open` returns `ErrUnsupportedSchema` instead of guessing. A new macOS is added only when a library of that version is available: [open an issue](https://github.com/Windemiatrix/go-libs/issues/new?template=new-macos.yml).
+For any other model version `Open` returns `ErrUnsupportedSchema` and does not guess the schema. Support for a new macOS is added only when a test library from that version is available: [open an issue](https://github.com/Windemiatrix/go-libs/issues/new?template=new-macos.yml).
 
-## Templates
+## Path templates
 
-The `template` package parses and renders osxphotos templates: fields, filters, conditions, replacements, default values.
+The `template` package renders osxphotos templates: fields, filters, conditions, replacements, default values. The list of fields is in the [osxphotos documentation](https://github.com/RhetTbull/osxphotos/blob/v0.77.2/osxphotos/phototemplate.md).
 
 ```go
 t, err := template.Parse("{created.year}/{created.mm}-{created.dd} - {album,No album}/{photo.original_filename}")
@@ -90,89 +84,64 @@ if err != nil {
 	log.Fatal(err) // template.ErrSyntax
 }
 paths, unknown, err := db.RenderTemplate(p, t, template.RenderOptions{})
-// paths: [2024/05-01 - Holidays/IMG_0001.HEIC]; unknown: fields osxphotos does not have
+// paths: [2024/05-01 - Holidays/IMG_0001.HEIC]; unknown: fields that osxphotos does not have
 ```
 
 - A photo in two albums gives two paths: a field with several values multiplies the result.
-- With `RenderOptions.Filename` and `Dirname`, field values are cleaned for file and directory names. The result may still hold `..` from the template text, and with only `Dirname` also `/`, so keeping the path inside your directory is up to you.
-- Fields that run code or programs (`{function}`, `{exiftool}` and others) are not supported: they return `ErrUnsupportedField`.
-- If a template yields more than `RenderOptions.MaxResults` paths (10,000 by default), it returns `ErrTooManyValues`.
-- Month and weekday names are in English.
-- To render your own data, implement the `template.Photo` interface, which has one method, `Field(name)`.
+- `RenderOptions.Filename` and `Dirname` clean field values for file and directory names. The path may still hold `..`, and with `Dirname` also `/`: check that it stays inside your directory.
+- Fields that run code or programs (`{function}`, `{exiftool}` and others) return `ErrUnsupportedField`. If there are more paths than `RenderOptions.MaxResults` (10,000 by default), rendering returns `ErrTooManyValues`. Month and weekday names are in English.
+- To render your own data, implement the `template.Photo` interface with its `Field(name)` method and call `Render` on a `template.Renderer`.
 
-The list of fields is in the [osxphotos documentation](https://github.com/RhetTbull/osxphotos/blob/v0.77.2/osxphotos/phototemplate.md).
+## Export file names
 
-## Export names
-
-The `export` package gives files the same names as `osxphotos export`. It does not write the files.
+The `export` package gives export files the same names as `osxphotos export`. Your program writes the files itself.
 
 ```go
-// 0: try the name without a number first
+// taken: set of StemKey(name) for files in the target directory; 0 (start number): try the unnumbered name first.
 name, _ := export.IncrementName(p.OriginalFilename, 0, taken) // IMG_0001.HEIC or IMG_0001 (1).HEIC
 files := export.Names(p, name)                                 // files.Live is IMG_0001.mov
 ```
 
-- `IncrementName` adds ` (1)`, ` (2)`… while the name is taken. `taken` is a set of `StemKey(name)` for every file in the directory: the extension is ignored, so `foo.png` also blocks `foo.jpeg`.
-- `Names` gives the names of the companion files: the Live Photo video, RAW, previews, edit files.
-- `EditedName` gives the name of the edited version, such as `IMG_0001_edited.jpeg`.
+- `IncrementName` adds ` (1)`, ` (2)` and so on while the name is taken. The extension is ignored: an existing `foo.png` makes `foo.jpeg` taken too.
+- `Names` gives the names of the companion files: the Live Photo video, RAW, previews, edit files. `EditedName` gives the name of the edited version, such as `IMG_0001_edited.jpeg`.
+- Names come from the library as they are. Clean a name before you write a file, for example with `template.SanitizeFilename`. It does not remove `..` or NUL, so check for them yourself.
 
 ## PhotoKit
 
-The `photokit` package works with the system library through PhotoKit. macOS and a cgo build only; otherwise every call returns `ErrNotSupported`.
+The `photokit` package reads and changes the system library through PhotoKit. It works only on macOS in a cgo build; otherwise every call returns `ErrNotSupported`.
 
-**Access.**
+Your program needs an `Info.plist` with the `NSPhotoLibraryUsageDescription` key, or macOS terminates it when it asks for access. Embed the file yourself, for example with the linker flag `-sectcreate __TEXT __info_plist Info.plist`. `RequestAuthorization` asks the user for access. `Open` does not ask: without full access it returns `ErrNotAuthorized`, also when access is limited to selected photos. If the program runs from Terminal, Terminal gets the Photos permission. After that, any program started from Terminal can read and change the whole library.
 
-- The program must contain an `Info.plist` with the `NSPhotoLibraryUsageDescription` key, or macOS terminates it on first access. Embedding it is up to the program, for example with the linker flag `-sectcreate __TEXT __info_plist Info.plist`.
-- `RequestAuthorization` asks the user; `Open` does not: without the permission it returns `ErrNotAuthorized`. Limited access (selected photos only) is not accepted either.
-- If you run the program from Terminal, Terminal gets the Photos permission. After that any program started from it can read and change the whole library.
+- `Fetch` finds photos by UUID from `photosdb`, and `Resources` lists a photo's resources, its files: original, edits, video. Like osxphotos working through PhotoKit, `photokit` does not find hidden photos; `photosdb` does see them.
+- `Export` exports a resource as stored. `ExportImage`, `ExportVideo` and `ExportLivePhoto` export the edited version, the unedited version or the original file; for video and Live Photo the last two are the same. The current version of any slow-motion video is rendered again, even without edits, so the file bytes may differ between calls.
+- `Import` imports files, Live Photos and RAW+JPEG pairs included. Import shows no dialog, even when it puts photos straight into the Hidden album.
+- `CreateFolder`, `CreateAlbum`, `RenameCollection`, `DeleteCollections`, `AddToAlbum` and `RemoveFromAlbum` manage folders and albums.
+- `Delete` moves photos to Recently Deleted. `Update` changes the date, favorite, hidden state and location of a photo, but cannot unhide it.
+- `CloudIdentifiers` and `LocalIdentifiers` convert local identifiers of photos to cloud identifiers and back.
 
-**What it does.**
+The name of an export file is one path element. An empty name, `.`, `..`, or a `/` or NUL in it returns `ErrInvalidName`. The file is created with mode `0600`. An existing file is replaced only with `ExportOptions.Overwrite`; otherwise the export returns `fs.ErrExist`. After an error the created file is deleted.
 
-- Finds assets by UUID from `photosdb` (`Fetch`) and lists their resources (`Resources`).
-- Exports a resource as stored (`Export`), or a version of a photo or video: with edits, without edits, original (`ExportImage`, `ExportVideo`, `ExportLivePhoto`). An edited slow-motion video is rendered again, so its bytes may differ between calls.
-- Imports files, Live Photos and RAW+JPEG included (`Import`).
-- Creates, renames and deletes folders and albums, adds photos to them.
-- Deletes assets (`Delete`) and changes the date, favorite, hidden state and location (`Update`).
-- Converts local identifiers to cloud identifiers and back.
-
-The `photokit` methods do not find hidden photos, and neither does the PhotoKit code of osxphotos; `photosdb` does see them.
-
-**Files.** An export writes one file with mode `0600` into the given directory. An existing file is not overwritten without `ExportOptions.Overwrite`. After an error the partial file is deleted.
-
-**Dialogs and deadlines.**
-
-- `Delete`, `DeleteCollections` and hiding through `Update` show a macOS dialog. If the user refuses, the error is `ErrUserCanceled` and nothing changed.
-- `ctx` sets how long to wait. If it ends before PhotoKit reports the result of a change, the error is `ErrOutcomeUnknown`: the change may have been applied, or may still be, because the macOS dialog stays open. Read the library again before changing anything else.
-- `photokit` has not been tested with an iCloud Shared Photo Library.
+`Delete` and hiding through `Update` show a macOS dialog; `DeleteCollections` may show one. If the user refuses, the call returns `ErrUserCanceled` and the library is unchanged. `ctx` sets how long any change, including an import, waits for its outcome. If `ctx` ends after the call starts but before PhotoKit reports the outcome, the error wraps `ErrOutcomeUnknown` and `ctx.Err()`. The change may have been applied or may apply later, and the macOS dialog, if any, stays open. Read the library again before the next change. `photokit` has not been tested with an iCloud Shared Photo Library.
 
 ## Differences from osxphotos
 
-The port follows osxphotos `v0.77.2`. Beyond it, the library gives cloud identifiers of photos and albums, sizes of every file of a photo, Live and RAW included, without downloading, and in `photokit` import, albums, deletion and changing assets. Not included: the command line, writing export files, sidecars and exiftool, media analysis results. The full list of differences, with links to the osxphotos code, is in [UPSTREAM.md](UPSTREAM.md).
+The module follows osxphotos `v0.77.2`. Unlike osxphotos, it also returns cloud identifiers of photos and albums and the sizes of all photo files without downloading them. Its `photokit` package also imports photos, manages albums, and deletes and changes photos. The module has no command line, export database, file conversion, XMP or JSON sidecar files, exiftool or media analysis results. The full list of differences, with links to the osxphotos code, is in [UPSTREAM.md](UPSTREAM.md).
 
 ## How it is tested
 
-- Every PR: tests with `-race` on Linux and macOS, the linter, coverage of at least 80%.
-- The output is compared with the output of osxphotos itself on its eight test libraries (macOS 13–27) and one synthetic library. Templates are checked the same way.
-- `photokit` is tested against a fake PhotoKit in CI. Tests that change a real library run only by hand, under a separate macOS account.
+Every PR runs tests with `-race` on Linux and macOS, the linter and an 80% coverage threshold. The results are compared with the output of osxphotos on its eight test libraries (macOS 13–27) and one synthetic library. `photokit` is tested in CI against a simulated PhotoKit. Tests that change a real library run only by hand, under a separate macOS account. You can also compare the module with osxphotos on your own library without changing it:
 
-### Checking on your own library
-
-You can compare the library with osxphotos on your own data. Your library is not changed.
-
-1. Install osxphotos 0.77.2 in a separate environment (Python 3.10+): `python3 -m venv "$HOME/venvs/osxphotos" && "$HOME/venvs/osxphotos/bin/pip" install osxphotos==0.77.2`.
-2. Quit Photos, open the library in Finder with "Show Package Contents" and copy the `database/` folder to `~/Pictures/Copy.photoslibrary/database/`.
-3. From the repository root: `make diff-local LIBRARY="$HOME/Pictures/Copy.photoslibrary" OSXPHOTOS="$HOME/venvs/osxphotos/bin/osxphotos" REPORT="$HOME/diff-local-report.txt"`.
-
-The terminal shows only the counts of differences. The details go to the `REPORT` file: it holds your data, do not publish it. Delete the library copy afterwards.
+1. Install osxphotos 0.77.2 in a separate Python 3.10+ environment: `python3 -m venv "$HOME/venvs/osxphotos" && "$HOME/venvs/osxphotos/bin/pip" install osxphotos==0.77.2`.
+2. Quit Photos, open the library in Finder with "Show Package Contents" and copy the `database/` directory to `~/Pictures/Copy.photoslibrary/database/`.
+3. From the repository root, run `make diff-local LIBRARY="$HOME/Pictures/Copy.photoslibrary" OSXPHOTOS="$HOME/venvs/osxphotos/bin/osxphotos" REPORT="$HOME/diff-local-report.txt"`.
+4. Read the counts of differences in the terminal. The details go to the file set in `REPORT`; it holds your data, so do not publish it. Then delete the library copy.
 
 ## Questions
 
-- **Can I read while Photos is open?** Yes.
-- **Photos stored only in iCloud?** The catalog is read in full. Such a photo has an empty `Path` and `IsMissing` set to true. `photokit` downloads the original when exporting.
-- **`SystemLibraryPath` returned `ErrLibraryNotFound`?** On some systems macOS does not keep the library path where the library looks for it. Pass the path to `Open` yourself.
+- **Can `photosdb` read a library while the Photos app is open?** Yes, `photosdb` reads a copy of the database. The module does not guarantee that a copy made while Photos is writing to the database is complete.
+- **What does `photosdb` know about photos stored only in iCloud?** Everything in the database. Such a photo has an empty `Path` and `IsMissing` set to true; `photokit` downloads the original when exporting.
+- **What if `SystemLibraryPath` returns `ErrLibraryNotFound`?** Give the program Full Disk Access; if that does not help, pass the library path to `Open` yourself.
 
 ## License
 
-MIT. A port of [osxphotos](https://github.com/RhetTbull/osxphotos) (MIT, Rhet Turnbull); the test databases are taken from its tests unchanged, see [NOTICE](NOTICE).
-
-Questions and ideas go to [Discussions](https://github.com/Windemiatrix/go-libs/discussions), bugs to [Issues](https://github.com/Windemiatrix/go-libs/issues).
+MIT. The test databases, except the synthetic one, are taken unchanged from the osxphotos tests; see [NOTICE](NOTICE). Questions and ideas go to [Discussions](https://github.com/Windemiatrix/go-libs/discussions), bugs to [Issues](https://github.com/Windemiatrix/go-libs/issues).
