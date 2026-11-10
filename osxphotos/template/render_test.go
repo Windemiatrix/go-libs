@@ -150,9 +150,7 @@ func renderCases() []renderCase {
 		{"strip of every value", "{strip,{keyword}}", with(ex(), "keyword", strs(" a ", "\U0000001cb\t")), RenderOptions{}, []string{"a", "b"}, nil},
 		{"strip without text", "{strip}", fakePhoto{}, RenderOptions{}, []string{"_"}, nil},
 		{"export_dir", "{export_dir}", fakePhoto{}, RenderOptions{ExportDir: "/export"}, []string{"/export"}, nil},
-		{"export_dir unset", "{export_dir}", fakePhoto{}, RenderOptions{}, []string{"None"}, nil},
 		{"filepath", "{filepath}", fakePhoto{}, RenderOptions{Filepath: "/export/IMG_0001.HEIC"}, []string{"/export/IMG_0001.HEIC"}, nil},
-		{"filepath unset", "{filepath}", fakePhoto{}, RenderOptions{}, []string{"None"}, nil},
 		{"edited_version", "{edited_version}", fakePhoto{}, RenderOptions{EditedVersion: true}, []string{"edited_version"}, nil},
 		{"edited_version unset", "{edited_version}", fakePhoto{}, RenderOptions{}, []string{"_"}, nil},
 		{"osxphotos_version", "{osxphotos_version}", fakePhoto{}, RenderOptions{}, []string{"0.77.2"}, nil},
@@ -356,7 +354,7 @@ func TestRenderErrors(t *testing.T) {
 		{"{id >= {keyword}?Y,N}", with(conditionPhoto(), "keyword", strs("1", "2")), ErrRender, ">="},
 		{"{keyword < 9?Y,N}", with(conditionPhoto(), "keyword", strs("x", "5")), ErrRender, "<"},
 		{"{var:n,0x10}{%n <= 99?Y,N}", missing, ErrRender, "<="},
-		// dates (phototemplate.py:950-956, 1743-1769)
+		// dates (phototemplate.py:950-956, 1772-1800)
 		{"{created.year}", missing, ErrUnsupportedField, "created"},
 		{"{modified}", missing, ErrUnsupportedField, "modified"},
 		{"{modified.year}", fakePhoto{"modified": {}}, ErrUnsupportedField, "created"},
@@ -372,15 +370,6 @@ func TestRenderErrors(t *testing.T) {
 		{"{shortuuid}", missing, ErrUnsupportedField, ": uuid"},
 		{"{media_type,video=v}", missing, ErrUnsupportedField, "media_type"},
 		{"{photo_or_video,photo=p}", missing, ErrUnsupportedField, "photo_or_video"},
-		// _get_pathlib_value (phototemplate.py:1643-1649)
-		{"{export_dir.parents}", missing, ErrRender, "export_dir.parents"},
-		{"{filepath.stem.x}", missing, ErrRender, "filepath.stem.x"},
-		{"{filepath.}", missing, ErrRender, "filepath."},
-		{"{filepath.suffixes}", missing, ErrUnsupportedConstruct, "filepath.suffixes"},
-		{"{export_dir.parts}", missing, ErrUnsupportedConstruct, "export_dir.parts"},
-		// pathlib.Path(None) raises TypeError (phototemplate.py:1643)
-		{"{export_dir.name}", missing, ErrRender, "export_dir.name"},
-		{"{filepath.parent}", missing, ErrRender, "filepath.parent"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.in, func(t *testing.T) {

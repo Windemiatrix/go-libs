@@ -2,6 +2,7 @@ package personinfo_test
 
 import (
 	"math"
+	"strconv"
 	"testing"
 
 	"github.com/Windemiatrix/go-libs/osxphotos/personinfo"
@@ -124,6 +125,76 @@ func TestGeometry(t *testing.T) {
 				}
 			}
 		}
+	})
+}
+
+// The cases of test_faceinfo.py:4619-4682: a detection with a zero face size,
+// the center 0, 0 and the body region (0.4, 0.3, 0.6, 0.2).
+func TestBodyRegion(t *testing.T) {
+	body := func(detectionType int, size float64) personinfo.FaceInfo {
+		return personinfo.FaceInfo{DetectionType: detectionType, Size: size, BodyCenterX: 0.4, BodyCenterY: 0.3, BodyWidth: 0.6, BodyHeight: 0.2}
+	}
+
+	t.Run("is pet", func(t *testing.T) {
+		for detectionType, want := range map[int]bool{0: false, 1: false, 2: false, 3: true, 4: true, 5: false} {
+			if got := (personinfo.FaceInfo{DetectionType: detectionType}).IsPet(); got != want {
+				t.Errorf("IsPet of the detection type %d = %v, want %v", detectionType, got, want)
+			}
+		}
+	})
+
+	t.Run("orientation", func(t *testing.T) {
+		for _, tt := range []struct {
+			orientation int
+			x, y, w, h  float64
+		}{
+			{1, 0.4, 0.7, 0.6, 0.2},
+			{2, 0.6, 0.7, 0.6, 0.2},
+			{3, 0.6, 0.3, 0.6, 0.2},
+			{4, 0.4, 0.3, 0.6, 0.2},
+			{5, 0.7, 0.4, 0.2, 0.6},
+			{6, 0.7, 0.6, 0.2, 0.6},
+			{7, 0.3, 0.6, 0.2, 0.6},
+			{8, 0.3, 0.4, 0.2, 0.6},
+		} {
+			t.Run(strconv.Itoa(tt.orientation), func(t *testing.T) {
+				checkArea(t, body(4, 0).MWGArea(4000, 3000, tt.orientation), personinfo.Area{X: tt.x, Y: tt.y, H: tt.h, W: tt.w})
+			})
+		}
+	})
+
+	// MPRI_Reg_Rect keeps the width in h and the height in w (personinfo.py:313).
+	t.Run("dog and cat", func(t *testing.T) {
+		for _, detectionType := range []int{3, 4} {
+			pet := body(detectionType, 0)
+			checkArea(t, pet.MWGArea(4000, 3000, 1), personinfo.Area{X: 0.4, Y: 0.7, H: 0.2, W: 0.6})
+			checkArea(t, pet.MPRIRect(4000, 3000, 1), personinfo.Area{X: 0.1, Y: 0.6, H: 0.6, W: 0.2})
+		}
+	})
+
+	t.Run("a person keeps the zero face region", func(t *testing.T) {
+		checkArea(t, body(1, 0).MWGArea(4000, 3000, 1), personinfo.Area{X: 0, Y: 1})
+	})
+
+	t.Run("a pet without a body region", func(t *testing.T) {
+		for _, size := range [][2]float64{{0, 0}, {0.6, 0}, {0, 0.2}} {
+			pet := personinfo.FaceInfo{DetectionType: 4, BodyCenterX: 0.4, BodyCenterY: 0.3, BodyWidth: size[0], BodyHeight: size[1]}
+			checkArea(t, pet.MWGArea(4000, 3000, 1), personinfo.Area{X: 0, Y: 1})
+		}
+	})
+
+	t.Run("a pet with a face region", func(t *testing.T) {
+		pet, person := body(3, 0.1), body(1, 0.1)
+		checkArea(t, pet.MWGArea(4000, 3000, 6), person.MWGArea(4000, 3000, 6))
+		checkArea(t, pet.MPRIRect(4000, 3000, 6), person.MPRIRect(4000, 3000, 6))
+		if a := person.MWGArea(4000, 3000, 6); a.W == 0.2 || a.W == 0.6 {
+			t.Errorf("the face region %+v has a size of the body region: the case cannot tell them apart", a)
+		}
+	})
+
+	t.Run("a photo of no size", func(t *testing.T) {
+		checkArea(t, body(4, 0).MWGArea(0, 3000, 1), personinfo.Area{})
+		checkArea(t, body(4, 0).MPRIRect(4000, 0, 1), personinfo.Area{})
 	})
 }
 

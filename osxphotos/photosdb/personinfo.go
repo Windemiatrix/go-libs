@@ -157,6 +157,7 @@ func faceInfo(f sqlread.Face) personinfo.FaceInfo {
 		HasSmile: is(f.HasSmile, flagSet), Manual: is(f.Manual, flagSet), InTrash: is(f.InTrash, flagSet),
 		AgeType: intOf(f.AgeType), EyeMakeupType: intOf(f.EyeMakeupType), EyeState: intOf(f.EyeState), FacialHairType: intOf(f.FacialHairType),
 		GenderType: intOf(f.GenderType), GlassesType: intOf(f.GlassesType), HairColorType: intOf(f.HairColorType),
-		LipMakeupType: intOf(f.LipMakeupType), SmileType: intOf(f.SmileType),
+		LipMakeupType: intOf(f.LipMakeupType), SmileType: intOf(f.SmileType), DetectionType: intOf(f.DetectionType),
+		BodyCenterX: f.BodyCenterX.Float64, BodyCenterY: f.BodyCenterY.Float64, BodyWidth: f.BodyWidth.Float64, BodyHeight: f.BodyHeight.Float64,
 	}
 }

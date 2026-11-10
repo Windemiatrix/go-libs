@@ -111,6 +111,8 @@ type catalog struct {
 	cloudMeta map[string][]byte // the data of ZCLOUDMASTERMEDIAMETADATA by photo UUID, only a photo with data
 
 	search map[string][]searchinfo.Record // the search terms by asset UUID, only an asset with terms
+
+	rawCodes map[string]string // the ZCOMPACTUTI of the RAW by photo UUID, only a code the table does not resolve (learnRawUTIs)
 }
 
 // osxphotos normalizes the text of the database to NFC (unicode.py:12, 76-92).
@@ -169,7 +171,7 @@ func load(t tables) (*catalog, error) {
 		cloudMeta[r.AssetPK] = r.Data
 	}
 
-	c := &catalog{byUUID: make(map[string]*photoinfo.PhotoInfo, len(t.assets)), momentOf: map[string]int64{}, cloudMeta: map[string][]byte{}}
+	c := &catalog{byUUID: make(map[string]*photoinfo.PhotoInfo, len(t.assets)), momentOf: map[string]int64{}, cloudMeta: map[string][]byte{}, rawCodes: map[string]string{}}
 	var noUUID, dupUUID int
 	for _, a := range t.assets {
 		if !a.HasAttributes {
@@ -185,6 +187,9 @@ func load(t tables) (*catalog, error) {
 			continue
 		}
 		p := photo(a, resources[a.PK])
+		if code, ok := setRawUTI(p, resources[a.PK]); ok {
+			c.rawCodes[p.UUID] = code
+		}
 		if a.MomentPK.Valid {
 			c.momentOf[p.UUID] = a.MomentPK.Int64
 		}
@@ -388,7 +393,6 @@ func photo(a sqlread.Asset, res []sqlread.Resource) *photoinfo.PhotoInfo {
 	}
 	p.IsRAW = strings.Contains(p.UTIOriginal, rawUTIMarker)
 
-	p.HasRAW = slices.ContainsFunc(res, func(r sqlread.Resource) bool { return is(r.Subtype, resRAW) }) // photosdb.py:2537-2577
 	p.IsMissing = isMissing(res)
 	for _, r := range res {
 		p.Resources = append(p.Resources, photoinfo.Resource{

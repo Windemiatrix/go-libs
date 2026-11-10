@@ -322,6 +322,7 @@ func fixtureLib() goLib {
 		Faces: map[string][]personinfo.FaceInfo{selectedFrame: {{
 			PK: 21, UUID: faceA, Name: "Person A", AssetUUID: selectedFrame, PersonPK: 31, PersonUUID: personA,
 			CenterX: 0.5, CenterY: 0.5, Quality: 0.5, Roll: 0.25, SourceWidth: 4032, SourceHeight: 3024, HasSmile: true, AgeType: 2,
+			DetectionType: 1, BodyCenterX: 0.25, BodyCenterY: 0.75, BodyWidth: 0.5, BodyHeight: 0.125,
 		}}},
 		// Types as howett.net/plist decodes them: a non-negative integer is a uint64, a negative one an int64.
 		CloudMetadata: map[string]map[string]any{selectedFrame: {
@@ -376,12 +377,13 @@ const refPersonInfo = `[{"displayname": "Pat", "facecount": 3, "favorite": true,
 	`{"displayname": null, "facecount": null, "favorite": false, "feature_less": false, "keyface": null, "keyphoto": null, ` +
 	`"name": "_UNKNOWN_", "sort_order": null, "uuid": "` + personUnknown + `"}]`
 
-// The face of the fixture as personinfo.py:420-455 computes it for a photo of
+// The face of the fixture as personinfo.py:455-496 computes it for a photo of
 // 4032 x 3024 in orientation 6.
-const refFaceInfo = `[{"_person_pk": 31, "_pk": 21, "age_type": 2, "asset_uuid": "` + selectedFrame + `", "center": [1512, 2016], ` +
-	`"center_x": 0.5, "center_y": 0.5, "eye_makeup_type": 0, "eye_state": 0, "face_rect": [[1512.0, 2016.0], [1512.0, 2016.0]], ` +
+const refFaceInfo = `[{"_person_pk": 31, "_pk": 21, "age_type": 2, "asset_uuid": "` + selectedFrame + `", ` +
+	`"body_center_x": 0.25, "body_center_y": 0.75, "body_height": 0.125, "body_width": 0.5, "center": [1512, 2016], ` +
+	`"center_x": 0.5, "center_y": 0.5, "detection_type": 1, "eye_makeup_type": 0, "eye_state": 0, "face_rect": [[1512.0, 2016.0], [1512.0, 2016.0]], ` +
 	`"face_type": null, "facial_hair_type": 0, "gender_type": 0, "glasses_type": 0, "hair_color_type": 0, "has_smile": 1, ` +
-	`"intrash": 0, "lip_makeup_type": 0, "manual": 0, "mpri_reg_rect": {"h": 0.0, "w": 0.0, "x": 0.5, "y": 0.5}, ` +
+	`"intrash": 0, "is_pet": false, "lip_makeup_type": 0, "manual": 0, "mpri_reg_rect": {"h": 0.0, "w": 0.0, "x": 0.5, "y": 0.5}, ` +
 	`"mwg_rs_area": {"h": 0.0, "w": 0.0, "x": 0.5, "y": 0.5}, "name": "Person A", "pitch": 0, "quality": 0.5, "roll": 0.25, ` +
 	`"size": 0.0, "smile_type": 0, "source_height": 3024, "source_width": 4032, "uuid": "` + faceA + `", "yaw": 0}]`
 

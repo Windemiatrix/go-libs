@@ -60,6 +60,7 @@ func TestFaceInfoAsDict(t *testing.T) {
 			HasSmile: true, InTrash: true,
 			AgeType: 1, EyeMakeupType: 2, EyeState: 3, FacialHairType: 4, GenderType: 5, GlassesType: 6,
 			HairColorType: 7, LipMakeupType: 8, SmileType: 9, Roll: 0.5,
+			DetectionType: 3, BodyCenterX: 0.375, BodyCenterY: 0.625, BodyWidth: 0.25, BodyHeight: 0.875,
 		}
 		// Orientation 6 swaps the axes, so that width and height in the wrong order give other values.
 		x0, y0, x1, y1 := f.Rect(4000, 3000, 6)
@@ -70,7 +71,8 @@ func TestFaceInfoAsDict(t *testing.T) {
 			"roll": 0.5, "pitch": 0, "yaw": 0, "quality": 0.75, "source_width": 4000, "source_height": 3000,
 			"has_smile": 1, "manual": 0, "face_type": nil, "age_type": 1, "eye_makeup_type": 2, "eye_state": 3,
 			"facial_hair_type": 4, "gender_type": 5, "glasses_type": 6, "hair_color_type": 7, "intrash": 1,
-			"lip_makeup_type": 8, "smile_type": 9,
+			"lip_makeup_type": 8, "smile_type": 9, "detection_type": 3, "is_pet": true,
+			"body_center_x": 0.375, "body_center_y": 0.625, "body_width": 0.25, "body_height": 0.875,
 		}
 		if got := f.AsDict(4000, 3000, 6); !reflect.DeepEqual(got, want) {
 			t.Errorf("AsDict =\n%#v\nwant\n%#v", got, want)
@@ -106,7 +108,7 @@ func TestFaceInfoAsDict(t *testing.T) {
 		}
 	})
 
-	// mwg_rs_area and mpri_reg_rect of a photo without a size are integer zeros (personinfo.py:247-248, 278-279).
+	// mwg_rs_area and mpri_reg_rect of a photo without a size are integer zeros (personinfo.py:273-274, 308-309).
 	t.Run("zero", func(t *testing.T) {
 		want := map[string]any{
 			"_pk": int64(0), "uuid": nil, "name": nil, "asset_uuid": nil, "_person_pk": int64(0),
@@ -115,7 +117,8 @@ func TestFaceInfoAsDict(t *testing.T) {
 			"roll": 0.0, "pitch": 0, "yaw": 0, "quality": 0.0, "source_width": 0, "source_height": 0,
 			"has_smile": 0, "manual": 0, "face_type": nil, "age_type": 0, "eye_makeup_type": 0, "eye_state": 0,
 			"facial_hair_type": 0, "gender_type": 0, "glasses_type": 0, "hair_color_type": 0, "intrash": 0,
-			"lip_makeup_type": 0, "smile_type": 0,
+			"lip_makeup_type": 0, "smile_type": 0, "detection_type": 0, "is_pet": false,
+			"body_center_x": 0.0, "body_center_y": 0.0, "body_width": 0.0, "body_height": 0.0,
 		}
 		if got := (personinfo.FaceInfo{}).AsDict(0, 0, 0); !reflect.DeepEqual(got, want) {
 			t.Errorf("AsDict =\n%#v\nwant\n%#v", got, want)

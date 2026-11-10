@@ -48,7 +48,7 @@ func (d *DB) Persons(ctx context.Context, s schema.Schema) ([]Person, error) {
 }
 
 // Face is one detected face of an asset with a person, the columns of
-// _photosdb_process_faceinfo.py:186-232 that FaceInfo exposes. AssetPK is
+// _photosdb_process_faceinfo.py:189-248 that FaceInfo exposes. AssetPK is
 // schema.Schema.FaceAssetColumn, FullName ZPERSON.ZFULLNAME, UUID
 // ZDETECTEDFACE.ZUUID, AssetUUID ZASSET.ZUUID and PersonUUID
 // ZPERSON.ZPERSONUUID.
@@ -61,6 +61,9 @@ type Face struct {
 	LipMakeupType, Manual, SmileType        sql.NullInt64
 	SourceHeight, SourceWidth               sql.NullInt64
 	CenterX, CenterY, Quality, Roll, Size   sql.NullFloat64
+	DetectionType                           sql.NullInt64
+	BodyCenterX, BodyCenterY                sql.NullFloat64
+	BodyWidth, BodyHeight                   sql.NullFloat64
 }
 
 // The order is that of the Scan in Faces.
@@ -72,12 +75,14 @@ func faceSelect(s schema.Schema) []column {
 		f("ZAGETYPE"), f("ZEYEMAKEUPTYPE"), f("ZEYESSTATE"), f("ZFACIALHAIRTYPE"), f("ZGENDERTYPE"), f("ZGLASSESTYPE"),
 		f("ZHAIRCOLORTYPE"), f("ZHASSMILE"), f("ZISINTRASH"), f("ZLIPMAKEUPTYPE"), f("ZMANUAL"), f("ZSMILETYPE"),
 		f("ZSOURCEHEIGHT"), f("ZSOURCEWIDTH"), f("ZCENTERX"), f("ZCENTERY"), f("ZQUALITY"), f("ZROLL"), f("ZSIZE"),
+		f("ZDETECTIONTYPE"), f("ZBODYCENTERX"), f("ZBODYCENTERY"), f("ZBODYWIDTH"), f("ZBODYHEIGHT"),
 	}
 }
 
 // Faces returns the detected faces that have a row in ZASSET and in ZPERSON,
-// one row per face, in Z_PK order (photosdb.py:1844-1853;
-// _photosdb_process_faceinfo.py:186-232).
+// one row per face, in Z_PK order (photosdb.py:1848-1857;
+// _photosdb_process_faceinfo.py:189-248). The detection type and the body
+// region exist from Photos 7, so every schema of the port has them (189-198).
 func (d *DB) Faces(ctx context.Context, s schema.Schema) ([]Face, error) {
 	q := "SELECT " + selectList(faceSelect(s)) + " FROM ZDETECTEDFACE f JOIN ZASSET a ON a.Z_PK = f." + s.FaceAssetColumn +
 		" JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn + " ORDER BY f.Z_PK"
@@ -87,7 +92,8 @@ func (d *DB) Faces(ctx context.Context, s schema.Schema) ([]Face, error) {
 		if err := rows.Scan(&f.PK, &f.AssetPK, &f.AssetUUID, &f.UUID, &f.PersonPK, &f.PersonUUID, &f.FullName,
 			&f.AgeType, &f.EyeMakeupType, &f.EyeState, &f.FacialHairType, &f.GenderType, &f.GlassesType,
 			&f.HairColorType, &f.HasSmile, &f.InTrash, &f.LipMakeupType, &f.Manual, &f.SmileType,
-			&f.SourceHeight, &f.SourceWidth, &f.CenterX, &f.CenterY, &f.Quality, &f.Roll, &f.Size); err != nil {
+			&f.SourceHeight, &f.SourceWidth, &f.CenterX, &f.CenterY, &f.Quality, &f.Roll, &f.Size,
+			&f.DetectionType, &f.BodyCenterX, &f.BodyCenterY, &f.BodyWidth, &f.BodyHeight); err != nil {
 			return err
 		}
 		out = append(out, f)

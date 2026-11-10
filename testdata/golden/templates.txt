@@ -3,8 +3,9 @@
 # the template lines; the comment before each line names its source: md:N is line N of
 # osxphotos/phototemplate.md, py:N is line N of osxphotos/phototemplate.py, field is a template field,
 # literal is a template that does not depend on the photo, quirk is a behaviour of osxphotos worth pinning down.
-# Lines that use album_project come last: that field changes the album list of the photo it renders,
-# so a line that reads the albums after it would see projects in them.
+# Lines that use album_project come after every line that reads the albums: that field changes the album
+# list of the photo it renders, so a line that reads the albums after it would see projects in them.
+# New lines that do not read the albums are added at the end, so that the ids before them stay.
 
 # == text and flag fields ==
 # t001 field name
@@ -1059,3 +1060,19 @@ x{var:s,a;b}{%s|split(;)}y
 # == lines that read the albums go before this group ==
 # t511 field album_project
 {album_project}
+
+# == added with osxphotos 0.78.1 ==
+# t512 field created.strftime with the epoch
+{created.strftime,%s}
+# t513 field created.strftime with the epoch
+{created.strftime,%Y_%s}
+# t514 field created.strftime with an escaped epoch
+{created.strftime,%%s}
+# t515 field modified.strftime with the epoch
+{modified.strftime,%s}
+# t516 field filepath
+{filepath}
+# t517 field filepath.parent
+{filepath.parent}
+# t518 field export_dir
+{export_dir}

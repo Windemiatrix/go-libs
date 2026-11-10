@@ -3,6 +3,7 @@ package photosdb
 import (
 	"cmp"
 	"database/sql"
+	"math"
 	"reflect"
 	"slices"
 	"strconv"
@@ -133,6 +134,7 @@ func TestLoadFaceInfo(t *testing.T) {
 				GlassesType: nullInt(6), HairColorType: nullInt(7), HasSmile: nullInt(1), InTrash: nullInt(0), LipMakeupType: nullInt(8),
 				Manual: nullInt(0), SmileType: nullInt(9), SourceHeight: nullInt(3000), SourceWidth: nullInt(4000),
 				CenterX: nullFloat(0.25), CenterY: nullFloat(0.5), Quality: nullFloat(0.75), Roll: nullFloat(0.125), Size: nullFloat(0.2),
+				DetectionType: nullInt(4), BodyCenterX: nullFloat(0.375), BodyCenterY: nullFloat(0.625), BodyWidth: nullFloat(0.0625), BodyHeight: nullFloat(0.875),
 			},
 			{PK: 8, AssetPK: 1, AssetUUID: nullString("A-1"), PersonPK: 2, PersonUUID: nullString("P-1"), HasSmile: nullInt(0), InTrash: nullInt(1), Manual: nullInt(0)},
 			{PK: 9, AssetPK: 99, AssetUUID: nullString("A-9"), PersonPK: 1, PersonUUID: nullString("P-2"), Quality: nullFloat(0.75)},
@@ -150,7 +152,7 @@ func TestLoadFaceInfo(t *testing.T) {
 		CenterX: 0.25, CenterY: 0.5, Size: 0.2, Quality: 0.75, SourceWidth: 4000, SourceHeight: 3000,
 		HasSmile: true, Manual: false, InTrash: false,
 		AgeType: 2, EyeMakeupType: 1, EyeState: 3, FacialHairType: 4, GenderType: 5, GlassesType: 6, HairColorType: 7, LipMakeupType: 8, SmileType: 9,
-		Roll: 0.125,
+		Roll: 0.125, DetectionType: 4, BodyCenterX: 0.375, BodyCenterY: 0.625, BodyWidth: 0.0625, BodyHeight: 0.875,
 	}
 	// A person without a name has the name "" on a face, which sorts first (_photosdb_process_faceinfo.py:283; photoinfo.py:622).
 	face8 := personinfo.FaceInfo{PK: 8, AssetUUID: "A-1", PersonPK: 2, PersonUUID: "P-1", InTrash: true}
@@ -411,7 +413,7 @@ func TestLoadPersonInfoLibraries(t *testing.T) {
 	// Not a JOIN: an asset with two attribute rows would count twice.
 	const withAttributes = " WHERE EXISTS (SELECT 1 FROM ZADDITIONALASSETATTRIBUTES x WHERE x.ZASSET = a.Z_PK)"
 	var mu sync.Mutex
-	var people, faces int
+	var people, faces, bodies, faceRegions int
 	t.Run("libraries", func(t *testing.T) {
 		for _, lib := range goldenLibraries(t) {
 			t.Run(lib.name, func(t *testing.T) {
@@ -439,11 +441,27 @@ func TestLoadPersonInfoLibraries(t *testing.T) {
 				}
 				withFaces, found := checkPersonInfoOf(t, db)
 				onPhoto := map[personinfo.PersonInfo]bool{}
+				var ofPeople, ofPets, withBody, withFaceRegion int
 				for _, p := range db.Photos() {
 					for _, pi := range db.PersonInfoOf(p) {
 						onPhoto[pi] = true
 					}
+					for _, f := range db.FaceInfoOf(p) {
+						switch {
+						case f.IsPet():
+							ofPets++
+						case f.DetectionType == 1:
+							ofPeople++
+						}
+						if f.BodyWidth != 0 && f.BodyHeight != 0 {
+							withBody++
+						} else if f.MWGArea(p.Width, p.Height, p.Orientation).W > 0 {
+							withFaceRegion++
+						}
+					}
 				}
+				faceRows := "SELECT COUNT(*) FROM ZDETECTEDFACE f JOIN ZASSET a ON a.Z_PK = f." + s.FaceAssetColumn +
+					" JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn + withAttributes
 				var personFaces, photosOfPersons int
 				for uuid, person := range db.personByUUID {
 					faces := db.PersonFaces(uuid)
@@ -469,8 +487,10 @@ func TestLoadPersonInfoLibraries(t *testing.T) {
 						"(SELECT u.ZTYPE FROM ZUSERFEEDBACK u WHERE u.ZPERSON = p.Z_PK ORDER BY u.Z_PK LIMIT 1) != 0"},
 					{"persons with a key photo", keyed, "SELECT COUNT(*) FROM ZPERSON p JOIN ZDETECTEDFACE kf ON kf.Z_PK = p.ZKEYFACE " +
 						"JOIN ZASSET a ON a.Z_PK = kf." + s.FaceAssetColumn + withAttributes},
-					{"faces", found, "SELECT COUNT(*) FROM ZDETECTEDFACE f JOIN ZASSET a ON a.Z_PK = f." + s.FaceAssetColumn +
-						" JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn + withAttributes},
+					{"faces", found, faceRows},
+					{"faces of people", ofPeople, faceRows + " AND f.ZDETECTIONTYPE = 1"},
+					{"faces of pets", ofPets, faceRows + " AND f.ZDETECTIONTYPE IN (3, 4)"},
+					{"faces with a body region", withBody, faceRows + " AND f.ZBODYWIDTH != 0 AND f.ZBODYHEIGHT != 0"},
 					// Assets without attributes included; a repeated ZPERSONUUID is the row with the highest Z_PK, as Person.
 					{"faces of persons", personFaces, "SELECT COUNT(*) FROM ZDETECTEDFACE f JOIN ZASSET a ON a.Z_PK = f." + s.FaceAssetColumn +
 						" JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn +
@@ -484,15 +504,22 @@ func TestLoadPersonInfoLibraries(t *testing.T) {
 						t.Errorf("%s: %d, want %d", c.name, c.got, want)
 					}
 				}
-				t.Logf("%d persons: %d named, %d with a key photo, %d favorites, %d featured less; %d faces on %d photos, %d faces of persons, %d photos of persons",
-					len(db.PersonInfo()), named, keyed, favorite, featureLess, found, withFaces, personFaces, photosOfPersons)
+				t.Logf("%d persons: %d named, %d with a key photo, %d favorites, %d featured less; %d faces on %d photos, %d faces of persons, %d photos of persons; "+
+					"faces: %d of people, %d of pets, %d with a body region",
+					len(db.PersonInfo()), named, keyed, favorite, featureLess, found, withFaces, personFaces, photosOfPersons, ofPeople, ofPets, withBody)
 				mu.Lock()
 				defer mu.Unlock()
 				people += len(db.PersonInfo())
 				faces += found
+				bodies += withBody
+				faceRegions += withFaceRegion
 			})
 		}
 	})
+	// test_faceinfo.py:4532-4562: Test-26.1 has both.
+	if bodies == 0 || faceRegions == 0 {
+		t.Errorf("%d faces with a body region and %d without one but with a face region in all libraries; want some of both", bodies, faceRegions)
+	}
 	if people == 0 || faces == 0 {
 		t.Errorf("%d persons and %d faces in all libraries; want some of both: the test is vacuous", people, faces)
 	}
@@ -580,5 +607,52 @@ func TestLoadPersonInfoDamaged(t *testing.T) {
 	}
 	if p := persons[keyedAt]; p.KeyFace != 0 || p.KeyPhotoUUID != "" {
 		t.Errorf("the person without a key face: KeyFace %d, KeyPhotoUUID empty %v; want 0, true", p.KeyFace, p.KeyPhotoUUID == "")
+	}
+}
+
+// No test library has a pet (test_faceinfo.py:4574), so a face of a copy
+// becomes a dog with a body region only, as in _photosdb_with_pet
+// (test_faceinfo.py:4569-4612).
+func TestLoadFaceInfoPet(t *testing.T) {
+	t.Parallel()
+
+	lib := testlib.OpenPristine(t, "Test-26.1")
+	before, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := schemaOfLibrary(t, before)
+	pk := count(t, roDB(t, lib), "SELECT COALESCE(MIN(f.Z_PK), 0) FROM ZDETECTEDFACE f JOIN ZPERSON p ON p.Z_PK = f."+s.FacePersonColumn+
+		" JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = f."+s.FaceAssetColumn+" JOIN ZASSET a ON a.Z_PK = x.ZASSET WHERE a.ZWIDTH > 0 AND a.ZHEIGHT > 0")
+	if pk == 0 {
+		t.Fatal("Test-26.1 has no face of a person on a photo with a size: the case is vacuous")
+	}
+	change(t, lib, "UPDATE ZDETECTEDFACE SET ZDETECTIONTYPE = 3, ZSIZE = 0, ZCENTERX = 0, ZCENTERY = 0, "+
+		"ZBODYCENTERX = 0.4, ZBODYCENTERY = 0.3, ZBODYWIDTH = 0.6, ZBODYHEIGHT = 0.2 WHERE Z_PK = "+strconv.Itoa(pk))
+
+	db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, p := range db.Photos() {
+		for _, f := range db.FaceInfoOf(p) {
+			if f.PK != int64(pk) {
+				continue
+			}
+			found = true
+			if !f.IsPet() || f.DetectionType != 3 || f.BodyCenterX != 0.4 || f.BodyCenterY != 0.3 || f.BodyWidth != 0.6 || f.BodyHeight != 0.2 {
+				t.Errorf("the dog: IsPet %v, DetectionType %d, body (%v, %v, %v, %v); want true, 3, (0.4, 0.3, 0.6, 0.2)",
+					f.IsPet(), f.DetectionType, f.BodyCenterX, f.BodyCenterY, f.BodyWidth, f.BodyHeight)
+			}
+			// The orientation table is TestBodyRegion of personinfo; 1 flips y.
+			a, want := f.MWGArea(p.Width, p.Height, 1), personinfo.Area{X: 0.4, Y: 0.7, H: 0.2, W: 0.6}
+			if math.Abs(a.X-want.X)+math.Abs(a.Y-want.Y)+math.Abs(a.H-want.H)+math.Abs(a.W-want.W) > 1e-9 {
+				t.Errorf("MWGArea of the dog = %+v, want the body region %+v", a, want)
+			}
+		}
+	}
+	if !found {
+		t.Error("the dog is in FaceInfoOf of no photo")
 	}
 }

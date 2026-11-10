@@ -333,6 +333,10 @@ func photoMutations() []mutation {
 		{"FaceInfo Size", face(func(x *personinfo.FaceInfo) { x.Size = 0.5 }), "face_info"},
 		{"FaceInfo HasSmile", face(func(x *personinfo.FaceInfo) { x.HasSmile = false }), "face_info"},
 		{"FaceInfo Roll", face(func(x *personinfo.FaceInfo) { x.Roll = 0 }), "face_info"},
+		{"FaceInfo DetectionType", face(func(x *personinfo.FaceInfo) { x.DetectionType = 0 }), "face_info"},
+		{"FaceInfo BodyWidth and BodyHeight swapped", face(func(x *personinfo.FaceInfo) { x.BodyWidth, x.BodyHeight = x.BodyHeight, x.BodyWidth }), "face_info"},
+		// A cat with a body region and no face region: is_pet and the regions differ (personinfo.py:200-212).
+		{"FaceInfo of a cat", face(func(x *personinfo.FaceInfo) { x.DetectionType = 4 }), "face_info"},
 
 		{"PathDerivatives", p(func(x *photoinfo.PhotoInfo) {
 			x.PathDerivatives = []string{"resources/derivatives/0/IMG_0001_1_105_c.jpeg"}

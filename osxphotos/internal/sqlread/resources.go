@@ -14,16 +14,17 @@ type Resource struct {
 	DataLength    sql.NullInt64  // ZDATALENGTH
 	Local, Remote sql.NullInt64  // ZLOCALAVAILABILITY, ZREMOTEAVAILABILITY
 	Fingerprint   sql.NullString // ZFINGERPRINT
+	CompactUTI    sql.NullString // ZCOMPACTUTI
 }
 
-// The order is that of the Scan in Resources. ZCOMPACTUTI is not read: it holds
-// a small code, not a UTI, and upstream does not use it for Photos 7 and later
-// (photosdb.py:2454, 2490).
+// The order is that of the Scan in Resources. ZCOMPACTUTI holds an integer
+// code or a text "_" + UTI; upstream takes str() of either
+// (photosdb/photosdb.py:2547; photosdb/photosdb_utils.py:280).
 func resourceSelect() []column {
 	r := func(name string) column { return column{"r", "ZINTERNALRESOURCE", name} }
 	return []column{
 		r("Z_PK"), r("ZASSET"), r("ZRESOURCETYPE"), r("ZDATASTORESUBTYPE"), r("ZDATALENGTH"),
-		r("ZLOCALAVAILABILITY"), r("ZREMOTEAVAILABILITY"), r("ZFINGERPRINT"),
+		r("ZLOCALAVAILABILITY"), r("ZREMOTEAVAILABILITY"), r("ZFINGERPRINT"), r("ZCOMPACTUTI"),
 	}
 }
 
@@ -64,7 +65,7 @@ func (d *DB) Resources(ctx context.Context) ([]Resource, error) {
 	err := d.readRows(ctx, "resources", q, func(rows *sql.Rows) error {
 		var r Resource
 		if err := rows.Scan(&r.PK, &r.AssetPK, &r.Type, &r.Subtype, &r.DataLength,
-			&r.Local, &r.Remote, &r.Fingerprint); err != nil {
+			&r.Local, &r.Remote, &r.Fingerprint, &r.CompactUTI); err != nil {
 			return err
 		}
 		out = append(out, r)

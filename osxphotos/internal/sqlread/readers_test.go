@@ -213,7 +213,7 @@ func TestColumnsIncludeJoins(t *testing.T) {
 		"ZINTERNALRESOURCE":          {"ZASSET", "ZDATASTORESUBTYPE", "ZRESOURCETYPE", "ZFINGERPRINT"},
 		"Z_1KEYWORDS":                {"Z_1ASSETATTRIBUTES", "Z_52KEYWORDS"},
 		"ZKEYWORD":                   {"Z_PK", "ZTITLE"},
-		"ZDETECTEDFACE":              {"Z_PK", "ZUUID", "ZASSETFORFACE", "ZPERSONFORFACE", "ZAGETYPE", "ZEYEMAKEUPTYPE", "ZEYESSTATE", "ZFACIALHAIRTYPE", "ZGENDERTYPE", "ZGLASSESTYPE", "ZHAIRCOLORTYPE", "ZHASSMILE", "ZISINTRASH", "ZLIPMAKEUPTYPE", "ZMANUAL", "ZSMILETYPE", "ZSOURCEHEIGHT", "ZSOURCEWIDTH", "ZCENTERX", "ZCENTERY", "ZQUALITY", "ZROLL", "ZSIZE"},
+		"ZDETECTEDFACE":              {"Z_PK", "ZUUID", "ZASSETFORFACE", "ZPERSONFORFACE", "ZAGETYPE", "ZEYEMAKEUPTYPE", "ZEYESSTATE", "ZFACIALHAIRTYPE", "ZGENDERTYPE", "ZGLASSESTYPE", "ZHAIRCOLORTYPE", "ZHASSMILE", "ZISINTRASH", "ZLIPMAKEUPTYPE", "ZMANUAL", "ZSMILETYPE", "ZSOURCEHEIGHT", "ZSOURCEWIDTH", "ZCENTERX", "ZCENTERY", "ZQUALITY", "ZROLL", "ZSIZE", "ZDETECTIONTYPE", "ZBODYCENTERX", "ZBODYCENTERY", "ZBODYWIDTH", "ZBODYHEIGHT"},
 		"ZPERSON":                    {"Z_PK", "ZPERSONUUID", "ZFULLNAME", "ZDISPLAYNAME", "ZFACECOUNT", "ZKEYFACE", "ZTYPE", "ZMANUALORDER"},
 		"ZUSERFEEDBACK":              {"Z_PK", "ZPERSON", "ZTYPE"},
 		"Z_33ASSETS":                 {"Z_33ALBUMS", "Z_3ASSETS", "Z_FOK_3ASSETS"},
@@ -963,12 +963,13 @@ func withValues(t *testing.T) testDB {
 		"UPDATE ZPERSON SET ZFACECOUNT = 3, ZTYPE = 5, ZMANUALORDER = 7 WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZPERSON)",
 		"UPDATE ZDETECTEDFACE SET ZAGETYPE = 2, ZEYEMAKEUPTYPE = 3, ZEYESSTATE = 4, ZFACIALHAIRTYPE = 5, ZGENDERTYPE = 6, ZGLASSESTYPE = 7, "+
 			"ZHAIRCOLORTYPE = 8, ZHASSMILE = 9, ZISINTRASH = 10, ZLIPMAKEUPTYPE = 11, ZMANUAL = 12, ZSMILETYPE = 13, ZSOURCEHEIGHT = 14, "+
-			"ZSOURCEWIDTH = 15, ZCENTERX = 0.125, ZCENTERY = 0.25, ZQUALITY = 0.375, ZROLL = 0.5, ZSIZE = 0.625 "+
+			"ZSOURCEWIDTH = 15, ZCENTERX = 0.125, ZCENTERY = 0.25, ZQUALITY = 0.375, ZROLL = 0.5, ZSIZE = 0.625, "+
+			"ZDETECTIONTYPE = 16, ZBODYCENTERX = 0.75, ZBODYCENTERY = 0.875, ZBODYWIDTH = 0.0625, ZBODYHEIGHT = 0.1875 "+
 			"WHERE Z_PK = (SELECT MIN(f.Z_PK) FROM ZDETECTEDFACE f JOIN ZASSET a ON a.Z_PK = f."+s.FaceAssetColumn+
 			" JOIN ZPERSON p ON p.Z_PK = f."+s.FacePersonColumn+")",
 	)
 	if count(t, w, "SELECT COUNT(*) FROM ZPERSON WHERE ZFACECOUNT = 3 AND ZTYPE = 5 AND ZMANUALORDER = 7") != 1 ||
-		count(t, w, "SELECT COUNT(*) FROM ZDETECTEDFACE WHERE ZAGETYPE = 2 AND ZSMILETYPE = 13 AND ZSIZE = 0.625") != 1 {
+		count(t, w, "SELECT COUNT(*) FROM ZDETECTEDFACE WHERE ZAGETYPE = 2 AND ZSMILETYPE = 13 AND ZSIZE = 0.625 AND ZBODYHEIGHT = 0.1875") != 1 {
 		t.Fatal("withValues: an UPDATE changed no row of Test-13.0.0")
 	}
 	if err := w.Close(); err != nil {
@@ -1136,6 +1137,7 @@ func TestFaceRows(t *testing.T) {
 					{"f.ZSMILETYPE", func(f Face) int64 { return f.SmileType.Int64 }},
 					{"f.ZSOURCEHEIGHT", func(f Face) int64 { return f.SourceHeight.Int64 }},
 					{"f.ZSOURCEWIDTH", func(f Face) int64 { return f.SourceWidth.Int64 }},
+					{"f.ZDETECTIONTYPE", func(f Face) int64 { return f.DetectionType.Int64 }},
 				}
 				reals := []struct {
 					col string
@@ -1146,6 +1148,10 @@ func TestFaceRows(t *testing.T) {
 					{"f.ZQUALITY", func(f Face) float64 { return f.Quality.Float64 }},
 					{"f.ZROLL", func(f Face) float64 { return f.Roll.Float64 }},
 					{"f.ZSIZE", func(f Face) float64 { return f.Size.Float64 }},
+					{"f.ZBODYCENTERX", func(f Face) float64 { return f.BodyCenterX.Float64 }},
+					{"f.ZBODYCENTERY", func(f Face) float64 { return f.BodyCenterY.Float64 }},
+					{"f.ZBODYWIDTH", func(f Face) float64 { return f.BodyWidth.Float64 }},
+					{"f.ZBODYHEIGHT", func(f Face) float64 { return f.BodyHeight.Float64 }},
 				}
 				intSums, realSums := make([]int64, len(ints)), make([]float64, len(reals))
 				texts := make([]string, len(faces))
