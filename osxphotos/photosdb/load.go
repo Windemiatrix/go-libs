@@ -187,7 +187,7 @@ func load(t tables) (*catalog, error) {
 			continue
 		}
 		p := photo(a, resources[a.PK])
-		if code, ok := setRawUTI(p, resources[a.PK]); ok {
+		if code, unresolved := setRawUTI(p, resources[a.PK]); unresolved {
 			c.rawCodes[p.UUID] = code
 		}
 		if a.MomentPK.Valid {

@@ -45,7 +45,6 @@ func setPaths(libraryPath string, assets []sqlread.Asset, c *catalog) error {
 			o.setLibraryFiles(p)
 		}
 	}
-	learnRawUTIs(c)
 	return nil
 }
 

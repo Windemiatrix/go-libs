@@ -45,13 +45,12 @@ type FaceInfo struct {
 	BodyCenterX, BodyCenterY, BodyWidth, BodyHeight float64 // 0 for a face without a body region
 }
 
-// ZDETECTEDFACE.ZDETECTIONTYPE of a pet (_constants.py:55-57).
 const (
 	detectionTypeDog = 3
 	detectionTypeCat = 4
 )
 
-// IsPet is is_pet (personinfo.py:195-198): a dog or a cat.
+// IsPet is is_pet (personinfo.py:195-198).
 func (f FaceInfo) IsPet() bool {
 	return f.DetectionType == detectionTypeDog || f.DetectionType == detectionTypeCat
 }

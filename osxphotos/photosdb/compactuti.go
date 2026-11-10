@@ -70,7 +70,7 @@ func utiIfRaw(u string) string {
 // setRawUTI follows photosdb/photosdb.py:2544-2581, 2707-2715. Of several RAW
 // resources the highest Z_PK decides, as in isMissing; upstream keeps the
 // last row read.
-func setRawUTI(p *photoinfo.PhotoInfo, res []sqlread.Resource) (unresolved string, ok bool) {
+func setRawUTI(p *photoinfo.PhotoInfo, res []sqlread.Resource) (code string, unresolved bool) {
 	var raw *sqlread.Resource
 	for i := range res {
 		if is(res[i].Subtype, resRAW) {

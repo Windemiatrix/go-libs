@@ -420,10 +420,10 @@ static NSMutableDictionary<NSNumber *, AVAssetExportSession *> *pk_sessions(void
 	return sessions;
 }
 
-// SlowMoVideoExporter (photokit.py:842-908). Upstream polls the status
-// (816-829), as it found no other way to wait; here the completion handler
+// SlowMoVideoExporter (photokit.py:842-907). Upstream polls the status
+// (883-896), as it found no other way to wait; here the completion handler
 // ends the wait, as for every request of the bridge. Upstream takes any status
-// but Completed for an error (820-828): a canceled session is one, which Go
+// but Completed for an error (887-895): a canceled session is one, which Go
 // reports as the cancel. The cancel of Go is read, and the session registered
 // and started, under the lock of pk_cancel_video: a Cancel before finds no
 // session, one after finds a started session, and a completion that comes at

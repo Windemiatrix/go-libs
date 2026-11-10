@@ -491,6 +491,9 @@ func TestLoadPersonInfoLibraries(t *testing.T) {
 					{"faces of people", ofPeople, faceRows + " AND f.ZDETECTIONTYPE = 1"},
 					{"faces of pets", ofPets, faceRows + " AND f.ZDETECTIONTYPE IN (3, 4)"},
 					{"faces with a body region", withBody, faceRows + " AND f.ZBODYWIDTH != 0 AND f.ZBODYHEIGHT != 0"},
+					// FaceInfo.AsDict gives 0 for these NULLs where upstream has None, which face_info of the reference would show.
+					{"faces with a NULL detection type or body", 0, faceRows + " AND (f.ZDETECTIONTYPE IS NULL OR f.ZBODYCENTERX IS NULL OR " +
+						"f.ZBODYCENTERY IS NULL OR f.ZBODYWIDTH IS NULL OR f.ZBODYHEIGHT IS NULL)"},
 					// Assets without attributes included; a repeated ZPERSONUUID is the row with the highest Z_PK, as Person.
 					{"faces of persons", personFaces, "SELECT COUNT(*) FROM ZDETECTEDFACE f JOIN ZASSET a ON a.Z_PK = f." + s.FaceAssetColumn +
 						" JOIN ZPERSON p ON p.Z_PK = f." + s.FacePersonColumn +

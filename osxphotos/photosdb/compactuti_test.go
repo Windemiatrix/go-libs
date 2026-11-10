@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"maps"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -35,6 +36,29 @@ func TestUTIForCompactUTI(t *testing.T) {
 		if got := utiIfRaw(u); got != want {
 			t.Errorf("utiIfRaw(%q) = %q, want %q", u, got, want)
 		}
+	}
+}
+
+// The RAW codes are written out from photosdb/photosdb_utils.py:239-252, apart
+// from compactUTICodes, so that a wrong entry of the table fails; codes 9 to
+// 22 are the RAW types (229-230).
+func TestRawCompactUTICodes(t *testing.T) {
+	t.Parallel()
+	raw := map[string]string{
+		"9": dngUTI, "10": arwUTI, "11": cr2UTI, "12": "com.canon.crw-raw-image",
+		"13": "com.olympus.raw-image", "14": "com.panasonic.rw2-raw-image", "15": "com.panasonic.raw-image",
+		"16": "com.pentax.raw-image", "17": "com.nikon.raw-image", "18": "com.samsung.raw-image",
+		"19": "com.leafamerica.raw-image", "20": "com.hasselblad.3fr-raw-image", "21": "com.fuji.raw-image",
+		"22": "com.hasselblad.fff-raw-image",
+	}
+	for i := 1; i <= 39; i++ {
+		code := strconv.Itoa(i)
+		if got := utiIfRaw(utiForCompactUTI(code)); got != raw[code] {
+			t.Errorf("RAW type of code %s = %q, want %q", code, got, raw[code])
+		}
+	}
+	if len(compactUTICodes) != 38 {
+		t.Errorf("%d codes, want 38", len(compactUTICodes))
 	}
 }
 
@@ -126,7 +150,7 @@ func TestRawUTIOpen(t *testing.T) {
 		{"known code without the file", "21", "21", false, "com.fuji.raw-image", "com.fuji.raw-image"},
 		{"unknown code learned from the file", "99", "99", true, arwUTI, arwUTI},
 		{"unknown code without a file stays unknown", "99", "99", false, "", ""},
-		{"known code wins over the file", "11", "11", true, arwUTI, cr2UTI},
+		{"a known code is not learned from the file", "11", "11", true, arwUTI, cr2UTI},
 		{"known code of another type is not learned", "1", "1", true, arwUTI, ""},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

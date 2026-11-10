@@ -12,6 +12,8 @@ import (
 func TestRenderUnsetPath(t *testing.T) {
 	t.Parallel()
 	o := RenderOptions{}
+	fileOnly := RenderOptions{Filepath: "/foo/bar.jpeg"}
+	dirOnly := RenderOptions{ExportDir: "/foo/bar"}
 	one := func(s string) []string { return []string{s} }
 	checkRender(t, []renderCase{
 		{"filepath", "{filepath}", fakePhoto{}, o, one("_"), nil},
@@ -32,27 +34,22 @@ func TestRenderUnsetPath(t *testing.T) {
 		{"unknown property", "{export_dir.parents}", fakePhoto{}, o, one("_"), nil},
 		{"property of a string", "{filepath.stem.x}", fakePhoto{}, o, one("_"), nil},
 		{"empty property", "{filepath.}", fakePhoto{}, o, one("_"), nil},
+		{"export_dir with only filepath set", "{export_dir}", fakePhoto{}, fileOnly, one("_"), nil},
+		{"export_dir.name with only filepath set", "{export_dir.name}", fakePhoto{}, fileOnly, one("_"), nil},
+		{"export_dir.parts with only filepath set", "{export_dir.parts}", fakePhoto{}, fileOnly, one("_"), nil},
+		{"filepath with only filepath set", "{filepath}", fakePhoto{}, fileOnly, one("/foo/bar.jpeg"), nil},
+		{"filepath with only export_dir set", "{filepath}", fakePhoto{}, dirOnly, one("_"), nil},
+		{"filepath.stem with only export_dir set", "{filepath.stem}", fakePhoto{}, dirOnly, one("_"), nil},
+		{"filepath.suffixes with only export_dir set", "{filepath.suffixes}", fakePhoto{}, dirOnly, one("_"), nil},
+		{"export_dir with only export_dir set", "{export_dir}", fakePhoto{}, dirOnly, one("/foo/bar"), nil},
 	})
 }
 
-// test_filepath and test_export_dir of test_template.py (osxphotos 0.78.1).
-func TestRenderPathField(t *testing.T) {
+// A set path still checks its properties (phototemplate.py:1642-1652); the
+// values are those of TestPathlib.
+func TestRenderSetPathErrors(t *testing.T) {
 	t.Parallel()
 	o := RenderOptions{Filepath: "/foo/bar.jpeg", ExportDir: "/foo/bar"}
-	one := func(s string) []string { return []string{s} }
-	checkRender(t, []renderCase{
-		{"filepath", "{filepath}", fakePhoto{}, o, one("/foo/bar.jpeg"), nil},
-		{"filepath.name", "{filepath.name}", fakePhoto{}, o, one("bar.jpeg"), nil},
-		{"filepath.parent", "{filepath.parent}", fakePhoto{}, o, one("/foo"), nil},
-		{"filepath.parent.name", "{filepath.parent.name}", fakePhoto{}, o, one("foo"), nil},
-		{"filepath.stem", "{filepath.stem}", fakePhoto{}, o, one("bar"), nil},
-		{"filepath.suffix", "{filepath.suffix}", fakePhoto{}, o, one(".jpeg"), nil},
-		{"export_dir", "{export_dir}", fakePhoto{}, o, one("/foo/bar"), nil},
-		{"export_dir.name", "{export_dir.name}", fakePhoto{}, o, one("bar"), nil},
-		{"export_dir.parent", "{export_dir.parent}", fakePhoto{}, o, one("/foo"), nil},
-		{"export_dir.stem", "{export_dir.stem}", fakePhoto{}, o, one("bar"), nil},
-		{"export_dir.suffix", "{export_dir.suffix}", fakePhoto{}, o, one(""), nil},
-	})
 	for in, want := range map[string]error{
 		"{filepath.foo}":       ErrRender,
 		"{export_dir.foo}":     ErrRender,

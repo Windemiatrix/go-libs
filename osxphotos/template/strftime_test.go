@@ -79,22 +79,24 @@ func TestStrftime(t *testing.T) {
 // own zone, whatever the zone of the computer.
 func TestStrftimeEpoch(t *testing.T) {
 	t.Parallel()
-	dst := time.Date(2022, 5, 24, 14, 20, 0, 0, time.FixedZone("", -7*3600))
+	pacific := time.Date(2022, 5, 24, 14, 20, 0, 0, time.FixedZone("", -7*3600))
 	for _, tt := range []struct {
 		t      time.Time
 		format string
 		want   string
 	}{
-		{dst, "%s", "1653427200"},
-		{dst.In(time.FixedZone("IST", 19800)), "%s", "1653427200"},
-		{dst, "%Y-%m-%d_%s", "2022-05-24_1653427200"},
-		{dst, "%%s", "%s"},
-		{dst, "%%%s", "%1653427200"},
-		{dst, "%%s_%s", "%s_1653427200"},
+		{pacific, "%s", "1653427200"},
+		{pacific.In(time.FixedZone("IST", 19800)), "%s", "1653427200"},
+		{pacific, "%Y-%m-%d_%s", "2022-05-24_1653427200"},
+		{pacific, "%%s", "%s"},
+		{pacific, "%%%s", "%1653427200"},
+		{pacific, "%%s_%s", "%s_1653427200"},
 		// str(int(dt.timestamp())): int cuts toward zero
 		{time.Date(1969, 12, 31, 23, 59, 59, 500000000, time.UTC), "%s", "0"},
 		{time.Date(1969, 12, 31, 23, 59, 58, 1000, time.UTC), "%s", "-1"},
 		{time.Date(1969, 12, 31, 23, 59, 58, 0, time.UTC), "%s", "-2"},
+		{time.Date(1969, 12, 31, 23, 59, 57, 500000000, time.UTC), "%s", "-2"},
+		{time.Date(1970, 1, 1, 0, 0, 0, 500000000, time.UTC), "%s", "0"},
 		{time.Date(2020, 1, 1, 0, 0, 0, 999999000, time.UTC), "%s", "1577836800"},
 	} {
 		if got, err := strftime(tt.t, tt.format, false, maxRenderBytes); err != nil || got != tt.want {

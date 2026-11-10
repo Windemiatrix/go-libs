@@ -127,6 +127,7 @@ func Open(ctx context.Context, path string, o Options) (db *DB, err error) {
 	if err := setPaths(library, t.assets, c); err != nil {
 		return nil, err
 	}
+	learnRawUTIs(c) // after setPaths: it reads PathRaw
 	imports, importInfo := loadImports(t.albums, c.photos)
 	momentShares, libraryShares := loadShares(t.shares, t.assets)
 	comments, likes := loadComments(t.comments)

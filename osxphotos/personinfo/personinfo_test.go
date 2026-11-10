@@ -169,6 +169,7 @@ func TestBodyRegion(t *testing.T) {
 			pet := body(detectionType, 0)
 			checkArea(t, pet.MWGArea(4000, 3000, 1), personinfo.Area{X: 0.4, Y: 0.7, H: 0.2, W: 0.6})
 			checkArea(t, pet.MPRIRect(4000, 3000, 1), personinfo.Area{X: 0.1, Y: 0.6, H: 0.6, W: 0.2})
+			checkArea(t, pet.MPRIRect(4000, 3000, 6), personinfo.Area{X: 0.6, Y: 0.3, H: 0.2, W: 0.6})
 		}
 	})
 

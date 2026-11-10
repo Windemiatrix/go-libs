@@ -84,7 +84,7 @@ var schemas = []Schema{
 		ParticipantShareColumn: "Z66_SHARE",
 	},
 	{
-		// macOS 27.0 up to 27.2: _constants.py:70-72, 253-269.
+		// macOS 27.0: _constants.py:70-72, 253-269.
 		ID: "photos12", MinModel: 270000000, MaxModel: 270299999, PhotosVersion: 12,
 		MemberTable: "Z_34ASSETS", MemberAlbumColumn: "Z_34ALBUMS",
 		MemberAssetColumn: "Z_3ASSETS", MemberOrderColumn: "Z_FOK_3ASSETS",

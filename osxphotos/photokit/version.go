@@ -151,7 +151,8 @@ func (l *Library) ExportVideo(ctx context.Context, uuid string, v Version, dir, 
 // one, otherwise the resource of kind, where upstream asks PhotoKit for the
 // PHLivePhoto (1104-1170, 1228-1230). VersionOriginal and VersionUnadjusted
 // give the resource of kind, as upstream reads the resources of the asset for
-// them (1231-1232). Another kind, or an asset without the resource, is
+// them (1231-1232); of several resources of the kind the first is taken, where
+// upstream keeps the last (1236-1240). Another kind, or an asset without the resource, is
 // ErrNoResource; an asset that is not a Live Photo ErrMediaType; a v other than
 // the three constants ErrInvalidVersion; no such asset ErrNotFound; a failure
 // of PhotoKit ErrExport with its domain and code. Upstream names the two files
