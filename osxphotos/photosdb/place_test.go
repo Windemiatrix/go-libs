@@ -78,7 +78,7 @@ func keyedArchiveOf(t testing.TB, objects []any) []byte {
 	return b
 }
 
-// Upstream gives None where PlaceInfo5 raises (photoinfo.py:1349-1358).
+// Upstream gives None where PlaceInfo5 raises (photoinfo.py:1347-1356).
 func TestPlaceOf(t *testing.T) {
 	t.Parallel()
 

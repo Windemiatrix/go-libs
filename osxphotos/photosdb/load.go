@@ -17,59 +17,59 @@ import (
 )
 
 const (
-	// ZASSET.ZKIND (photosdb.py:2197-2204).
+	// ZASSET.ZKIND (photosdb.py:2201-2208).
 	kindPhoto, kindMovie = 0, 1
 
-	// ZASSET.ZKINDSUBTYPE (photosdb.py:2234-2236, 2258).
+	// ZASSET.ZKINDSUBTYPE (photosdb.py:2238-2240, 2262).
 	subtypePanorama, subtypeLive, subtypeScreen = 1, 2, 10
 
-	// ZASSET.ZHDRTYPE of an HDR photo and of a panorama (photosdb.py:2249, 2258).
+	// ZASSET.ZHDRTYPE of an HDR photo and of a panorama (photosdb.py:2253, 2262).
 	hdrTypeHDR, hdrTypePanorama = 3, 6
 
-	// ZADDITIONALASSETATTRIBUTES.ZCAMERACAPTUREDEVICE of the front camera (photosdb.py:2261).
+	// ZADDITIONALASSETATTRIBUTES.ZCAMERACAPTUREDEVICE of the front camera (photosdb.py:2265).
 	frontCamera = 1
 
-	// ZASSET.ZVISIBILITYSTATE of a visible asset (photosdb.py:2307).
+	// ZASSET.ZVISIBILITYSTATE of a visible asset (photosdb.py:2311).
 	visibleState = 0
 
-	// ZASSET.ZDEPTHTYPE of a photo without depth (photosdb.py:2251).
+	// ZASSET.ZDEPTHTYPE of a photo without depth (photosdb.py:2255).
 	noDepth = 0
 
 	// ZUNMANAGEDADJUSTMENT.ZADJUSTMENTFORMATIDENTIFIER of an edit in another app (photoinfo.py:810).
 	externalEditFormat = "com.apple.Photos.externalEdit"
 
-	// ZASSET.ZKINDSUBTYPE of slow-motion, time-lapse and screen-recording videos (photosdb.py:2231-2240).
+	// ZASSET.ZKINDSUBTYPE of slow-motion, time-lapse and screen-recording videos (photosdb.py:2235-2244).
 	subtypeSlowMo, subtypeTimeLapse, subtypeScreenRecording = 101, 102, 103
 
-	// ZASSET.ZSAVEDASSETTYPE of a referenced file (photosdb.py:2315).
+	// ZASSET.ZSAVEDASSETTYPE of a referenced file (photosdb.py:2319).
 	savedReference = 10
 
-	// ZCLOUDMASTER.ZCLOUDLOCALSTATE of a master in iCloud (photosdb.py:2534).
+	// ZCLOUDMASTER.ZCLOUDLOCALSTATE of a master in iCloud (photosdb.py:2538).
 	cloudInCloud = 3
 
-	// ZLATITUDE and ZLONGITUDE of an asset without a location (photosdb.py:2174-2181).
+	// ZLATITUDE and ZLONGITUDE of an asset without a location (photosdb.py:2178-2185).
 	noCoordinate = -180.0
 
-	// ZINTERNALRESOURCE.ZDATASTORESUBTYPE of the originals (photosdb.py:2459)
-	// and of a RAW resource (photosdb.py:2550).
+	// ZINTERNALRESOURCE.ZDATASTORESUBTYPE of the originals (photosdb.py:2463)
+	// and of a RAW resource (photosdb.py:2554).
 	resOriginal, resSecond, resRAW = 1, 3, 17
 
-	// Part of the UTI of every RAW format (photoinfo.py:1368-1371).
+	// Part of the UTI of every RAW format (photoinfo.py:1366-1369).
 	rawUTIMarker = "raw-image"
 
-	// ZLOCALAVAILABILITY of a resource on disk (photosdb.py:2492, 2513).
+	// ZLOCALAVAILABILITY of a resource on disk (photosdb.py:2496, 2517).
 	localAvailable = 1
 
-	// ZDATASTORESUBTYPE of the video of a shared album, UUID.medium.MP4 (_constants.py:373).
+	// ZDATASTORESUBTYPE of the video of a shared album, UUID.medium.MP4 (_constants.py:396).
 	resSharedVideo = 8
 
-	// ZORIGINALRESOURCECHOICE when the RAW is the original (photosdb.py:2288).
+	// ZORIGINALRESOURCECHOICE when the RAW is the original (photosdb.py:2292).
 	rawOriginalChoice = 1
 
 	// ZTRASHEDSTATE of an asset in the trash, and ZHIDDEN and ZFAVORITE when set.
 	trashedState, flagSet = 1, 1
 
-	// ZSYNDICATIONHISTORY of a photo not saved to the library (photoinfo.py:1597).
+	// ZSYNDICATIONHISTORY of a photo not saved to the library (photoinfo.py:1595).
 	syndicationHistoryNotSaved = 0
 
 	// ZEXTENDEDATTRIBUTES.ZFLASHFIRED of a flash that fired (exifinfo.py:49).
@@ -107,7 +107,7 @@ type catalog struct {
 	byUUID  map[string]*photoinfo.PhotoInfo
 	skipped int // assets without ZADDITIONALASSETATTRIBUTES
 
-	momentOf  map[string]int64  // ZASSET.ZMOMENT by photo UUID, also for a Z_PK without a ZMOMENT row (photosdb.py:2280)
+	momentOf  map[string]int64  // ZASSET.ZMOMENT by photo UUID, also for a Z_PK without a ZMOMENT row (photosdb.py:2284)
 	cloudMeta map[string][]byte // the data of ZCLOUDMASTERMEDIAMETADATA by photo UUID, only a photo with data
 
 	search map[string][]searchinfo.Record // the search terms by asset UUID, only an asset with terms
@@ -119,8 +119,8 @@ type catalog struct {
 func nfc(s string) string { return norm.NFC.String(s) }
 
 // The inner join of upstream drops assets without an attributes row
-// (photosdb.py:2086-2090). An asset without ZUUID, or two with one ZUUID, is
-// an error although upstream keeps the last row (photosdb.py:2356): an
+// (photosdb.py:2090-2094). An asset without ZUUID, or two with one ZUUID, is
+// an error although upstream keeps the last row (photosdb.py:2360): an
 // ambiguous identity is worse for a caller that synchronizes than a refusal.
 //
 // The rows come in the order of their readers: the assets by ZUUID, the
@@ -133,9 +133,9 @@ func nfc(s string) string { return norm.NFC.String(s) }
 // whose rows come by Z_PK, and for ZCOMPUTEDASSETATTRIBUTES, where upstream
 // keeps the last row read as well (_photosdb_process_scoreinfo.py:132-162).
 // ZCLOUDMASTERMEDIAMETADATA comes by Z_PK too, where upstream takes the first
-// row SQLite returns (photoinfo.py:1757). The archive of
+// row SQLite returns (photoinfo.py:1755). The archive of
 // ZREVERSELOCATIONDATA is decoded here, once, where upstream decodes it on the
-// first access to place (photoinfo.py:1327-1361).
+// first access to place (photoinfo.py:1325-1359).
 //
 // load never indexes by a value of the database, so no content makes it panic.
 func load(t tables) (*catalog, error) {
@@ -214,7 +214,7 @@ func load(t tables) (*catalog, error) {
 		if local, ok := available[p.UUID]; ok {
 			p.IsMissing = !is(local, localAvailable)
 		}
-		if inShare[a.PK] && p.IsMovie { // photosdb.py:2518-2519, 2918-2942; the highest Z_PK decides, as in isMissing
+		if inShare[a.PK] && p.IsMovie { // photosdb.py:2522-2523, 2963-2987; the highest Z_PK decides, as in isMissing
 			for _, r := range resources[a.PK] {
 				if is(r.Subtype, resSharedVideo) {
 					p.IsMissing = !is(r.Local, localAvailable)
@@ -331,7 +331,7 @@ func photo(a sqlread.Asset, res []sqlread.Resource) *photoinfo.PhotoInfo {
 		Selfie:   is(a.CameraCaptureDevice, frontCamera),
 		Visible:  is(a.VisibilityState, visibleState),
 		Spatial:  intOf(a.SpatialType),
-		// Python None != 0 (photosdb.py:2251).
+		// Python None != 0 (photosdb.py:2255).
 		Portrait: !is(a.DepthType, noDepth),
 
 		SharedMoment:       a.MomentShare.Valid && a.MomentShare.Int64 != 0,
@@ -352,7 +352,7 @@ func photo(a sqlread.Asset, res []sqlread.Resource) *photoinfo.PhotoInfo {
 
 		Shared:     a.CloudBatchPublishDate.Valid,
 		Syndicated: a.SyndicationIdentifier.Valid,
-		// Python None != 0: a NULL history counts as saved (photoinfo.py:1597).
+		// Python None != 0: a NULL history counts as saved (photoinfo.py:1595).
 		SavedToLibrary:         !is(a.SyndicationHistory, syndicationHistoryNotSaved),
 		SharedLibrary:          a.ScopeParticipation.Valid && a.ScopeParticipation.Int64 != 0,
 		LibraryScopeShareState: intOf(a.ScopeShareState),
@@ -406,7 +406,7 @@ func photo(a sqlread.Asset, res []sqlread.Resource) *photoinfo.PhotoInfo {
 	return p
 }
 
-// The first pass of photosdb.py:2441-2495: the resources of subtypes 1 and 3 of
+// The first pass of photosdb.py:2445-2499: the resources of subtypes 1 and 3 of
 // the asset, ordered by Z_PK; the last row read wins, here the highest Z_PK.
 // load applies the second pass.
 func isMissing(res []sqlread.Resource) bool {
@@ -419,7 +419,7 @@ func isMissing(res []sqlread.Resource) bool {
 	return last != nil && !is(last.Local, localAvailable)
 }
 
-// The second pass of photosdb.py:2507-2516: the last row of a photo wins.
+// The second pass of photosdb.py:2511-2520: the last row of a photo wins.
 func lastAvailability(rows []sqlread.Availability) map[string]sql.NullInt64 {
 	out := map[string]sql.NullInt64{}
 	for _, r := range rows {
@@ -437,7 +437,7 @@ func groupResources(rows []sqlread.Resource) map[int64][]sqlread.Resource {
 }
 
 // A NULL title is "" and a repeated keyword stays repeated
-// (photosdb.py:2005-2010).
+// (photosdb.py:2009-2014).
 func groupKeywords(rows []sqlread.Keyword) map[int64][]string {
 	out := map[int64][]string{}
 	for _, k := range rows {
@@ -449,7 +449,7 @@ func groupKeywords(rows []sqlread.Keyword) map[int64][]string {
 	return out
 }
 
-// Upstream lists a name once per face (photosdb.py:1858-1864; photoinfo.py:597-603).
+// Upstream lists a name once per face (photosdb.py:1862-1868; photoinfo.py:597-603).
 func groupFaces(rows []sqlread.Face) map[int64][]string {
 	names := map[int64][]string{}
 	for _, f := range rows {
@@ -462,7 +462,7 @@ func groupFaces(rows []sqlread.Face) map[int64][]string {
 }
 
 // Upstream keeps both kinds in one list per photo and splits it by ZKIND
-// (photoinfo.py:2022-2034).
+// (photoinfo.py:2020-2032).
 func groupMembers(rows []sqlread.Member) (albums, projects map[int64][]string) {
 	albums, projects = map[int64][]string{}, map[int64][]string{}
 	for _, m := range rows {
@@ -509,8 +509,8 @@ func optionalFloat(v sql.NullFloat64) *float64 {
 	return &f
 }
 
-// Photos writes -180 in both columns for "no location" (photosdb.py:2174-2181,
-// 2749-2758); one of them alone stays a number.
+// Photos writes -180 in both columns for "no location" (photosdb.py:2178-2185,
+// 2794-2803); one of them alone stays a number.
 func noLocation(lat, lon sql.NullFloat64) bool {
 	return lat.Valid && lat.Float64 == noCoordinate && lon.Valid && lon.Float64 == noCoordinate
 }

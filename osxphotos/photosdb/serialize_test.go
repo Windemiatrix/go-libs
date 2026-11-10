@@ -20,7 +20,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// The keys of PhotoInfo.asdict(shallow=True), photoinfo.py:2134-2205.
+// The keys of PhotoInfo.asdict(shallow=True), photoinfo.py:2132-2203.
 var shallowKeys = []string{
 	"albums", "burst", "cloud_guid", "cloud_owner_hashed_id", "comments", "date_added", "date_modified", "date_trashed",
 	"date", "description", "exif_info", "external_edit", "face_info", "favorite", "filename", "fingerprint", "folders",
@@ -107,7 +107,7 @@ func TestAsDict(t *testing.T) {
 		}
 	}
 	// 1970-01-01T00:00:00Z, where upstream takes midnight in the zone of the
-	// computer (photosdb/photosdb.py:2317; photos_datetime.py:19-21).
+	// computer (photosdb/photosdb.py:2321; photos_datetime.py:19-21).
 	if added, ok := empty["date_added"].(time.Time); !ok || !added.Equal(time.Unix(0, 0)) {
 		t.Errorf("date_added = %v, want the epoch", empty["date_added"])
 	}
@@ -126,7 +126,7 @@ func TestAsDict(t *testing.T) {
 	}
 }
 
-// Adjustments and OriginalAdjustments are two files (photoinfo.py:2212-2214, 2248-2250).
+// Adjustments and OriginalAdjustments are two files (photoinfo.py:2210-2212, 2246-2248).
 func TestAsDictAdjustments(t *testing.T) {
 	t.Parallel()
 	lib := t.TempDir()
@@ -142,7 +142,7 @@ func TestAsDictAdjustments(t *testing.T) {
 }
 
 // An album in a folder gives folders, folder_names and folder_list
-// (photoinfo.py:2125; albuminfo.py:293-294).
+// (photoinfo.py:2123; albuminfo.py:293-294).
 func TestAsDictFolders(t *testing.T) {
 	t.Parallel()
 	db, err := Open(t.Context(), testlib.OpenPristine(t, "synthetic"), Options{TempDir: t.TempDir()})
@@ -177,7 +177,7 @@ func TestAsDictFolders(t *testing.T) {
 			}
 			last[a.Title] = append([]string{}, a.FolderNames...)
 		}
-		// A dictionary keeps the value of the last album of a title (photoinfo.py:2125).
+		// A dictionary keeps the value of the last album of a title (photoinfo.py:2123).
 		if !reflect.DeepEqual(folders, last) {
 			t.Error("folders of a photo is not the folder names of the last album of each title")
 		}
@@ -270,7 +270,7 @@ func TestJSONEncoder(t *testing.T) {
 	pyJSON(map[string]any{"x": int32(1)}, 0)
 }
 
-// photoinfo.py:2279-2285 sorts the lists at the top level only, None as "",
+// photoinfo.py:2277-2283 sorts the lists at the top level only, None as "",
 // and not location or a list whose first element is a dict; plistlib gives
 // the dates of cloud_metadata naive, the other dates are aware.
 func TestJSONDumps(t *testing.T) {
@@ -319,7 +319,7 @@ func TestJSON(t *testing.T) {
 }
 
 // _json_hexdigest drops face_info, whose order is not stable, and visible,
-// which follows the Photos UI (photoinfo.py:2299-2311). The expected digest is
+// which follows the Photos UI (photoinfo.py:2297-2309). The expected digest is
 // built from the bytes of JSON, not from AsDict as Hexdigest builds it.
 func TestHexdigest(t *testing.T) {
 	t.Parallel()

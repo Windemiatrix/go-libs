@@ -1,5 +1,5 @@
 // Package golden compares what this module reads with the output of
-// `osxphotos query --json` of osxphotos 0.77.2 kept in testdata/golden of the
+// `osxphotos query --json` of osxphotos 0.78.1 kept in testdata/golden of the
 // repository. The rules are in testdata/golden/NORMALIZATION.md. Only tests
 // use it.
 //

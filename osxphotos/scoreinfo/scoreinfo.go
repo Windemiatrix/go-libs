@@ -7,7 +7,7 @@ package scoreinfo
 // Interaction from Photos 11 on, whose database has no such columns (upstream
 // selects null in their place, _photosdb_process_scoreinfo.py:62-76). A photo
 // without a row has every score 0.0, not nil, as upstream
-// (photoinfo.py:1507-1537); the zero value has every score nil. The order of
+// (photoinfo.py:1505-1535); the zero value has every score nil. The order of
 // the fields is that of scoreinfo.py:14-40.
 type ScoreInfo struct {
 	Overall, Curation, Promotion, HighlightVisibility *float64 // ZASSET.ZOVERALLAESTHETICSCORE (overall_aesthetic), ZCURATIONSCORE, ZPROMOTIONSCORE, ZHIGHLIGHTVISIBILITYSCORE

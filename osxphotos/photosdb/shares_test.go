@@ -335,7 +335,7 @@ func TestLoadParticipants(t *testing.T) {
 	if got := db.ShareParticipantInfo(p1); !reflect.DeepEqual(got, want) {
 		t.Errorf("P-1: %d participants, not the values of the rows", len(got))
 	}
-	// photoinfo.py:1646-1649 joins the parts even when they are empty.
+	// photoinfo.py:1644-1647 joins the parts even when they are empty.
 	if got := db.ShareParticipants(p1); !slices.Equal(got, []string{"Jos\U000000e9 Part2", " "}) {
 		t.Errorf("P-1: %d names, not the given and family names", len(got))
 	}

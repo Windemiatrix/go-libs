@@ -285,7 +285,7 @@ func TestRenderFormat(t *testing.T) {
 			[]string{"+3.0", "-2.0"}, nil},
 		{"empty str", "{format:str:s,}", none, o, one(""), nil},
 		{"no values", "{format:int:d}", none, o, one("_"), nil},
-		// expand_variables_to_str of the format (phototemplate.py:1419)
+		// expand_variables_to_str of the format (phototemplate.py:1422)
 		{"variable in the value", "{var:v,42}{format:int:05d,{%v}}", none, o, one("00042"), nil},
 		{"variable in the format", "{var:f,05d}{format:int:%f,42}", none, o, one("00042"), nil},
 		// a subfield takes no "," and no "<", ">", "=", "+": only a variable gives them
@@ -309,11 +309,11 @@ func TestRenderFormatErrors(t *testing.T) {
 		want  error
 		names string
 	}{
-		// SyntaxError (phototemplate.py:1405-1411)
+		// SyntaxError (phototemplate.py:1408-1414)
 		{"{format}", fakePhoto{}, ErrRender, "format"},
 		{"{format:int}", fakePhoto{}, ErrRender, "format"},
 		{"{format:bool:d,1}", fakePhoto{}, ErrRender, "format"},
-		// int(float(v)) and float(v) (1414-1416)
+		// int(float(v)) and float(v) (1417-1419)
 		{"{format:int:d,x}", fakePhoto{}, ErrRender, "format:int"},
 		{"{format:int:d,inf}", fakePhoto{}, ErrRender, "format:int"},
 		{"{format:int:d,nan}", fakePhoto{}, ErrRender, "format:int"},
@@ -327,7 +327,7 @@ func TestRenderFormatErrors(t *testing.T) {
 		{"{format:float:d,1}", fakePhoto{}, ErrRender, "{format:float:d}"},
 		{"{format:int:c,1}", fakePhoto{}, ErrUnsupportedConstruct, "{format:int:c}"},
 		{"{format:int:%nope,1}", fakePhoto{}, ErrRender, `"nope"`},
-		// str.format reads a brace of the format (phototemplate.py:1661-1662)
+		// str.format reads a brace of the format (phototemplate.py:1664-1665)
 		{"{var:f,{closebrace}^9}{format:int:%f,42}", fakePhoto{}, ErrRender, "{format:int:%f}"},
 		{"{var:f,{openbrace}^9}{format:int:%f,42}", fakePhoto{}, ErrRender, "{format:int:%f}"},
 		{"{format:str:999999999,x}", fakePhoto{}, ErrTooManyValues, "{format:str:999999999}"},

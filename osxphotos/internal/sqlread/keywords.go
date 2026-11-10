@@ -7,7 +7,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
 )
 
-// Keyword is one keyword of an asset (photosdb.py:1998-2003).
+// Keyword is one keyword of an asset (photosdb.py:2002-2007).
 type Keyword struct {
 	AssetPK int64          // ZADDITIONALASSETATTRIBUTES.ZASSET
 	Title   sql.NullString // ZKEYWORD.ZTITLE
@@ -51,7 +51,7 @@ ORDER BY x.ZASSET, k.Z_PK`
 }
 
 // KeywordTitles returns ZKEYWORD.ZTITLE of every keyword, those no asset has
-// as well, repeated titles kept (photosdb.py:490). A NULL title is an invalid
+// as well, repeated titles kept (photosdb.py:494). A NULL title is an invalid
 // value.
 func (d *DB) KeywordTitles(ctx context.Context) ([]sql.NullString, error) {
 	var out []sql.NullString

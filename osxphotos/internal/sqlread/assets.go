@@ -11,7 +11,7 @@ import (
 // Asset is one ZASSET row with its ZADDITIONALASSETATTRIBUTES,
 // ZASSETDESCRIPTION, ZUNMANAGEDADJUSTMENT and ZCLOUDMASTER rows and the
 // ZGENERICALBUM row of its import session (LEFT JOIN): the columns of
-// photosdb.py:2023-2090, 2377-2412, 2423-2439, 2521-2529,
+// photosdb.py:2027-2094, 2381-2416, 2427-2443, 2525-2533,
 // _photosdb_process_shared_library.py:43-51 and
 // _photosdb_process_syndicationinfo.py:42-51 in one query.
 type Asset struct {
@@ -32,10 +32,10 @@ type Asset struct {
 	ScopeParticipation, ScopeShareState, Scope sql.NullInt64   // ZACTIVELIBRARYSCOPEPARTICIPATIONSTATE, ZLIBRARYSCOPESHARESTATE, ZLIBRARYSCOPE
 	HDRType, DepthType, VisibilityState        sql.NullInt64   // ZHDRTYPE, ZDEPTHTYPE, ZVISIBILITYSTATE
 	CloudOwnerHashedID                         sql.NullString  // ZCLOUDOWNERHASHEDPERSONID
-	Owner                                      sql.NullString  // the full name of the person of CloudOwnerHashedID, as Album.Owner (photoinfo.py:1441-1459); NULL when not found
+	Owner                                      sql.NullString  // the full name of the person of CloudOwnerHashedID, as Album.Owner (photoinfo.py:1439-1457); NULL when not found
 	OwnerComponents                            [][]byte        // as Album.OwnerComponents, for CloudOwnerHashedID
 	MomentShare                                sql.NullInt64   // ZMOMENTSHARE
-	MomentPK                                   sql.NullInt64   // ZMOMENT (photosdb.py:2049, 2280)
+	MomentPK                                   sql.NullInt64   // ZMOMENT (photosdb.py:2053, 2284)
 	SpatialType                                sql.NullInt64   // ZSPATIALTYPE; NULL when ZASSET has no such column
 
 	HasAttributes                         bool           // the ZADDITIONALASSETATTRIBUTES row exists
@@ -106,7 +106,7 @@ func assetColumns(s schema.Schema) []column {
 // without its attributes row (HasAttributes false), which upstream drops.
 func (d *DB) Assets(ctx context.Context, s schema.Schema) ([]Asset, error) {
 	// ZSPATIALTYPE is not in Columns: upstream reads it only where it exists
-	// (photosdb.py:1751-1759), not by the schema version.
+	// (photosdb.py:1755-1763), not by the schema version.
 	assetCols, err := d.columns(ctx, "ZASSET")
 	if err != nil {
 		return nil, err

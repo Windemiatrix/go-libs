@@ -153,7 +153,7 @@ func renderCases() []renderCase {
 		{"filepath", "{filepath}", fakePhoto{}, RenderOptions{Filepath: "/export/IMG_0001.HEIC"}, []string{"/export/IMG_0001.HEIC"}, nil},
 		{"edited_version", "{edited_version}", fakePhoto{}, RenderOptions{EditedVersion: true}, []string{"edited_version"}, nil},
 		{"edited_version unset", "{edited_version}", fakePhoto{}, RenderOptions{}, []string{"_"}, nil},
-		{"osxphotos_version", "{osxphotos_version}", fakePhoto{}, RenderOptions{}, []string{"0.77.2"}, nil},
+		{"osxphotos_version", "{osxphotos_version}", fakePhoto{}, RenderOptions{}, []string{"0.78.1"}, nil},
 		{"punctuation", "{openbrace}{tab}{crlf}", fakePhoto{}, RenderOptions{}, []string{"{\t\r\n"}, nil},
 		{"id", "{id}", ex(), RenderOptions{}, []string{"42"}, nil},
 		{"photo property", "{photo.title}", ex(), RenderOptions{}, []string{"My Photo Title"}, nil},
@@ -226,7 +226,7 @@ func TestRenderNoneEmpty(t *testing.T) {
 }
 
 // pathlib.Path(...).stem of Python 3.12 (phototemplate.py:931-933, 997) and
-// persons without _UNKNOWN_PERSON (1275-1278).
+// persons without _UNKNOWN_PERSON (1278-1281).
 func TestRenderNameStems(t *testing.T) {
 	t.Parallel()
 	p := fakePhoto{"name": strs("IMG_0001.HEIC"), "original_name": strs("archive.tar.gz"), "burst": strs("IMG_0002.JPG"),
@@ -746,18 +746,18 @@ func TestRenderSanitize(t *testing.T) {
 		{"no options", "{title}/{keyword}", p(), o, []string{"a/b/x/y", "a/b/z"}, nil},
 		{"field filename", "{title}", p(), fn, one("a:b"), nil},
 		{"field dirname", "{title}", p(), dn, one("a:b"), nil},
-		// the values through sanitize_pathpart, the string through sanitize_filename (phototemplate.py:529-532, 1388-1390)
+		// the values through sanitize_pathpart, the string through sanitize_filename (phototemplate.py:529-532, 1391-1393)
 		{"statement filename", "{title}/{keyword}", p(), fn, []string{"a:b:x:y", "a:b:z"}, nil},
 		{"statement dirname", "{title}/{keyword}", p(), dn, []string{"a:b/x:y", "a:b/z"}, nil},
 		{"date filename", "{created.year}/{title}", p(), fn, one("2020:a:b"), nil},
-		// each part before the join (1299-1304)
+		// each part before the join (1302-1307)
 		{"folder_album dirname", "{folder_album}", p(), dn, one("f:g/h/t:u"), nil},
 		{"folder_album sep dirname", "{folder_album(>)}", p(), dn, one("f:g>h>t:u"), nil},
 		{"folder_album filename", "{folder_album}", p(), fn, one("f:g:h:t:u"), nil},
 		{"folder_album no options", "{folder_album}", p(), o, one("f/g/h/t/u"), nil},
 		{"folder_album_project dirname", "{folder_album_project}", project, dn, one("f:g/h/t:u"), nil},
 		{"folder_album_project filename", "{folder_album_project}", project, fn, one("f:g:h:t:u"), nil},
-		// sorted after the parts with Dirname, before the values with Filename (1313, 1388-1393)
+		// sorted after the parts with Dirname, before the values with Filename (1316, 1391-1396)
 		{"folder_album order dirname", "{folder_album}", twoAlbums, dn, []string{"a0", "a:b"}, nil},
 		{"folder_album order filename", "{folder_album}", twoAlbums, fn, []string{"a:b", "a0"}, nil},
 		{"folder_album order both", "{folder_album}", twoAlbums, both, []string{"a0", "a:b"}, nil},
@@ -776,10 +776,10 @@ func TestRenderSanitize(t *testing.T) {
 		{"condition no options", "{title contains a/b?Y,N}", p(), o, one("Y"), nil},
 		{"none str dirname", "{descr}", p(), RenderOptions{Dirname: true, NoneStr: "n/a"}, one("n/a"), nil},
 		{"none str filename", "{descr}", p(), RenderOptions{Filename: true, NoneStr: "n/a"}, one("n:a"), nil},
-		// pathlib fields too (1039-1042)
+		// pathlib fields too (1042-1045)
 		{"filepath filename", "{filepath}", p(), RenderOptions{Filename: true, Filepath: path}, one(":export:IMG_0001.HEIC"), nil},
 		{"export_dir dirname", "{export_dir}", p(), RenderOptions{Dirname: true, ExportDir: "/export"}, one(":export"), nil},
-		// if self.filename ... elif self.dirname (1006-1008, 1389-1391)
+		// if self.filename ... elif self.dirname (1006-1008, 1392-1394)
 		{"both", "{title}/{keyword}", p(), both, []string{"a:b:x:y", "a:b:z"}, nil},
 		{"both folder_album", "{folder_album}", p(), both, one("f:g:h:t:u"), nil},
 		// sanitize_pathpart cuts the joined path to 255 first, then sanitize_filename the stem

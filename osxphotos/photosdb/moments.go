@@ -36,10 +36,10 @@ type momentData struct {
 	momentPhotos map[int64][]*photoinfo.PhotoInfo
 }
 
-// _process_moment_5 (photosdb.py:2697-2785). A moment has no time zone name:
+// _process_moment_5 (photosdb.py:2742-2830). A moment has no time zone name:
 // assetDate with an empty one is photos_datetime with default=True and the
 // offset of ZTIMEZONEOFFSET. NFKC of the title turns the no-break space that
-// Photos writes in it into a space (2773-2783).
+// Photos writes in it into a space (2818-2828).
 func loadMoments(t tables, c *catalog) momentData {
 	d := momentData{
 		moments:      make(map[int64]momentinfo.MomentInfo, len(t.moments)),

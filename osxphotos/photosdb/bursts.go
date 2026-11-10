@@ -4,7 +4,7 @@ import "github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 
 // BurstPhotos returns the other photos of the burst of p, those in the trash
 // and the unselected frames included, in UUID order; nil when there are none:
-// osxphotos PhotoInfo.burst_photos (photoinfo.py:1031-1044). The values are
+// osxphotos PhotoInfo.burst_photos (photoinfo.py:1029-1042). The values are
 // shared: do not modify them.
 func (db *DB) BurstPhotos(p *photoinfo.PhotoInfo) []*photoinfo.PhotoInfo {
 	if !p.Burst {
@@ -20,7 +20,7 @@ func (db *DB) BurstPhotos(p *photoinfo.PhotoInfo) []*photoinfo.PhotoInfo {
 }
 
 // BurstKeyPhoto returns the key photo of the burst of p, p itself when it is
-// the key: osxphotos PhotoInfo.burst_key_photo (photoinfo.py:1009-1019).
+// the key: osxphotos PhotoInfo.burst_key_photo (photoinfo.py:1007-1017).
 // Upstream iterates a set, so a burst with several key photos gives any of
 // them; here it is the first by UUID. The value is shared: do not modify it.
 func (db *DB) BurstKeyPhoto(p *photoinfo.PhotoInfo) (*photoinfo.PhotoInfo, bool) {
@@ -40,7 +40,7 @@ func (db *DB) BurstKeyPhoto(p *photoinfo.PhotoInfo) (*photoinfo.PhotoInfo, bool)
 
 // PhotosByUUID returns the photos with these UUIDs in their order, unknown
 // ones left out, repeats kept, those in the trash included; nil when there are
-// none: osxphotos photos_by_uuid (photosdb/photosdb.py:3378-3394). The values
+// none: osxphotos photos_by_uuid (photosdb/photosdb.py:3423-3439). The values
 // are shared: do not modify them.
 func (db *DB) PhotosByUUID(uuids []string) []*photoinfo.PhotoInfo {
 	var photos []*photoinfo.PhotoInfo
@@ -52,7 +52,7 @@ func (db *DB) PhotosByUUID(uuids []string) []*photoinfo.PhotoInfo {
 	return photos
 }
 
-// The BurstUUID "" is a burst too (photosdb/photosdb.py:2212-2220). Built once
+// The BurstUUID "" is a burst too (photosdb/photosdb.py:2216-2224). Built once
 // in Open: a scan of the catalog per photo would be quadratic.
 func indexBursts(photos []*photoinfo.PhotoInfo) map[string][]*photoinfo.PhotoInfo {
 	bursts := map[string][]*photoinfo.PhotoInfo{}

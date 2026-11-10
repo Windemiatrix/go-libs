@@ -41,33 +41,33 @@ func outsideTrash(albums []*albuminfo.AlbumInfo) []*albuminfo.AlbumInfo {
 }
 
 // AlbumInfo returns the user albums outside the trash, osxphotos album_info
-// (photosdb/photosdb.py:612-622, 3187-3210), in UUID order. The slice is new
+// (photosdb/photosdb.py:616-626, 3232-3255), in UUID order. The slice is new
 // on every call, but its values are shared by all calls: do not modify them.
 func (db *DB) AlbumInfo() []*albuminfo.AlbumInfo { return outsideTrash(db.albums) }
 
 // SharedAlbumInfo returns the shared albums (ZKIND 1505, and the CollectionShare
 // rows of ZSHARE of Photos 11 and later) outside the trash, osxphotos
-// album_info_shared (photosdb/photosdb.py:624-637, 3187-3210), in
+// album_info_shared (photosdb/photosdb.py:628-641, 3232-3255), in
 // UUID order. The slice is new on every call, but its values are shared by
 // all calls: do not modify them.
 func (db *DB) SharedAlbumInfo() []*albuminfo.AlbumInfo { return outsideTrash(db.sharedAlbums) }
 
 // AlbumTitles returns the titles of AlbumInfo, sorted, each once: osxphotos
-// albums (photosdb/photosdb.py:639-650, 3212-3225).
+// albums (photosdb/photosdb.py:643-654, 3257-3270).
 func (db *DB) AlbumTitles() []string { return sortedTitles(db.AlbumInfo()) }
 
 // SharedAlbumTitles returns the titles of SharedAlbumInfo, sorted, each once:
-// osxphotos albums_shared (photosdb/photosdb.py:652-667, 3212-3225).
+// osxphotos albums_shared (photosdb/photosdb.py:656-671, 3257-3270).
 func (db *DB) SharedAlbumTitles() []string { return sortedTitles(db.SharedAlbumInfo()) }
 
 // AlbumCounts returns the number of photos of the albums of AlbumInfo by
 // title, albums of one title added up: osxphotos albums_as_dict
-// (photosdb/photosdb.py:511-526).
+// (photosdb/photosdb.py:515-530).
 func (db *DB) AlbumCounts() map[string]int { return countsByTitle(db.AlbumInfo()) }
 
 // SharedAlbumCounts returns the number of photos of the albums of
 // SharedAlbumInfo by title, albums of one title added up: osxphotos
-// albums_shared_as_dict (photosdb/photosdb.py:528-545).
+// albums_shared_as_dict (photosdb/photosdb.py:532-549).
 func (db *DB) SharedAlbumCounts() map[string]int { return countsByTitle(db.SharedAlbumInfo()) }
 
 func countsByTitle(albums []*albuminfo.AlbumInfo) map[string]int {
@@ -80,7 +80,7 @@ func countsByTitle(albums []*albuminfo.AlbumInfo) map[string]int {
 
 // AlbumInfoOf returns the user and shared albums of p outside the trash,
 // sorted by title, then by UUID: osxphotos PhotoInfo.album_info
-// (photoinfo.py:655-662, 2022-2034).
+// (photoinfo.py:655-662, 2020-2032).
 func (db *DB) AlbumInfoOf(p *photoinfo.PhotoInfo) []*albuminfo.AlbumInfo {
 	return db.albumsOf(p.AlbumUUIDs)
 }
@@ -115,7 +115,7 @@ func (db *DB) BurstAlbumTitlesOf(p *photoinfo.PhotoInfo) []string {
 // leaves no UUID that is not an album in the lists.
 func (db *DB) albumsOf(uuids []string) []*albuminfo.AlbumInfo {
 	var out []*albuminfo.AlbumInfo
-	for _, u := range uuids { // photoinfo.py:2029-2034
+	for _, u := range uuids { // photoinfo.py:2027-2032
 		if a, ok := db.Album(u); ok && !a.InTrash {
 			out = append(out, a)
 		}
@@ -126,7 +126,7 @@ func (db *DB) albumsOf(uuids []string) []*albuminfo.AlbumInfo {
 	return out
 }
 
-// Upstream makes a set of the titles (photosdb.py:3224-3225, photoinfo.py:640-643).
+// Upstream makes a set of the titles (photosdb.py:3269-3270, photoinfo.py:640-643).
 func sortedTitles(albums []*albuminfo.AlbumInfo) []string {
 	var titles []string
 	for _, a := range albums {

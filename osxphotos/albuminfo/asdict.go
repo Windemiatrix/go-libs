@@ -6,14 +6,14 @@ import (
 )
 
 // Upstream reads a missing creation date as 0 in Core Data seconds
-// (photosdb.py:1937-1938); the port takes it in UTC.
+// (photosdb.py:1941-1942); the port takes it in UTC.
 var noCreationDate = time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
 
 // AsDict is asdict of AlbumInfo (albuminfo.py:135-143, 289-297), without
 // photos, as upstream. A nil date and an empty owner, title or parent are nil,
 // as None upstream; a nil CreationDate is 2001-01-01T00:00:00Z; a nil list is [].
-// sort_order is the AlbumSortOrder, a plain Enum upstream (_constants.py:707,
-// albuminfo.py:295), which its json writes as null (photoinfo.py:2269-2271).
+// sort_order is the AlbumSortOrder, a plain Enum upstream (_constants.py:730,
+// albuminfo.py:295), which its json writes as null (photoinfo.py:2267-2269).
 // parent is the parent row, nil at the top level; upstream gives None also
 // when that row holds no folder and no user album outside the trash
 // (albuminfo.py:296, 525-527), as for some projects, which the value does not

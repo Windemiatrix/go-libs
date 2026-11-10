@@ -76,7 +76,7 @@ For any other model version `Open` returns `ErrUnsupportedSchema` and does not g
 
 ## Path templates
 
-The `template` package renders osxphotos templates: fields, filters, conditions, replacements, default values. The list of fields is in the [osxphotos documentation](https://github.com/RhetTbull/osxphotos/blob/v0.77.2/osxphotos/phototemplate.md).
+The `template` package renders osxphotos templates: fields, filters, conditions, replacements, default values. The list of fields is in the [osxphotos documentation](https://github.com/RhetTbull/osxphotos/blob/v0.78.1/osxphotos/phototemplate.md).
 
 ```go
 t, err := template.Parse("{created.year}/{created.mm}-{created.dd} - {album,No album}/{photo.original_filename}")
@@ -125,13 +125,13 @@ The name of an export file is one path element. An empty name, `.`, `..`, or a `
 
 ## Differences from osxphotos
 
-The module follows osxphotos `v0.77.2`. Unlike osxphotos, it also returns cloud identifiers of photos and albums and the sizes of all photo files without downloading them. Its `photokit` package also imports photos, manages albums, and deletes and changes photos. The module has no command line, export database, file conversion, XMP or JSON sidecar files, exiftool or media analysis results. The full list of differences, with links to the osxphotos code, is in [UPSTREAM.md](UPSTREAM.md).
+The module follows osxphotos `v0.78.1`. Unlike osxphotos, it also returns cloud identifiers of photos and albums and the sizes of all photo files without downloading them. Its `photokit` package also imports photos, manages albums, and deletes and changes photos. The module has no command line, export database, file conversion, XMP or JSON sidecar files, exiftool or media analysis results. The full list of differences, with links to the osxphotos code, is in [UPSTREAM.md](UPSTREAM.md).
 
 ## How it is tested
 
 Every PR runs tests with `-race` on Linux and macOS, the linter and an 80% coverage threshold. The results are compared with the output of osxphotos on its eight test libraries (macOS 13–27) and one synthetic library. `photokit` is tested in CI against a simulated PhotoKit. Tests that change a real library run only by hand, under a separate macOS account. You can also compare the module with osxphotos on your own library without changing it:
 
-1. Install osxphotos 0.77.2 in a separate Python 3.10+ environment: `python3 -m venv "$HOME/venvs/osxphotos" && "$HOME/venvs/osxphotos/bin/pip" install osxphotos==0.77.2`.
+1. Install osxphotos 0.78.1 in a separate Python 3.10+ environment: `python3 -m venv "$HOME/venvs/osxphotos" && "$HOME/venvs/osxphotos/bin/pip" install osxphotos==0.78.1`.
 2. Quit Photos, open the library in Finder with "Show Package Contents" and copy the `database/` directory to `~/Pictures/Copy.photoslibrary/database/`.
 3. From the repository root, run `make diff-local LIBRARY="$HOME/Pictures/Copy.photoslibrary" OSXPHOTOS="$HOME/venvs/osxphotos/bin/osxphotos" REPORT="$HOME/diff-local-report.txt"`.
 4. Read the counts of differences in the terminal. The details go to the file set in `REPORT`; it holds your data, so do not publish it. Then delete the library copy.

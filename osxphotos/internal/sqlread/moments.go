@@ -5,7 +5,7 @@ import (
 	"database/sql"
 )
 
-// Moment is one ZMOMENT row (photosdb/photosdb.py:2702-2747).
+// Moment is one ZMOMENT row (photosdb/photosdb.py:2747-2792).
 type Moment struct {
 	PK                                   int64
 	TZOffset                             sql.NullInt64
@@ -15,7 +15,7 @@ type Moment struct {
 }
 
 // The order is that of the Scan in Moments. Upstream also reads ZTRASHEDSTATE
-// and ZUUID but exposes neither (photosdb.py:2738, 2747).
+// and ZUUID but exposes neither (photosdb.py:2783, 2792).
 func momentSelect() []column {
 	m := func(name string) column { return column{"m", "ZMOMENT", name} }
 	return []column{

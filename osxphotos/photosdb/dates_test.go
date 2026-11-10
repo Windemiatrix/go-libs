@@ -176,7 +176,7 @@ func TestOptionalTime(t *testing.T) {
 	if got := optionalTime(nullFloat(math.Inf(1))); got != nil {
 		t.Errorf("optionalTime(+Inf) = %v, want nil", got)
 	}
-	// A negative ZMODIFICATIONDATE is a moment, not nil (photosdb.py:2153-2155).
+	// A negative ZMODIFICATIONDATE is a moment, not nil (photosdb.py:2157-2159).
 	for _, tt := range []struct {
 		ts   float64
 		want time.Time

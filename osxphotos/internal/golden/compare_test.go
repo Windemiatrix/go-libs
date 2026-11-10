@@ -848,7 +848,7 @@ func TestWriteDetailsFaceInfo(t *testing.T) {
 	}
 }
 
-// Upstream joins the library path to each preview (photoinfo.py:1200-1205),
+// Upstream joins the library path to each preview (photoinfo.py:1198-1203),
 // and the adjustments hold the edits of the owner (adjustmentsinfo.py:210-228).
 func TestWriteDetailsPathsAndAdjustments(t *testing.T) {
 	t.Parallel()
@@ -892,7 +892,7 @@ func TestCompareEquivalent(t *testing.T) {
 		{"an explicit 2001 for the creation date that osxphotos defaults", album(albumAInFolderY, func(a *albuminfo.AlbumInfo) { a.CreationDate = ptr(utc(2001, 1, 1, 0, 0, 0, 0)) }), ""},
 		{"the unselected frame with another pick", func(l *goLib) { l.Photos[1].BurstPickType = 4 }, ""},
 		{"an album of a trashed state not listed", album(albumOfNoPhoto, func(a *albuminfo.AlbumInfo) { a.InTrash = true }), ""},
-		// json() sorts the pair (photoinfo.py:2279-2285): a Cyrillic name follows its bundle ID.
+		// json() sorts the pair (photoinfo.py:2277-2283): a Cyrillic name follows its bundle ID.
 		{"an imported_by name after its bundle ID in byte order", photo(func(x *photoinfo.PhotoInfo) {
 			x.ImportedByName, x.ImportedByBundleID = x.ImportedByBundleID, x.ImportedByName
 		}), ""},
@@ -975,8 +975,8 @@ func TestCompareEquivalent(t *testing.T) {
 		}
 	})
 
-	// json() sorts the list (photoinfo.py:2279-2285); upstream gives it by size,
-	// largest first (photoinfo.py:1174).
+	// json() sorts the list (photoinfo.py:2277-2283); upstream gives it by size,
+	// largest first (photoinfo.py:1172).
 	t.Run("path_derivatives by size against the sorted reference", func(t *testing.T) {
 		t.Parallel()
 		lib := fixtureLib()

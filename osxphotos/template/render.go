@@ -239,7 +239,7 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 			out[i] = strings.TrimFunc(v, isSpace)
 		}
 		return out, true, nil
-	case name == "shell_quote": // phototemplate.py:1340-1341
+	case name == "shell_quote": // phototemplate.py:1343-1344
 		out := slices.DeleteFunc(slices.Clone(def), func(v string) bool { return v == "" })
 		return out, true, s.each(out, shellQuote)
 	}
@@ -263,7 +263,7 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 				break
 			}
 		}
-	case "person": // 1277-1278
+	case "person": // 1280-1281
 		vals = slices.DeleteFunc(vals, func(v string) bool { return v == unknownPerson })
 	}
 	if err != nil {
@@ -273,13 +273,13 @@ func (s *rendering) values(f *Field, def []string) ([]string, bool, error) {
 		vals = append(vals, strconv.FormatInt(*v.Int, 10))
 	}
 	sep := s.o.PathSep
-	if f.Arg != nil && *f.Arg != "" { // path_sep or self.path_sep (1255)
+	if f.Arg != nil && *f.Arg != "" { // path_sep or self.path_sep (1258)
 		sep = *f.Arg
 	}
 	albums := make([]string, len(v.Albums))
 	for i, a := range v.Albums {
 		parts := append(slices.Clone(a.Folders), a.Title)
-		if s.o.Dirname { // without a check of Filename (phototemplate.py:1299, 1309)
+		if s.o.Dirname { // without a check of Filename (phototemplate.py:1302, 1312)
 			if err = s.each(parts, sanitizePathpart); err != nil {
 				return nil, false, err
 			}

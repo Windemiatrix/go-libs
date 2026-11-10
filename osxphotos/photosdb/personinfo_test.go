@@ -64,8 +64,8 @@ func checkPersonInfoOf(t *testing.T, db *DB) (withFaces, faces int) {
 	return withFaces, faces
 }
 
-// The expected values are literals: the persons of photosdb.py:1767-1840 and
-// personinfo.py:35-108 from built rows.
+// The expected values are literals: the persons of photosdb.py:1771-1844 and
+// personinfo.py:37-110 from built rows.
 func TestLoadPersonInfo(t *testing.T) {
 	t.Parallel()
 
@@ -115,7 +115,7 @@ func TestLoadPersonInfo(t *testing.T) {
 }
 
 // The expected values are literals: the faces of
-// _photosdb_process_faceinfo.py:186-331 from built rows. HasSmile, InTrash and
+// _photosdb_process_faceinfo.py:202-358 from built rows. HasSmile, InTrash and
 // Manual are each set in a face of their own, so that a swap of two flags or a
 // constant false fails. The A-9 face is of an asset outside the catalog, the
 // face 10 of an asset without attributes that shares the ZUUID of A-1.
@@ -154,7 +154,7 @@ func TestLoadFaceInfo(t *testing.T) {
 		AgeType: 2, EyeMakeupType: 1, EyeState: 3, FacialHairType: 4, GenderType: 5, GlassesType: 6, HairColorType: 7, LipMakeupType: 8, SmileType: 9,
 		Roll: 0.125, DetectionType: 4, BodyCenterX: 0.375, BodyCenterY: 0.625, BodyWidth: 0.0625, BodyHeight: 0.875,
 	}
-	// A person without a name has the name "" on a face, which sorts first (_photosdb_process_faceinfo.py:283; photoinfo.py:622).
+	// A person without a name has the name "" on a face, which sorts first (_photosdb_process_faceinfo.py:305; photoinfo.py:622).
 	face8 := personinfo.FaceInfo{PK: 8, AssetUUID: "A-1", PersonPK: 2, PersonUUID: "P-1", InTrash: true}
 	face11 := personinfo.FaceInfo{PK: 11, AssetUUID: "A-1", PersonPK: 2, PersonUUID: "P-1", Manual: true}
 	if want := map[string][]personinfo.FaceInfo{"A-1": {face8, face11, face7}}; !reflect.DeepEqual(d.facesOf, want) {
@@ -164,7 +164,7 @@ func TestLoadFaceInfo(t *testing.T) {
 	for _, f := range d.personFaces[1] {
 		faces = append(faces, f.PK)
 	}
-	// The faces of assets outside the catalog are faces of the person too (_photosdb_process_faceinfo.py:228-230, 326-329).
+	// The faces of assets outside the catalog are faces of the person too (_photosdb_process_faceinfo.py:245-247, 353-356).
 	if want := []int64{10, 7, 9}; !slices.Equal(faces, want) {
 		t.Errorf("faces of P-2 %v, want %v: by quality, descending, then Z_PK", faces, want)
 	}
@@ -175,7 +175,7 @@ func TestLoadFaceInfo(t *testing.T) {
 }
 
 // Upstream keys the photos and the faces of a person by ZPERSON.Z_PK
-// (personinfo.py:58-81); the methods take the ZPERSONUUID of Person.
+// (personinfo.py:60-83); the methods take the ZPERSONUUID of Person.
 func TestFaces(t *testing.T) {
 	t.Parallel()
 
@@ -341,7 +341,7 @@ func TestPersonInfoOf(t *testing.T) {
 	})
 
 	// Two rows of one ZPERSONUUID: the face is of the row of its Z_PK
-	// (photoinfo.py:605-611; personinfo.py:35).
+	// (photoinfo.py:605-611; personinfo.py:37).
 	t.Run("repeated UUID", func(t *testing.T) {
 		t.Parallel()
 		db := personDB(t, tables{
@@ -526,7 +526,7 @@ func TestLoadPersonInfoLibraries(t *testing.T) {
 }
 
 // A person with two ZUSERFEEDBACK rows of different ZTYPE is what the lowest
-// Z_PK decides (personinfo.py:99-108), so the rows are written.
+// Z_PK decides (personinfo.py:101-110), so the rows are written.
 func TestLoadPersonInfoFeedback(t *testing.T) {
 	t.Parallel()
 

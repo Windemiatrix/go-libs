@@ -3,7 +3,7 @@ package template
 import "time"
 
 // Photo is what Render reads from a photo: the values of the template fields
-// of osxphotos by their upstream name (phototemplate.py:930-1000, 1261-1343).
+// of osxphotos by their upstream name (phototemplate.py:930-1000, 1264-1346).
 // photosdb implements it for a PhotoInfo, an application for its own fields.
 // name, original_name and burst give the file name (filename,
 // original_filename, the original_filename of burst_key_photo for a burst and
@@ -11,7 +11,7 @@ import "time"
 // never asked for: Render makes it of uuid (975-976). album_seq gives the
 // albums of album_info with their Index and is read for folder_album_seq too
 // (979-992): unlike folder_album, not the albums of the burst. Render drops
-// the person "_UNKNOWN_" (1275-1278).
+// the person "_UNKNOWN_" (1278-1281).
 type Photo interface {
 	// Field returns the value of name, dotted names whole ("place.name.city",
 	// "photo.score.overall"), or false when the photo does not give it: Render
@@ -25,12 +25,12 @@ type Photo interface {
 // Strings holds the values in the order of upstream (sorted for album, keyword,
 // person and the other multi-valued fields); empty is the None of upstream,
 // and a single-valued field never holds "" (phototemplate.py:1012), except a
-// string attribute of photo.X, which renders even when "" (1369-1370). Time is
+// string attribute of photo.X, which renders even when "" (1372-1373). Time is
 // created or modified, nil when the photo has none (952-956). Int is id.
 // Albums is folder_album and folder_album_project, whose folder names and
-// title Render joins with the path separator and sorts (1287-1313), and
+// title Render joins with the path separator and sorts (1290-1316), and
 // album_seq, in the order of album_info, whose first match Render takes
-// (1667, 1675).
+// (1670, 1678).
 type Value struct {
 	Strings []string
 	Time    *time.Time

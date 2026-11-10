@@ -21,10 +21,10 @@ const maxPlistSize = 1 << 20
 const modelKey = "PLModelVersion"
 
 // data is the Z_PLIST of the Z_METADATA row with the highest Z_VERSION
-// (photosdb_utils.py:88-118). Every failure wraps ErrUnsupportedSchema.
+// (photosdb_utils.py:89-119). Every failure wraps ErrUnsupportedSchema.
 //
 // Unlike osxphotos, which takes the latest schema when the model is missing
-// or unknown (photosdb_utils.py:131-136, 160-163), an unknown model is an
+// or unknown (photosdb_utils.py:132-137, 163-166), an unknown model is an
 // error: the names of another schema would read wrong columns.
 func detectSchema(data []byte) (model int, s schema.Schema, err error) {
 	if len(data) > maxPlistSize {
@@ -51,7 +51,7 @@ func detectSchema(data []byte) (model int, s schema.Schema, err error) {
 }
 
 // A string of ASCII decimal digits is accepted as upstream int() of a str
-// (photosdb_utils.py:137), but without its sign, spaces and non-ASCII digits.
+// (photosdb_utils.py:138), but without its sign, spaces and non-ASCII digits.
 // howett.net/plist decodes integers as uint64 or int64. A number outside int32,
 // far beyond every known model, is an unknown model, not a type error.
 func modelVersion(v any) (int, error) {

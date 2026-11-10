@@ -9,7 +9,7 @@ import (
 )
 
 // PhotosOptions are the arguments of osxphotos PhotosDB.photos()
-// (photosdb/photosdb.py:3227-3262); the zero value is photos() without them.
+// (photosdb/photosdb.py:3272-3307); the zero value is photos() without them.
 type PhotosOptions struct {
 	Keywords, UUID, Persons, Albums []string  // any of the values; Albums are titles
 	NoImages, NoMovies              bool      // images=False, movies=False
@@ -18,7 +18,7 @@ type PhotosOptions struct {
 }
 
 // PhotosWith returns the photos that osxphotos photos(…) returns with o
-// (photosdb/photosdb.py:3264-3362), in the order of query.Sort. Keywords and
+// (photosdb/photosdb.py:3309-3407), in the order of query.Sort. Keywords and
 // Persons are put in NFC, Albums are not, as upstream; Albums are looked for
 // among user albums, those in the trash included. The slice is new on every
 // call, but its values are shared: do not modify them.

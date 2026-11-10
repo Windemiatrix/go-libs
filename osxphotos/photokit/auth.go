@@ -8,22 +8,22 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photokit/internal/bridge"
 )
 
-// PHOTOKIT_REQUEST_TIMEOUT of upstream (photokit.py:196-203); a deadline of
+// PHOTOKIT_REQUEST_TIMEOUT of upstream (photokit.py:198-205); a deadline of
 // ctx replaces it.
 const requestTimeout = 5 * time.Minute
 
 // AuthorizationStatus is the status of this process. It never shows a dialog
-// (check_photokit_authorization, photokit.py:113-121).
+// (check_photokit_authorization, photokit.py:115-123).
 func AuthorizationStatus() (Status, error) { return authorizationStatus(bridge.New()) }
 
 // RequestAuthorization asks the user for read-write access once and returns
-// the status they chose (request_photokit_authorization, photokit.py:124-162;
+// the status they chose (request_photokit_authorization, photokit.py:126-164;
 // requestAuthorizationForAccessLevel:handler:, the API that replaced the
 // requestAuthorization: upstream calls). The process needs
 // NSPhotoLibraryUsageDescription in its Info.plist: without it macOS ends the
 // process. It returns ctx.Err() as soon as ctx is done, and
 // context.DeadlineExceeded after 5 minutes when ctx has no deadline (the 300 s
-// of PHOTOKIT_REQUEST_TIMEOUT, photokit.py:196-203). The request itself keeps
+// of PHOTOKIT_REQUEST_TIMEOUT, photokit.py:198-205). The request itself keeps
 // waiting in the background until the user answers or that deadline passes,
 // and the late answer is dropped.
 func RequestAuthorization(ctx context.Context) (Status, error) {

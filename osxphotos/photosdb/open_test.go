@@ -258,7 +258,7 @@ func openPathDB(t *testing.T, path string, o Options) *DB {
 
 func openPathDatabase(lib string) string { return filepath.Join(lib, "database", "Photos.sqlite") }
 
-// photosdb.py:353-385, 455.
+// photosdb.py:357-389, 459.
 func TestOpenPaths(t *testing.T) {
 	t.Parallel()
 
@@ -285,7 +285,7 @@ func TestOpenPaths(t *testing.T) {
 	}
 }
 
-// photosdb.py:377-385, 455.
+// photosdb.py:381-389, 459.
 func TestOpenPathsOtherName(t *testing.T) {
 	t.Parallel()
 
@@ -300,7 +300,7 @@ func TestOpenPathsOtherName(t *testing.T) {
 	}
 }
 
-// photosdb.py:349-350, 455.
+// photosdb.py:353-354, 459.
 func TestOpenPathsRelative(t *testing.T) {
 	lib := testlib.OpenPristine(t, "synthetic")
 
@@ -411,7 +411,7 @@ func TestOpenNotDatabaseMessage(t *testing.T) {
 	}
 }
 
-// photosdb.py:456-458.
+// photosdb.py:460-462.
 func TestOpenLibraryPath(t *testing.T) {
 	t.Parallel()
 
@@ -604,7 +604,7 @@ func TestOpenDanglingReferences(t *testing.T) {
 }
 
 // Upstream lists shared albums (ZKIND 1505) among the albums of a photo
-// (photoinfo.py:2023-2034), but not in album_info (photosdb/photosdb.py:612-637).
+// (photoinfo.py:2021-2032), but not in album_info (photosdb/photosdb.py:616-641).
 func TestOpenSharedAlbum(t *testing.T) {
 	t.Parallel()
 
@@ -760,7 +760,7 @@ func TestOpenAggregates(t *testing.T) {
 					goSum += s.goVal(p)
 				}
 				want := count(t, src, "SELECT COALESCE(SUM("+s.column+"), 0)"+from)
-				if s.name == "AlbumUUIDs" { // and the CollectionShare of an asset, Photos 11 and later (photosdb.py:2832-2837)
+				if s.name == "AlbumUUIDs" { // and the CollectionShare of an asset, Photos 11 and later (photosdb.py:2877-2882)
 					want += collectionShares(t, src, shareMemberCount)
 				}
 				if goSum != want {

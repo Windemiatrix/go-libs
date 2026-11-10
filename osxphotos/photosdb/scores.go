@@ -7,9 +7,9 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/scoreinfo"
 )
 
-// A NULL column is nil, as upstream keeps None (photoinfo.py:1477-1505). A
+// A NULL column is nil, as upstream keeps None (photoinfo.py:1475-1503). A
 // photo without a row has every score 0.0, the KeyError branch of upstream
-// (photoinfo.py:1507-1537); each score is a pointer of its own, as the fields
+// (photoinfo.py:1505-1535); each score is a pointer of its own, as the fields
 // are exported.
 func scoreInfo(r sqlread.Score, hasRow bool) scoreinfo.ScoreInfo {
 	f := optionalFloat

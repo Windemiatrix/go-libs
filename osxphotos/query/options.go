@@ -13,7 +13,7 @@ import (
 // QueryOptions(): what `osxphotos query` selects without options — the photos
 // and movies outside the trash, without the unselected frames of bursts.
 type Options struct {
-	UUID []string // uuid: only these photos (photosdb/photosdb.py:3300-3305)
+	UUID []string // uuid: only these photos (photosdb/photosdb.py:3345-3350)
 	// --only-photos and --only-movies, which set QueryOptions movies and photos
 	// to False (photoquery.py:338-343): the zero value keeps both, as
 	// QueryOptions does.

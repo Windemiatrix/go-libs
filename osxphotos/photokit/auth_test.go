@@ -48,7 +48,7 @@ func TestRequestAuthorization(t *testing.T) {
 			if err != nil || got != want {
 				t.Fatalf("requestAuthorization = %v, %v; want %v", got, err, want)
 			}
-			// Upstream asks twice (photokit.py:156-160); PHOTOKIT_REQUEST_TIMEOUT
+			// Upstream asks twice (photokit.py:158-162); PHOTOKIT_REQUEST_TIMEOUT
 			// bounds a request without a deadline.
 			if calls := b.Calls(); !slices.Equal(calls, []string{"RequestAuthorization 5m0s"}) {
 				t.Errorf("calls = %q, want one request for 5m0s", calls)

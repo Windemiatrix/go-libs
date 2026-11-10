@@ -7,7 +7,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// MAX_FILENAME_LEN and MAX_DIRNAME_LEN (_constants.py:631-634), in code
+// MAX_FILENAME_LEN and MAX_DIRNAME_LEN (_constants.py:654-657), in code
 // points, as len of a Python str counts.
 const (
 	maxFilenameLen = 240
@@ -20,7 +20,7 @@ const slashReplacement = ":"
 
 // SanitizeFilename returns name as one file name, as sanitize_filename does
 // (path_utils.py:39-67): in NFC (unicode.py:76-92), then "/" replaced by
-// replacement, then cut to 240 code points (_constants.py:631). The cut takes
+// replacement, then cut to 240 code points (_constants.py:654). The cut takes
 // the end of the name when it has no "."; else the end of the part before the
 // last "." when that part is at least as long as the excess, which may leave
 // nothing of it before the "."; else the end of the extension, keeping that
@@ -45,7 +45,7 @@ func SanitizeFilename(name, replacement string) string {
 
 // SanitizeDirname returns name as one directory name, as sanitize_dirname and
 // sanitize_pathpart do (path_utils.py:70-103): "/" replaced by replacement,
-// then NFC, then cut to its first 255 code points (_constants.py:634). The
+// then NFC, then cut to its first 255 code points (_constants.py:657). The
 // order differs from SanitizeFilename, as upstream: a replacement next to a
 // combining mark may compose with it here and not there. "" stays ""; ".",
 // "..", NUL and control characters pass through, as upstream: a title ".." is
@@ -70,7 +70,7 @@ func sanitizePathpart(v string) string { return SanitizeDirname(v, slashReplacem
 
 // sanitize_pathpart with Filename, sanitize_dirname with Dirname but for
 // folder_album and folder_album_project, whose parts are sanitized in values
-// before the join (phototemplate.py:1005-1009, 1039-1042, 1299-1310, 1388-1393).
+// before the join (phototemplate.py:1005-1009, 1042-1045, 1302-1313, 1391-1396).
 func (s *rendering) sanitize(name string, vals []string) error {
 	if s.o.Filename || (s.o.Dirname && name != "folder_album" && name != "folder_album_project") {
 		return s.each(vals, sanitizePathpart)

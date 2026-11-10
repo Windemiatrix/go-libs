@@ -16,9 +16,9 @@ var (
 	}
 )
 
-// get_media_type and get_photo_video_type (phototemplate.py:1547-1577). The
+// get_media_type and get_photo_video_type (phototemplate.py:1550-1580). The
 // Photo gives the kind, so that it needs no table; upstream picks it from the
-// flags of the photo (1556-1577), always a key of the table, so it has no error
+// flags of the photo (1559-1580), always a key of the table, so it has no error
 // for one outside it.
 func (s *rendering) mediaType(name string, def []string) ([]string, error) {
 	v, ok := s.p.Field(name)
@@ -38,8 +38,8 @@ func (s *rendering) mediaType(name string, def []string) ([]string, error) {
 	return nil, nil // "" is None (phototemplate.py:1012)
 }
 
-// parse_default_kv (phototemplate.py:1584-1606), whose unpacking raises the
-// ValueError it passes for a pair without exactly one "=" (1600-1605).
+// parse_default_kv (phototemplate.py:1587-1609), whose unpacking raises the
+// ValueError it passes for a pair without exactly one "=" (1603-1608).
 func parseDefaultKV(def []string, table map[string]string) map[string]string {
 	out := maps.Clone(table)
 	if len(def) == 0 {

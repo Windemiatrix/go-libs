@@ -8,7 +8,7 @@ import (
 )
 
 // Person is one ZPERSON row with the ZUUID of the asset of its key face
-// (photosdb.py:1767-1778, 1817-1826).
+// (photosdb.py:1771-1782, 1821-1830).
 type Person struct {
 	PK                                        int64
 	UUID, FullName, DisplayName, KeyAssetUUID sql.NullString
@@ -27,7 +27,7 @@ func personSelect() []column {
 // Persons returns the rows of ZPERSON in Z_PK order. KeyAssetUUID is the ZUUID
 // of the asset of ZKEYFACE, NULL for a person without a key face or whose key
 // face has no asset. Upstream reads the key face with a second query
-// (photosdb.py:1817-1840).
+// (photosdb.py:1821-1844).
 func (d *DB) Persons(ctx context.Context, s schema.Schema) ([]Person, error) {
 	q := "SELECT " + selectList(personSelect()) + " FROM ZPERSON p LEFT JOIN ZDETECTEDFACE kf ON kf.Z_PK = p.ZKEYFACE " +
 		"LEFT JOIN ZASSET a ON a.Z_PK = kf." + s.FaceAssetColumn + " ORDER BY p.Z_PK"
@@ -105,7 +105,7 @@ func (d *DB) Faces(ctx context.Context, s schema.Schema) ([]Face, error) {
 	return out, nil
 }
 
-// Feedback is one ZUSERFEEDBACK row of a person (personinfo.py:99-106).
+// Feedback is one ZUSERFEEDBACK row of a person (personinfo.py:101-108).
 type Feedback struct {
 	PK, PersonPK int64
 	Type         sql.NullInt64

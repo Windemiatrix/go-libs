@@ -15,13 +15,13 @@ import (
 type PhotoInfo struct {
 	UUID            string
 	PK              int64  // ZASSET.Z_PK: osxphotos _info["pk"], the value of the {id} template field (phototemplate.py:977-978)
-	Owner           string // the full name of the owner of a shared photo, found by CloudOwnerHashedID among the people that give albuminfo.AlbumInfo.Owner (photoinfo.py:1441-1459); "" without an owner or for an owner without a name, where osxphotos has None
+	Owner           string // the full name of the owner of a shared photo, found by CloudOwnerHashedID among the people that give albuminfo.AlbumInfo.Owner (photoinfo.py:1439-1457); "" without an owner or for an owner without a name, where osxphotos has None
 	CloudAssetGUID  string // extension: not in osxphotos — ZASSET.ZCLOUDASSETGUID; "" when absent
 	CloudMasterGUID string // osxphotos cloud_guid
 
-	// osxphotos fingerprint (photoinfo.py:1772-1775); "" when absent. Read from
+	// osxphotos fingerprint (photoinfo.py:1770-1773); "" when absent. Read from
 	// ZMASTERFINGERPRINT before Photos 10 and from ZORIGINALSTABLEHASH from
-	// Photos 10 (_constants.py:176, 193, 210): values of the two columns do not
+	// Photos 10 (_constants.py:181, 198, 215): values of the two columns do not
 	// compare, so compare fingerprints only between libraries on the same side
 	// of Info().PhotosVersion 10.
 	Fingerprint string
@@ -37,12 +37,12 @@ type PhotoInfo struct {
 	DateTrashed     *time.Time // nil when the database has no value
 	DateModifiedRaw *time.Time // extension: not in osxphotos — ZASSET.ZMODIFICATIONDATE
 
-	ExifInfo     exifinfo.ExifInfo // the EXIF data Photos stored on import; zero without a ZEXTENDEDATTRIBUTES row (photoinfo.py:1687-1704)
+	ExifInfo     exifinfo.ExifInfo // the EXIF data Photos stored on import; zero without a ZEXTENDEDATTRIBUTES row (photoinfo.py:1685-1702)
 	DateOriginal time.Time         // ExifInfo.Date when it is set, otherwise Date (photoinfo.py:147-163)
 
-	Place *placeinfo.PlaceInfo // the reverse geolocation Photos stored (photoinfo.py:1327-1361); nil without one, and for an archive that does not decode, where osxphotos logs a warning and gives None
+	Place *placeinfo.PlaceInfo // the reverse geolocation Photos stored (photoinfo.py:1325-1359); nil without one, and for an archive that does not decode, where osxphotos logs a warning and gives None
 
-	Score scoreinfo.ScoreInfo // the computed scores Photos stored (photoinfo.py:1461-1537); every score 0.0, not nil, without a ZCOMPUTEDASSETATTRIBUTES row, as upstream
+	Score scoreinfo.ScoreInfo // the computed scores Photos stored (photoinfo.py:1459-1535); every score 0.0, not nil, without a ZCOMPUTEDASSETATTRIBUTES row, as upstream
 
 	Width, Height, Orientation                         int
 	OriginalWidth, OriginalHeight, OriginalOrientation int
@@ -54,30 +54,30 @@ type PhotoInfo struct {
 
 	PathEdited, PathEditedLive               string   // the edited version and its Live video inside the library; "" when there is no file (photoinfo.py:323-382, 495-512)
 	AdjustmentsPath, OriginalAdjustmentsPath string   // the adjustments plist and the original .aae inside the library; "" when there is no file (photoinfo.py:743-781)
-	PathDerivatives                          []string // previews inside the library by size, the largest first and equal sizes by name, then the thumbnail of masters/ whatever its size; the first two are swapped when the first is a .mov of a photo; nil when there are none (photoinfo.py:1172-1274)
+	PathDerivatives                          []string // previews inside the library by size, the largest first and equal sizes by name, then the thumbnail of masters/ whatever its size; the first two are swapped when the first is a .mov of a photo; nil when there are none (photoinfo.py:1170-1272)
 
 	IsPhoto, IsMovie, Live, HasRAW, IsRAW, RawOriginal, Screenshot bool
 
-	SlowMo, TimeLapse, ScreenRecording bool // ZKINDSUBTYPE 101, 102, 103 (photosdb.py:2237-2240)
+	SlowMo, TimeLapse, ScreenRecording bool // ZKINDSUBTYPE 101, 102, 103 (photosdb.py:2241-2244)
 
-	HDR      bool // ZHDRTYPE 3 (photosdb.py:2248-2249)
-	Panorama bool // ZKINDSUBTYPE 1 or ZHDRTYPE 6 (photosdb.py:2257-2258)
-	Portrait bool // ZDEPTHTYPE not 0; NULL is a portrait too, as in osxphotos (photosdb.py:2250-2251)
-	Selfie   bool // taken with the front camera (photosdb.py:2260-2261)
-	Visible  bool // ZVISIBILITYSTATE 0; NULL is not visible (photosdb.py:2304-2307)
-	Spatial  int  // ZSPATIALTYPE: 1 a spatial capture, 2 a photo converted to spatial; 0 when NULL or the library has no such column (photoinfo.py:1311-1320)
+	HDR      bool // ZHDRTYPE 3 (photosdb.py:2252-2253)
+	Panorama bool // ZKINDSUBTYPE 1 or ZHDRTYPE 6 (photosdb.py:2261-2262)
+	Portrait bool // ZDEPTHTYPE not 0; NULL is a portrait too, as in osxphotos (photosdb.py:2254-2255)
+	Selfie   bool // taken with the front camera (photosdb.py:2264-2265)
+	Visible  bool // ZVISIBILITYSTATE 0; NULL is not visible (photosdb.py:2308-2311)
+	Spatial  int  // ZSPATIALTYPE: 1 a spatial capture, 2 a photo converted to spatial; 0 when NULL or the library has no such column (photoinfo.py:1309-1318)
 
-	SharedMoment       bool   // part of a shared moment (photoinfo.py:1601-1604)
+	SharedMoment       bool   // part of a shared moment (photoinfo.py:1599-1602)
 	ExternalEdit       bool   // edited in another app (photoinfo.py:807-810)
 	AdjustmentType     *int   // osxphotos adjustment_type: the value HasAdjustments is read from; nil when NULL (photoinfo.py:802-805)
-	CloudOwnerHashedID string // the hashed iCloud ID of the owner of a shared photo; "" when absent (photoinfo.py:1767-1770)
+	CloudOwnerHashedID string // the hashed iCloud ID of the owner of a shared photo; "" when absent (photoinfo.py:1765-1768)
 	ImportedByName     string // osxphotos imported_by[0], such as "Camera"; "" when unknown (photoinfo.py:682-694)
 	ImportedByBundleID string // osxphotos imported_by[1], such as "com.apple.camera"; "" when unknown
 
 	Burst, BurstSelected, BurstKey bool
 	BurstUUID                      string
 	BurstPickType                  int  // ZASSET.ZAVALANCHEPICKTYPE; NULL is 0
-	BurstDefaultPick               bool // BurstPickType has BurstPickDefault (photoinfo.py:1021-1029)
+	BurstDefaultPick               bool // BurstPickType has BurstPickDefault (photoinfo.py:1019-1027)
 
 	Hidden, Favorite, InTrash, HasAdjustments bool
 
@@ -92,14 +92,14 @@ type PhotoInfo struct {
 	Persons             []string // the person of each face, ascending, repeats kept; UnknownPerson for a person without a name (photoinfo.py:597-603)
 	Latitude, Longitude *float64
 
-	AlbumUUIDs   []string   // user and shared albums (ZKIND 2 and 1505) of the asset, trashed albums included; ascending (photoinfo.py:2022-2034)
-	ProjectUUIDs []string   // projects (ZKIND 1508) of the asset, trashed ones included; ascending (photoinfo.py:696-703, 2022-2034)
+	AlbumUUIDs   []string   // user and shared albums (ZKIND 2 and 1505) of the asset, trashed albums included; ascending (photoinfo.py:2020-2032)
+	ProjectUUIDs []string   // projects (ZKIND 1508) of the asset, trashed ones included; ascending (photoinfo.py:696-703, 2020-2032)
 	ImportUUID   string     // ZUUID of the ZGENERICALBUM row of ZASSET.ZIMPORTSESSION, of any ZKIND (DB.Import finds only ZKIND 1506); "" without one (photoinfo.py:673-680)
 	Resources    []Resource // extension: not in osxphotos — in Z_PK order
 }
 
 // UnknownPerson is the name of a person without a name in Persons
-// (_constants.py:337); a person named "_UNKNOWN_" gives the same value, as in
+// (_constants.py:360); a person named "_UNKNOWN_" gives the same value, as in
 // osxphotos.
 const UnknownPerson = "_UNKNOWN_"
 
@@ -113,7 +113,7 @@ type Resource struct {
 	RemoteAvailability int   // ZREMOTEAVAILABILITY
 }
 
-// Bits of BurstPickType, ZASSET.ZAVALANCHEPICKTYPE (_constants.py:676-681).
+// Bits of BurstPickType, ZASSET.ZAVALANCHEPICKTYPE (_constants.py:699-704).
 const (
 	BurstPickDefault  = 4  // BURST_DEFAULT_PICK: Photos picked the frame as the key before any selection
 	BurstPickSelected = 8  // BURST_SELECTED: the frame is selected

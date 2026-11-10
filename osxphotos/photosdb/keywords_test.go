@@ -75,7 +75,7 @@ func TestKeywordsWithoutPhotoRule(t *testing.T) {
 	}
 }
 
-// Upstream counts only the links of assets with a ZADDITIONALASSETATTRIBUTES row (photosdb/photosdb.py:1998-2003).
+// Upstream counts only the links of assets with a ZADDITIONALASSETATTRIBUTES row (photosdb/photosdb.py:2002-2007).
 func keywordCheck(t *testing.T, lib, column string) (used, unused int) {
 	t.Helper()
 	db, err := Open(t.Context(), lib, Options{TempDir: t.TempDir()})

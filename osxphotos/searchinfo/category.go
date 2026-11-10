@@ -1,10 +1,10 @@
 package searchinfo
 
 // The categories of groups.category of psi.sqlite for Photos 8 and later
-// (_constants.py:507-606, SearchCategory_Photos8); the port reads only
-// libraries of Photos 8 and later, so the older table (399-505) has no use.
+// (_constants.py:530-629, SearchCategory_Photos8); the port reads only
+// libraries of Photos 8 and later, so the older table (422-528) has no use.
 // The categories of the last group exist only in leo.sqlite and keep the leo
-// category id (597-606).
+// category id (620-629).
 const (
 	CategoryPlaceName         = 1
 	CategoryStreet            = 2
@@ -85,10 +85,10 @@ const (
 	CategoryIDDocumentName     = 11010
 )
 
-// ALL_LOCALITY (_constants.py:518-523).
+// ALL_LOCALITY (_constants.py:541-546).
 var allLocality = []int{CategoryLocality4, CategorySubLocality6, CategoryLocality8, CategoryNamedArea}
 
-// MEDIA_TYPES (_constants.py:572-590).
+// MEDIA_TYPES (_constants.py:595-613).
 var mediaTypes = []int{
 	CategoryPhotoTypeVideo, CategoryPhotoTypeSlomo, CategoryPhotoTypeLive, CategoryPhotoTypeScreenshot,
 	CategoryPhotoTypeScreenRecordings, CategoryPhotoTypeScreenRecordingsAlt, CategoryPhotoTypePanorama,

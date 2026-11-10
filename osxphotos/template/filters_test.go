@@ -17,7 +17,7 @@ func TestFilters(t *testing.T) {
 	o, none := RenderOptions{}, fakePhoto{}
 	one := func(s string) []string { return []string{s} }
 	checkRender(t, []renderCase{
-		// phototemplate.py:1080-1097
+		// phototemplate.py:1083-1100
 		{"lower", "{keyword|lower}", k(), o, []string{"foo", "bar", "foo", "baz"}, nil},
 		{"upper", "{keyword|upper}", k(), o, []string{"FOO", "BAR", "FOO", "BAZ"}, nil},
 		{"lower ignores its arguments", "{keyword|lower(x)}", k(), o, []string{"foo", "bar", "foo", "baz"}, nil},
@@ -49,7 +49,7 @@ func TestFilters(t *testing.T) {
 				"@%+=:,./-_aZ09", "\U000000e9"), o,
 			[]string{"'My file.jpeg'", "plain", `'it'"'"'s'`, "''", "'a;b'", "'$x'", "'`x`'", "'a\nb'",
 				"'\U00000444\U00000430\U00000439\U0000043b'", "@%+=:,./-_aZ09", "'\U000000e9'"}, nil},
-		// phototemplate.py:1098-1161
+		// phototemplate.py:1101-1164
 		{"split", "{keyword|split(;)}", keywords("a;;b", "", "c"), o, []string{"a", "", "b", "", "c"}, nil},
 		{"split by a string", "{keyword|split(, )}", keywords("a, b,c"), o, []string{"a", "b,c"}, nil},
 		{"autosplit", "{keyword|autosplit}", keywords("a,b;c d", "a , b", "  "), o, []string{"a", "b", "c", "d", "a", "b"}, nil},
@@ -70,7 +70,7 @@ func TestFilters(t *testing.T) {
 		{"remove nothing", "{keyword|remove(x)}", k(), o, []string{"Foo", "bar", "Foo", "baz"}, nil},
 		{"chain", "{keyword|lower|sort|join(;)}", k(), o, one("bar;baz;foo;foo"), nil},
 		{"argument from a variable", "{var:d,-}{keyword|join(%d)}", k(), o, one("Foo-bar-Foo-baz"), nil},
-		// a name that passes the check but matches no filter gives no values (1057-1063, 1182-1183)
+		// a name that passes the check but matches no filter gives no values (1060-1066, 1185-1186)
 		{"lower.x", "{keyword|lower.x}", k(), o, one("_"), nil},
 		{"int:y", "{keyword|int:y}", k(), o, one("_"), nil},
 		{"function without a colon", "{keyword|function}", k(), o, one("_"), nil},
@@ -79,7 +79,7 @@ func TestFilters(t *testing.T) {
 		{"after delim", "{,+keyword|upper}", k(), o, one("FOO,BAR,FOO,BAZ"), nil},
 		{"sort after delim", "{,+keyword|sort}", k(), o, one("Foo,bar,Foo,baz"), nil},
 		{"before find and replace", "{keyword|upper[O,0]}", k(), o, []string{"F00", "BAR", "F00", "BAZ"}, nil},
-		// the field shell_quote (phototemplate.py:1340-1341)
+		// the field shell_quote (phototemplate.py:1343-1344)
 		{"field shell_quote", "{shell_quote,My file}", none, o, one("'My file'"), nil},
 		{"field shell_quote drops empty values", "{shell_quote,{keyword}}", keywords("a b", "", "c"), o, []string{"'a b'", "c"}, nil},
 		{"field shell_quote without text", "{shell_quote}", none, o, one("_"), nil},
@@ -88,7 +88,7 @@ func TestFilters(t *testing.T) {
 }
 
 // Parse stops the arguments at the first ")", but a Template may be built by
-// hand; upstream strips every ")" at the end (phototemplate.py:1052).
+// hand; upstream strips every ")" at the end (phototemplate.py:1055).
 func TestFilterArgumentsEndParens(t *testing.T) {
 	t.Parallel()
 	tmpl := &Template{Segments: []Segment{{Field: &Field{Name: "descr", Filters: []string{"append(x))"}}}}}
@@ -110,7 +110,7 @@ func TestFilterErrors(t *testing.T) {
 		{"{keyword|nope(x)}", ErrRender, "nope"},
 		{"{keyword|lowerx}", ErrRender, "lowerx"},
 		{"{keyword|pathx}", ErrRender, "pathx"},
-		// re.search(r"\(.*\)") does not cross a newline, so the name keeps the parentheses (1050, 1063)
+		// re.search(r"\(.*\)") does not cross a newline, so the name keeps the parentheses (1053, 1066)
 		{"{keyword|split(\n)}", ErrRender, "unknown filter"},
 		{"{keyword|split}", ErrRender, "split"},
 		{"{keyword|split()}", ErrRender, "split"},
@@ -128,7 +128,7 @@ func TestFilterErrors(t *testing.T) {
 		{"{var:k,{keyword}}{keyword|join(%k)}", ErrRender, "filter arguments"},
 		{"{keyword|function:f.py::g}", ErrUnsupportedField, "function"},
 		{"{keyword|function:f.py::g(%nope)}", ErrUnsupportedField, "function"},
-		// create_slice and int() (phototemplate.py:1106-1119, 1703-1722); a ValueError of slice even without values
+		// create_slice and int() (phototemplate.py:1109-1122, 1706-1725); a ValueError of slice even without values
 		{"{keyword|slice(::0)}", ErrRender, "slice step"},
 		{"{descr|slice(::0)}", ErrRender, "slice step"},
 		{"{keyword|sslice(1::0)}", ErrRender, "sslice step"},
@@ -141,7 +141,7 @@ func TestFilterErrors(t *testing.T) {
 		{"{keyword|chop(1:2)}", ErrRender, "chop"},
 		{"{keyword|chomp(1.0)}", ErrRender, "chomp"},
 		{"{keyword|chomp(1:2)}", ErrRender, "chomp"},
-		// filter_predicate (phototemplate.py:1190-1233)
+		// filter_predicate (phototemplate.py:1193-1236)
 		{"{keyword|filter(contains)}", ErrRender, "operator and a value"},
 		{"{keyword|filter( )}", ErrRender, "operator and a value"},
 		{"{keyword|filter(not)}", ErrRender, "operator and a value"},
@@ -153,10 +153,10 @@ func TestFilterErrors(t *testing.T) {
 		{"{var:l,x}{%l|filter(>= 1|2)}", ErrRender, ">="},
 		// the variable is not at the start of the argument, so it stays "%n" (t402)
 		{"{var:n,2}{var:l,1;5}{%l|split(;)|filter(> %n)}", ErrRender, ">"},
-		// int(float("inf")) raises OverflowError, which values_to_int does not catch (1725-1731)
+		// int(float("inf")) raises OverflowError, which values_to_int does not catch (1728-1734)
 		{"{var:i,inf}{%i|int}", ErrRender, "int"},
 		{"{var:i,-1e400}{%i|split(;)|int}", ErrRender, "int"},
-		// get_template_values_pathlib checks the properties before any value (phototemplate.py:1837-1843)
+		// get_template_values_pathlib checks the properties before any value (phototemplate.py:1868-1874)
 		{"{keyword|path.suffixes}", ErrUnsupportedConstruct, "path.suffixes"},
 		{"{keyword|path.parts}", ErrUnsupportedConstruct, "path.parts"},
 		{"{keyword|path.parent.parts}", ErrUnsupportedConstruct, "path.parent.parts"},
@@ -297,7 +297,7 @@ func TestSlice(t *testing.T) {
 	o, none := RenderOptions{}, fakePhoto{}
 	one := func(s string) []string { return []string{s} }
 	checkRender(t, []renderCase{
-		// phototemplate.py:1162-1168, 1703-1722
+		// phototemplate.py:1165-1171, 1706-1725
 		{"slice with a step", "{keyword|slice(::2)}", k(), o, []string{"a", "c", "e"}, nil},
 		{"slice before the start", "{keyword|slice(-10:)}", k(), o, []string{"a", "b", "c", "d", "e", "f"}, nil},
 		{"slice past the end", "{keyword|slice(10:)}", k(), o, one("_"), nil},
@@ -312,9 +312,9 @@ func TestSlice(t *testing.T) {
 		{"sslice backwards with a step", "{var:w,abcdef}{%w|sslice(::-2)}", none, o, one("fdb"), nil},
 		{"sslice of every value", "{keyword|sslice(1)}", keywords("ab", "c"), o, []string{"b", ""}, nil},
 		{"t292 sslice by code points", "{var:w,h\U000000e9llo}{%w|sslice(1:3)}", none, o, one("\U000000e9l"), nil},
-		// sslice raises the ValueError of a step 0 only on a value (1167-1168)
+		// sslice raises the ValueError of a step 0 only on a value (1170-1171)
 		{"sslice step 0 of no values", "{descr|sslice(::0)}", k(), o, one("_"), nil},
-		// v[:-n] and v[n:] (1106-1119)
+		// v[:-n] and v[n:] (1109-1122)
 		{"t293 chop by code points", "{var:w,h\U000000e9llo}{%w|chop(1)}", none, o, one("h\U000000e9ll"), nil},
 		{"t294 chomp by code points", "{var:w,h\U000000e9llo}{%w|chomp(2)}", none, o, one("llo"), nil},
 		{"chop of a negative number keeps the start", "{var:w,hello}{%w|chop(-1)}", none, o, one("h"), nil},
@@ -338,7 +338,7 @@ func TestPredicate(t *testing.T) {
 	o := RenderOptions{}
 	all := []string{"a", "b", "ab", "1", "5", "x"}
 	checkRender(t, []renderCase{
-		// phototemplate.py:1186-1235
+		// phototemplate.py:1189-1238
 		{"contains", "{keyword|filter(contains a)}", k(), o, []string{"a", "ab"}, nil},
 		{"not contains", "{keyword|filter(not contains a)}", k(), o, []string{"b", "1", "5", "x"}, nil},
 		{"not not", "{keyword|filter(not not contains a)}", k(), o, []string{"a", "ab"}, nil},
@@ -362,10 +362,10 @@ func TestPredicate(t *testing.T) {
 		{">= 5", "{keyword|filter(>= 5)}", n(), o, []string{"5"}, nil},
 		{"< 5", "{keyword|filter(< 5)}", n(), o, []string{"1"}, nil},
 		{"nan is below nothing", "{keyword|filter(< 2)}", keywords("nan", "1"), o, []string{"1"}, nil},
-		// any() stops at the first match (1204-1207)
+		// any() stops at the first match (1207-1210)
 		{"an alternative after a match is not read", "{keyword|filter(< 1|x)}", keywords("0"), o, []string{"0"}, nil},
 		{"the argument from a variable", "{var:n,> 2}{keyword|filter(%n)}", n(), o, []string{"5"}, nil},
-		// upstream reads the argument for each value (1171)
+		// upstream reads the argument for each value (1174)
 		{"unknown operator without values", "{descr|filter(nope a)}", k(), o, []string{"_"}, nil},
 		{"no value without values", "{descr|filter(contains)}", k(), o, []string{"_"}, nil},
 	})
@@ -375,7 +375,7 @@ func TestNumbers(t *testing.T) {
 	t.Parallel()
 	o, none := RenderOptions{}, fakePhoto{}
 	checkRender(t, []renderCase{
-		// phototemplate.py:1725-1740
+		// phototemplate.py:1728-1743
 		{"int", "{keyword|int}",
 			keywords("1.9", "-1.9", "x", "3", "1e3", "-0.5", " 7 ", "nan", "1e20", "1_000", "", "0x10"), o,
 			[]string{"1", "-1", "3", "1000", "0", "7", "100000000000000000000", "1000"}, nil},
@@ -398,13 +398,13 @@ func TestPathlib(t *testing.T) {
 	file := RenderOptions{Filepath: "/export/IMG_0001.HEIC"}
 	one := func(s string) []string { return []string{s} }
 	checkRender(t, []renderCase{
-		// str(pathlib.Path(v)) (phototemplate.py:1853)
+		// str(pathlib.Path(v)) (phototemplate.py:1884)
 		{"path", "{keyword|path}", keywords("a//b/", "./a/../b", "//a", "///a", "", "/", "a/./b/.", "//"), o,
 			[]string{"a/b", "a/../b", "//a", "/a", ".", "/", "a/b", "//"}, nil},
 		{"path ignores its arguments", "{keyword|path(x)}", keywords("a//b"), o, one("a/b"), nil},
 		{"path:x is path", "{keyword|path:x}", keywords("a//b"), o, one("a/b"), nil},
 		{"path of no values", "{descr|path}", keywords(), o, one("_"), nil},
-		// the properties (phototemplate.py:1837-1851)
+		// the properties (phototemplate.py:1868-1882)
 		{"path.name", "{keyword|path.name}", k(), o, []string{"file.tar.gz", "file", ".bashrc", "file.", "", "a", "", "..", "b"}, nil},
 		{"path.stem", "{keyword|path.stem}", k(), o, []string{"file.tar", "file", ".bashrc", "file.", "", "a", "", "..", "b"}, nil},
 		{"path.suffix", "{keyword|path.suffix}", k(), o, []string{".gz", "", "", "", "", "", "", "", ""}, nil},
@@ -415,11 +415,11 @@ func TestPathlib(t *testing.T) {
 		{"path.anchor", "{keyword|path.anchor}", keywords("/a", "a", "//a", "///a", ""), o, []string{"/", "", "//", "/", ""}, nil},
 		{"path.root", "{keyword|path.root}", keywords("/a", "a", "//a"), o, []string{"/", "", "//"}, nil},
 		{"path.drive", "{keyword|path.drive}", keywords("/a"), o, one(""), nil},
-		// a property after a string reads the path of that string, as the field form does (1643-1647)
+		// a property after a string reads the path of that string, as the field form does (1646-1650)
 		{"path.name.stem", "{keyword|path.name.stem}", keywords("/a/file.tar.gz"), o, one("file.tar"), nil},
 		{"path.stem.suffix", "{keyword|path.stem.suffix}", keywords("/a/file.tar.gz"), o, one(".tar"), nil},
 		{"path.suffix.parent", "{keyword|path.suffix.parent}", keywords("/a/file.gz"), o, one("."), nil},
-		// the fields (phototemplate.py:1016-1044, 1631-1654)
+		// the fields (phototemplate.py:1016-1047, 1634-1657)
 		{"filepath.stem", "{filepath.stem}", none, file, one("IMG_0001"), nil},
 		{"filepath.suffix", "{filepath.suffix}", none, file, one(".HEIC"), nil},
 		{"filepath.parent", "{filepath.parent}", none, file, one("/export"), nil},
@@ -430,14 +430,14 @@ func TestPathlib(t *testing.T) {
 		{"filepath.parent normalizes", "{filepath.parent}", none, RenderOptions{Filepath: "./a//b/"}, one("a"), nil},
 		{"export_dir.name", "{export_dir.name}", none, RenderOptions{ExportDir: "/x/y/"}, one("y"), nil},
 		{"filepath.anchor", "{filepath.anchor}", none, file, one("/"), nil},
-		// RenderOptions.Quote (phototemplate.py:1641, 1652)
+		// RenderOptions.Quote (phototemplate.py:1644, 1655)
 		{"filepath with Quote", "{filepath}", none, RenderOptions{Filepath: "/a b/c.jpg", Quote: true}, one("'/a b/c.jpg'"), nil},
 		{"filepath.stem with Quote", "{filepath.stem}", none, RenderOptions{Filepath: "/x/my file.jpg", Quote: true}, one("'my file'"), nil},
 		{"export_dir.parent with Quote", "{export_dir.parent}", none, RenderOptions{ExportDir: "/it's/x", Quote: true},
 			one(`'/it'"'"'s'`), nil},
 		{"a safe name with Quote", "{filepath.name}", none, RenderOptions{Filepath: "/x/IMG_0001.HEIC", Quote: true},
 			one("IMG_0001.HEIC"), nil},
-		{"unset with Quote", "{export_dir}", none, RenderOptions{Quote: true}, one("None"), nil},
+		{"unset with Quote", "{export_dir}", none, RenderOptions{Quote: true}, one("_"), nil},
 		{"an empty suffix with Quote", "{filepath.suffix}", none, RenderOptions{Filepath: "/x/file", Quote: true}, one("''"), nil},
 		{"filepath.drive with Quote", "{filepath.drive}", none, RenderOptions{Filepath: "/x", Quote: true}, one("''"), nil},
 		{"Quote leaves the filters alone", "{keyword|path.name}", keywords("/x/my file.jpg"), RenderOptions{Quote: true},

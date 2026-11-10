@@ -61,7 +61,7 @@ func ownerParticipantIDs(t *testing.T, ro *sql.DB) map[string]bool {
 	return ids
 }
 
-// Upstream: photoinfo.py:1441-1459. The messages hold UUIDs and numbers only.
+// Upstream: photoinfo.py:1439-1457. The messages hold UUIDs and numbers only.
 func TestOwner(t *testing.T) {
 	t.Parallel()
 
@@ -113,7 +113,7 @@ func TestOwner(t *testing.T) {
 	}
 }
 
-// Upstream: _photosdb_process_comments.py:52-89, 155-187; photoinfo.py:1441-1459.
+// Upstream: _photosdb_process_comments.py:52-89, 155-187; photoinfo.py:1439-1457.
 func TestOpenOwner(t *testing.T) {
 	t.Parallel()
 

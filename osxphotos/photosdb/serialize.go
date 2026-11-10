@@ -23,8 +23,8 @@ import (
 )
 
 // AsDict returns p as osxphotos PhotoInfo.asdict(shallow) does
-// (photoinfo.py:2103-2117, 2119-2253): the keys of 2134-2205, and without
-// shallow those of 2209-2251 too. A value is as upstream has it: a date is a
+// (photoinfo.py:2101-2115, 2117-2251): the keys of 2132-2203, and without
+// shallow those of 2207-2249 too. A value is as upstream has it: a date is a
 // time.Time, None is nil, also for a string that p holds as "", a list is a
 // non-nil slice, also inside search_info, an object is its AsDict or an empty
 // map where upstream has {}. rating is 0 (photoinfo.py:822-825) and library is
@@ -33,8 +33,8 @@ import (
 // is 1970-01-01T00:00:00Z, where upstream takes midnight in the zone of the
 // computer (photos_datetime.py:19-21). date_added, date_modified and
 // date_trashed, and the dates of albums and of the import session, are in UTC,
-// where upstream has the zone of the computer (photosdb/photosdb.py:2157, 2293,
-// 2317; albuminfo.py:76-107). In folders an album without a title has the key "",
+// where upstream has the zone of the computer (photosdb/photosdb.py:2161, 2297,
+// 2321; albuminfo.py:76-107). In folders an album without a title has the key "",
 // where upstream has None. The map is new on every call and holds no reference
 // into the library.
 func (db *DB) AsDict(p *photoinfo.PhotoInfo, shallow bool) map[string]any {
@@ -151,7 +151,7 @@ func pyDicts[T any](items []T, asDict func(T) map[string]any) []any {
 	return out
 }
 
-// photoinfo.py:2212-2214, 2248-2250.
+// photoinfo.py:2210-2212, 2246-2248.
 func pyAdjustments(a *adjustmentsinfo.AdjustmentsInfo) map[string]any {
 	if a == nil {
 		return map[string]any{}
@@ -160,13 +160,13 @@ func pyAdjustments(a *adjustmentsinfo.AdjustmentsInfo) map[string]any {
 }
 
 // JSON returns the bytes of osxphotos PhotoInfo.json(indent, shallow)
-// (photoinfo.py:2255-2290) for AsDict(p, shallow). The lists at the top level
-// are sorted, None as "", except location and lists of maps (2279-2285), and
+// (photoinfo.py:2253-2288) for AsDict(p, shallow). The lists at the top level
+// are sorted, None as "", except location and lists of maps (2277-2283), and
 // written as json.dumps(sort_keys=True, indent=indent) with ensure_ascii writes
-// them (2286-2288); indent 0 or below is None of upstream. A float is its
+// them (2284-2286); indent 0 or below is None of upstream. A float is its
 // repr() or NaN, Infinity, -Infinity, a date its isoformat(), naive in UTC in
 // cloud_metadata as plistlib gives it; bytes, a UID and the sort order of an
-// album are null, as the default of json() returns None for them (2269-2271).
+// album are null, as the default of json() returns None for them (2267-2269).
 // The bytes hold paths of the machine and personal data (names, comments,
 // places): do not log them. JSON panics on a value of a type that AsDict and
 // CloudMetadataOf do not give, a mistake of the port. The bytes equal those of
@@ -175,10 +175,10 @@ func (db *DB) JSON(p *photoinfo.PhotoInfo, shallow bool, indent int) []byte {
 	return dumps(db.AsDict(p, shallow), indent)
 }
 
-// Hexdigest is osxphotos PhotoInfo.hexdigest (photoinfo.py:1733-1737,
-// 2296-2320): the BLAKE2b-160 hex digest of JSON(p, true, 0) without
+// Hexdigest is osxphotos PhotoInfo.hexdigest (photoinfo.py:1731-1735,
+// 2294-2318): the BLAKE2b-160 hex digest of JSON(p, true, 0) without
 // face_info, a list of objects whose order upstream does not fix, and visible,
-// which follows the state of the Photos app (2299-2302). It equals the digest
+// which follows the state of the Photos app (2297-2300). It equals the digest
 // of upstream only where AsDict equals asdict (see AsDict): not when upstream
 // opens the library by another path or the computer is not in UTC.
 func (db *DB) Hexdigest(p *photoinfo.PhotoInfo) string {
@@ -188,8 +188,8 @@ func (db *DB) Hexdigest(p *photoinfo.PhotoInfo) string {
 	return hexdigest(string(dumps(d, 0)))
 }
 
-// dumps is the body of json and _json_hexdigest (photoinfo.py:2279-2288,
-// 2313-2320). It sorts the lists of d in place: AsDict makes them for the call.
+// dumps is the body of json and _json_hexdigest (photoinfo.py:2277-2286,
+// 2311-2318). It sorts the lists of d in place: AsDict makes them for the call.
 func dumps(d map[string]any, indent int) []byte {
 	for k, v := range d {
 		switch l := v.(type) {
@@ -242,7 +242,7 @@ func pyJSON(v any, indent int) []byte {
 
 func writeJSON(b *bytes.Buffer, v any, indent, level int) {
 	switch x := v.(type) {
-	case nil, []byte, plist.UID, albuminfo.AlbumSortOrder: // default returns None (photoinfo.py:2269-2271); AlbumSortOrder is an Enum
+	case nil, []byte, plist.UID, albuminfo.AlbumSortOrder: // default returns None (photoinfo.py:2267-2269); AlbumSortOrder is an Enum
 		b.WriteString("null")
 	case bool:
 		b.WriteString(strconv.FormatBool(x))

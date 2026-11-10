@@ -27,10 +27,10 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photosdb"
 )
 
-// An original kept only in iCloud is downloaded; upstream waits 300 s (photokit.py:196-203).
+// An original kept only in iCloud is downloaded; upstream waits 300 s (photokit.py:198-205).
 const exportTimeout = 5 * time.Minute
 
-// ZDATASTORESUBTYPE of an original resource (photosdb.py:2447).
+// ZDATASTORESUBTYPE of an original resource (photosdb.py:2451).
 const originalSubtype = 1
 
 func TestLiveExport(t *testing.T) {

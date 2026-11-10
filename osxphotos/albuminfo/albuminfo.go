@@ -5,7 +5,7 @@ package albuminfo
 import "time"
 
 // AlbumSortOrder is the sort order of an album, osxphotos AlbumSortOrder
-// (_constants.py:707-714).
+// (_constants.py:730-737).
 type AlbumSortOrder int
 
 // AlbumSortUnknown is also the value of a sort key or direction that osxphotos
@@ -30,7 +30,7 @@ type AlbumInfo struct {
 	FolderUUIDs                      []string       // UUIDs of the folders of FolderNames, in its order: osxphotos folder_list (albuminfo.py:203-213); nil for a project and a shared album
 	PhotoUUIDs                       []string       // UUIDs of the member photos, sorted; DB.AlbumPhotos gives the order of the album
 	CreationDate, StartDate, EndDate *time.Time     // nil without a value; osxphotos gives 2001-01-01 for a missing creation date
-	InTrash                          bool           // extension: not in osxphotos — ZTRASHEDSTATE is not 0, NULL included, as osxphotos reads it (photosdb.py:1936); a NULL state of a shared album of Photos 11 and later is outside the trash (photosdb.py:2906); osxphotos keeps no album in the trash in its lists
+	InTrash                          bool           // extension: not in osxphotos — ZTRASHEDSTATE is not 0, NULL included, as osxphotos reads it (photosdb.py:1940); a NULL state of a shared album of Photos 11 and later is outside the trash (photosdb.py:2951); osxphotos keeps no album in the trash in its lists
 	SortOrder                        AlbumSortOrder // albuminfo.py:237-256; DB.AlbumPhotos applies it, PhotoUUIDs does not
 	LibraryListOrder                 []int          // the place in the sidebar of Photos, of the enclosing folders first, for comparing as a sort key (albuminfo.py:258-278); 9999999 stands for a row without a stored order, and the folders above it are dropped, as upstream (albuminfo.py:266-278, 501-513), so [9999999, 6] when the enclosing folder has none; one element for a project
 }

@@ -18,8 +18,8 @@ import (
 // letter case, stands for the Photos.sqlite beside it. Any other file is read
 // as the database; a missing path and a photos.db without Photos.sqlite beside
 // it are errors. The library of a database file is the parent of its
-// directory, unless o.LibraryPath is set (photosdb/photosdb.py:349-385,
-// 452-458).
+// directory, unless o.LibraryPath is set (photosdb/photosdb.py:353-389,
+// 456-462).
 //
 // Open reads a copy of the database with its -wal file, made in a new
 // directory under o.TempDir, never the original. -shm is not copied: SQLite
@@ -119,7 +119,7 @@ func Open(ctx context.Context, path string, o Options) (db *DB, err error) {
 	if err != nil {
 		return nil, err
 	}
-	// ZSHARE and ZGENERICALBUM number their rows apart: shares stay out of loadAlbums and loadFolders (photosdb.py:2914-2916).
+	// ZSHARE and ZGENERICALBUM number their rows apart: shares stay out of loadAlbums and loadFolders (photosdb.py:2959-2961).
 	sharedAlbums, err := loadFolderless(slices.Concat(t.albums, t.collectionShares), albumPhotos, sqlread.KindSharedAlbum, "shared albums")
 	if err != nil {
 		return nil, err
@@ -185,7 +185,7 @@ func uuidSet[V any](byUUID map[string][]V) map[string]bool {
 	return set
 }
 
-// Upstream resolves symbolic links (photosdb.py:349-350); they are kept here.
+// Upstream resolves symbolic links (photosdb.py:353-354); they are kept here.
 func locate(path string) (dbPath, library string, err error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {

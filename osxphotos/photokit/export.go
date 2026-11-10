@@ -16,7 +16,7 @@ import (
 )
 
 // ExportOptions are the options of Export; Overwrite replaces an existing file
-// (photokit.py:534, 601). Progress, when not nil, gets the share received, 0 to
+// (photokit.py:566, 651). Progress, when not nil, gets the share received, 0 to
 // 1, on a queue of PhotoKit as often as PhotoKit decides and never after Export
 // returns, which waits for a running call: Progress must not wait for Export.
 type ExportOptions struct {
@@ -24,25 +24,26 @@ type ExportOptions struct {
 	Progress  func(fraction float64) // extension: not in osxphotos
 }
 
-// A stalled iCloud download may hold the completion handler back, after a cancel too (photokit.py:206-218).
+// A stalled iCloud download may hold the completion handler back, after a cancel too (photokit.py:208-220).
 var (
 	cancelGrace = 30 * time.Second
 	fileWrite   = (*os.File).Write
 )
 
 // Export writes the first resource of type kind of the asset uuid to the file
-// name of the directory dir (_request_resource_data, photokit.py:693-736, as
-// upstream exports a RAW, 571-586, and the photo and video of a Live Photo,
-// 1168-1178), downloading it from iCloud when needed (networkAccessAllowed,
-// 705). uuid is as for Fetch; name is one path element inside dir, otherwise
+// name of the directory dir (_request_resource_data, photokit.py:752-803, as
+// upstream exports a RAW, 606-621, the photo and video of a Live Photo,
+// 1262-1272, and the paired video of a photo whose Live was turned off, 568,
+// 633-661), downloading it from iCloud when needed (networkAccessAllowed,
+// 764). uuid is as for Fetch; name is one path element inside dir, otherwise
 // ErrInvalidName. The file is created with mode 0600; an existing one is kept
 // and fails with fs.ErrExist, unless o.Overwrite replaces it. After an error a
 // file Export created is removed and an existing one is left as it was.
-// Upstream names and numbers the file (596-599, 1156-1164); here the caller
+// Upstream names and numbers the file (631, 646-647, 1250-1258); here the caller
 // does, with export.Names and export.IncrementName. When ctx is done the
 // request is canceled and Export returns ctx.Err() once PhotoKit ends it, 30 s
 // later at most; without a deadline in ctx it waits as long as PhotoKit does
-// (upstream 300 s, 196-218). No such asset is ErrNotFound; no resource of the
+// (upstream 300 s, 198-220). No such asset is ErrNotFound; no resource of the
 // kind, ErrNoResource; a failure of PhotoKit, ErrExport.
 func (l *Library) Export(ctx context.Context, uuid string, kind ResourceType, dir, name string, o ExportOptions) error {
 	return writeExport(dir, name, o, func() error {
@@ -62,11 +63,11 @@ func (l *Library) Export(ctx context.Context, uuid string, kind ResourceType, di
 // One copy of the rules of the file for every export; check runs before the
 // file exists, so that a missing asset leaves dir as it was.
 func writeExport(dir, name string, o ExportOptions, check func() error, write func(*fileSink) error) (err error) {
-	// Upstream writes into dest itself, by the stem of filename (photokit.py:557-561, 596).
+	// Upstream writes into dest itself, by the stem of filename (photokit.py:591-595, 631).
 	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\x00") {
 		return ErrInvalidName
 	}
-	// Upstream checks dest before it reads the resources (photokit.py:563-578).
+	// Upstream checks dest before it reads the resources (photokit.py:597-613).
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return err
@@ -75,7 +76,7 @@ func writeExport(dir, name string, o ExportOptions, check func() error, write fu
 	if err = check(); err != nil {
 		return err
 	}
-	// The old file stays until the resource is whole (photokit.py:579, 601); a rename never writes through a hard link at name.
+	// The old file stays until the resource is whole (photokit.py:614, 651); a rename never writes through a hard link at name.
 	target := name
 	if o.Overwrite {
 		name = "." + rand.Text() + ".tmp"

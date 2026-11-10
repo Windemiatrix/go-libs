@@ -151,7 +151,7 @@ type categoryRow struct {
 	list       bool
 }
 
-// The numbers are those of SearchCategory_Photos8 (_constants.py:507-606), not
+// The numbers are those of SearchCategory_Photos8 (_constants.py:530-629), not
 // the package constants, so a wrong constant fails here.
 var categoryRows = []categoryRow{
 	{"labels", []int{1500}, true},

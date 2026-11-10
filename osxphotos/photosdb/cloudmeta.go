@@ -3,7 +3,7 @@ package photosdb
 import "github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 
 // CloudMetadataOf returns the media metadata iCloud stored for the master of
-// p, osxphotos cloud_metadata (photoinfo.py:1739-1760): the property list of
+// p, osxphotos cloud_metadata (photoinfo.py:1737-1758): the property list of
 // ZCLOUDMASTERMEDIAMETADATA.ZDATA of the ZCLOUDMASTER row of ZASSET.ZMASTER,
 // as howett.net/plist decodes it (string, int64 or uint64, float32 or float64,
 // bool, time.Time in UTC, []byte, plist.UID, []any, map[string]any). It is nil

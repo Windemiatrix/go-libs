@@ -34,7 +34,7 @@ typedef struct {
 	double creation_date, modification_date, latitude, longitude, duration;
 } pk_asset;
 
-// Neither finds a hidden asset, as upstream (photokit.py:1234-1237, 1281-1285).
+// Neither finds a hidden asset, as upstream (photokit.py:1328-1331, 1375-1379).
 // *out holds *count assets in the order of PhotoKit, or is NULL with *count 0
 // on an error or when none is found; pk_free_assets frees it in every case.
 pk_result pk_fetch_assets(const char *const *ids, int64_t n, pk_asset **out, int *count);

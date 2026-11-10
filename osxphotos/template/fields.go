@@ -3,10 +3,10 @@ package template
 import "strings"
 
 // The fields that run Python code or exiftool, call Vision or read the command
-// line (phototemplate.py:859-874, 924-925, 1383-1384).
+// line (phototemplate.py:859-874, 924-925, 1386-1387).
 var never = set("exiftool function detected_text osxphotos_cmd_line")
 
-// _UNKNOWN_PERSON (_constants.py:337).
+// _UNKNOWN_PERSON (_constants.py:360).
 const unknownPerson = "_UNKNOWN_"
 
 // PUNCTUATION (phototemplate.py:345-363).

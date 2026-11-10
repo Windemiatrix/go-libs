@@ -89,7 +89,7 @@ func TestLoadImports(t *testing.T) {
 			t.Errorf("session %d = %+v, want %+v", i, *g, *w)
 		}
 	}
-	// ZTRASHEDSTATE NULL is in the trash, as for albums (photosdb.py:1936).
+	// ZTRASHEDSTATE NULL is in the trash, as for albums (photosdb.py:1940).
 	if !slices.Equal(info, []*albuminfo.ImportInfo{all[0], all[1]}) {
 		t.Errorf("sessions outside the trash %q, want S-A and S-EMPTY", importUUIDs(info))
 	}
@@ -130,7 +130,7 @@ func TestLoadImportUUID(t *testing.T) {
 }
 
 // The ZUUID checks of loadAlbums cover the sessions: upstream keeps every
-// ZGENERICALBUM row in one dictionary by ZUUID (photosdb.py:1923-1948).
+// ZGENERICALBUM row in one dictionary by ZUUID (photosdb.py:1927-1952).
 func TestLoadAlbumsImportRows(t *testing.T) {
 	t.Parallel()
 
@@ -182,12 +182,12 @@ func TestImports(t *testing.T) {
 				t.Errorf("%d import sessions outside the trash, want %d", len(info), want)
 			}
 			// The premise of the import_info line of UPSTREAM.md: upstream also
-			// leaves out a session with an owner (photosdb/photosdb.py:3206).
+			// leaves out a session with an owner (photosdb/photosdb.py:3251).
 			if owned := count(t, src, "SELECT COUNT(*)"+rows+" AND ZCLOUDOWNERHASHEDPERSONID IS NOT NULL"); owned != 0 {
 				t.Errorf("%d import sessions with ZCLOUDOWNERHASHEDPERSONID", owned)
 			}
 			// The premise of Import: upstream takes the row of ZIMPORTSESSION of
-			// any ZKIND (photosdb/photosdb.py:2383-2393), Import only sessions.
+			// any ZKIND (photosdb/photosdb.py:2387-2397), Import only sessions.
 			if other := count(t, src, "SELECT COUNT(*) FROM ZASSET a JOIN ZGENERICALBUM g ON g.Z_PK = a.ZIMPORTSESSION WHERE g.ZKIND IS NOT 1506"); other != 0 {
 				t.Errorf("%d assets whose ZIMPORTSESSION is a row of another ZKIND", other)
 			}

@@ -15,7 +15,7 @@ func albumSeqPhoto() fakePhoto {
 			{Folders: []string{"G/H"}, Title: "B/C", Index: 7},
 			{Folders: []string{"D", "E"}, Title: "Holidays", Index: 0},
 		}},
-		// a burst: folder_album gives other albums than album_seq (phototemplate.py:983, 985, 1287-1292)
+		// a burst: folder_album gives other albums than album_seq (phototemplate.py:983, 985, 1290-1295)
 		"folder_album": {Albums: []AlbumRef{{Folders: []string{"F"}, Title: "Burst", Index: 9}}},
 	}
 }
@@ -32,7 +32,7 @@ func TestRenderAlbumSeq(t *testing.T) {
 		// no album is read without dest_path (980-988)
 		{"no dest path, no field", "{album_seq}", fakePhoto{}, RenderOptions{}, one("_"), nil},
 		{"no dest path, untitled album", "{album_seq}", fakePhoto{"album_seq": {Albums: []AlbumRef{{Index: 4}}}}, RenderOptions{}, one("_"), nil},
-		// the first album of the title (1667-1670)
+		// the first album of the title (1670-1673)
 		{"by name", "{album_seq}", p(), dest("/out/A"), one("2"), nil},
 		{"trailing slash", "{album_seq}", p(), dest("/out/A/"), one("2"), nil},
 		{"relative", "{album_seq}", p(), dest("A"), one("2"), nil},
@@ -43,7 +43,7 @@ func TestRenderAlbumSeq(t *testing.T) {
 		{"bool when no album", "{album_seq?Y,N}", p(), dest("/out/X"), one("N"), nil},
 		{"root", "{album_seq}", p(), dest("/"), one("_"), nil},
 		{"by the name, not the folders", "{album_seq}", p(), dest("/out/D/E/Holidays"), one("0"), nil},
-		// album_info.title == album, the raw title (1668)
+		// album_info.title == album, the raw title (1671)
 		{"raw title by name", "{album_seq}", p(), dest("/out/B:C"), one("_"), nil},
 		{"start", "{album_seq(1)}", p(), dest("/out/A"), one("3"), nil},
 		{"negative start", "{album_seq(-3)}", p(), dest("/out/A"), one("-1"), nil},
@@ -51,7 +51,7 @@ func TestRenderAlbumSeq(t *testing.T) {
 		{"format and start", "{album_seq:03d(1)}", p(), dest("/out/A"), one("003"), nil},
 		{"spaces around the start", "{album_seq( 1 )}", p(), dest("/out/A"), one("3"), nil},
 		{"dotted name", "{album_seq.x}", p(), dest("/out/A"), one("2"), nil},
-		// the sanitized folders and title end the path (1673-1681)
+		// the sanitized folders and title end the path (1676-1684)
 		{"by path", "{folder_album_seq}", p(), dest("/out/F/A"), one("2"), nil},
 		{"by path without folders", "{folder_album_seq}", p(), dest("/out/A"), one("5"), nil},
 		{"by sanitized path", "{folder_album_seq}", p(), dest("/out/G:H/B:C"), one("7"), nil},
@@ -59,10 +59,10 @@ func TestRenderAlbumSeq(t *testing.T) {
 		{"by path of two folders", "{folder_album_seq(1)}", p(), dest("/out/D/E/Holidays"), one("1"), nil},
 		{"by path, not by name", "{folder_album_seq}", p(), dest("/out/X/Holidays"), one("_"), nil},
 		{"not folder_album", "{folder_album_seq}", p(), dest("/out/F/Burst"), one("_"), nil},
-		// "F/A" with no leading "/" (1677), "/A" at the top level (1678)
+		// "F/A" with no leading "/" (1680), "/A" at the top level (1681)
 		{"folders without a leading slash", "{folder_album_seq}", p(), dest("/out/XF/A"), one("2"), nil},
 		{"top level is /title", "{folder_album_seq}", p(), dest("/out/XA"), one("_"), nil},
-		// endswith of dest_path as given (1679)
+		// endswith of dest_path as given (1682)
 		{"raw path, trailing slash", "{folder_album_seq}", p(), dest("/out/F/A/"), one("_"), nil},
 		{"filename", "{album_seq}", p(), RenderOptions{DestPath: "/out/A", Filename: true}, one("2"), nil},
 		{"in text", "IMG_{album_seq:04d}", p(), dest("/out/A"), one("IMG_0002"), nil},

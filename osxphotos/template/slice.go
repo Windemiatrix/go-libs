@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// The filters slice, sslice, chop and chomp (phototemplate.py:1106-1119,
-// 1162-1168); str is indexed by code points.
+// The filters slice, sslice, chop and chomp (phototemplate.py:1109-1122,
+// 1165-1171); str is indexed by code points.
 func (s *rendering) slice(name, arg string, vals []string) ([]string, error) {
 	b, err := sliceArgs(name, arg)
 	switch {
@@ -23,7 +23,7 @@ func (s *rendering) slice(name, arg string, vals []string) ([]string, error) {
 	return vals, s.each(vals, func(v string) string { return string(pySlice([]rune(v), b)) })
 }
 
-// create_slice (phototemplate.py:1703-1722); chop(n) is v[:-n] and chomp(n) is v[n:] (1112, 1119).
+// create_slice (phototemplate.py:1706-1725); chop(n) is v[:-n] and chomp(n) is v[n:] (1115, 1122).
 func sliceArgs(name, arg string) (b [3]*int, err error) {
 	parts := strings.SplitN(arg, ":", len(b)) // a fourth part fails in strconv.Atoi
 	if name == "chop" || name == "chomp" {
@@ -38,7 +38,7 @@ func sliceArgs(name, arg string) (b [3]*int, err error) {
 			return b, fmt.Errorf("%w: invalid argument of %s", ErrRender, name)
 		}
 	}
-	if name == "chop" && *b[0] != 0 { // v[:-0] would be "", so upstream keeps the value (1112)
+	if name == "chop" && *b[0] != 0 { // v[:-0] would be "", so upstream keeps the value (1115)
 		end := -max(*b[0], -math.MaxInt) // -math.MinInt overflows, and v[:2**63] keeps all of v
 		b[0], b[1] = nil, &end
 	}

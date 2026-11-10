@@ -8,8 +8,8 @@ import (
 )
 
 // Member is one asset of a user album (ZKIND 2), of a shared album (ZKIND
-// 1505) or of a project (ZKIND 1508, _constants.py:364-366), trashed ones
-// included (photosdb.py:1873-1901).
+// 1505) or of a project (ZKIND 1508, _constants.py:387-389), trashed ones
+// included (photosdb.py:1877-1905).
 type Member struct {
 	AssetPK   int64         // schema.Schema.MemberAssetColumn
 	AlbumUUID string        // ZGENERICALBUM.ZUUID

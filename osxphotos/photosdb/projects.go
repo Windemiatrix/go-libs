@@ -12,8 +12,8 @@ import (
 )
 
 // ProjectInfo returns the projects (cards, calendars, slideshows: ZKIND 1508)
-// outside the trash, osxphotos project_info (photosdb/photosdb.py:681-691,
-// 3187-3210), in UUID order. A project is an AlbumInfo without folders, as
+// outside the trash, osxphotos project_info (photosdb/photosdb.py:685-695,
+// 3232-3255), in UUID order. A project is an AlbumInfo without folders, as
 // osxphotos ProjectInfo (albuminfo.py:368-392); AlbumPhotos gives its photos.
 // The slice is new on every call, but its values are shared by all calls: do
 // not modify them.
@@ -26,7 +26,7 @@ func (db *DB) Project(uuid string) (*albuminfo.AlbumInfo, bool) { return findAlb
 
 // ProjectInfoOf returns the projects of p outside the trash, sorted by title,
 // then by UUID: osxphotos PhotoInfo.project_info (photoinfo.py:696-703,
-// 2022-2034). A project without a title sorts first; upstream fails when it
+// 2020-2032). A project without a title sorts first; upstream fails when it
 // compares its None title with another.
 func (db *DB) ProjectInfoOf(p *photoinfo.PhotoInfo) []*albuminfo.AlbumInfo {
 	var out []*albuminfo.AlbumInfo
@@ -43,9 +43,9 @@ func (db *DB) ProjectInfoOf(p *photoinfo.PhotoInfo) []*albuminfo.AlbumInfo {
 
 // Projects and shared albums inherit parent, sort_order and
 // library_list_order of AlbumInfo, with no folders above them
-// (albuminfo.py:229-234, 237-278, 374-392; photosdb.py:1992-1994). The parent
+// (albuminfo.py:229-234, 237-278, 374-392; photosdb.py:1996-1998). The parent
 // is any row of ZGENERICALBUM, as upstream reads all of them; a parent that is
-// not a row is an error, as there (photosdb.py:1977-1980), and so is one
+// not a row is an error, as there (photosdb.py:1981-1984), and so is one
 // without ZUUID, as for albums. rows have passed loadAlbums (one root folder),
 // but the CollectionShare rows of ZSHARE among them have not, so an empty or
 // repeated ZUUID, which would merge the photos of two albums, is checked here.

@@ -20,14 +20,14 @@ type formatSpec struct {
 
 var errSpec = fmt.Errorf("%w: invalid format specification", ErrRender)
 
-// format is get_format_values (phototemplate.py:1397-1420).
+// format is get_format_values (phototemplate.py:1400-1423).
 func (s *rendering) format(f *Field, def []string) ([]string, error) {
 	typ, spec, ok := strings.Cut(f.Subfield, ":")
-	if !ok || typ != "int" && typ != "float" && typ != "str" { // SyntaxError (1405-1411)
+	if !ok || typ != "int" && typ != "float" && typ != "str" { // SyntaxError (1408-1414)
 		return nil, fmt.Errorf("%w: format takes {format:TYPE:FORMAT,values}, TYPE int, float or str", ErrRender)
 	}
 	spec, err := s.expand(spec, "format string")
-	if err == nil && strings.ContainsAny(spec, "{}") { // str.format reads the braces as its own syntax, a field or a literal (1661-1662)
+	if err == nil && strings.ContainsAny(spec, "{}") { // str.format reads the braces as its own syntax, a field or a literal (1664-1665)
 		err = errSpec
 	}
 	if err != nil {
@@ -39,7 +39,7 @@ func (s *rendering) format(f *Field, def []string) ([]string, error) {
 		switch {
 		case typ == "str":
 			out[i], err = s.formatValue(v, spec)
-		// int(float(v)) (1414): ValueError of NaN, OverflowError of an infinity, and an int of Python is not bounded by int64
+		// int(float(v)) (1417): ValueError of NaN, OverflowError of an infinity, and an int of Python is not bounded by int64
 		case !ok || typ == "int" && (math.IsNaN(x) || x < -(1<<63) || x >= 1<<63):
 			err = fmt.Errorf("%w: format:%s of a value that is not a number of that type", ErrRender, typ)
 		case typ == "int":
@@ -63,7 +63,7 @@ func inField(err error, f *Field) error {
 	return err
 }
 
-// formatValue is format_str_value (phototemplate.py:1657-1662): format(v, spec)
+// formatValue is format_str_value (phototemplate.py:1660-1665): format(v, spec)
 // of Python, str(v) for "". v is an int64, a float64 or a string; the caller
 // converts any other integer to int64. A width, or the precision of a number,
 // beyond the bytes left to the render is errTooLong before anything is built,

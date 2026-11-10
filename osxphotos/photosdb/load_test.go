@@ -352,7 +352,7 @@ func TestLoadBurstDefaultPick(t *testing.T) {
 		burst bool
 		want  bool
 	}{
-		// burst_default_pick does not look at the burst (photoinfo.py:1021-1029).
+		// burst_default_pick does not look at the burst (photoinfo.py:1019-1027).
 		{"default, not in a burst", nullInt(4), false, true},
 		{"NULL", sql.NullInt64{}, true, false},
 		{"0", nullInt(0), true, false},
@@ -417,7 +417,7 @@ func TestLoadColumns(t *testing.T) {
 		{"panorama HDR type 6 without the subtype", func(a *sqlread.Asset) { a.HDRType = nullInt(6) },
 			func(p *photoInfo) bool { return p.Panorama && !p.HDR }},
 		{"portrait", func(a *sqlread.Asset) { a.DepthType = nullInt(1) }, func(p *photoInfo) bool { return p.Portrait }},
-		// Python None != 0 (photosdb.py:2251).
+		// Python None != 0 (photosdb.py:2255).
 		{"portrait depth type NULL", func(a *sqlread.Asset) { a.DepthType = sql.NullInt64{} }, func(p *photoInfo) bool { return p.Portrait }},
 		{"selfie", func(a *sqlread.Asset) { a.CameraCaptureDevice = nullInt(1) }, func(p *photoInfo) bool { return p.Selfie }},
 		{"camera 2", func(a *sqlread.Asset) { a.CameraCaptureDevice = nullInt(2) }, func(p *photoInfo) bool { return !p.Selfie }},
@@ -487,7 +487,7 @@ func TestLoadKeywordsAlbumsPersons(t *testing.T) {
 		t.Fatal(err)
 	}
 	p1, p2 := c.byUUID["A-1"], c.byUUID["A-2"]
-	// Upstream keeps a repeated keyword (photosdb.py:2005-2010) and sorts the
+	// Upstream keeps a repeated keyword (photosdb.py:2009-2014) and sorts the
 	// list (photoinfo.py:705-708); NULL is "".
 	if want := []string{"", "B", "Caf\U000000e9", "b", "b"}; !slices.Equal(p1.Keywords, want) {
 		t.Errorf("Keywords = %q, want %q", p1.Keywords, want)
@@ -506,8 +506,8 @@ func TestLoadKeywordsAlbumsPersons(t *testing.T) {
 	}
 }
 
-// Upstream names a person without a name "_UNKNOWN_" (photosdb.py:1792-1796)
-// and lists a name once per face (photosdb.py:1858-1864, photoinfo.py:597-603).
+// Upstream names a person without a name "_UNKNOWN_" (photosdb.py:1796-1800)
+// and lists a name once per face (photosdb.py:1862-1868, photoinfo.py:597-603).
 func TestLoadPersons(t *testing.T) {
 	t.Parallel()
 
@@ -547,7 +547,7 @@ func TestLoadPersons(t *testing.T) {
 func exifPtr[T any](v T) *T { return &v }
 
 // The expected values are literals: ExifInfo of a photo from one row of
-// ZEXTENDEDATTRIBUTES (exifinfo.py:42-77, photoinfo.py:147-163, 1687-1704).
+// ZEXTENDEDATTRIBUTES (exifinfo.py:42-77, photoinfo.py:147-163, 1685-1702).
 // CameraMake stays decomposed: upstream does not normalize the strings of the
 // row (exifinfo.py:63-66).
 func TestLoadExifRows(t *testing.T) {
@@ -953,7 +953,7 @@ func TestLoadPlace(t *testing.T) {
 	})
 }
 
-// As upstream (photosdb.py:2498-2516), the rows of the fingerprint query
+// As upstream (photosdb.py:2502-2520), the rows of the fingerprint query
 // override the first pass, and the last row of a photo wins.
 func TestLoadFingerprintAvailability(t *testing.T) {
 	t.Parallel()
@@ -1015,7 +1015,7 @@ func TestLoadSkippedAndUUID(t *testing.T) {
 	}
 
 	// An asset without attributes never reaches the catalog (upstream drops
-	// it, photosdb.py:2086-2090), so its ZUUID is not checked.
+	// it, photosdb.py:2090-2094), so its ZUUID is not checked.
 	skippedNoUUID := baseAsset(6, "A-6")
 	skippedNoUUID.UUID, skippedNoUUID.HasAttributes = sql.NullString{}, false
 	skippedDup := baseAsset(7, "A-1")

@@ -177,7 +177,7 @@ func text(key string, nullOK bool) rule {
 func number(key string) rule { return value[int64](key, true, "an integer", pyValue) }
 
 // Upstream gives these dates in the zone of the computer that wrote the
-// reference (photos_datetime_local, photosdb/photosdb.py:2157, 2293, 2317), so
+// reference (photos_datetime_local, photosdb/photosdb.py:2161, 2297, 2321), so
 // only the moment counts.
 func moment(key string) rule {
 	return simple(key,
@@ -230,7 +230,7 @@ var exifKeys = []string{
 }
 
 // json() writes the object of a photo without a row too, with every value
-// null (photoinfo.py:1702-1704, 2123); null is nil for a number and a flag and
+// null (photoinfo.py:1700-1702, 2121); null is nil for a number and a flag and
 // "" for a string. date is the pair of zonedDate, nil for null.
 func exifInfoRule() rule {
 	const key = "exif_info"
@@ -289,7 +289,7 @@ var scoreKeys = []string{
 }
 
 // json() writes the object for every photo, zeros for a photo without a row
-// (photoinfo.py:1507-1537, 2128, 2190). A null is None: a NULL column, and
+// (photoinfo.py:1505-1535, 2126, 2188). A null is None: a NULL column, and
 // behavioral and interaction from Photos 11 on
 // (_photosdb_process_scoreinfo.py:62-76); DB.AsDict gives nil there.
 func scoreRule() rule {
@@ -328,9 +328,9 @@ var (
 	addressKeys = []string{"street", "sub_locality", "city", "sub_administrative_area", "state_province", "postal_code", "country", "iso_country_code"}
 )
 
-// json() writes {} for a photo without a place (photoinfo.py:2127) and sorts
+// json() writes {} for a photo without a place (photoinfo.py:2125) and sorts
 // only the lists at the top level, so the lists of names keep the order of
-// area (2279-2285). null is "" for a string and false for ishome; address is
+// area (2277-2283). null is "" for a string and false for ishome; address is
 // an object also without a postal address (placeinfo.py:622-625, 708-716).
 func placeRule() rule {
 	const key = "place"
@@ -408,15 +408,15 @@ func placeValue(pl *placeinfo.PlaceInfo) map[string]any {
 }
 
 // Not compared for an adjusted photo: upstream reads the adjustments plist,
-// which the test libraries do not have, and gives 0 (photoinfo.py:1390-1404).
+// which the test libraries do not have, and gives 0 (photoinfo.py:1388-1402).
 func orientation() rule {
 	r := number("orientation")
 	r.skip = func(o Object) (bool, error) { return decode[bool](o, "hasadjustments", false, "a boolean") }
 	return r
 }
 
-// json() writes {} for a photo without the file (photoinfo.py:2212-2214,
-// 2248-2250). asdict writes timestamp as the isoformat() of a UTC datetime
+// json() writes {} for a photo without the file (photoinfo.py:2210-2212,
+// 2246-2248). asdict writes timestamp as the isoformat() of a UTC datetime
 // (adjustmentsinfo.py:44-46, 212-214), where the Go side holds a time.Time:
 // both are compared as a moment (rule 2).
 func adjustmentsRule(key string) rule {
@@ -438,7 +438,7 @@ func adjustmentsRule(key string) rule {
 		pyValue)
 }
 
-// The reference list is sorted by upstream json() (photoinfo.py:2279-2285);
+// The reference list is sorted by upstream json() (photoinfo.py:2277-2283);
 // sorted sorts a list that DB.AsDict leaves to json().
 func stringList(key string, sorted bool) rule {
 	return simple(key,
@@ -452,7 +452,7 @@ func location() rule {
 		pyValue)
 }
 
-// photoinfo.py:682-694. json() sorts the pair, None as "" (photoinfo.py:2279-2285),
+// photoinfo.py:682-694. json() sorts the pair, None as "" (photoinfo.py:2277-2283),
 // so the order of name and bundle ID is not in the reference.
 func importedBy() rule {
 	return simple("imported_by",
@@ -475,7 +475,7 @@ func refPair[T any](o Object, key, want string) ([]T, error) {
 }
 
 // The asdict of CommentInfo and LikeInfo (commentinfo.py:10-32), unsorted as
-// upstream json() (photoinfo.py:2284); a date is in the computer's zone
+// upstream json() (photoinfo.py:2282); a date is in the computer's zone
 // (_photosdb_process_comments.py:130), so only its moment counts.
 func commentsRule(key string, hasText bool) rule {
 	return simple(key,
@@ -505,7 +505,7 @@ func commentsRule(key string, hasText bool) rule {
 		func(v any) any { return eachEmptyFor(v, "user") })
 }
 
-// The asdict of PersonInfo (personinfo.py:110-123), a person once per face.
+// The asdict of PersonInfo (personinfo.py:112-125), a person once per face.
 func personInfoRule() rule {
 	const key = "person_info"
 	return simple(key,
@@ -567,7 +567,7 @@ func personElems(v any) any {
 	return out
 }
 
-// The asdict of FaceInfo (personinfo.py:420-455), sorted by upstream by name
+// The asdict of FaceInfo (personinfo.py:455-496), sorted by upstream by name
 // only, equal names in the order of SQLite (photoinfo.py:613-623): faces of
 // equal name are compared sorted by _pk. A number of the reference is a
 // float64, which equals an integer of the Go side of that value.
@@ -728,7 +728,7 @@ func goAlbums(v any, drop ...string) any {
 }
 
 // A project is an album without folders (albuminfo.py:368-392) and has the
-// keys of an album (photoinfo.py:2228), so the reference side is that of
+// keys of an album (photoinfo.py:2226), so the reference side is that of
 // album_info. Its parent is not compared: osxphotos writes it only when the
 // parent row holds a folder or a user album outside the trash
 // (albuminfo.py:296, 525-527), which depends on the other rows under that
@@ -764,7 +764,7 @@ func sortedElems(byUUID map[string]map[string]any) []any {
 
 var importElemKeys = []string{"uuid", "title", "creation_date", "start_date", "end_date"}
 
-// A photo without a session is {} (photoinfo.py:2223-2225); a session is the
+// A photo without a session is {} (photoinfo.py:2221-2223); a session is the
 // asdict of albuminfo.py:350-358.
 func importInfoRule() rule {
 	const key = "import_info"
@@ -808,7 +808,7 @@ func importInfoRule() rule {
 }
 
 // json.dumps writes the key None of an album without a title as null
-// (photoinfo.py:2125, 2286-2288).
+// (photoinfo.py:2123, 2284-2286).
 func foldersRule() rule {
 	return rule{
 		key: "folders",

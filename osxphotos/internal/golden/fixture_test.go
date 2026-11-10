@@ -50,7 +50,7 @@ const (
 
 func ptr[T any](v T) *T { return &v }
 
-// A photo without a row: every score 0.0, not None (photoinfo.py:1507-1537).
+// A photo without a row: every score 0.0, not None (photoinfo.py:1505-1535).
 func noScoreRow() scoreinfo.ScoreInfo {
 	var s scoreinfo.ScoreInfo
 	fields := reflect.ValueOf(&s).Elem()
@@ -400,7 +400,7 @@ const (
 		`"camera_make": "Acme", "camera_model": "Acme One", "codec": "hvc1", "lens_model": "Acme One 4mm", ` +
 		`"date": "2020-06-06T15:30:00+05:30", "tzoffset": 19800, "tzname": "Asia/Kolkata"}`
 
-	// A photo without a row (photoinfo.py:1702-1704).
+	// A photo without a row (photoinfo.py:1700-1702).
 	refExifNull = `{"flash_fired": null, "iso": null, "metering_mode": null, "sample_rate": null, "track_format": null, "white_balance": null, ` +
 		`"aperture": null, "bit_rate": null, "duration": null, "exposure_bias": null, "focal_length": null, "fps": null, ` +
 		`"latitude": null, "longitude": null, "shutter_speed": null, ` +
@@ -417,7 +417,7 @@ const (
 		`"pleasant_reflection": 0.21, "pleasant_symmetry": 0.22, "sharply_focused_subject": 0.23, "tastefully_blurred": 0.24, ` +
 		`"well_chosen_subject": 0.25, "well_framed_subject": 0.26, "well_timed_shot": 0.27}`
 
-	// A photo without a row: upstream writes 0.0 for every score (photoinfo.py:1507-1537).
+	// A photo without a row: upstream writes 0.0 for every score (photoinfo.py:1505-1535).
 	refScoreZero = `{"overall": 0.0, "curation": 0.0, "promotion": 0.0, "highlight_visibility": 0.0, "behavioral": 0.0, "failure": 0.0, ` +
 		`"harmonious_color": 0.0, "immersiveness": 0.0, "interaction": 0.0, "interesting_subject": 0.0, "intrusive_object_presence": 0.0, ` +
 		`"lively_color": 0.0, "low_light": 0.0, "noise": 0.0, "pleasant_camera_tilt": 0.0, "pleasant_composition": 0.0, ` +

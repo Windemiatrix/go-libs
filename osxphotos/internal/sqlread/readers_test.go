@@ -232,7 +232,7 @@ func TestColumnsIncludeJoins(t *testing.T) {
 	if len(c) != len(want) {
 		t.Errorf("Columns has %d tables, want %d", len(c), len(want))
 	}
-	// Upstream reads ZSPATIALTYPE only where it exists (photosdb.py:1751-1759).
+	// Upstream reads ZSPATIALTYPE only where it exists (photosdb.py:1755-1763).
 	if contains(c["ZASSET"], "ZSPATIALTYPE") {
 		t.Error("Columns requires ZASSET.ZSPATIALTYPE")
 	}
@@ -1193,7 +1193,7 @@ func TestFaceRows(t *testing.T) {
 	}
 }
 
-// Upstream joins ZASSET (_photosdb_process_faceinfo.py:228-230): a face whose
+// Upstream joins ZASSET (_photosdb_process_faceinfo.py:245-247): a face whose
 // asset has no row is no face of an asset.
 func TestFaceRowsWithoutAsset(t *testing.T) {
 	t.Parallel()
@@ -1585,7 +1585,7 @@ func TestScoreRowValues(t *testing.T) {
 	}
 }
 
-// Upstream joins ZCLOUDMASTER and ZASSET (photoinfo.py:1747-1753): the rows are
+// Upstream joins ZCLOUDMASTER and ZASSET (photoinfo.py:1745-1751): the rows are
 // those with a value whose master an asset has. Data is kept only for a blob.
 const cloudMetaFrom = " FROM ZCLOUDMASTERMEDIAMETADATA md JOIN ZCLOUDMASTER m ON m.Z_PK = md.ZCLOUDMASTER JOIN ZASSET a ON a.ZMASTER = m.Z_PK" +
 	" WHERE md.ZDATA IS NOT NULL"
@@ -1668,7 +1668,7 @@ func TestCloudMetadataRows(t *testing.T) {
 			insert+"(900004, NULL, X'01')",
 			insert+"(900001, "+master("MIN")+", zeroblob(1048576))",
 			insert+"(900002, "+master("MAX")+", zeroblob(1048577))",
-			// plistlib.loads of an integer or a str raises upstream (photoinfo.py:1757-1759): the row stays, without Data.
+			// plistlib.loads of an integer or a str raises upstream (photoinfo.py:1755-1757): the row stays, without Data.
 			insert+"(900005, "+master("MIN")+", 424242)",
 			insert+"(900006, "+master("MIN")+", '"+xml+"')",
 			insert+"(900007, "+master("MIN")+", CAST('"+xml+"' AS BLOB))",

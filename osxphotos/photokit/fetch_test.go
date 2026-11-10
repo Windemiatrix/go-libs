@@ -145,7 +145,7 @@ func TestFetch(t *testing.T) {
 	}
 
 	// _asset_factory raises for any other media type, audio included
-	// (photokit.py:1309-1319).
+	// (photokit.py:1403-1413).
 	for _, mt := range []int{0, 3, 4} {
 		other := bridge.AssetRecord{LocalIdentifier: frameID + "/L0/001", MediaType: mt}
 		b := &fake.Bridge{Assets: []bridge.AssetRecord{livePhoto, other}}
@@ -157,7 +157,7 @@ func TestFetch(t *testing.T) {
 }
 
 // A Live Photo is taken before its media type is looked at
-// (photokit.py:1312-1313); the media type stays as PhotoKit gives it.
+// (photokit.py:1406-1407); the media type stays as PhotoKit gives it.
 func TestFetchLivePhotoOfAnyMediaType(t *testing.T) {
 	for _, tt := range []struct {
 		raw  int
@@ -182,8 +182,8 @@ func TestAssetHalfLocation(t *testing.T) {
 	}
 }
 
-// Fetch finds no hidden asset (photokit.py:1234-1237), yet upstream reads
-// isHidden all the same (461-464).
+// Fetch finds no hidden asset (photokit.py:1328-1331), yet upstream reads
+// isHidden all the same (493-496).
 func TestAssetHidden(t *testing.T) {
 	if a, err := asset(bridge.AssetRecord{MediaType: 1, Hidden: true}); err != nil || !a.Hidden {
 		t.Errorf("asset(hidden) = Hidden %t, %v; want true", a.Hidden, err)
@@ -235,7 +235,7 @@ func TestFetchBurst(t *testing.T) {
 	}
 }
 
-// The bits are those of PHAssetMediaSubtype (photokit.py:364-409).
+// The bits are those of PHAssetMediaSubtype (photokit.py:396-441).
 func TestAssetFlags(t *testing.T) {
 	names := []string{"Panorama", "HDR", "Screenshot", "Live", "Portrait", "Streamed", "SlowMo", "TimeLapse", "ScreenRecording"}
 	flags := func(a Asset) []string {
@@ -273,7 +273,7 @@ func TestAssetFlags(t *testing.T) {
 }
 
 // Upstream takes the first resource of a type: the second Photo, Video and
-// AlternatePhoto resources here must not win (photokit.py:310-352, 484-493).
+// AlternatePhoto resources here must not win (photokit.py:342-384, 516-525).
 func TestResources(t *testing.T) {
 	edited := bridge.AssetRecord{LocalIdentifier: editedID + "/L0/001", MediaType: 1}
 	b := &fake.Bridge{
@@ -312,7 +312,7 @@ func TestResources(t *testing.T) {
 	}
 
 	// original_filename takes the Video resource of anything but a photo, and
-	// hasadjustments only AdjustmentData (photokit.py:310-322, 336-352).
+	// hasadjustments only AdjustmentData (photokit.py:342-354, 368-384).
 	for _, tt := range []struct {
 		r    bridge.AssetRecord
 		res  []bridge.ResourceRecord

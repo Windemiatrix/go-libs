@@ -7,7 +7,7 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/schema"
 )
 
-// Resource is one ZINTERNALRESOURCE row (photosdb.py:2449-2459, 2498-2504, 2540-2550).
+// Resource is one ZINTERNALRESOURCE row (photosdb.py:2453-2463, 2502-2508, 2544-2554).
 type Resource struct {
 	PK, AssetPK   int64          // Z_PK, ZASSET
 	Type, Subtype sql.NullInt64  // ZRESOURCETYPE, ZDATASTORESUBTYPE
@@ -34,7 +34,7 @@ type Availability struct {
 	Local     sql.NullInt64  // ZINTERNALRESOURCE.ZLOCALAVAILABILITY
 }
 
-// FingerprintAvailability runs the query of photosdb.py:2498-2505 as it is,
+// FingerprintAvailability runs the query of photosdb.py:2502-2509 as it is,
 // without ORDER BY: upstream lets the last row of a photo decide IsMissing,
 // and the schema has no index on ZFINGERPRINT, so that row is the one the plan
 // of SQLite returns last, not one a column names.

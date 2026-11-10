@@ -105,7 +105,7 @@ func TestPhotosWithNewSlice(t *testing.T) {
 	}
 }
 
-// photos() globs together the albums of one title (photosdb/photosdb.py:3286-3297).
+// photos() globs together the albums of one title (photosdb/photosdb.py:3331-3342).
 func TestPhotosWithLibraries(t *testing.T) {
 	t.Parallel()
 

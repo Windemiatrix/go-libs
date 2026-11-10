@@ -147,7 +147,7 @@ func searchInfoWith(old, value string) string {
 	return strings.Replace(refSearchInfoEmpty, old, value, 1)
 }
 
-// The keys of a person but uuid and name, as osxphotos writes them (personinfo.py:110-123).
+// The keys of a person but uuid and name, as osxphotos writes them (personinfo.py:112-125).
 const (
 	personNulls  = `"displayname": null, "facecount": null, "favorite": false, "feature_less": false, "keyface": null, "keyphoto": null, "sort_order": null`
 	personValues = `"displayname": "D", "facecount": 2, "favorite": true, "feature_less": true, "keyface": 7, "keyphoto": "K", "sort_order": 1`

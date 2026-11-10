@@ -76,7 +76,7 @@ for _, p := range db.Query(query.Options{}) { // как osxphotos query без �
 
 ## Шаблоны путей
 
-Пакет `template` выполняет шаблоны osxphotos: поля, фильтры, условия, замены, значения по умолчанию. Список полей — в [документации osxphotos](https://github.com/RhetTbull/osxphotos/blob/v0.77.2/osxphotos/phototemplate.md).
+Пакет `template` выполняет шаблоны osxphotos: поля, фильтры, условия, замены, значения по умолчанию. Список полей — в [документации osxphotos](https://github.com/RhetTbull/osxphotos/blob/v0.78.1/osxphotos/phototemplate.md).
 
 ```go
 t, err := template.Parse("{created.year}/{created.mm}-{created.dd} - {album,No album}/{photo.original_filename}")
@@ -125,13 +125,13 @@ files := export.Names(p, name)                                 // files.Live —
 
 ## Отличия от osxphotos
 
-Библиотека следует osxphotos `v0.77.2`. Сверх osxphotos она даёт облачные идентификаторы фото и альбомов и размеры всех файлов фото без скачивания. `photokit` сверх osxphotos импортирует, ведёт альбомы, удаляет и меняет фото. В библиотеке нет командной строки, базы экспорта, конвертации файлов, файлов XMP и JSON рядом с фото, exiftool и результатов анализа медиа. Полный список отличий со ссылками на код osxphotos — в [UPSTREAM.md](UPSTREAM.md).
+Библиотека следует osxphotos `v0.78.1`. Сверх osxphotos она даёт облачные идентификаторы фото и альбомов и размеры всех файлов фото без скачивания. `photokit` сверх osxphotos импортирует, ведёт альбомы, удаляет и меняет фото. В библиотеке нет командной строки, базы экспорта, конвертации файлов, файлов XMP и JSON рядом с фото, exiftool и результатов анализа медиа. Полный список отличий со ссылками на код osxphotos — в [UPSTREAM.md](UPSTREAM.md).
 
 ## Как проверяется
 
 Каждый PR проходит тесты с `-race` на Linux и macOS, линтер и порог покрытия 80 %. Результаты сравниваются с выводом osxphotos на восьми его тестовых медиатеках (macOS 13–27) и одной синтетической. `photokit` проверяется в CI на имитации PhotoKit. Тесты, которые меняют настоящую медиатеку, запускаются вручную под отдельной учётной записью macOS. Библиотеку можно сравнить с osxphotos и на своей медиатеке, не меняя её:
 
-1. Поставьте osxphotos 0.77.2 в отдельное окружение Python 3.10+: `python3 -m venv "$HOME/venvs/osxphotos" && "$HOME/venvs/osxphotos/bin/pip" install osxphotos==0.77.2`.
+1. Поставьте osxphotos 0.78.1 в отдельное окружение Python 3.10+: `python3 -m venv "$HOME/venvs/osxphotos" && "$HOME/venvs/osxphotos/bin/pip" install osxphotos==0.78.1`.
 2. Закройте «Фото», откройте медиатеку в Finder через «Показать содержимое пакета» и скопируйте каталог `database/` в `~/Pictures/Copy.photoslibrary/database/`.
 3. В корне репозитория выполните `make diff-local LIBRARY="$HOME/Pictures/Copy.photoslibrary" OSXPHOTOS="$HOME/venvs/osxphotos/bin/osxphotos" REPORT="$HOME/diff-local-report.txt"`.
 4. Прочитайте счётчики расхождений в терминале. Подробности — в файле, указанном в `REPORT`; в нём ваши данные, не публикуйте его. Затем удалите копию медиатеки.

@@ -63,7 +63,7 @@ func decodeAt[T any](m map[string]json.RawMessage, key, path string, nullOK bool
 	return decodeRaw[T](raw, path, nullOK, want)
 }
 
-// A null in the list is "" as in the sort key of upstream (photoinfo.py:2285).
+// A null in the list is "" as in the sort key of upstream (photoinfo.py:2283).
 func refStrings(o Object, key string) ([]string, error) {
 	list, err := decode[[]*string](o, key, false, "a list of strings")
 	if err != nil {
@@ -135,7 +135,7 @@ func strs(s []string) []string {
 }
 
 // The sort order of an album and bytes are null, as the default of json()
-// writes what json has no form for (photoinfo.py:2269-2271); a date is a
+// writes what json has no form for (photoinfo.py:2267-2269); a date is a
 // moment by rule 2. The result is a copy: Compare leaves its input as it is.
 func pyValue(v any) any {
 	switch x := v.(type) {
@@ -202,7 +202,7 @@ func eachEmptyFor(v any, keys ...string) any {
 }
 
 // A list of strings of DB.AsDict holds nil for None, which the sort key of
-// json() takes as "" (photoinfo.py:2285), as does the reference side.
+// json() takes as "" (photoinfo.py:2283), as does the reference side.
 func goStrings(v any, sorted bool) any {
 	var out []string
 	switch x := v.(type) {

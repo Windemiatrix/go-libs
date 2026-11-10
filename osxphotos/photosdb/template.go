@@ -15,32 +15,32 @@ import (
 )
 
 // Fields returns p as a template.Photo: the values of the template fields of
-// osxphotos read from p and the library (phototemplate.py:930-1000, 1261-1339),
+// osxphotos read from p and the library (phototemplate.py:930-1000, 1264-1342),
 // on demand, by their upstream name. photo.X gives the property X of PhotoInfo
-// by its upstream name (1346-1382): a float as str() of Python, a date as
+// by its upstream name (1349-1385): a float as str() of Python, a date as
 // isoformat() in the zone of the value, so DateAdded, DateModified and
 // DateTrashed in UTC, and a DateAdded the database does not have as
 // 1970-01-01T00:00:00+00:00; photo.score.X, photo.exif_info.X and photo.place.X
 // give the scalars of those objects, no value for a nil one, as upstream None
-// (phototemplate.py:1365-1366); photo.search_info.X and
+// (phototemplate.py:1368-1369); photo.search_info.X and
 // photo.search_info_normalized.X give the attribute X of the SearchInfo of the
 // photo, a list, or one string that renders even when it is ""
-// (searchinfo.py:23, 31-345, phototemplate.py:1369-1376). place.X,
+// (searchinfo.py:23, 31-345, phototemplate.py:1372-1379). place.X,
 // photo.place.X whatever X is, and exif.X give no value for a photo without a
-// place or EXIF data, as upstream None (957-966, 1358-1359, 1779-1780). photo.X
+// place or EXIF data, as upstream None (957-966, 1361-1362, 1810-1811). photo.X
 // followed by more names gives no value when X has no value, whatever follows
-// (1358-1359, 1365-1366): upstream has None there, which the port holds as ""
+// (1361-1362, 1368-1369): upstream has None there, which the port holds as ""
 // or nil; an empty string upstream would fail there instead. photo.X.Y of a
 // property with a value, such as photo.date.year, is false, where upstream
-// renders str() of the attribute or fails (1360-1363, 1369-1382). photo.X of an
+// renders str() of the attribute or fails (1363-1366, 1372-1385). photo.X of an
 // object, a method or a property upstream does not have gives false, where
-// upstream renders str() of the object or fails (1360-1363, 1377-1382).
+// upstream renders str() of the object or fails (1363-1366, 1380-1385).
 // searchinfo.X, label and label_normalized read DB.SearchInfoOf. The Photo is
 // valid as long as db is; the caller may change the values it gives.
 func (db *DB) Fields(p *photoinfo.PhotoInfo) template.Photo { return photoFields{db, p} }
 
 // RenderTemplate renders t for p with one Renderer of the library, as
-// osxphotos PhotoInfo.render_template does (photoinfo.py:1866-1880): {counter}
+// osxphotos PhotoInfo.render_template does (photoinfo.py:1864-1878): {counter}
 // grows from photo to photo for as long as db lives; a caller that needs to
 // reset it renders with its own template.Renderer and Fields(p). t is parsed
 // once by the caller, where upstream parses the string on each call. The
@@ -73,7 +73,7 @@ func (f photoFields) Field(name string) (template.Value, bool) {
 		return singleValue(p.Description), true
 	case "media_type":
 		return singleValue(mediaKindOf(p)), true
-	case "photo_or_video": // 1547-1550
+	case "photo_or_video": // 1550-1553
 		if p.IsPhoto {
 			return singleValue("photo"), true
 		}
@@ -114,12 +114,12 @@ func (f photoFields) Field(name string) (template.Value, bool) {
 		return template.Value{}, true
 	// burst_albums and burst_album_info are albums and album_info for a photo
 	// outside a burst (photoinfo.py:646-671), so the Burst*Of methods stand for
-	// both branches of phototemplate.py:1262-1266, 1270, 1290-1293.
+	// both branches of phototemplate.py:1265-1269, 1273, 1293-1296.
 	case "album":
 		return template.Value{Strings: db.BurstAlbumTitlesOf(p)}, true
 	case "project":
 		return template.Value{Strings: projectTitles(db.ProjectInfoOf(p))}, true
-	case "album_project": // upstream also appends the projects to the cached albums of a photo outside a burst (1270-1271)
+	case "album_project": // upstream also appends the projects to the cached albums of a photo outside a burst (1273-1274)
 		v := slices.Concat(db.BurstAlbumTitlesOf(p), projectTitles(db.ProjectInfoOf(p)))
 		slices.Sort(v)
 		return template.Value{Strings: v}, true
@@ -127,21 +127,21 @@ func (f photoFields) Field(name string) (template.Value, bool) {
 		return multiValue(p.Keywords), true
 	case "person":
 		return multiValue(p.Persons), true
-	case "label": // 1279-1280
+	case "label": // 1282-1283
 		return template.Value{Strings: db.SearchInfoOf(p).Labels()}, true
-	case "label_normalized": // 1281-1286
+	case "label_normalized": // 1284-1289
 		return template.Value{Strings: db.SearchInfoOf(p).Normalized().Labels()}, true
 	case "searchinfo.season": // 959-960
 		return singleValue(db.SearchInfoOf(p).Season()), true
-	case "searchinfo.holiday": // 1318-1323
+	case "searchinfo.holiday": // 1321-1326
 		return template.Value{Strings: db.SearchInfoOf(p).Holidays()}, true
-	case "searchinfo.activity": // 1324-1329
+	case "searchinfo.activity": // 1327-1332
 		return template.Value{Strings: db.SearchInfoOf(p).Activities()}, true
-	case "searchinfo.venue": // 1330-1333
+	case "searchinfo.venue": // 1333-1336
 		return template.Value{Strings: db.SearchInfoOf(p).Venues()}, true
-	case "searchinfo.venue_type": // 1334-1339
+	case "searchinfo.venue_type": // 1337-1342
 		return template.Value{Strings: db.SearchInfoOf(p).VenueTypes()}, true
-	case "comment": // f"{comment.user}: …" prints the user None as "None" (1314-1317)
+	case "comment": // f"{comment.user}: …" prints the user None as "None" (1317-1320)
 		var v []string
 		for _, c := range db.Comments(p) {
 			v = append(v, cmp.Or(c.User, "None")+": "+c.Text)
@@ -163,7 +163,7 @@ func (f photoFields) Field(name string) (template.Value, bool) {
 	return template.Value{}, false
 }
 
-// {photo.X}: phototemplate.py:1346-1382.
+// {photo.X}: phototemplate.py:1349-1385.
 func photoProperty(db *DB, p *photoinfo.PhotoInfo, name string) (template.Value, bool) {
 	flags := map[string]bool{
 		"burst": p.Burst, "burst_default_pick": p.BurstDefaultPick, "burst_key": p.BurstKey, "burst_selected": p.BurstSelected,
@@ -194,7 +194,7 @@ func photoProperty(db *DB, p *photoinfo.PhotoInfo, name string) (template.Value,
 		"tzoffset": formatOrNone(p.TZOffset, strconv.Itoa), "adjustment_type": formatOrNone(p.AdjustmentType, strconv.Itoa),
 		"latitude": formatOrNone(p.Latitude, template.FloatString), "longitude": formatOrNone(p.Longitude, template.FloatString),
 		"date": isoformat(p.Date), "date_original": isoformat(p.DateOriginal), "date_modified": formatOrNone(p.DateModified, isoformat),
-		// DEFAULT_DATETIME_LOCAL for a date_added the database does not have (photosdb/photosdb.py:2317, photos_datetime.py:77-78)
+		// DEFAULT_DATETIME_LOCAL for a date_added the database does not have (photosdb/photosdb.py:2321, photos_datetime.py:77-78)
 		"date_added": isoformat(*cmp.Or(p.DateAdded, &epoch)), "date_trashed": formatOrNone(p.DateTrashed, isoformat),
 	}
 	if object, property, ok := strings.Cut(name, "."); ok {
@@ -204,7 +204,7 @@ func photoProperty(db *DB, p *photoinfo.PhotoInfo, name string) (template.Value,
 		case "search_info_normalized":
 			return searchProperty(db.SearchInfoOf(p).Normalized(), p.UUID, property)
 		}
-		// None stops the chain of getattr, whatever follows (1358-1359); the port holds it as "" or, for the flag incloud, nil.
+		// None stops the chain of getattr, whatever follows (1361-1362); the port holds it as "" or, for the flag incloud, nil.
 		if s, held := scalars[object]; (held && s == "") || (object == "incloud" && p.InCloud == nil) {
 			return template.Value{}, true
 		}
@@ -222,7 +222,7 @@ func photoProperty(db *DB, p *photoinfo.PhotoInfo, name string) (template.Value,
 		return multiValue(p.Keywords), true
 	case "persons":
 		return multiValue(p.Persons), true
-	case "labels": // photoinfo.py:1651-1669
+	case "labels": // photoinfo.py:1649-1667
 		return template.Value{Strings: db.SearchInfoOf(p).Labels()}, true
 	case "labels_normalized":
 		return template.Value{Strings: db.SearchInfoOf(p).Normalized().Labels()}, true
@@ -232,15 +232,15 @@ func photoProperty(db *DB, p *photoinfo.PhotoInfo, name string) (template.Value,
 		return noneDropped(scalars["latitude"], scalars["longitude"]), true
 	case "imported_by":
 		return noneDropped(p.ImportedByName, p.ImportedByBundleID), true
-	case "hexdigest": // not in scalars, which every {photo.X} builds: the digest writes the whole photo (photoinfo.py:1733-1737)
+	case "hexdigest": // not in scalars, which every {photo.X} builds: the digest writes the whole photo (photoinfo.py:1731-1735)
 		return singleValue(db.Hexdigest(p)), true
 	}
 	return template.Value{}, false
 }
 
 // A list is a multi-valued field, a string one value even when ""
-// (phototemplate.py:1369-1376); a name SearchInfo does not have is the
-// ValueError of 1360-1363.
+// (phototemplate.py:1372-1379); a name SearchInfo does not have is the
+// ValueError of 1363-1366.
 func searchProperty(s searchinfo.SearchInfo, uuid, name string) (template.Value, bool) {
 	d := s.AsDict()
 	d["all"], d["text_found"], d["uuid"] = s.All(), s.TextFound(), uuid
@@ -255,7 +255,7 @@ func searchProperty(s searchinfo.SearchInfo, uuid, name string) (template.Value,
 
 // scoreinfo.py:14-40, exifinfo.py:18-39, placeinfo.py:583-601. Without a place
 // the chain of getattr stops at None, whatever follows
-// (phototemplate.py:1358-1359).
+// (phototemplate.py:1361-1362).
 func nestedProperty(p *photoinfo.PhotoInfo, object, name string) (template.Value, bool) {
 	num := func(v *float64) string { return formatOrNone(v, template.FloatString) }
 	var values map[string]string
@@ -299,7 +299,7 @@ func nestedProperty(p *photoinfo.PhotoInfo, object, name string) (template.Value
 	return singleValue(s), ok
 }
 
-// get_place_value (phototemplate.py:1772-1819)
+// get_place_value (phototemplate.py:1803-1850)
 func placeField(p *photoinfo.PhotoInfo, name string) (template.Value, bool) {
 	pl := cmp.Or(p.Place, &placeinfo.PlaceInfo{})
 	s, ok := map[string]string{
@@ -313,7 +313,7 @@ func placeField(p *photoinfo.PhotoInfo, name string) (template.Value, bool) {
 	return singleValue(s), ok
 }
 
-// phototemplate.py:1790-1803
+// phototemplate.py:1821-1834
 func firstOf(names []string) string {
 	if len(names) == 0 {
 		return ""
@@ -321,7 +321,7 @@ func firstOf(names []string) string {
 	return names[0]
 }
 
-// nil is None, which gives no value (phototemplate.py:1365-1366), as "" does
+// nil is None, which gives no value (phototemplate.py:1368-1369), as "" does
 // for singleValue.
 func formatOrNone[T any](v *T, format func(T) string) string {
 	if v == nil {
@@ -330,12 +330,12 @@ func formatOrNone[T any](v *T, format func(T) string) string {
 	return format(*v)
 }
 
-// None in a list is dropped (phototemplate.py:1376, 663); PhotoInfo holds it as "".
+// None in a list is dropped (phototemplate.py:1379, 663); PhotoInfo holds it as "".
 func noneDropped(s ...string) template.Value {
 	return template.Value{Strings: slices.DeleteFunc(s, func(v string) bool { return v == "" })}
 }
 
-// datetime.isoformat() of an aware datetime (phototemplate.py:1371-1372), in
+// datetime.isoformat() of an aware datetime (phototemplate.py:1374-1375), in
 // the zone of t. Python prints the seconds of an offset, which a zone of the
 // photo may have and the layout -07:00 of time drops.
 func isoformat(t time.Time) string {
@@ -350,7 +350,7 @@ func isoformat(t time.Time) string {
 	return t.Format(layout)
 }
 
-// get_media_type (phototemplate.py:1552-1577) tests the flags in this order.
+// get_media_type (phototemplate.py:1555-1580) tests the flags in this order.
 func mediaKindOf(p *photoinfo.PhotoInfo) string {
 	switch {
 	case p.Selfie:
@@ -391,7 +391,7 @@ func multiValue(s []string) template.Value { return template.Value{Strings: slic
 // phototemplate.py:942-949
 func flagValue(on bool, name string) template.Value { return singleValue(flagName(on, name)) }
 
-// phototemplate.py:1367-1368
+// phototemplate.py:1370-1371
 func flagName(on bool, name string) string {
 	if on {
 		return name
@@ -399,7 +399,7 @@ func flagName(on bool, name string) string {
 	return ""
 }
 
-// Upstream keeps a repeated project title (phototemplate.py:1268).
+// Upstream keeps a repeated project title (phototemplate.py:1271).
 func projectTitles(projects []*albuminfo.AlbumInfo) []string {
 	var out []string
 	for _, a := range projects {

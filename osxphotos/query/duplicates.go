@@ -8,8 +8,8 @@ import (
 )
 
 // Duplicates returns the photos of photos, other than p, with the signature of
-// p: osxphotos PhotoInfo.duplicates (photoinfo.py:1426-1439,
-// photosdb/photosdb.py:3411-3420), in the order of photos. The signature is
+// p: osxphotos PhotoInfo.duplicates (photoinfo.py:1424-1437,
+// photosdb/photosdb.py:3456-3465), in the order of photos. The signature is
 // OriginalFilesize, the moment of Date, Height, Width, UTI and AdjustmentType
 // (both nil or equal). A photo with the UUID of p is not a duplicate. The
 // result is nil when there is none.
@@ -44,7 +44,7 @@ func signatureOf(p *photo) signature {
 }
 
 // The duplicates come from the whole catalog, as get_photo does
-// (photoinfo.py:1435); the index is that of photosdb.py:2358-2363; each UUID
+// (photoinfo.py:1433); the index is that of photosdb.py:2362-2367; each UUID
 // once, as photoquery.py:758-765.
 func withDuplicates(in, catalog []*photo, o Options) []*photo {
 	bySignature := map[signature][]*photo{}

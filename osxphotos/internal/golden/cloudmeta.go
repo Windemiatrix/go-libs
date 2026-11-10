@@ -10,8 +10,8 @@ import (
 const cloudKey = "cloud_metadata"
 
 // json() writes the property list of a photo through its default
-// (photoinfo.py:2222, 2269-2288), {} for a photo without one and for one that
-// does not decode (photoinfo.py:1739-1760). The Go side is the decoded property
+// (photoinfo.py:2220, 2267-2286), {} for a photo without one and for one that
+// does not decode (photoinfo.py:1737-1758). The Go side is the decoded property
 // list, whose integers are int64 or uint64: both sides are compared by value,
 // so a real that is a whole number equals the integer of that value.
 func cloudMetadataRule() rule {
@@ -80,7 +80,7 @@ func refNumber(v any) (any, error) {
 }
 
 // json() hands json.dumps a default that returns None for anything but a date
-// (photoinfo.py:2269-2271), so bytes and a UID are null. A real of four bytes
+// (photoinfo.py:2267-2269), so bytes and a UID are null. A real of four bytes
 // is a double for Python. A date of a property list is a naive UTC datetime
 // rounded to the microsecond (timedelta rounds), written by isoformat() with
 // six digits of fraction when the microseconds are not 0.

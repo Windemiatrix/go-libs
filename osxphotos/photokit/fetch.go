@@ -9,10 +9,10 @@ import (
 )
 
 // Fetch returns the assets of uuids that the library has, in the order of
-// PhotoKit (fetch_uuid_list, photokit.py:1219-1246; fetch_uuid is Fetch with
-// one uuid, 1248-1264). A uuid is the UUID of photosdb or a LocalIdentifier. A
+// PhotoKit (fetch_uuid_list, photokit.py:1313-1340; fetch_uuid is Fetch with
+// one uuid, 1342-1358). A uuid is the UUID of photosdb or a LocalIdentifier. A
 // uuid the library does not have, or of a hidden asset (the default
-// PHFetchOptions, 1234-1237), is left out, and so is one that is empty, holds
+// PHFetchOptions, 1328-1331), is left out, and so is one that is empty, holds
 // a NUL or is not UTF-8, before PhotoKit is asked; no uuid, or none found, is
 // ErrNotFound. An asset that is neither an image, a video nor a Live
 // Photo fails the whole fetch with ErrMediaType. ctx is checked only before
@@ -27,7 +27,7 @@ func (l *Library) Fetch(ctx context.Context, uuids []string) ([]Asset, error) {
 
 // FetchBurst returns the assets of the burst burstID, none hidden, as for
 // Fetch: with all, every frame; without, the frames the user selected and
-// the key photo (fetch_burst_uuid, photokit.py:1266-1294). No such burst is
+// the key photo (fetch_burst_uuid, photokit.py:1360-1388). No such burst is
 // ErrNotFound, and so is an empty burstID, or one that holds a NUL or is not
 // UTF-8, before PhotoKit is asked; ErrMediaType and ctx are as for Fetch.
 func (l *Library) FetchBurst(ctx context.Context, burstID string, all bool) ([]Asset, error) {
@@ -35,7 +35,7 @@ func (l *Library) FetchBurst(ctx context.Context, burstID string, all bool) ([]A
 }
 
 // Resources returns the resources of the asset uuid in the order of PhotoKit
-// (_resources, photokit.py:769-772). uuid and ctx are as for Fetch; no such
+// (_resources, photokit.py:836-839). uuid and ctx are as for Fetch; no such
 // asset, a hidden one, or a uuid that Fetch leaves out before PhotoKit is
 // asked, is ErrNotFound.
 func (l *Library) Resources(ctx context.Context, uuid string) ([]Resource, error) {
@@ -90,8 +90,8 @@ func (l *Library) fetch(ctx context.Context, given bool, call func() ([]bridge.A
 	return out, nil
 }
 
-// Upstream returns the first resource of a type (photokit.py:310-334,
-// 484-493): walked backward, an earlier one overwrites a later one.
+// Upstream returns the first resource of a type (photokit.py:342-366,
+// 516-525): walked backward, an earlier one overwrites a later one.
 func withResources(a *Asset, res []bridge.ResourceRecord) {
 	original := ResourceVideo
 	if a.IsPhoto {
@@ -110,7 +110,7 @@ func withResources(a *Asset, res []bridge.ResourceRecord) {
 }
 
 // _asset_factory looks at the Live bit before the media type
-// (photokit.py:1309-1319).
+// (photokit.py:1403-1413).
 func asset(r bridge.AssetRecord) (Asset, error) {
 	t, s := MediaType(r.MediaType), r.MediaSubtypes
 	if s&subtypeLive == 0 && t != MediaTypeImage && t != MediaTypeVideo {

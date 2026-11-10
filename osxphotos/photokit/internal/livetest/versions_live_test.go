@@ -27,7 +27,7 @@ import (
 func TestLiveVersions(t *testing.T) {
 	lib := openLibrary(t)
 	visible := visibleMarkerPhotos(t)
-	// The Original of a RAW+JPEG may be the RAW (photokit.py:588-589).
+	// The Original of a RAW+JPEG may be the RAW (photokit.py:623-624).
 	photos := filter(visible, func(p *photoinfo.PhotoInfo) bool { return p.IsPhoto && !p.HasRAW })
 	if len(photos) == 0 {
 		skipNone(t, "photo without a RAW")
@@ -269,7 +269,7 @@ func TestLiveVersions(t *testing.T) {
 
 // A video without edits has one file, which every version gives; the Current
 // version of a slow-motion video is an AVComposition without a file, which
-// ExportVideo renders (photokit.py:876-884), or for some a file, which it
+// ExportVideo renders (photokit.py:943-951), or for some a file, which it
 // copies.
 func TestLiveVideoVersions(t *testing.T) {
 	lib := openLibrary(t)
@@ -376,7 +376,7 @@ func TestLiveVideoVersions(t *testing.T) {
 	})
 
 	// The Current version is a new encoding of the composition
-	// (photokit.py:799-806), so it differs from the file in the library, which
+	// (photokit.py:866-873), so it differs from the file in the library, which
 	// the other versions give; PhotoKit gives that of some slow-motion videos as
 	// a file, which ExportVideo copies. ExportVideo does not tell which, so an
 	// export equal to the render of an edit or to the original in the library is
@@ -395,7 +395,7 @@ func TestLiveVideoVersions(t *testing.T) {
 		renders := map[string]time.Duration{}
 		for _, p := range slow {
 			dir := t.TempDir()
-			// Upstream names the render <stem>.mov (photokit.py:954).
+			// Upstream names the render <stem>.mov (photokit.py:1021).
 			name := x.name(p.OriginalFilename)
 			name = strings.TrimSuffix(name, filepath.Ext(name)) + ".mov"
 			ctx, cancel := context.WithTimeout(t.Context(), exportTimeout)
