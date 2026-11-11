@@ -32,7 +32,7 @@ var (
 	ErrNoAsset = errors.New("photokit: no such asset")
 	// ErrNoComposition is delivered by Done of ExportComposition when the
 	// current AVAsset of the asset is neither an AVComposition of two tracks
-	// (photokit.py:938-942) nor an AVURLAsset of a file URL; photokit reports it
+	// (photokit.py:1005-1009) nor an AVURLAsset of a file URL; photokit reports it
 	// as ErrMediaType.
 	ErrNoComposition = errors.New("photokit: the asset is not a slow-motion composition")
 )
@@ -40,7 +40,7 @@ var (
 // Bridge is what photokit needs from PhotoKit. A status is a
 // PHAuthorizationStatus value for read-write access. No fetch finds a hidden
 // asset: upstream fetches with the default PHFetchOptions
-// (photokit.py:1234-1237, 1281-1285). Every identifier and title given to a
+// (photokit.py:1328-1331, 1375-1379). Every identifier and title given to a
 // method is UTF-8 without NUL, which photokit checks: the bridge checks only
 // the state of PhotoKit.
 type Bridge interface {
@@ -64,7 +64,7 @@ type Bridge interface {
 	// asset is ErrNoResource. The data goes to sink until Done; Cancel stops the
 	// request at its next report of progress, which PhotoKit gives only while it
 	// downloads. Done delivers ErrNoResource when PhotoKit gives no data
-	// (photokit.py:591-592).
+	// (photokit.py:626-627).
 	RequestImage(id string, version int, sink ImageSink) (Request, error)
 	// RequestVideo starts requestAVAssetForVideo for the asset id with
 	// version, a PHVideoRequestOptionsVersion, networkAccessAllowed and
@@ -78,7 +78,7 @@ type Bridge interface {
 	// RequestVideo does, then renders the AVComposition it gives into the file
 	// path, which must not exist, through AVAssetExportSession with
 	// AVAssetExportPresetHighestQuality, AVFileTypeQuickTimeMovie and
-	// shouldOptimizeForNetworkUse (photokit.py:799-806). An AVURLAsset of a file
+	// shouldOptimizeForNetworkUse (photokit.py:866-873). An AVURLAsset of a file
 	// URL is not rendered: file, which must not be nil, gets its path as path of
 	// RequestVideo does, and nothing is written to path. No such asset is ErrNoResource. Done delivers
 	// nil once the session has completed or file has its path, the

@@ -27,7 +27,7 @@ type SearchInfo struct {
 func New(records []Record) SearchInfo { return SearchInfo{records: records} }
 
 // Normalized returns s reading the normalized strings: search_info_normalized
-// (photoinfo.py:1554-1567).
+// (photoinfo.py:1552-1565).
 func (s SearchInfo) Normalized() SearchInfo {
 	s.normalized = true
 	return s

@@ -447,7 +447,7 @@ func TestExportVideo(t *testing.T) {
 	})
 
 	// FileUtil.copy raises on a file that is_file() accepts but open() refuses
-	// (photokit.py:904-905, 912), as one is without Full Disk Access.
+	// (photokit.py:971-972, 979), as one is without Full Disk Access.
 	t.Run("file that cannot be opened", func(t *testing.T) {
 		if os.Geteuid() == 0 {
 			t.Skip("root opens a file of mode 0000")
@@ -580,7 +580,7 @@ func onlyEntries(t *testing.T, dir string, want int) {
 }
 
 // Upstream renders the current version of a slow-motion video only
-// (photokit.py:876-884).
+// (photokit.py:943-951).
 func TestExportVideoSlowMo(t *testing.T) {
 	fetchSlowMo := []string{"FetchAssets " + versionSlowMoID, "AssetResources " + versionSlowMoID + "/L0/001"}
 	render := "ExportComposition " + versionSlowMoID + " 0"
@@ -613,8 +613,8 @@ func TestExportVideoSlowMo(t *testing.T) {
 	})
 
 	// PhotoKit gives the current version of some slow-motion videos as a file,
-	// where upstream raises PhotoKitMediaTypeError (photokit.py:938-942); one
-	// request still serves the export (937).
+	// where upstream raises PhotoKitMediaTypeError (photokit.py:1005-1009); one
+	// request still serves the export (1004).
 	t.Run("current given as a file", func(t *testing.T) {
 		b, _, file := slowMoFake(t)
 		clear(b.Compositions)
@@ -661,9 +661,9 @@ func TestExportVideoSlowMo(t *testing.T) {
 	})
 
 	// The class of upstream is PhotoKitMediaTypeError for an AVAsset that is not
-	// a composition of two tracks (photokit.py:938-942) and PhotoKitExportError
-	// for a failed session (826-828); a file given instead is copied as that of
-	// any other video (904-905).
+	// a composition of two tracks (photokit.py:1005-1009) and PhotoKitExportError
+	// for a failed session (893-895); a file given instead is copied as that of
+	// any other video (971-972).
 	for _, tt := range []struct {
 		name string
 		set  func(*fake.Bridge)

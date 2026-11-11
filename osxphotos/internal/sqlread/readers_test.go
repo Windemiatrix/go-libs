@@ -210,10 +210,10 @@ func TestColumnsIncludeJoins(t *testing.T) {
 		"ZCLOUDMASTER":               {"Z_PK", "ZCLOUDLOCALSTATE", "ZCLOUDMASTERGUID"},
 		"ZCLOUDMASTERMEDIAMETADATA":  {"Z_PK", "ZCLOUDMASTER", "ZDATA"},
 		"ZEXTENDEDATTRIBUTES":        {"Z_PK", "ZASSET", "ZFLASHFIRED", "ZISO", "ZFPS", "ZLENSMODEL", "ZDATECREATED", "ZTIMEZONEOFFSET", "ZTIMEZONENAME"},
-		"ZINTERNALRESOURCE":          {"ZASSET", "ZDATASTORESUBTYPE", "ZRESOURCETYPE", "ZFINGERPRINT"},
+		"ZINTERNALRESOURCE":          {"ZASSET", "ZDATASTORESUBTYPE", "ZRESOURCETYPE", "ZFINGERPRINT", "ZCOMPACTUTI"},
 		"Z_1KEYWORDS":                {"Z_1ASSETATTRIBUTES", "Z_52KEYWORDS"},
 		"ZKEYWORD":                   {"Z_PK", "ZTITLE"},
-		"ZDETECTEDFACE":              {"Z_PK", "ZUUID", "ZASSETFORFACE", "ZPERSONFORFACE", "ZAGETYPE", "ZEYEMAKEUPTYPE", "ZEYESSTATE", "ZFACIALHAIRTYPE", "ZGENDERTYPE", "ZGLASSESTYPE", "ZHAIRCOLORTYPE", "ZHASSMILE", "ZISINTRASH", "ZLIPMAKEUPTYPE", "ZMANUAL", "ZSMILETYPE", "ZSOURCEHEIGHT", "ZSOURCEWIDTH", "ZCENTERX", "ZCENTERY", "ZQUALITY", "ZROLL", "ZSIZE"},
+		"ZDETECTEDFACE":              {"Z_PK", "ZUUID", "ZASSETFORFACE", "ZPERSONFORFACE", "ZAGETYPE", "ZEYEMAKEUPTYPE", "ZEYESSTATE", "ZFACIALHAIRTYPE", "ZGENDERTYPE", "ZGLASSESTYPE", "ZHAIRCOLORTYPE", "ZHASSMILE", "ZISINTRASH", "ZLIPMAKEUPTYPE", "ZMANUAL", "ZSMILETYPE", "ZSOURCEHEIGHT", "ZSOURCEWIDTH", "ZCENTERX", "ZCENTERY", "ZQUALITY", "ZROLL", "ZSIZE", "ZDETECTIONTYPE", "ZBODYCENTERX", "ZBODYCENTERY", "ZBODYWIDTH", "ZBODYHEIGHT"},
 		"ZPERSON":                    {"Z_PK", "ZPERSONUUID", "ZFULLNAME", "ZDISPLAYNAME", "ZFACECOUNT", "ZKEYFACE", "ZTYPE", "ZMANUALORDER"},
 		"ZUSERFEEDBACK":              {"Z_PK", "ZPERSON", "ZTYPE"},
 		"Z_33ASSETS":                 {"Z_33ALBUMS", "Z_3ASSETS", "Z_FOK_3ASSETS"},
@@ -232,7 +232,7 @@ func TestColumnsIncludeJoins(t *testing.T) {
 	if len(c) != len(want) {
 		t.Errorf("Columns has %d tables, want %d", len(c), len(want))
 	}
-	// Upstream reads ZSPATIALTYPE only where it exists (photosdb.py:1751-1759).
+	// Upstream reads ZSPATIALTYPE only where it exists (photosdb.py:1755-1763).
 	if contains(c["ZASSET"], "ZSPATIALTYPE") {
 		t.Error("Columns requires ZASSET.ZSPATIALTYPE")
 	}
@@ -963,12 +963,13 @@ func withValues(t *testing.T) testDB {
 		"UPDATE ZPERSON SET ZFACECOUNT = 3, ZTYPE = 5, ZMANUALORDER = 7 WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZPERSON)",
 		"UPDATE ZDETECTEDFACE SET ZAGETYPE = 2, ZEYEMAKEUPTYPE = 3, ZEYESSTATE = 4, ZFACIALHAIRTYPE = 5, ZGENDERTYPE = 6, ZGLASSESTYPE = 7, "+
 			"ZHAIRCOLORTYPE = 8, ZHASSMILE = 9, ZISINTRASH = 10, ZLIPMAKEUPTYPE = 11, ZMANUAL = 12, ZSMILETYPE = 13, ZSOURCEHEIGHT = 14, "+
-			"ZSOURCEWIDTH = 15, ZCENTERX = 0.125, ZCENTERY = 0.25, ZQUALITY = 0.375, ZROLL = 0.5, ZSIZE = 0.625 "+
+			"ZSOURCEWIDTH = 15, ZCENTERX = 0.125, ZCENTERY = 0.25, ZQUALITY = 0.375, ZROLL = 0.5, ZSIZE = 0.625, "+
+			"ZDETECTIONTYPE = 16, ZBODYCENTERX = 0.75, ZBODYCENTERY = 0.875, ZBODYWIDTH = 0.0625, ZBODYHEIGHT = 0.1875 "+
 			"WHERE Z_PK = (SELECT MIN(f.Z_PK) FROM ZDETECTEDFACE f JOIN ZASSET a ON a.Z_PK = f."+s.FaceAssetColumn+
 			" JOIN ZPERSON p ON p.Z_PK = f."+s.FacePersonColumn+")",
 	)
 	if count(t, w, "SELECT COUNT(*) FROM ZPERSON WHERE ZFACECOUNT = 3 AND ZTYPE = 5 AND ZMANUALORDER = 7") != 1 ||
-		count(t, w, "SELECT COUNT(*) FROM ZDETECTEDFACE WHERE ZAGETYPE = 2 AND ZSMILETYPE = 13 AND ZSIZE = 0.625") != 1 {
+		count(t, w, "SELECT COUNT(*) FROM ZDETECTEDFACE WHERE ZAGETYPE = 2 AND ZSMILETYPE = 13 AND ZSIZE = 0.625 AND ZBODYHEIGHT = 0.1875") != 1 {
 		t.Fatal("withValues: an UPDATE changed no row of Test-13.0.0")
 	}
 	if err := w.Close(); err != nil {
@@ -1136,6 +1137,7 @@ func TestFaceRows(t *testing.T) {
 					{"f.ZSMILETYPE", func(f Face) int64 { return f.SmileType.Int64 }},
 					{"f.ZSOURCEHEIGHT", func(f Face) int64 { return f.SourceHeight.Int64 }},
 					{"f.ZSOURCEWIDTH", func(f Face) int64 { return f.SourceWidth.Int64 }},
+					{"f.ZDETECTIONTYPE", func(f Face) int64 { return f.DetectionType.Int64 }},
 				}
 				reals := []struct {
 					col string
@@ -1146,6 +1148,10 @@ func TestFaceRows(t *testing.T) {
 					{"f.ZQUALITY", func(f Face) float64 { return f.Quality.Float64 }},
 					{"f.ZROLL", func(f Face) float64 { return f.Roll.Float64 }},
 					{"f.ZSIZE", func(f Face) float64 { return f.Size.Float64 }},
+					{"f.ZBODYCENTERX", func(f Face) float64 { return f.BodyCenterX.Float64 }},
+					{"f.ZBODYCENTERY", func(f Face) float64 { return f.BodyCenterY.Float64 }},
+					{"f.ZBODYWIDTH", func(f Face) float64 { return f.BodyWidth.Float64 }},
+					{"f.ZBODYHEIGHT", func(f Face) float64 { return f.BodyHeight.Float64 }},
 				}
 				intSums, realSums := make([]int64, len(ints)), make([]float64, len(reals))
 				texts := make([]string, len(faces))
@@ -1187,7 +1193,7 @@ func TestFaceRows(t *testing.T) {
 	}
 }
 
-// Upstream joins ZASSET (_photosdb_process_faceinfo.py:228-230): a face whose
+// Upstream joins ZASSET (_photosdb_process_faceinfo.py:245-247): a face whose
 // asset has no row is no face of an asset.
 func TestFaceRowsWithoutAsset(t *testing.T) {
 	t.Parallel()
@@ -1579,7 +1585,7 @@ func TestScoreRowValues(t *testing.T) {
 	}
 }
 
-// Upstream joins ZCLOUDMASTER and ZASSET (photoinfo.py:1747-1753): the rows are
+// Upstream joins ZCLOUDMASTER and ZASSET (photoinfo.py:1745-1751): the rows are
 // those with a value whose master an asset has. Data is kept only for a blob.
 const cloudMetaFrom = " FROM ZCLOUDMASTERMEDIAMETADATA md JOIN ZCLOUDMASTER m ON m.Z_PK = md.ZCLOUDMASTER JOIN ZASSET a ON a.ZMASTER = m.Z_PK" +
 	" WHERE md.ZDATA IS NOT NULL"
@@ -1662,7 +1668,7 @@ func TestCloudMetadataRows(t *testing.T) {
 			insert+"(900004, NULL, X'01')",
 			insert+"(900001, "+master("MIN")+", zeroblob(1048576))",
 			insert+"(900002, "+master("MAX")+", zeroblob(1048577))",
-			// plistlib.loads of an integer or a str raises upstream (photoinfo.py:1757-1759): the row stays, without Data.
+			// plistlib.loads of an integer or a str raises upstream (photoinfo.py:1755-1757): the row stays, without Data.
 			insert+"(900005, "+master("MIN")+", 424242)",
 			insert+"(900006, "+master("MIN")+", '"+xml+"')",
 			insert+"(900007, "+master("MIN")+", CAST('"+xml+"' AS BLOB))",

@@ -175,7 +175,7 @@ func TestFieldsKeepPhotoValues(t *testing.T) {
 	}
 }
 
-// get_media_type tests the flags in a fixed order (phototemplate.py:1552-1577):
+// get_media_type tests the flags in a fixed order (phototemplate.py:1555-1580):
 // each case sets one flag and the next one.
 func TestFieldsMediaType(t *testing.T) {
 	t.Parallel()
@@ -418,7 +418,7 @@ func TestRenderTemplatePhotoNoneChain(t *testing.T) {
 // The records of each category are out of order and the labels differ from
 // their normalized form, so that a field that does not sort, gives more than
 // one season or reads the other form shows (phototemplate.py:959-960,
-// 1279-1286, 1318-1339, 1346-1382).
+// 1282-1289, 1321-1342, 1349-1385).
 func TestRenderTemplateSearch(t *testing.T) {
 	t.Parallel()
 	db := tmplDB()
@@ -474,7 +474,7 @@ func TestRenderTemplateSearch(t *testing.T) {
 
 // The labels and the cities are out of order and differ from their normalized
 // form, so that a property that does not sort or reads the other form shows
-// (phototemplate.py:1353-1376).
+// (phototemplate.py:1356-1379).
 func TestRenderTemplateSearchProperties(t *testing.T) {
 	t.Parallel()
 	db := tmplDB()
@@ -598,8 +598,8 @@ func TestRenderTemplateNested(t *testing.T) {
 			t.Errorf("RenderTemplate(%q) of %s = %q, %v; want %q", tt.in, tt.p.UUID, got, err, tt.want)
 		}
 	}
-	// Without an EXIF row every value is None (exifinfo.py:42-45), as is a NULL score (photoinfo.py:1477-1505); without a place
-	// the chain stops at None (phototemplate.py:1358-1359).
+	// Without an EXIF row every value is None (exifinfo.py:42-45), as is a NULL score (photoinfo.py:1475-1503); without a place
+	// the chain stops at None (phototemplate.py:1361-1362).
 	for _, in := range []string{"{photo.score.overall}", "{photo.score.behavioral}", "{photo.score.well_timed_shot}",
 		"{photo.exif_info.flash_fired}", "{photo.exif_info.iso}", "{photo.exif_info.aperture}", "{photo.exif_info.camera_make}",
 		"{photo.exif_info.date}", "{photo.exif_info.tzoffset}", "{photo.exif_info.tzname}",
@@ -624,7 +624,7 @@ func TestRenderTemplateNested(t *testing.T) {
 			}
 		}
 	}
-	// known gap: upstream gives no value (phototemplate.py:1358-1359)
+	// known gap: upstream gives no value (phototemplate.py:1361-1362)
 	for _, in := range []string{"{photo.score.overall.x}", "{photo.exif_info.iso.x}"} {
 		if got, err := tmplRender(t, db, bare, in, o); !errors.Is(err, template.ErrUnsupportedField) {
 			t.Errorf("RenderTemplate(%q) of a photo without scores and EXIF data = %q, %v; want ErrUnsupportedField", in, got, err)

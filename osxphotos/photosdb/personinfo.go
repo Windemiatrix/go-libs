@@ -11,12 +11,12 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/photoinfo"
 )
 
-// ZPERSON.ZTYPE of a favorite person (personinfo.py:83-86).
+// ZPERSON.ZTYPE of a favorite person (personinfo.py:85-88).
 const personFavorite = 1
 
 // PersonInfo returns every person of the library, those without a face
 // included, in ZPERSON.Z_PK order, as osxphotos PhotosDB.person_info
-// (photosdb/photosdb.py:559-568, 1790-1812); a repeated ZPERSONUUID is listed
+// (photosdb/photosdb.py:563-572, 1794-1816); a repeated ZPERSONUUID is listed
 // once per row. The slice is new on every call.
 func (db *DB) PersonInfo() []personinfo.PersonInfo { return slices.Clone(db.persons) }
 
@@ -45,7 +45,7 @@ func (db *DB) FaceInfoOf(p *photoinfo.PhotoInfo) []personinfo.FaceInfo {
 
 // PersonPhotos returns the photos with a face of the person of uuid, a photo
 // once per face, in the Z_PK order of the faces (osxphotos PersonInfo.photos,
-// personinfo.py:58-65); of a repeated ZPERSONUUID, those of the row that
+// personinfo.py:60-67); of a repeated ZPERSONUUID, those of the row that
 // Person returns. The slice is new on every call and nil for a person without
 // a photo or an unknown uuid; its values are shared: do not modify them.
 func (db *DB) PersonPhotos(uuid string) []*photoinfo.PhotoInfo {
@@ -54,7 +54,7 @@ func (db *DB) PersonPhotos(uuid string) []*photoinfo.PhotoInfo {
 
 // PersonFaces returns the faces of the person of uuid, those on an asset
 // without a photo included, ordered by Quality, descending, then Z_PK
-// (osxphotos PersonInfo.face_info, personinfo.py:67-81); of a repeated
+// (osxphotos PersonInfo.face_info, personinfo.py:69-83); of a repeated
 // ZPERSONUUID, those of the row that Person returns. The slice is new on every
 // call and nil for a person without a face or an unknown uuid.
 func (db *DB) PersonFaces(uuid string) []personinfo.FaceInfo {
@@ -73,7 +73,7 @@ type personData struct {
 	personFaces  map[int64][]personinfo.FaceInfo
 }
 
-// Upstream names a person without a name "_UNKNOWN_" (photosdb.py:1792-1796).
+// Upstream names a person without a name "_UNKNOWN_" (photosdb.py:1796-1800).
 func nameOrUnknown(v sql.NullString) string {
 	if name := nfc(v.String); name != "" {
 		return name
@@ -82,13 +82,13 @@ func nameOrUnknown(v sql.NullString) string {
 }
 
 // Upstream keys a person by Z_PK, the person of a face too (photoinfo.py:605-611;
-// personinfo.py:35), and never checks the UUID (photosdb.py:1797-1812): a
+// personinfo.py:37), and never checks the UUID (photosdb.py:1801-1816): a
 // repeated or empty ZPERSONUUID stays, and personByUUID holds the last row. The
 // rows of t.feedback come by (ZPERSON, Z_PK), so the first of a person has the
 // lowest Z_PK, where upstream takes the first row SQLite returns
-// (personinfo.py:99-108). The faces of an asset without attributes are faces of
+// (personinfo.py:101-110). The faces of an asset without attributes are faces of
 // its person but of no photo: upstream joins the asset table only
-// (_photosdb_process_faceinfo.py:228-230; photosdb.py:1845-1852).
+// (_photosdb_process_faceinfo.py:245-247; photosdb.py:1849-1856).
 func loadPersons(t tables, c *catalog) personData {
 	featureLess := map[int64]bool{}
 	for _, f := range t.feedback {
@@ -148,7 +148,7 @@ func loadPersons(t tables, c *catalog) personData {
 }
 
 // A face of a person without a name has the name "", not "_UNKNOWN_"
-// (_photosdb_process_faceinfo.py:283).
+// (_photosdb_process_faceinfo.py:305).
 func faceInfo(f sqlread.Face) personinfo.FaceInfo {
 	return personinfo.FaceInfo{
 		PK: f.PK, UUID: f.UUID.String, Name: nfc(f.FullName.String), AssetUUID: f.AssetUUID.String, PersonPK: f.PersonPK, PersonUUID: f.PersonUUID.String,
@@ -157,6 +157,7 @@ func faceInfo(f sqlread.Face) personinfo.FaceInfo {
 		HasSmile: is(f.HasSmile, flagSet), Manual: is(f.Manual, flagSet), InTrash: is(f.InTrash, flagSet),
 		AgeType: intOf(f.AgeType), EyeMakeupType: intOf(f.EyeMakeupType), EyeState: intOf(f.EyeState), FacialHairType: intOf(f.FacialHairType),
 		GenderType: intOf(f.GenderType), GlassesType: intOf(f.GlassesType), HairColorType: intOf(f.HairColorType),
-		LipMakeupType: intOf(f.LipMakeupType), SmileType: intOf(f.SmileType),
+		LipMakeupType: intOf(f.LipMakeupType), SmileType: intOf(f.SmileType), DetectionType: intOf(f.DetectionType),
+		BodyCenterX: f.BodyCenterX.Float64, BodyCenterY: f.BodyCenterY.Float64, BodyWidth: f.BodyWidth.Float64, BodyHeight: f.BodyHeight.Float64,
 	}
 }

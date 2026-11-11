@@ -10,12 +10,12 @@ import (
 )
 
 // FolderInfo returns the top-level folders outside the trash, osxphotos
-// folder_info (photosdb/photosdb.py:570-589), in UUID order. The slice is new
+// folder_info (photosdb/photosdb.py:574-593), in UUID order. The slice is new
 // on every call, but its values are shared by all calls: do not modify them.
 func (db *DB) FolderInfo() []*albuminfo.FolderInfo { return slices.Clone(db.topFolders) }
 
 // FolderTitles returns the titles of FolderInfo in its order, repeats kept:
-// osxphotos folders (photosdb/photosdb.py:591-610).
+// osxphotos folders (photosdb/photosdb.py:595-614).
 func (db *DB) FolderTitles() []string {
 	titles := make([]string, len(db.topFolders))
 	for i, f := range db.topFolders {
@@ -32,9 +32,9 @@ func (db *DB) Folder(uuid string) (*albuminfo.FolderInfo, bool) {
 }
 
 // FolderList returns the folders that enclose a, outermost first: osxphotos
-// AlbumInfo.folder_list (albuminfo.py:203-213, photosdb/photosdb.py:3091-3123);
+// AlbumInfo.folder_list (albuminfo.py:203-213, photosdb/photosdb.py:3136-3168);
 // nil for an album at the top level, for a shared album, which osxphotos never
-// puts in folders (photosdb/photosdb.py:1992-1994), and for a project, as
+// puts in folders (photosdb/photosdb.py:1996-1998), and for a project, as
 // osxphotos ProjectInfo.folder_list is always empty (albuminfo.py:385-392).
 func (db *DB) FolderList(a *albuminfo.AlbumInfo) []*albuminfo.FolderInfo {
 	_, project := db.Project(a.UUID)
@@ -65,7 +65,7 @@ func findFolder(folders []*albuminfo.FolderInfo, uuid string) (*albuminfo.Folder
 // end below the root folder or at a row without a parent: a cycle of folders
 // without albums would otherwise reach the caller as a graph of Subfolders
 // that never ends. Upstream fails on a missing parent of any row
-// (photosdb.py:1977-1980) and on a cycle only above an album.
+// (photosdb.py:1981-1984) and on a cycle only above an album.
 func loadFolders(rows []sqlread.Album, albums []*albuminfo.AlbumInfo) (all, top []*albuminfo.FolderInfo, err error) {
 	byPK := make(map[int64]sqlread.Album, len(rows))
 	var rootPK int64
@@ -108,7 +108,7 @@ func loadFolders(rows []sqlread.Album, albums []*albuminfo.AlbumInfo) (all, top 
 		if trashed(r) {
 			continue
 		}
-		if r.Parent.Valid && r.Parent.Int64 == rootPK { // photosdb.py:582-588
+		if r.Parent.Valid && r.Parent.Int64 == rootPK { // photosdb.py:586-592
 			top = append(top, all[i])
 		}
 		if parent, ok := findFolder(all, all[i].ParentUUID); ok { // albuminfo.py:483-489

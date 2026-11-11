@@ -20,8 +20,8 @@ func TestTemplateLines(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(got) != 511 || got["t001"] != "{name}" || got["t501"] != "{moment}" {
-			t.Errorf("got %d templates, t001 = %q, t501 = %q; want 511, {name}, {moment}", len(got), got["t001"], got["t501"])
+		if len(got) != 518 || got["t001"] != "{name}" || got["t501"] != "{moment}" {
+			t.Errorf("got %d templates, t001 = %q, t501 = %q; want 518, {name}, {moment}", len(got), got["t001"], got["t501"])
 		}
 	})
 	t.Run("comments and empty lines are skipped, the ids follow the lines", func(t *testing.T) {

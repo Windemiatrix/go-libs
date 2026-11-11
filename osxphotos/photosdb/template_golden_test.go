@@ -28,14 +28,17 @@ var pendingIDs = map[string][]string{}
 
 // vacuousIDs are supported ids whose value is "_" for every photo of the test
 // libraries. They are compared all the same; the list keeps a new vacuous id
-// from passing unnoticed. The test libraries hold no files, so uti_raw, read
-// from the RAW file, is None (t414, photoinfo.py:940-946); the photos compared
-// are outside the trash, so they have no date_trashed (t443) and intrash is
+// from passing unnoticed. The photos compared are outside the trash, so they have no date_trashed (t443) and intrash is
 // false (t454); no photo was shared through Messages, so syndicated and
-// saved_to_library are false (t473, t474, photoinfo.py:1569-1599); flagged is
+// saved_to_library are false (t473, t474, photoinfo.py:1567-1597); flagged is
 // false on Photos (t478, photoinfo.py:817-820); the search databases of the
-// test libraries hold no venue terms (t506, t507).
-var vacuousIDs = []string{"t014", "t042", "t056", "t096", "t097", "t099", "t144", "t209", "t240", "t340", "t343", "t414", "t443", "t454", "t473", "t474", "t478", "t506", "t507"}
+// test libraries hold no venue terms (t506, t507); the reference renders
+// outside an export, so filepath and export_dir are unset (t516-t518,
+// phototemplate.py:1037-1039).
+var vacuousIDs = []string{
+	"t014", "t042", "t056", "t096", "t097", "t099", "t144", "t209", "t240", "t340", "t343", "t443", "t454", "t473", "t474", "t478",
+	"t506", "t507", "t516", "t517", "t518",
+}
 
 type templateIDs struct {
 	parsed                       map[string]*template.Template

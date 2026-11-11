@@ -43,7 +43,7 @@ func fullScoreInfo() scoreinfo.ScoreInfo {
 	}
 }
 
-// A photo without a row: every score 0.0, not None (photoinfo.py:1507-1537).
+// A photo without a row: every score 0.0, not None (photoinfo.py:1505-1535).
 func noScoreRow() scoreinfo.ScoreInfo {
 	var s scoreinfo.ScoreInfo
 	fields := reflect.ValueOf(&s).Elem()
@@ -54,7 +54,7 @@ func noScoreRow() scoreinfo.ScoreInfo {
 }
 
 // The expected values are literals: ScoreInfo of a photo from the rows of
-// ZCOMPUTEDASSETATTRIBUTES (photoinfo.py:1461-1537,
+// ZCOMPUTEDASSETATTRIBUTES (photoinfo.py:1459-1535,
 // _photosdb_process_scoreinfo.py:132-162). The Z_PK of a row is never the ZASSET
 // of its photo.
 func TestLoadScores(t *testing.T) {

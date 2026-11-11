@@ -156,7 +156,7 @@ func collectionShareDB(t *testing.T, stmts ...string) string {
 func TestCollectionShares(t *testing.T) {
 	t.Parallel()
 
-	// Upstream reads the trashed state with bool(): NULL is outside the trash (photosdb.py:2906).
+	// Upstream reads the trashed state with bool(): NULL is outside the trash (photosdb.py:2951).
 	shareA := Album{
 		PK: 900001, UUID: "TEST-SHARE-A", Kind: KindSharedAlbum, Title: sql.NullString{String: "TEST-TITLE-A", Valid: true},
 		Trashed: sql.NullInt64{Valid: true}, SortKey: sql.NullInt64{Int64: 1, Valid: true}, SortAscending: sql.NullInt64{Valid: true},
@@ -167,7 +167,7 @@ func TestCollectionShares(t *testing.T) {
 	member := func(asset int64, share string, order int64) Member {
 		return Member{AssetPK: asset, AlbumUUID: share, Order: sql.NullInt64{Int64: order, Valid: true}, Kind: KindSharedAlbum}
 	}
-	// A NULL publish date sorts first, a tie goes by Z_PK (photosdb.py:2817-2832).
+	// A NULL publish date sorts first, a tie goes by Z_PK (photosdb.py:2862-2877).
 	wantMembers := []Member{member(10, "TEST-SHARE-B", 0), member(7, "TEST-SHARE-A", 1), member(5, "TEST-SHARE-A", 2), member(6, "TEST-SHARE-A", 3)}
 
 	named := sql.NullString{String: "TEST-NAME-1", Valid: true}
@@ -182,13 +182,13 @@ func TestCollectionShares(t *testing.T) {
 			a.Owner = named
 			b.OwnerComponents = unnamed
 		}},
-		// Photos 12 renames the column (photosdb.py:2845-2847); ZROLE is then not read.
+		// Photos 12 renames the column (photosdb.py:2890-2892); ZROLE is then not read.
 		{"ZCPLROLE", []string{
 			"ALTER TABLE ZSHAREPARTICIPANT ADD COLUMN ZCPLROLE INTEGER",
 			"UPDATE ZSHAREPARTICIPANT SET ZCPLROLE = 1 WHERE Z_PK IN (900002, 900005)",
 		}, func(_, b *Album) { b.OwnerComponents = unnamed }},
 		// A missing column gives no owner, as upstream checks the role column and
-		// ZNAMECOMPONENTS (photosdb.py:2846-2849; _photosdb_process_comments.py:158-161).
+		// ZNAMECOMPONENTS (photosdb.py:2891-2894; _photosdb_process_comments.py:158-161).
 		{"no role column", []string{"ALTER TABLE ZSHAREPARTICIPANT RENAME COLUMN ZROLE TO ZX"}, func(_, _ *Album) {}},
 		{"no ZHASHEDPERSONID", []string{"ALTER TABLE ZSHAREPARTICIPANT RENAME COLUMN ZHASHEDPERSONID TO ZX"}, func(_, _ *Album) {}},
 		{"no ZNAMECOMPONENTS", []string{"ALTER TABLE ZSHAREPARTICIPANT RENAME COLUMN ZNAMECOMPONENTS TO ZX"}, func(a, _ *Album) { a.Owner = named }},

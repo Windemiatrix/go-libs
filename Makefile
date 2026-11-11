@@ -87,7 +87,7 @@ golden-fetch: ## Download the reference data of the latest successful golden-reg
 # osxphotos_crash.log into the current directory.
 .PHONY: diff-local
 diff-local: ## Compare a library with osxphotos (absolute LIBRARY, OSXPHOTOS, optional REPORT)
-	$(if $(and $(LIBRARY),$(OSXPHOTOS)),,$(error diff-local: set LIBRARY=<absolute path of the .photoslibrary> and OSXPHOTOS=<path of osxphotos 0.77.2>))
+	$(if $(and $(LIBRARY),$(OSXPHOTOS)),,$(error diff-local: set LIBRARY=<absolute path of the .photoslibrary> and OSXPHOTOS=<path of osxphotos 0.78.1>))
 	@umask 077; set -e; tmp=$$(mktemp -d); export TMPDIR="$$tmp"; trap 'rm -rf "$$tmp"' EXIT; trap 'exit 1' INT TERM HUP; \
 	failed() { echo "diff-local: osxphotos failed; run it by hand to see why (its messages hold data of the library)" >&2; exit 1; }; \
 	(cd "$$tmp" && TZ=UTC LC_ALL=C "$$OSXPHOTOS" query --library "$$LIBRARY" --json --mute >query.json 2>>osxphotos.log) || failed; \

@@ -9,13 +9,13 @@ import (
 )
 
 // Comments returns the comments on p, a photo of a shared album: osxphotos
-// comments (photoinfo.py:1671-1677, _photosdb_process_comments.py:95-152),
+// comments (photoinfo.py:1669-1675, _photosdb_process_comments.py:95-152),
 // oldest first, those of one date in ZCLOUDSHAREDCOMMENT.Z_PK order; nil
 // without one. The slice is shared: do not modify it.
 func (db *DB) Comments(p *photoinfo.PhotoInfo) []photoinfo.CommentInfo { return db.comments[p.UUID] }
 
 // Likes returns the likes of p as Comments returns its comments: osxphotos
-// likes (photoinfo.py:1679-1685).
+// likes (photoinfo.py:1677-1683).
 func (db *DB) Likes(p *photoinfo.PhotoInfo) []photoinfo.LikeInfo { return db.likes[p.UUID] }
 
 // Upstream: _photosdb_process_comments.py:120-150; an unread date sorts as DEFAULT_DATETIME_LOCAL (photos_datetime.py:19-21).

@@ -6,9 +6,9 @@ import (
 )
 
 // CloudMetadata is one ZCLOUDMASTERMEDIAMETADATA row by the asset of its
-// master, the row of osxphotos cloud_metadata (photoinfo.py:1747-1753). Only a
+// master, the row of osxphotos cloud_metadata (photoinfo.py:1745-1751). Only a
 // blob is read: Data is nil for a text or a number, as plistlib.loads raises
-// on it upstream (photoinfo.py:1757-1759), and for a blob over 1 MiB. The rows
+// on it upstream (photoinfo.py:1755-1757), and for a blob over 1 MiB. The rows
 // of one PK share Data, so it is not to be modified.
 type CloudMetadata struct {
 	PK, AssetPK int64 // Z_PK, ZASSET.Z_PK of the asset whose ZMASTER is the master of the row

@@ -15,7 +15,7 @@ var strftimeLayouts = map[rune]string{
 	'B': "January", 'b': "Jan", 'A': "Monday", 'a': "Mon", 'p': "PM", 'I': "03",
 }
 
-// strftime is datetime.strftime (phototemplate.py:1762); upstream hands a
+// strftime is _strftime (phototemplate.py:1749-1769, 1791); upstream hands a
 // directive outside the table to the C library of the platform, so here it is
 // a construct not ported. naive is a datetime without tzinfo, as the
 // datetime.now() of {today} (910-912), whose %z and %Z are empty. limit is
@@ -45,6 +45,12 @@ func strftime(t time.Time, format string, naive bool, limit int) (string, error)
 			b = fmt.Appendf(b, "%02d", (yday+7-(wday+6)%7)/7)
 		case d == 'w':
 			b = strconv.AppendInt(b, int64(wday), 10)
+		case d == 's': // int(dt.timestamp()) cuts toward zero, Unix floors (1764)
+			sec := t.Unix()
+			if sec < 0 && t.Nanosecond() != 0 {
+				sec++
+			}
+			b = strconv.AppendInt(b, sec, 10)
 		case d == 'z' || d == 'Z':
 			if !naive {
 				b = append(b, zone(t, d)...)

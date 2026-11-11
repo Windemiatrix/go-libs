@@ -11,7 +11,8 @@ import (
 // methods or objects whose str is no value.
 var pathProperties = set("name stem suffix parent anchor root drive")
 
-// Checked before any value, as upstream does (phototemplate.py:1639, 1837-1843).
+// Checked before any value of the filter (phototemplate.py:1867-1874) and of a
+// set field (1642-1652).
 func pathProps(name string) ([]string, error) {
 	_, rest, dotted := strings.Cut(name, ".")
 	if !dotted {
@@ -28,7 +29,7 @@ func pathProps(name string) ([]string, error) {
 	return props, nil
 }
 
-// get_template_values_pathlib (phototemplate.py:1822-1855).
+// get_template_values_pathlib (phototemplate.py:1853-1886).
 func (s *rendering) paths(name string, vals []string) ([]string, error) {
 	props, err := pathProps(name)
 	if err != nil {
@@ -42,20 +43,21 @@ func (s *rendering) paths(name string, vals []string) ([]string, error) {
 	})
 }
 
-// _get_pathlib_value (phototemplate.py:1631-1654).
+// _get_pathlib_value (phototemplate.py:1634-1657); an unset path is no value,
+// whatever its properties (1037-1039).
 func (s *rendering) pathField(name, stem string) ([]string, error) {
-	props, err := pathProps(name)
-	if err != nil {
-		return nil, err
-	}
 	p := s.o.Filepath
 	if stem == "export_dir" {
 		p = s.o.ExportDir
 	}
-	if p == "" && props != nil { // pathlib.Path(None) raises TypeError (phototemplate.py:1643)
-		return nil, fmt.Errorf("%w: %s of an unset path", ErrRender, name)
+	if p == "" {
+		return nil, nil
 	}
-	vals := []string{cmp.Or(p, "None")} // str(None) (1641)
+	props, err := pathProps(name)
+	if err != nil {
+		return nil, err
+	}
+	vals := []string{p}
 	return vals, s.each(vals, func(v string) string {
 		if v = s.pathProperty(v, props); s.o.Quote {
 			return shellQuote(v)
@@ -65,8 +67,8 @@ func (s *rendering) pathField(name, stem string) ([]string, error) {
 }
 
 // Each property is read from a path again, as the field form does
-// (phototemplate.py:1643-1647); the filter form would fail on a string after
-// name, stem or suffix (1849-1850).
+// (phototemplate.py:1646-1650); the filter form would fail on a string after
+// name, stem or suffix (1880-1881).
 func (s *rendering) pathProperty(v string, props []string) string {
 	for _, prop := range props {
 		if s.bytesLeft -= len(v); s.bytesLeft < 0 { // every step splits v again, and each counts only the result

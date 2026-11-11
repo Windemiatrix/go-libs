@@ -9,7 +9,7 @@ import (
 )
 
 // Upstream writes asdict for every photo of Photos 5 and later, [] and "" for
-// one without terms (photoinfo.py:2229-2236; searchinfo.py:347-413), so null,
+// one without terms (photoinfo.py:2227-2234; searchinfo.py:347-413), so null,
 // {} and null for a key are errors of the form. The asdict of the zero
 // SearchInfo tells which of the 44 keys hold a list.
 func searchInfoRule(key string) rule {

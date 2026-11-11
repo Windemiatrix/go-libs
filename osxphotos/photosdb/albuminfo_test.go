@@ -48,7 +48,7 @@ func lookupTexts(t *testing.T, src *sql.DB, q string, args ...any) []string {
 }
 
 // COUNT DISTINCT with the join to the attributes equals upstream
-// len(_dbalbums_album[album]) (photosdb/photosdb.py:1873-1901) because the
+// len(_dbalbums_album[album]) (photosdb/photosdb.py:1877-1905) because the
 // composite primary key (album, asset) of the membership table rules out a
 // repeated member. Members without an attributes row are left out here and are
 // the AlbumCounts line of UPSTREAM.md.
@@ -337,7 +337,7 @@ func lookupDiverges(divs []golden.Divergence, library, uuid, key string) bool {
 }
 
 // The lists of the reference hold the user and the shared albums
-// (photoinfo.py:2022-2034). Messages carry UUIDs and keys, never values of
+// (photoinfo.py:2020-2032). Messages carry UUIDs and keys, never values of
 // the reference.
 func lookupCompare(t *testing.T, db *DB, o golden.Object, p *photoinfo.PhotoInfo, k lookupKey, library string, divs []golden.Divergence) int {
 	t.Helper()

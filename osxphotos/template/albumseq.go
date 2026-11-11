@@ -16,10 +16,10 @@ func (s *rendering) albumSeq(f *Field, stem string) ([]string, error) {
 	if !ok {
 		return nil, unsupported(ErrUnsupportedField, "album_seq")
 	}
-	// pathlib.Path(dest_path).name and _get_album_by_name (982, 1665-1670)
+	// pathlib.Path(dest_path).name and _get_album_by_name (982, 1668-1673)
 	name := s.pathProperty(s.o.DestPath, []string{"name"})
 	match := func(a AlbumRef) bool { return a.Title == name }
-	if stem == "folder_album_seq" { // _get_album_by_path (1673-1681)
+	if stem == "folder_album_seq" { // _get_album_by_path (1676-1684)
 		match = func(a AlbumRef) bool { return strings.HasSuffix(s.o.DestPath, albumPath(a)) }
 	}
 	i := slices.IndexFunc(v.Albums, match)
@@ -43,7 +43,7 @@ func (s *rendering) albumSeq(f *Field, stem string) ([]string, error) {
 }
 
 // _get_album_by_path builds the path as {folder_album} does, but with "/" and
-// sanitize_dirname whatever the options, and "/title" at the top level (1676-1678).
+// sanitize_dirname whatever the options, and "/title" at the top level (1679-1681).
 func albumPath(a AlbumRef) string {
 	folders := make([]string, len(a.Folders))
 	for i, folder := range a.Folders {

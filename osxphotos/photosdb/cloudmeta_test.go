@@ -58,7 +58,7 @@ func sameCloudMetadata(got, want map[string]any) bool {
 
 // The expectations are literals. The property list is read as plistlib.loads
 // reads it, and any failure is nil where upstream gives {}
-// (photoinfo.py:1757-1759).
+// (photoinfo.py:1755-1757).
 func TestCloudMetadataOf(t *testing.T) {
 	t.Parallel()
 
@@ -147,7 +147,7 @@ func TestCloudMetadataDamaged(t *testing.T) {
 		insert+"(900013, 900003, zeroblob(1048577))",
 		insert+"(900007, 900004, "+blob("older")+")",
 		insert+"(900014, 900004, NULL)",
-		// plistlib.loads of an integer or a str raises inside suppress(Exception): upstream gives {} (photoinfo.py:1757-1759).
+		// plistlib.loads of an integer or a str raises inside suppress(Exception): upstream gives {} (photoinfo.py:1755-1757).
 		insert+"(900015, 900005, 424242)",
 		insert+"(900016, 900006, '"+xml("text")+"')",
 		// A LEFT JOIN would hand Scan a NULL asset for the master that no asset has.

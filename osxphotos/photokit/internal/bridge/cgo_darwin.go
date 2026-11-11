@@ -6,9 +6,9 @@ package bridge
 // every user of the library. CI adds it through CGO_CFLAGS. CoreLocation holds
 // the CLLocation of an imported asset, which Photos declares but does not link.
 // ImageIO reads the properties of an image, as Quartz does upstream
-// (photokit.py:669-673). AVFoundation holds the AVURLAsset of a video, whose
-// URL upstream copies (photokit.py:901), and the AVAssetExportSession that
-// renders a slow-motion video (photokit.py:799-806).
+// (photokit.py:728-732). AVFoundation holds the AVURLAsset of a video, whose
+// URL upstream copies (photokit.py:968), and the AVAssetExportSession that
+// renders a slow-motion video (photokit.py:866-873).
 
 /*
 #cgo CFLAGS: -Wall -Wextra -fobjc-arc

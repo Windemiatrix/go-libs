@@ -7,21 +7,21 @@ import (
 	"strings"
 )
 
-// FILTER_VALUES without the arguments (phototemplate.py:278-318, 1058).
+// FILTER_VALUES without the arguments (phototemplate.py:278-318, 1061).
 var filterNames = set(`lower upper strip titlecase capitalize braces parens brackets shell_quote function split
 	autosplit chop chomp sort rsort reverse uniq join append prepend appends prepends remove slice sslice filter path int float`)
 
-// phototemplate.py:1065-1078.
+// phototemplate.py:1068-1081.
 var needsArgs = set("append appends chomp chop filter prepend prepends remove slice split sslice")
 
-// phototemplate.py:1080-1097.
+// phototemplate.py:1083-1100.
 var valueFilters = map[string]func(string) string{
 	"lower": pyLower, "upper": pyUpper, "capitalize": pyCapitalize, "titlecase": pyTitle, "shell_quote": shellQuote,
 	"strip": func(v string) string { return strings.TrimFunc(v, isSpace) }, "braces": func(v string) string { return "{" + v + "}" },
 	"parens": func(v string) string { return "(" + v + ")" }, "brackets": func(v string) string { return "[" + v + "]" },
 }
 
-// re.search of phototemplate.py:1050: "." of RE2, as of Python, stops at "\n".
+// re.search of phototemplate.py:1053: "." of RE2, as of Python, stops at "\n".
 var filterArgsRe = regexp.MustCompile(`\(.*\)`)
 
 // The bound on the values is not upstream's: split can make one value into many (phototemplate.py:669-670).
@@ -37,10 +37,10 @@ func (s *rendering) filters(names, vals []string) ([]string, error) {
 	return vals, nil
 }
 
-// get_filter_values (phototemplate.py:1046-1184). vals belong to the field
+// get_filter_values (phototemplate.py:1049-1187). vals belong to the field
 // being rendered, so a filter may change them in place.
 func (s *rendering) filter(name string, vals []string) ([]string, error) {
-	if strings.HasPrefix(name, "function:") { // runs Python code (1180-1181): its arguments are not even expanded
+	if strings.HasPrefix(name, "function:") { // runs Python code (1183-1184): its arguments are not even expanded
 		return nil, unsupported(ErrUnsupportedField, "filter function")
 	}
 	var arg string
@@ -101,7 +101,7 @@ func (s *rendering) filter(name string, vals []string) ([]string, error) {
 		if strings.HasPrefix(name, "path") {
 			return s.paths(name, vals)
 		}
-		return nil, nil // the name passes the check of upstream but matches no filter (1182-1183)
+		return nil, nil // the name passes the check of upstream but matches no filter (1185-1186)
 	}
 	return vals, nil
 }
@@ -131,7 +131,7 @@ func (s *rendering) split(name, sep string, vals []string) ([]string, error) {
 	var out []string
 	for _, v := range vals {
 		parts := strings.SplitSeq(v, sep)
-		if name == "autosplit" { // "," and ";" become spaces for str.split() (1120-1126)
+		if name == "autosplit" { // "," and ";" become spaces for str.split() (1123-1129)
 			parts = strings.FieldsFuncSeq(v, func(r rune) bool { return isSpace(r) || r == ',' || r == ';' })
 		}
 		for p := range parts {

@@ -6,21 +6,21 @@ import (
 	"strings"
 )
 
-// filter(x) and filter_predicate (phototemplate.py:1169-1171, 1186-1235), whose
+// filter(x) and filter_predicate (phototemplate.py:1172-1174, 1189-1238), whose
 // argument is read once. The operator may come from a variable: no error names it.
 func keep(vals []string, args string) ([]string, error) {
 	negate := false
 	op, rest := splitWord(args)
-	for ; op == "not"; op, rest = splitWord(rest) { // a loop, since "not not …" may be long (1193-1195)
+	for ; op == "not"; op, rest = splitWord(rest) { // a loop, since "not not …" may be long (1196-1198)
 		negate = !negate
 	}
 	alternatives := strings.Split(rest, "|")
 	out := vals[:0]
 	for _, v := range vals {
 		switch {
-		case op == "" || rest == "": // per value, as upstream: SyntaxError, or IndexError at args[0] or args[1] (1190-1198)
+		case op == "" || rest == "": // per value, as upstream: SyntaxError, or IndexError at args[0] or args[1] (1193-1201)
 			return nil, fmt.Errorf("%w: filter takes an operator and a value", ErrRender)
-		case !slices.Contains(operators, op): // the operators of a condition are those of upstream's predicate (1214-1233)
+		case !slices.Contains(operators, op): // the operators of a condition are those of upstream's predicate (1217-1236)
 			return nil, fmt.Errorf("%w: filter takes an unknown operator", ErrRender)
 		}
 		ok, err := matchAny(op, v, alternatives)
@@ -34,7 +34,7 @@ func keep(vals []string, args string) ([]string, error) {
 }
 
 // For one value and one alternative, the condition of a field is the test of
-// filter_predicate; any() stops at the first match (phototemplate.py:1204-1207).
+// filter_predicate; any() stops at the first match (phototemplate.py:1207-1210).
 func matchAny(op, v string, alternatives []string) (bool, error) {
 	for _, c := range alternatives {
 		if ok, err := condition(op, []string{v}, []string{c}); ok || err != nil {

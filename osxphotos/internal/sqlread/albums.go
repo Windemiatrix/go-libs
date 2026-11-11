@@ -6,7 +6,7 @@ import (
 	"slices"
 )
 
-// Values of ZGENERICALBUM.ZKIND (_constants.py:364-369).
+// Values of ZGENERICALBUM.ZKIND (_constants.py:387-392).
 const (
 	KindUserAlbum     = 2
 	KindSharedAlbum   = 1505
@@ -17,7 +17,7 @@ const (
 )
 
 // Album is one user album, shared album, import session, project, folder or
-// root folder of ZGENERICALBUM (photosdb.py:1904-1948), or a shared album of
+// root folder of ZGENERICALBUM (photosdb.py:1908-1952), or a shared album of
 // ZSHARE (CollectionShares).
 type Album struct {
 	PK                  int64           // Z_PK
@@ -77,7 +77,7 @@ func (d *DB) Albums(ctx context.Context) ([]Album, error) {
 // CollectionShares returns the CollectionShare rows of ZSHARE that have a ZUUID,
 // in Z_PK order, as albums of KindSharedAlbum whose PK is a ZSHARE.Z_PK, and
 // the memberships of their assets by ZCLOUDBATCHPUBLISHDATE, NULL first, then
-// Z_PK, numbered in Order. Both are nil without the entity (photosdb.py:1950-1956, 2787-2916).
+// Z_PK, numbered in Order. Both are nil without the entity (photosdb.py:1954-1960, 2832-2961).
 func (d *DB) CollectionShares(ctx context.Context) ([]Album, []Member, error) {
 	var ent sql.NullInt64
 	err := d.readRows(ctx, "collection share entity", "SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CollectionShare' LIMIT 1",
@@ -85,7 +85,7 @@ func (d *DB) CollectionShares(ctx context.Context) ([]Album, []Member, error) {
 	if err != nil || !ent.Valid {
 		return nil, nil, err
 	}
-	// Photos keeps no order of a shared album (photosdb.py:2815-2842).
+	// Photos keeps no order of a shared album (photosdb.py:2860-2887).
 	var members []Member
 	q := "SELECT a.Z_PK, s.ZUUID FROM ZASSET a JOIN ZSHARE s ON s.Z_PK = a.ZCOLLECTIONSHARE" +
 		" WHERE s.Z_ENT = ? AND s.ZUUID IS NOT NULL ORDER BY a.ZCLOUDBATCHPUBLISHDATE, a.Z_PK"
@@ -104,7 +104,7 @@ func (d *DB) CollectionShares(ctx context.Context) ([]Album, []Member, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	// Role 1 is the owner (_constants.py:372); of several, the highest Z_PK stands for the last row of upstream (photosdb.py:2844-2861).
+	// Role 1 is the owner (_constants.py:395); of several, the highest Z_PK stands for the last row of upstream (photosdb.py:2889-2906).
 	role, owner := "ZROLE", "NULL"
 	if slices.Contains(people.participantColumns, "ZCPLROLE") {
 		role = "ZCPLROLE"
@@ -113,7 +113,7 @@ func (d *DB) CollectionShares(ctx context.Context) ([]Album, []Member, error) {
 		owner = "(SELECT p.ZHASHEDPERSONID FROM ZSHAREPARTICIPANT p WHERE p.ZSHARE = s.Z_PK AND p." + role + " = 1 ORDER BY p.Z_PK DESC LIMIT 1)"
 	}
 	// Upstream reads the state with bool(): NULL is outside the trash, unlike
-	// in ZGENERICALBUM (photosdb.py:2906).
+	// in ZGENERICALBUM (photosdb.py:2951).
 	q = "SELECT s.Z_PK, s.ZUUID, s.ZTITLE, COALESCE(s.ZTRASHEDSTATE, 0), s.ZCREATIONDATE, s.ZSTARTDATE, s.ZENDDATE," +
 		" s.ZCUSTOMSORTKEY, s.ZCUSTOMSORTASCENDING, " + owner + " FROM ZSHARE s WHERE s.Z_ENT = ? AND s.ZUUID IS NOT NULL ORDER BY s.Z_PK"
 	var albums []Album

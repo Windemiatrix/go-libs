@@ -42,7 +42,10 @@ func TestForModelBoundaries(t *testing.T) {
 		{269999999, ""},
 		{270000000, "photos12"},
 		{270008501, "photos12"},
-		{270999999, "photos12"},
+		{270299999, "photos12"},
+		{270300000, ""},
+		{270300300, ""},
+		{270999999, ""},
 		{271000000, ""},
 	}
 	for _, tt := range tests {
@@ -69,7 +72,7 @@ func TestForModelBoundaries(t *testing.T) {
 	}
 }
 
-// The versions are the literals of photosdb_utils.py:138-159, written out
+// The versions are the literals of photosdb_utils.py:139-160, written out
 // independently of data.go.
 func TestPhotosVersion(t *testing.T) {
 	t.Parallel()
@@ -154,7 +157,7 @@ var (
 	keywordPattern     = regexp.MustCompile(`^Z_[0-9]+KEYWORDS$`)
 )
 
-// Written out independently of data.go (_constants.py:129-264): the
+// Written out independently of data.go (_constants.py:134-269): the
 // fingerprint and adjustments columns change with photos10, the face columns
 // with photos9.
 var eraColumns = map[string][4]string{ // fingerprint, adjustments, face person, face asset
@@ -214,7 +217,7 @@ func names(s Schema) map[string]string {
 }
 
 // Written out independently of data.go: ZSHAREPARTICIPANT_ZXX_SHARE of
-// _constants.py:144, 161, 178, 212, 229, 246, 263.
+// _constants.py:149, 166, 183, 217, 234, 251, 268.
 func TestParticipantShareColumn(t *testing.T) {
 	t.Parallel()
 

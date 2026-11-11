@@ -66,7 +66,7 @@ func (a *keyedArchive) array(ref any) ([]any, bool) {
 
 // placeOf decodes the archive of ZREVERSELOCATIONDATA as PlaceInfo5 does
 // (placeinfo.py:77-334, 573-686): nil where upstream raises and gives None
-// (photoinfo.py:1349-1358). Unlike upstream, an area that is not a number
+// (photoinfo.py:1347-1356). Unlike upstream, an area that is not a number
 // gives nil too, where upstream drops the places of that type when it cannot
 // sort them, and so do more than maxBinaryObjects places or more than
 // maxPlistSize bytes of their names.

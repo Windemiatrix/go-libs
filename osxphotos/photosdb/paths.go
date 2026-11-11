@@ -21,7 +21,7 @@ import (
 const (
 	originalsDir = "originals"
 
-	// _constants.py:352.
+	// _constants.py:375.
 	sharedDerivativesDir = "scopes/cloudsharing/resources/derivatives/masters"
 
 	thumbSuffix = "_4_5005_c.jpeg"
@@ -59,7 +59,7 @@ type dirNames struct {
 	names, folded []string
 }
 
-// set follows photoinfo.py:189-263, 514-572, 1051-1076. Shared photos and
+// set follows photoinfo.py:189-263, 514-572, 1049-1074. Shared photos and
 // "Shared with you" photos not saved to the library have no Path and
 // PathLive here; upstream looks for them elsewhere (photoinfo.py:211-225),
 // but not for their RAW file (photoinfo.py:532-540). The shared moment
@@ -84,7 +84,7 @@ func (o *libraryFiles) set(p *photoinfo.PhotoInfo, dir string) {
 	}
 }
 
-// setLibraryFiles follows photoinfo.py:323-382, 495-512, 743-781, 1172-1274.
+// setLibraryFiles follows photoinfo.py:323-382, 495-512, 743-781, 1170-1272.
 // The files do not depend on IsMissing, as upstream.
 func (o *libraryFiles) setLibraryFiles(p *photoinfo.PhotoInfo) {
 	// A "/" would name a file of another directory.
@@ -117,7 +117,7 @@ type derivative struct {
 	size int64
 }
 
-// derivatives follows photoinfo.py:1172-1229, 1260-1274 and utils.py:734-779.
+// derivatives follows photoinfo.py:1170-1227, 1258-1272 and utils.py:734-779.
 // Upstream lists a directory in the order of the file system, so the order of
 // files of one size is that of the names here.
 func (o *libraryFiles) derivatives(p *photoinfo.PhotoInfo, x string) []string {
@@ -139,7 +139,7 @@ func (o *libraryFiles) derivatives(p *photoinfo.PhotoInfo, x string) []string {
 		out = append(out, thumb)
 	}
 	// A photo's first preview is an image even when the video of a Live photo
-	// is larger (photoinfo.py:1221-1227; the upstream comment states the
+	// is larger (photoinfo.py:1219-1225; the upstream comment states the
 	// opposite of its code).
 	if p.IsPhoto && len(out) > 1 && (strings.HasSuffix(out[0], ".mov") || strings.HasSuffix(out[0], ".MOV")) {
 		out[0], out[1] = out[1], out[0]

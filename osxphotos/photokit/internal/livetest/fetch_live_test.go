@@ -205,7 +205,7 @@ func untrashedMarkerPhotos(t *testing.T) []*photoinfo.PhotoInfo {
 }
 
 // Upstream fetches with the default PHFetchOptions, which leave hidden assets
-// out (photokit.py:1234-1237).
+// out (photokit.py:1328-1331).
 func visibleMarkerPhotos(t *testing.T) []*photoinfo.PhotoInfo {
 	t.Helper()
 	photos := filter(untrashedMarkerPhotos(t), func(p *photoinfo.PhotoInfo) bool { return !p.Hidden })

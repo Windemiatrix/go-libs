@@ -1,8 +1,8 @@
 package personinfo
 
-// AsDict is asdict of PersonInfo (personinfo.py:110-123). uuid, displayname
+// AsDict is asdict of PersonInfo (personinfo.py:112-125). uuid, displayname
 // and keyphoto are nil for "" (None upstream); name is as held, never None
-// upstream (photosdb.py:1792-1796).
+// upstream (photosdb.py:1796-1800).
 func (p PersonInfo) AsDict() map[string]any {
 	return map[string]any{
 		"uuid": strOrNil(p.UUID), "name": p.Name, "displayname": strOrNil(p.DisplayName), "keyface": p.KeyFace,
@@ -11,17 +11,18 @@ func (p PersonInfo) AsDict() map[string]any {
 	}
 }
 
-// AsDict is asdict of FaceInfo (personinfo.py:420-455) for a photo of width,
+// AsDict is asdict of FaceInfo (personinfo.py:455-496) for a photo of width,
 // height and orientation, as Center takes them.
 // center is a pair of int, face_rect two pairs of float64.
 // mwg_rs_area and mpri_reg_rect are maps of x, y, h and w, integer zeros for a
-// photo of no width or height (247-248, 278-279).
+// photo of no width or height (273-274, 308-309).
 // has_smile, manual and intrash are 1 or 0, the integer column as upstream
 // keeps it, 0 for NULL where upstream has None.
+// detection_type and body_* are 0 for NULL, where upstream has None.
 // face_type is nil, pitch and yaw 0, as upstream for Photos 5 and later
-// (_photosdb_process_faceinfo.py:301, 314-317).
+// (_photosdb_process_faceinfo.py:323, 341-344).
 // roll is 0.0 for a NULL ZROLL, where upstream has the integer 0
-// (personinfo.py:313).
+// (personinfo.py:348).
 // uuid, name and asset_uuid are nil for "" (None upstream).
 func (f FaceInfo) AsDict(width, height, orientation int) map[string]any {
 	cx, cy := f.Center(width, height, orientation)
@@ -35,7 +36,8 @@ func (f FaceInfo) AsDict(width, height, orientation int) map[string]any {
 		"face_type": nil, "age_type": f.AgeType, "eye_makeup_type": f.EyeMakeupType, "eye_state": f.EyeState,
 		"facial_hair_type": f.FacialHairType, "gender_type": f.GenderType, "glasses_type": f.GlassesType,
 		"hair_color_type": f.HairColorType, "intrash": bit(f.InTrash), "lip_makeup_type": f.LipMakeupType,
-		"smile_type": f.SmileType,
+		"smile_type": f.SmileType, "detection_type": f.DetectionType, "is_pet": f.IsPet(),
+		"body_center_x": f.BodyCenterX, "body_center_y": f.BodyCenterY, "body_width": f.BodyWidth, "body_height": f.BodyHeight,
 	}
 }
 

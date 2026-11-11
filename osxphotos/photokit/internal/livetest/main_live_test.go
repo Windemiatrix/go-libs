@@ -36,7 +36,7 @@ var importedAssets []string
 // frames are those outside the trash, where PhotoKit finds none. unpicked is
 // a frame that FetchBurst leaves out without all: one with a pick type (0 is
 // a single image with a burst UUID) that is neither selected, the key photo
-// nor the default pick (photosdb.py:3347-3351, _constants.py:676-681).
+// nor the default pick (photosdb.py:3392-3396, _constants.py:699-704).
 type burstFrames struct {
 	frames   int
 	unpicked bool

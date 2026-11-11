@@ -58,15 +58,15 @@ func (db *DB) Info() Info { return db.info }
 
 // Photos returns every photo, those in the trash and the unselected burst
 // frames included, in the order of osxphotos (query.Sort). Query(query.Options{})
-// makes the selection of osxphotos photos() (photosdb/photosdb.py:3269-3276,
-// 3346-3358). The slice is new on every call, but its values are shared by all
+// makes the selection of osxphotos photos() (photosdb/photosdb.py:3314-3321,
+// 3391-3403). The slice is new on every call, but its values are shared by all
 // calls: do not modify them.
 func (db *DB) Photos() []*photoinfo.PhotoInfo {
 	return query.Sort(db.photos)
 }
 
 // Photo returns the photo with this UUID, without any filter
-// (photosdb.py:3364-3376): trashed photos and unselected burst frames are
+// (photosdb.py:3409-3421): trashed photos and unselected burst frames are
 // found as well. The value is shared: do not modify it.
 func (db *DB) Photo(uuid string) (*photoinfo.PhotoInfo, bool) {
 	p, ok := db.byUUID[uuid]

@@ -23,7 +23,7 @@ func StemKey(name string) string {
 // not split again (430-435), so "a." gives "a. (1)" even when a.jpg is in the
 // directory. count 0 tries the plain name first (430). An extension never
 // matters: foo.png in taken blocks foo.jpeg (426-433;
-// photoexporter.py:607-610). The second result is the N used, 0 for the
+// photoexporter.py:611-614). The second result is the N used, 0 for the
 // plain name. taken is finite, so the loop ends after at most len(taken)+1
 // candidates; a nil taken is an empty directory. The result is in NFC and is
 // name as given apart from the count: name comes from outside, and the caller

@@ -98,7 +98,7 @@ func selectRules(keys []string) (selected []rule, names []string, err error) {
 
 // Compare compares lib with ref on keys (each in Keys). The sets of objects
 // (key uuid) are compared always, whether or not keys lists uuid; the Go set
-// is what upstream photos() returns (photosdb/photosdb.py:3346-3360). The Go
+// is what upstream photos() returns (photosdb/photosdb.py:3391-3405). The Go
 // value of a key is that of lib.Dicts. An error is a problem of the input,
 // not a difference: an unknown key, a reference value of the wrong shape, a
 // key compared that the dictionary of a photo of the Go set lacks, a UUID

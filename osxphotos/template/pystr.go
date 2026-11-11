@@ -24,7 +24,7 @@ func capitalize(title, lower cases.Caser, s string) string {
 	return title.String(s[:n]) + strings.TrimPrefix(lower.String(s), lower.String(s[:n]))
 }
 
-// str.title (phototemplate.py:1088-1089); UPSTREAM.md has its difference at a final sigma.
+// str.title (phototemplate.py:1091-1092); UPSTREAM.md has its difference at a final sigma.
 func pyTitle(s string) string {
 	title, lower := cases.Title(language.Und), cases.Lower(language.Und)
 	var b strings.Builder

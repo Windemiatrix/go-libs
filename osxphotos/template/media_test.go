@@ -26,12 +26,12 @@ func TestParseDefaultKV(t *testing.T) {
 		// t021
 		{[]string{"video=vid\U000000e9o;time_lapse=vid\U000000e9o_acc\U000000e9l\U000000e9r\U000000e9e"},
 			plus("video", "vid\U000000e9o", "time_lapse", "vid\U000000e9o_acc\U000000e9l\U000000e9r\U000000e9e")},
-		// t023: the ValueError of "nonsense" and "a=b=c" is passed (phototemplate.py:1600-1605)
+		// t023: the ValueError of "nonsense" and "a=b=c" is passed (phototemplate.py:1603-1608)
 		{[]string{" video = film ;nonsense;a=b=c"}, plus("video", "film")},
 		{[]string{"\U0000001cvideo\t=\U0000001ffilm"}, plus("video", "film")},
 		{[]string{"x=y"}, plus("x", "y")},
 		{[]string{"video="}, plus("video", "")},
-		// default[0] only (1597)
+		// default[0] only (1600)
 		{[]string{"photo=a", "video=b"}, plus("photo", "a")},
 	} {
 		got := parseDefaultKV(tt.def, mediaTypeDefaults)

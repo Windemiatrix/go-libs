@@ -10,11 +10,11 @@ import (
 	"github.com/Windemiatrix/go-libs/osxphotos/internal/sqlread"
 )
 
-// One root folder is required (photosdb.py:1958-1967). An empty or repeated
+// One root folder is required (photosdb.py:1962-1971). An empty or repeated
 // ZUUID is an error, as for assets in load: it would merge the members of two
 // albums. So is a chain of parents that does not end, a parent missing from
-// the rows (photosdb.py:1977-1980) or a cycle, where the recursion of
-// upstream fails (photosdb.py:2944-2965).
+// the rows (photosdb.py:1981-1984) or a cycle, where the recursion of
+// upstream fails (photosdb.py:2989-3010).
 func loadAlbums(rows []sqlread.Album, albumPhotos map[string][]string) ([]*albuminfo.AlbumInfo, error) {
 	byPK := make(map[int64]sqlread.Album, len(rows))
 	seen := make(map[string]bool, len(rows))
@@ -41,7 +41,7 @@ func loadAlbums(rows []sqlread.Album, albumPhotos map[string][]string) ([]*album
 	var out []*albuminfo.AlbumInfo
 	badParents := 0
 	for _, r := range rows {
-		if r.Kind != sqlread.KindUserAlbum { // photosdb.py:612-622, 3187-3209
+		if r.Kind != sqlread.KindUserAlbum { // photosdb.py:616-626, 3232-3254
 			continue
 		}
 		names, uuids, ok := folderChain(r, byPK, rootPK)
@@ -79,7 +79,7 @@ func albumOf(r sqlread.Album, albumPhotos map[string][]string) *albuminfo.AlbumI
 	}
 }
 
-// Upstream: photosdb.py:1987-1991, 2944-2965, 3013-3050, 3091-3123. A chain
+// Upstream: photosdb.py:1991-1995, 2989-3010, 3058-3095, 3136-3168. A chain
 // with more steps than there are rows is a cycle.
 func folderChain(album sqlread.Album, byPK map[int64]sqlread.Album, rootPK int64) (names, uuids []string, ok bool) {
 	parent := album.Parent
@@ -143,7 +143,7 @@ func libraryListOrder(r sqlread.Album, byPK map[int64]sqlread.Album, rootPK int6
 }
 
 // trashed is one rule for albums and folders: Python None != 0 holds, so a
-// NULL state counts as trashed (photosdb.py:1936).
+// NULL state counts as trashed (photosdb.py:1940).
 func trashed(r sqlread.Album) bool { return !r.Trashed.Valid || r.Trashed.Int64 != 0 }
 
 // Upstream: _photosdb_process_comments.py:172-187.

@@ -275,7 +275,7 @@ func TestPaths(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, p := range db.Photos() {
-			if p.Path != "" || p.PathLive != "" || p.PathRaw != "" || p.UTIRaw != "" {
+			if p.Path != "" || p.PathLive != "" || p.PathRaw != "" {
 				t.Fatalf("%s: paths %q, %q, %q without originals", p.UUID, p.Path, p.PathLive, p.PathRaw)
 			}
 		}

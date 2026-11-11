@@ -75,6 +75,36 @@ func TestStrftime(t *testing.T) {
 	}
 }
 
+// test_template_strftime.py of osxphotos 0.78.1: the epoch of the date in its
+// own zone, whatever the zone of the computer.
+func TestStrftimeEpoch(t *testing.T) {
+	t.Parallel()
+	pacific := time.Date(2022, 5, 24, 14, 20, 0, 0, time.FixedZone("", -7*3600))
+	for _, tt := range []struct {
+		t      time.Time
+		format string
+		want   string
+	}{
+		{pacific, "%s", "1653427200"},
+		{pacific.In(time.FixedZone("IST", 19800)), "%s", "1653427200"},
+		{pacific, "%Y-%m-%d_%s", "2022-05-24_1653427200"},
+		{pacific, "%%s", "%s"},
+		{pacific, "%%%s", "%1653427200"},
+		{pacific, "%%s_%s", "%s_1653427200"},
+		// str(int(dt.timestamp())): int cuts toward zero
+		{time.Date(1969, 12, 31, 23, 59, 59, 500000000, time.UTC), "%s", "0"},
+		{time.Date(1969, 12, 31, 23, 59, 58, 1000, time.UTC), "%s", "-1"},
+		{time.Date(1969, 12, 31, 23, 59, 58, 0, time.UTC), "%s", "-2"},
+		{time.Date(1969, 12, 31, 23, 59, 57, 500000000, time.UTC), "%s", "-2"},
+		{time.Date(1970, 1, 1, 0, 0, 0, 500000000, time.UTC), "%s", "0"},
+		{time.Date(2020, 1, 1, 0, 0, 0, 999999000, time.UTC), "%s", "1577836800"},
+	} {
+		if got, err := strftime(tt.t, tt.format, false, maxRenderBytes); err != nil || got != tt.want {
+			t.Errorf("strftime(%v, %q) = %q, %v; want %q", tt.t, tt.format, got, err, tt.want)
+		}
+	}
+}
+
 func TestRenderStrftime(t *testing.T) {
 	t.Parallel()
 	created := time.Date(2020, 3, 22, 14, 5, 9, 123456000, time.FixedZone("", 7200))
@@ -97,7 +127,7 @@ func TestRenderStrftime(t *testing.T) {
 		{"t051 without modified", "{modified.dow}", p(nil), o, one("Sunday"), nil},
 		{"today.dow", "{today.dow}", fakePhoto{}, monday, one("Monday"), nil},
 		{"today.month", "{today.month}-{today.mon}", fakePhoto{}, monday, one("January-Jan"), nil},
-		// phototemplate.py:1758-1762: the format is the first value of the default
+		// phototemplate.py:1787-1791: the format is the first value of the default
 		{"t042", "{created.strftime}", p(nil), o, one("_"), nil},
 		{"t056", "{modified.strftime}", p(&modified), o, one("_"), nil},
 		{"t057", "{created.strftime,%Y-%m-%d-%H%M%S}", p(nil), o, one("2020-03-22-140509"), nil},
@@ -115,6 +145,12 @@ func TestRenderStrftime(t *testing.T) {
 		{"t069", "{modified.strftime,%Y-%m-%d-%H%M%S}", p(&modified), o, one("2021-11-25-060504"), nil},
 		{"t069 without modified", "{modified.strftime,%Y}", p(nil), o, one("2020"), nil},
 		{"t071", "{modified.strftime,%z %Z}", p(&modified), o, one("+0000 UTC"), nil},
+		{"epoch", "{created.strftime,%s}", p(nil), o, one("1584878709"), nil},
+		{"year and epoch", "{created.strftime,%Y_%s}", p(nil), o, one("2020_1584878709"), nil},
+		{"escaped epoch", "{created.strftime,%%s}", p(nil), o, one("%s"), nil},
+		{"modified epoch", "{modified.strftime,%s}", p(&modified), o, one("1637820304"), nil},
+		{"modified epoch without modified", "{modified.strftime,%s}", p(nil), o, one("1584878709"), nil},
+		{"today epoch", "{today.strftime,%s}", fakePhoto{}, today, one("1584878709"), nil},
 		{"today", "{today.strftime,%Y-%U}", fakePhoto{}, today, one("2020-12"), nil},
 		// self.today is a naive datetime.now() (phototemplate.py:910-912)
 		{"today without a zone", "{today.strftime,%z %Z}", fakePhoto{}, today, one(" "), nil},

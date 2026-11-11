@@ -8,7 +8,7 @@ import (
 )
 
 // Query returns the photos that osxphotos PhotosDB.query(options) returns
-// (photosdb/photosdb.py:3396-3402): query.ApplyCatalog over every photo, user
+// (photosdb/photosdb.py:3441-3447): query.ApplyCatalog over every photo, user
 // album and shared album of the library, as upstream reads the albums of a
 // photo (photoquery.py:671-674, 948), with the photos of Comments and Likes,
 // the fields of a photo that Regex renders (DB.Fields) and the labels that
@@ -23,7 +23,7 @@ func (db *DB) Query(o query.Options) []*photoinfo.PhotoInfo {
 
 // Duplicates is query.Duplicates over every photo of the library, those in
 // the trash and the unselected burst frames included, in ZUUID order, as
-// osxphotos PhotoInfo.duplicates (photoinfo.py:1426-1439); it reads the whole
+// osxphotos PhotoInfo.duplicates (photoinfo.py:1424-1437); it reads the whole
 // catalog on every call. The values are shared: do not modify them.
 func (db *DB) Duplicates(p *photoinfo.PhotoInfo) []*photoinfo.PhotoInfo {
 	return query.Duplicates(p, db.photos)

@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// values_to_int and values_to_float (phototemplate.py:1725-1740) drop a value
+// values_to_int and values_to_float (phototemplate.py:1728-1743) drop a value
 // that float() does not take, and int drops NaN, a ValueError too.
 func (s *rendering) numbers(name string, vals []string) ([]string, error) {
 	out := vals[:0]
@@ -35,7 +35,7 @@ func (s *rendering) numbers(name string, vals []string) ([]string, error) {
 }
 
 // FloatString formats f as str() of a Python float, the way the filter float
-// renders a value (phototemplate.py:1736-1740): the shortest digits that read
+// renders a value (phototemplate.py:1739-1743): the shortest digits that read
 // back as f, an exponent below 1e-4 and from 1e16, ".0" after a whole number,
 // "inf", "-inf" and "nan".
 func FloatString(f float64) string {

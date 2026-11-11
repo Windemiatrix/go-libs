@@ -68,7 +68,7 @@ func readSearch(ctx context.Context, path, tmp string, read searchReader) (terms
 }
 
 // SearchInfoOf returns the search terms of p, osxphotos search_info
-// (photoinfo.py:1539-1552; searchinfo.py): the records of psi.sqlite, or of
+// (photoinfo.py:1537-1550; searchinfo.py): the records of psi.sqlite, or of
 // leo.sqlite when psi.sqlite is missing or empty, read once in Open
 // (photosdb/_photosdb_process_searchinfo.py:126-181). A photo without
 // records, and every photo of a library without a search database, has a zero

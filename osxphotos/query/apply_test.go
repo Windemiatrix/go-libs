@@ -68,7 +68,7 @@ func TestApplyZero(t *testing.T) {
 		burst("pick4", 4, 4),
 		{UUID: "no kind", Date: day(5)},
 		burst("pick16", 16, 8),
-		// photosdb.py:3347 looks at the pick type of burst frames only.
+		// photosdb.py:3392 looks at the pick type of burst frames only.
 		{UUID: "not burst", IsPhoto: true, BurstPickType: 2, Date: day(10)},
 	}
 	want := []string{"photo", "movie", "pick0", "pick8", "pick16", "pick24", "not burst"}
@@ -90,7 +90,7 @@ func TestApplySelection(t *testing.T) {
 		{UUID: "A", IsPhoto: true, Date: at("2020-01-01T00:00:00Z").In(minus5)},
 		{UUID: "D", IsMovie: true, InTrash: true, Date: at("2022-01-01T00:00:00Z")},
 		{UUID: "C", IsPhoto: true, InTrash: true, Date: at("2019-01-01T00:00:00Z")},
-		// In the trash, a burst frame that photos() leaves out (photosdb.py:3347-3351):
+		// In the trash, a burst frame that photos() leaves out (photosdb.py:3392-3396):
 		// the deleted selections do not bring it back.
 		{UUID: "E", IsPhoto: true, InTrash: true, Burst: true, BurstPickType: 2, Date: at("2018-01-01T00:00:00Z")},
 		{UUID: "G", IsPhoto: true, InTrash: true, Burst: true, BurstPickType: photoinfo.BurstPickSelected, Date: at("2018-06-01T00:00:00Z")},

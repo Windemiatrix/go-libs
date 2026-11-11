@@ -12,7 +12,7 @@ type Options struct {
 
 	// LibraryPath is the library whose originals directory the paths of photos
 	// come from, when the database is read from elsewhere (library_path,
-	// photosdb/photosdb.py:456-458). It is used as given and must exist; ""
+	// photosdb/photosdb.py:460-462). It is used as given and must exist; ""
 	// is the library of the database. A TempDir inside it is refused as well.
 	LibraryPath string
 }

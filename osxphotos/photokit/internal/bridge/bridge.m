@@ -41,7 +41,7 @@ _Static_assert(PHAssetResourceTypePairedVideo == 9, "PHAssetResourceTypePairedVi
 _Static_assert(PHAssetResourceTypeFullSizePairedVideo == 10, "PHAssetResourceTypeFullSizePairedVideo");
 _Static_assert(PHAssetResourceTypeAdjustmentBasePairedVideo == 11, "PHAssetResourceTypeAdjustmentBasePairedVideo");
 _Static_assert(PHAssetResourceTypeAdjustmentBaseVideo == 12, "PHAssetResourceTypeAdjustmentBaseVideo");
-// photokit.Version, which upstream takes from PhotoKit (photokit.py:77-85).
+// photokit.Version, which upstream takes from PhotoKit (photokit.py:79-87).
 _Static_assert(PHImageRequestOptionsVersionCurrent == 0, "PHImageRequestOptionsVersionCurrent");
 _Static_assert(PHImageRequestOptionsVersionUnadjusted == 1, "PHImageRequestOptionsVersionUnadjusted");
 _Static_assert(PHImageRequestOptionsVersionOriginal == 2, "PHImageRequestOptionsVersionOriginal");
@@ -95,7 +95,7 @@ pk_result pk_authorization_status(int *status) {
 }
 
 // One request with requestAuthorizationForAccessLevel:handler:, which replaced
-// the requestAuthorization: that upstream calls (photokit.py:139-160).
+// the requestAuthorization: that upstream calls (photokit.py:141-162).
 pk_result pk_request_authorization(int64_t timeout_ms, int *status) {
 	pk_result r = {PK_OK, NULL};
 	@autoreleasepool {
@@ -257,7 +257,7 @@ void pk_free_resources(pk_resource *resources, int count) {
 	free(resources);
 }
 
-// _request_resource_data (photokit.py:693-736). The handlers may run on queues
+// _request_resource_data (photokit.py:752-803). The handlers may run on queues
 // of PhotoKit after this function has returned, so they hold only handle, a
 // number: C keeps no pointer of Go. The request is the last call of the @try:
 // after an exception no handler runs, and Go forgets the handle.
@@ -270,7 +270,7 @@ pk_result pk_request_resource(const char *local_id, int64_t type, uintptr_t hand
 					continue;
 				}
 				PHAssetResourceRequestOptions *options = [[PHAssetResourceRequestOptions alloc] init];
-				// An original kept only in iCloud is downloaded (photokit.py:705).
+				// An original kept only in iCloud is downloaded (photokit.py:764).
 				options.networkAccessAllowed = YES;
 				// extension: not in osxphotos; it feeds ExportOptions.Progress.
 				options.progressHandler = ^(double progress) {
@@ -315,7 +315,7 @@ void pk_cancel_resource(int32_t request_id) {
 	}
 }
 
-// The dictionary that upstream keeps (photokit.py:669-673) crosses to Go as a
+// The dictionary that upstream keeps (photokit.py:728-732) crosses to Go as a
 // binary property list; nil when ImageIO reads none or it holds a value that a
 // property list cannot.
 static NSData *pk_image_properties(NSData *data) {
@@ -343,7 +343,7 @@ static void pk_image(PHAsset *asset, PHImageRequestOptions *options, uintptr_t h
 								code = error.code;
 								domain = error.domain ?: @"";
 							} else if (data.length > 0) {
-								// No constant names the key; upstream reads it so too (photokit.py:502, 511).
+								// No constant names the key; upstream reads it so too (photokit.py:534, 543).
 								NSURL *url = info[@"PHImageFileURLKey"];
 								// metadata.bytes is an inner pointer: ARC may free metadata after its last use, before pk_go_image reads them.
 								NS_VALID_UNTIL_END_OF_SCOPE NSData *metadata = pk_image_properties(data);
@@ -372,7 +372,7 @@ static void pk_image(PHAsset *asset, PHImageRequestOptions *options, uintptr_t h
 	}
 }
 
-// _request_image_data (photokit.py:625-691) is synchronous (654): the handler of
+// _request_image_data (photokit.py:684-750) is synchronous (713): the handler of
 // an asynchronous image request may run on the main queue, which nothing runs
 // in a Go process. The request runs on a global queue and holds its thread
 // until PhotoKit returns, so that Go waits as for pk_request_resource.
@@ -383,11 +383,11 @@ pk_result pk_request_image(const char *local_id, int64_t version, uintptr_t hand
 			PHAsset *asset = pk_asset_of(local_id);
 			if (asset != nil) {
 				PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
-				// An original kept only in iCloud is downloaded (photokit.py:653).
+				// An original kept only in iCloud is downloaded (photokit.py:712).
 				options.networkAccessAllowed = YES;
 				options.synchronous = YES;
 				options.version = (PHImageRequestOptionsVersion)version;
-				// One result, not degraded (photokit.py:656-657).
+				// One result, not degraded (photokit.py:715-716).
 				options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
 				// extension: not in osxphotos; it feeds ExportOptions.Progress and
 				// stops the request, which has no id for cancelImageRequest:.
@@ -420,10 +420,10 @@ static NSMutableDictionary<NSNumber *, AVAssetExportSession *> *pk_sessions(void
 	return sessions;
 }
 
-// SlowMoVideoExporter (photokit.py:775-841). Upstream polls the status
-// (816-829), as it found no other way to wait; here the completion handler
+// SlowMoVideoExporter (photokit.py:842-907). Upstream polls the status
+// (883-896), as it found no other way to wait; here the completion handler
 // ends the wait, as for every request of the bridge. Upstream takes any status
-// but Completed for an error (820-828): a canceled session is one, which Go
+// but Completed for an error (887-895): a canceled session is one, which Go
 // reports as the cancel. The cancel of Go is read, and the session registered
 // and started, under the lock of pk_cancel_video: a Cancel before finds no
 // session, one after finds a started session, and a completion that comes at
@@ -464,13 +464,13 @@ static BOOL pk_render(AVComposition *video, NSURL *url, uintptr_t handle) {
 	return YES;
 }
 
-// _request_video_data (photokit.py:967-1015) waits on an event; here Go waits,
+// _request_video_data (photokit.py:1034-1087) waits on an event; here Go waits,
 // as for pk_request_resource. PhotoKit calls the handler on a serial queue of
 // its own, not the main queue, so unlike pk_request_image the request is
 // asynchronous and has an id for cancelImageRequest:. An exception must not
 // leave the handler, which runs outside this @try. The description of an
 // NSError is left out, as in pk_request_resource. _export_slow_mo requests the
-// AVAsset of a render once too (photokit.py:937); url holds the bytes of
+// AVAsset of a render once too (photokit.py:1004); url holds the bytes of
 // render_path, which Go frees after the return.
 pk_result pk_request_video(const char *local_id, int64_t version, const char *render_path, uintptr_t handle, int32_t *request_id) {
 	pk_result r = {PK_NO_RESOURCE, NULL};
@@ -481,7 +481,7 @@ pk_result pk_request_video(const char *local_id, int64_t version, const char *re
 				BOOL render = render_path != NULL;
 				NSURL *url = render ? [NSURL fileURLWithFileSystemRepresentation:render_path isDirectory:NO relativeToURL:nil] : nil;
 				PHVideoRequestOptions *options = [[PHVideoRequestOptions alloc] init];
-				// A video kept only in iCloud is downloaded (photokit.py:988).
+				// A video kept only in iCloud is downloaded (photokit.py:1055).
 				options.networkAccessAllowed = YES;
 				options.version = (PHVideoRequestOptionsVersion)version;
 				options.deliveryMode = PHVideoRequestOptionsDeliveryModeHighQualityFormat;
@@ -499,14 +499,14 @@ pk_result pk_request_video(const char *local_id, int64_t version, const char *re
 									domain = error.domain ?: @"";
 								} else if ([video isKindOfClass:AVURLAsset.class] && ((AVURLAsset *)video).URL.isFileURL) {
 									// An AVComposition, a slow-motion video of the current version, has no file
-									// (photokit.py:876-884, 901), and a URL of another scheme names none.
+									// (photokit.py:943-951, 968), and a URL of another scheme names none.
 									// extension: not in osxphotos: for a render too, since PhotoKit gives the
 									// current version of some slow-motion videos as a file, where upstream
-									// raises PhotoKitMediaTypeError (photokit.py:938-942).
+									// raises PhotoKitMediaTypeError (photokit.py:1005-1009).
 									pk_go_video(handle, (char *)((AVURLAsset *)video).URL.fileSystemRepresentation);
 								} else if (render) {
 									if (![video isKindOfClass:AVComposition.class] || ((AVComposition *)video).tracks.count != 2) {
-										// Upstream renders a composition of two tracks only (photokit.py:938-942).
+										// Upstream renders a composition of two tracks only (photokit.py:1005-1009).
 										code = PK_NO_COMPOSITION;
 									} else {
 										rendering = pk_render((AVComposition *)video, url, handle);
@@ -900,7 +900,7 @@ pk_result pk_delete_assets(const char *const *ids, int64_t n, int64_t timeout_ms
 }
 
 // extension: not in osxphotos, whose photokit.py only reads the properties of
-// an asset (photokit.py:436-464). As in pk_import, every value of p is copied
+// an asset (photokit.py:468-496). As in pk_import, every value of p is copied
 // before performChanges.
 pk_result pk_update_asset(const char *local_id, const pk_patch *p, int64_t timeout_ms, int64_t *ns_code, char **ns_domain) {
 	pk_result result = {PK_NO_ASSET, NULL};

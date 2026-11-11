@@ -47,7 +47,7 @@ func coreDataTime(ts float64) (t time.Time, ok bool) {
 }
 
 // assetDate follows photos_datetime with default=True (photos_datetime.py:47-67,
-// photosdb.py:2159-2167). The zone of a name comes before the range check of
+// photosdb.py:2163-2171). The zone of a name comes before the range check of
 // the offset, which only the fixed zone makes (photos_datetime.py:56-65).
 func assetDate(created sql.NullFloat64, tz sql.NullInt64, tzName sql.NullString) time.Time {
 	if !created.Valid {

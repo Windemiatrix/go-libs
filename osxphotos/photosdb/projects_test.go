@@ -201,7 +201,7 @@ func TestProjectLookup(t *testing.T) {
 }
 
 // The count of the distinct pairs is upstream len(_dbalbums_album[uuid])
-// (photosdb/photosdb.py:1873-1901), as in lookupCounts.
+// (photosdb/photosdb.py:1877-1905), as in lookupCounts.
 func projectMembers(table, albumCol, assetCol, kind string) string {
 	return "SELECT COUNT(*) FROM (SELECT DISTINCT m." + albumCol + ", m." + assetCol + " FROM " + table + " m " +
 		"JOIN ZGENERICALBUM g ON g.Z_PK = m." + albumCol + " JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = m." + assetCol +
@@ -224,7 +224,7 @@ func projectCheck(t *testing.T, name, lib string) (projects, trashed, members in
 		t.Errorf("%d projects outside the trash, want %d", len(db.ProjectInfo()), want)
 	}
 	// The premise of ProjectInfo, which does not read the owner that upstream
-	// also requires to be NULL (photosdb/photosdb.py:3206).
+	// also requires to be NULL (photosdb/photosdb.py:3251).
 	if owned := count(t, src, "SELECT COUNT(*)"+rows+" AND ZCLOUDOWNERHASHEDPERSONID IS NOT NULL"); owned != 0 {
 		t.Errorf("%d projects with ZCLOUDOWNERHASHEDPERSONID", owned)
 	}

@@ -8,7 +8,7 @@ import (
 )
 
 // Metadata returns Z_PLIST and Z_UUID of the Z_METADATA row with the highest
-// Z_VERSION (the row osxphotos reads, photosdb_utils.py:101). A NULL Z_UUID
+// Z_VERSION (the row osxphotos reads, photosdb_utils.py:102). A NULL Z_UUID
 // is "". Z_PLIST is returned as stored; a NULL Z_PLIST is nil.
 func (d *DB) Metadata(ctx context.Context) (plist []byte, libraryUUID string, err error) {
 	var id sql.NullString

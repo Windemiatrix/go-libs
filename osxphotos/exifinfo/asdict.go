@@ -1,7 +1,7 @@
 package exifinfo
 
 // AsDict is dataclasses.asdict of ExifInfo (exifinfo.py:18-39), which
-// photoinfo.py:2123 calls: a nil pointer and an empty string are nil, as None
+// photoinfo.py:2121 calls: a nil pointer and an empty string are nil, as None
 // upstream. The map is new on every call.
 func (e ExifInfo) AsDict() map[string]any {
 	return map[string]any{

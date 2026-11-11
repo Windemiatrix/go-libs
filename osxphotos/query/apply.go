@@ -31,7 +31,7 @@ func Apply(o Options, photos []*photoinfo.PhotoInfo, albums []*albuminfo.AlbumIn
 }
 
 // photo_query starts from the photos() calls (photoquery.py:426-445;
-// photosdb/photosdb.py:3268-3360).
+// photosdb/photosdb.py:3313-3405).
 func inSelection(o Options, p *photo) bool {
 	return inTrashSelection(o, p) && !burstUnselected(p) &&
 		((p.IsPhoto && !o.OnlyMovies) || (p.IsMovie && !o.OnlyPhotos)) &&
@@ -40,7 +40,7 @@ func inSelection(o Options, p *photo) bool {
 		(o.ToDate.IsZero() || p.Date.Before(o.ToDate))
 }
 
-// photosdb.py:3347-3351.
+// photosdb.py:3392-3396.
 func burstUnselected(p *photo) bool {
 	return p.Burst && p.BurstPickType != 0 && p.BurstPickType&(photoinfo.BurstPickSelected|photoinfo.BurstPickKey) == 0
 }
@@ -180,7 +180,7 @@ func timeOfDay(d time.Time) time.Duration {
 	return time.Duration(h)*time.Hour + time.Duration(m)*time.Minute + time.Duration(s)*time.Second + time.Duration(d.Nanosecond())
 }
 
-// withBursts follows photoquery.py:863-883 and photoinfo.py:1031-1044.
+// withBursts follows photoquery.py:863-883 and photoinfo.py:1029-1042.
 func withBursts(in, catalog []*photo, missing bool) []*photo {
 	frames := framesOfBursts(catalog, burstsHeldBy(in), missing)
 	return withoutRepeatedUUIDs(append(slices.Clone(in), frames...))
@@ -256,7 +256,7 @@ func containsAny(s string, subs []string) bool {
 }
 
 // photo_query sees only the albums outside the trash (photoinfo.py:655-662,
-// 2029-2034).
+// 2027-2032).
 type photoAlbums map[string]*albuminfo.AlbumInfo
 
 func newPhotoAlbums(albums []*albuminfo.AlbumInfo) photoAlbums {

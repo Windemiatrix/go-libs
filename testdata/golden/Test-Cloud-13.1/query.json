@@ -729,12 +729,17 @@
         "_pk": 3,
         "age_type": 3,
         "asset_uuid": "2E850900-E0E1-4792-99C3-2E9302982FC9",
+        "body_center_x": 0.5523108165032201,
+        "body_center_y": 0.5021988426504044,
+        "body_height": 0.9695214209026527,
+        "body_width": 0.5282372160781228,
         "center": [
           3947,
           1784
         ],
         "center_x": 0.6578592956066132,
         "center_y": 0.5543204247951508,
+        "detection_type": 1,
         "eye_makeup_type": 0,
         "eye_state": 2,
         "face_rect": [
@@ -754,6 +759,7 @@
         "hair_color_type": 3,
         "has_smile": 0,
         "intrash": 0,
+        "is_pet": false,
         "lip_makeup_type": 0,
         "manual": 0,
         "mpri_reg_rect": {
@@ -5266,12 +5272,17 @@
         "_pk": 2,
         "age_type": 5,
         "asset_uuid": "AB9D5F55-05AF-4036-8884-0FA6000F332B",
+        "body_center_x": 0.48754696488231086,
+        "body_center_y": 0.35886837451417375,
+        "body_height": 0.7222162851622062,
+        "body_width": 0.9706296612221498,
         "center": [
           749,
           512
         ],
         "center_x": 0.46572640538215637,
         "center_y": 0.41442038118839264,
+        "detection_type": 1,
         "eye_makeup_type": 0,
         "eye_state": 2,
         "face_rect": [
@@ -5291,6 +5302,7 @@
         "hair_color_type": 4,
         "has_smile": 0,
         "intrash": 0,
+        "is_pet": false,
         "lip_makeup_type": 0,
         "manual": 0,
         "mpri_reg_rect": {
@@ -11480,12 +11492,17 @@
         "_pk": 1,
         "age_type": 5,
         "asset_uuid": "076244D2-88EE-4E3C-AC89-143641C9A598",
+        "body_center_x": 0.5559348049482637,
+        "body_center_y": 0.4071046677437172,
+        "body_height": 0.845195428985312,
+        "body_width": 0.8881303958003481,
         "center": [
           313,
           557
         ],
         "center_x": 0.4476778507232666,
         "center_y": 0.3825867921113968,
+        "detection_type": 1,
         "eye_makeup_type": 0,
         "eye_state": 2,
         "face_rect": [
@@ -11505,6 +11522,7 @@
         "hair_color_type": 4,
         "has_smile": 0,
         "intrash": 0,
+        "is_pet": false,
         "lip_makeup_type": 0,
         "manual": 0,
         "mpri_reg_rect": {

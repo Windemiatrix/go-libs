@@ -2,16 +2,16 @@ package template
 
 import "strconv"
 
-// DateTimeFormatter in the C locale of the reference (datetime_formatter.py:14-72); "" is the date (phototemplate.py:1752-1754).
+// DateTimeFormatter in the C locale of the reference (datetime_formatter.py:14-72); "" is the date (phototemplate.py:1781-1783).
 var dateLayouts = map[string]string{
 	"": "2006-01-02", "date": "2006-01-02", "yy": "06", "mm": "01", "month": "January", "mon": "Jan", "dd": "02",
 	"dow": "Monday", "doy": "002", "hour": "15", "min": "04", "sec": "05",
 }
 
-// format_date_field (phototemplate.py:1743-1769); modified without a time is created (950-956).
+// format_date_field (phototemplate.py:1772-1800); modified without a time is created (950-956).
 func (s *rendering) date(name, family, part string, def []string) ([]string, error) {
 	layout, ok := dateLayouts[part]
-	if !ok && part != "year" && part != "strftime" || name == family+"." { // ValueError (1755-1756, 1766-1769)
+	if !ok && part != "year" && part != "strftime" || name == family+"." { // ValueError (1784-1785, 1797-1800)
 		return nil, unsupported(ErrRender, name)
 	}
 	t := &s.o.Today
@@ -30,7 +30,7 @@ func (s *rendering) date(name, family, part string, def []string) ([]string, err
 		return []string{strconv.Itoa(t.Year())}, nil
 	case part != "strftime":
 		return []string{t.Format(layout)}, nil
-	case len(def) == 0: // args is the default (919, 951, 955); without it, None (1759-1760)
+	case len(def) == 0: // args is the default (919, 951, 955); without it, None (1788-1789)
 		return nil, nil
 	}
 	out, err := strftime(*t, def[0], family == "today", s.bytesLeft)

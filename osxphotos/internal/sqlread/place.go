@@ -6,7 +6,7 @@ import (
 )
 
 // ReverseLocation is the ZREVERSELOCATIONDATA of one ZADDITIONALASSETATTRIBUTES
-// row (photosdb.py:2088, 2120). Data is nil for an archive over 1 MiB.
+// row (photosdb.py:2092, 2124). Data is nil for an archive over 1 MiB.
 type ReverseLocation struct {
 	AssetPK int64 // ZASSET
 	Data    []byte

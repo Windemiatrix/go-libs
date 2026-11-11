@@ -49,7 +49,7 @@ func momentUUIDs(photos []*photoInfo) []string {
 	return out
 }
 
-// The expected values are literals: the moments of photosdb.py:2734-2785 from
+// The expected values are literals: the moments of photosdb.py:2779-2830 from
 // built rows. The fixture titles are invented.
 func TestLoadMoments(t *testing.T) {
 	t.Parallel()
@@ -125,7 +125,7 @@ func TestLoadMoments(t *testing.T) {
 // has no moment, as upstream catches the ValueError of MomentInfo
 // (photoinfo.py:625-631). The same holds for A-3 with a NULL ZMOMENT although
 // a row has the Z_PK 0. A-2 in the trash and A-5, an unselected burst frame,
-// stay in MomentPhotos: photos_by_uuid does not filter (photosdb.py:3378-3394).
+// stay in MomentPhotos: photos_by_uuid does not filter (photosdb.py:3423-3439).
 func TestMomentInfoOf(t *testing.T) {
 	t.Parallel()
 

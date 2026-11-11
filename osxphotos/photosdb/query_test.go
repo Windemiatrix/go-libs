@@ -744,8 +744,8 @@ func TestQueryRegexGolden(t *testing.T) {
 }
 
 // Upstream signs only the rows of its main query, which joins
-// ZADDITIONALASSETATTRIBUTES (photosdb/photosdb.py:2086-2090, 2358-2363,
-// 3411-3420).
+// ZADDITIONALASSETATTRIBUTES (photosdb/photosdb.py:2090-2094, 2362-2367,
+// 3456-3465).
 func queryFlagsSignatureGroups(t *testing.T, lib, schemaID string) map[string][]string {
 	t.Helper()
 	i := slices.IndexFunc(schema.All(), func(s schema.Schema) bool { return s.ID == schemaID })

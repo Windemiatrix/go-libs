@@ -454,7 +454,7 @@ func TestAlbumsCloudGUID(t *testing.T) {
 	}
 }
 
-// ZTRASHEDSTATE NULL is read as trashed by upstream too (photosdb.py:1936).
+// ZTRASHEDSTATE NULL is read as trashed by upstream too (photosdb.py:1940).
 func TestAlbumsTrash(t *testing.T) {
 	t.Parallel()
 
@@ -624,7 +624,7 @@ func TestLoadSharedAlbums(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Upstream keeps one list for both kinds (photoinfo.py:2022-2034).
+	// Upstream keeps one list for both kinds (photoinfo.py:2020-2032).
 	if got := c.byUUID["P-1"].AlbumUUIDs; !slices.Equal(got, []string{"AL-1", "SH-A"}) {
 		t.Errorf("AlbumUUIDs of P-1 = %q, want the user album and the shared album", got)
 	}
@@ -702,7 +702,7 @@ func TestLoadSharedAlbums(t *testing.T) {
 	}
 }
 
-// The CollectionShare rows of ZSHARE, Photos 11 and later (photosdb.py:2787-2916);
+// The CollectionShare rows of ZSHARE, Photos 11 and later (photosdb.py:2832-2961);
 // 0 for a library without the entity, whose ZASSET may have no ZCOLLECTIONSHARE.
 func collectionShares(t *testing.T, src *sql.DB, q string) int {
 	t.Helper()
@@ -740,7 +740,7 @@ func TestSharedAlbums(t *testing.T) {
 			if want := count(t, src, "SELECT COUNT(*)"+rows) + shares; len(db.sharedAlbums) != want {
 				t.Errorf("%d shared albums, want %d", len(db.sharedAlbums), want)
 			}
-			// Upstream reads the state of a CollectionShare with bool() (photosdb.py:2906).
+			// Upstream reads the state of a CollectionShare with bool() (photosdb.py:2951).
 			if want := count(t, src, "SELECT COUNT(*)"+rows+" AND ZTRASHEDSTATE = 0") +
 				collectionShares(t, src, "SELECT COUNT(*)"+shareRows+" AND COALESCE(ZTRASHEDSTATE, 0) = 0"); len(db.SharedAlbumInfo()) != want {
 				t.Errorf("%d shared albums outside the trash, want %d", len(db.SharedAlbumInfo()), want)
@@ -777,9 +777,9 @@ func TestSharedAlbums(t *testing.T) {
 }
 
 // A shared album of ZSHARE keeps the order of the publish date
-// (photosdb.py:2815-2842) and takes its owner from ZSHAREPARTICIPANT; the
+// (photosdb.py:2860-2887) and takes its owner from ZSHAREPARTICIPANT; the
 // video of a shared album is missing when its own resource is
-// (photosdb.py:2918-2942).
+// (photosdb.py:2963-2987).
 func TestOpenCollectionShare(t *testing.T) {
 	t.Parallel()
 
@@ -835,7 +835,7 @@ func TestOpenCollectionShare(t *testing.T) {
 }
 
 // Upstream skips an archive that does not decode (_photosdb_process_comments.py:175-179);
-// a role that is not 1 is not the owner (_constants.py:372).
+// a role that is not 1 is not the owner (_constants.py:395).
 func TestOpenHostileOwner(t *testing.T) {
 	t.Parallel()
 
@@ -864,7 +864,7 @@ func TestLoadCollectionShares(t *testing.T) {
 
 	none := sql.NullInt64{}
 	rows := []sqlread.Album{albumRow(1, "ROOT", sqlread.KindRootFolder, none), albumRow(2, "SH-1", sqlread.KindSharedAlbum, none)}
-	// A ZSHARE.Z_PK may equal a ZGENERICALBUM.Z_PK (photosdb.py:2914-2916): a guard against a map by Z_PK.
+	// A ZSHARE.Z_PK may equal a ZGENERICALBUM.Z_PK (photosdb.py:2959-2961): a guard against a map by Z_PK.
 	share := albumRow(1, "SH-2", sqlread.KindSharedAlbum, none)
 	share.Trashed = nullInt(0)
 	got, err := loadFolderless(append(slices.Clone(rows), share), map[string][]string{"SH-2": {"P-1"}}, sqlread.KindSharedAlbum, "shared albums")
@@ -954,7 +954,7 @@ func TestOwnerName(t *testing.T) {
 }
 
 // The video of a shared album is a resource apart from the poster frame
-// (photosdb.py:2918-2942); of several, the one with the highest Z_PK decides,
+// (photosdb.py:2963-2987); of several, the one with the highest Z_PK decides,
 // as in isMissing.
 func TestLoadSharedVideos(t *testing.T) {
 	t.Parallel()

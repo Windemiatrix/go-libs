@@ -10,7 +10,7 @@ import (
 )
 
 // ImportInfo returns the import sessions outside the trash, osxphotos
-// import_info (photosdb/photosdb.py:669-679, 3187-3210), in UUID order. The
+// import_info (photosdb/photosdb.py:673-683, 3232-3255), in UUID order. The
 // slice is new on every call, but its values are shared by all calls: do not
 // modify them.
 func (db *DB) ImportInfo() []*albuminfo.ImportInfo { return slices.Clone(db.importInfo) }
@@ -30,7 +30,7 @@ func (db *DB) Import(uuid string) (*albuminfo.ImportInfo, bool) {
 
 // photos must be in UUID order. Upstream orders the photos of a session by
 // Z_FOK_IMPORTSESSION, which is NULL in every schema read here (IMPORT_FOK,
-// _constants.py:134-253), so the UUID decides (albuminfo.py:331-340).
+// _constants.py:139-258), so the UUID decides (albuminfo.py:331-340).
 func loadImports(rows []sqlread.Album, photos []*photoinfo.PhotoInfo) (all, outsideTrash []*albuminfo.ImportInfo) {
 	photosOf := map[string][]string{}
 	for _, p := range photos {
@@ -50,7 +50,7 @@ func loadImports(rows []sqlread.Album, photos []*photoinfo.PhotoInfo) (all, outs
 			PhotoUUIDs:   photosOf[r.UUID],
 		}
 		all = append(all, s)
-		if !trashed(r) { // photosdb.py:3202
+		if !trashed(r) { // photosdb.py:3247
 			outsideTrash = append(outsideTrash, s)
 		}
 	}

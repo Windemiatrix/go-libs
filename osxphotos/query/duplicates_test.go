@@ -30,7 +30,7 @@ func TestDuplicates(t *testing.T) {
 		{"uti", func(p *photoinfo.PhotoInfo) { p.UTI = "public.jpeg" }, false},
 		{"adjustment type nil against 0", func(p *photoinfo.PhotoInfo) { p.AdjustmentType = nil }, false},
 		{"adjustment type 2 against 0", func(p *photoinfo.PhotoInfo) { p.AdjustmentType = ptr(2) }, false},
-		// photosdb.py:3419 takes the raw column, not hasadjustments.
+		// photosdb.py:3464 takes the raw column, not hasadjustments.
 		{"has adjustments", func(p *photoinfo.PhotoInfo) { p.HasAdjustments = true }, true},
 		{"same moment in another zone", func(p *photoinfo.PhotoInfo) { p.Date = p.Date.In(time.FixedZone("+03", 3*3600)) }, true},
 		{"other fields", func(p *photoinfo.PhotoInfo) {
@@ -89,7 +89,7 @@ func TestApplyDuplicate(t *testing.T) {
 		twin("S", "2021-01-01T00:00:00Z", nil),
 	}
 	// photos() leaves out K's duplicates; get_photo of PhotoInfo.duplicates does not
-	// (photoinfo.py:1435).
+	// (photoinfo.py:1433).
 	hidden := []*photoinfo.PhotoInfo{
 		twin("KU", "2020-01-01T00:00:00Z", unselected),
 		twin("K", "2020-01-01T00:00:00Z", nil),

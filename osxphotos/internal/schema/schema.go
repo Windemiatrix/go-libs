@@ -1,6 +1,6 @@
 // Package schema holds what differs between the Photos.sqlite schemas that
 // this module reads: the model version range of each schema and the names of
-// version-dependent tables and columns (_constants.py:55-68, 129-264). Data
+// version-dependent tables and columns (_constants.py:59-72, 134-269). Data
 // only: no database access.
 package schema
 
@@ -11,7 +11,7 @@ import "slices"
 type Schema struct {
 	ID                 string  // "photos8", "photos9", "photos9_14_6", "photos10", "photos11", "photos11_1", "photos12"
 	MinModel, MaxModel int     // inclusive range of PLModelVersion
-	PhotosVersion      float64 // photos_version of osxphotos (photosdb_utils.py:138-159)
+	PhotosVersion      float64 // photos_version of osxphotos (photosdb_utils.py:139-160)
 
 	MemberTable       string // album membership (ASSET_ALBUM_TABLE), e.g. Z_33ASSETS
 	MemberAlbumColumn string // its album column (ASSET_ALBUM_JOIN), e.g. Z_33ALBUMS

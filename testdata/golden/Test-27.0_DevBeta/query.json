@@ -467,12 +467,17 @@
         "_pk": 5,
         "age_type": 0,
         "asset_uuid": "6F570409-7B94-4D89-AFC6-D04BF11E5EA8",
+        "body_center_x": 0.4510638415813446,
+        "body_center_y": 0.7551593035459518,
+        "body_height": 0.39169231057167053,
+        "body_width": 0.19244608779748282,
         "center": [
           0,
           2754
         ],
         "center_x": 0.0,
         "center_y": 0.0,
+        "detection_type": 1,
         "eye_makeup_type": 0,
         "eye_state": 0,
         "face_rect": [
@@ -492,6 +497,7 @@
         "hair_color_type": 0,
         "has_smile": 0,
         "intrash": 0,
+        "is_pet": false,
         "lip_makeup_type": 0,
         "manual": 0,
         "mpri_reg_rect": {
@@ -944,12 +950,17 @@
         "_pk": 3,
         "age_type": 2,
         "asset_uuid": "FC37DBA6-CF22-4E3E-AB70-755587454608",
+        "body_center_x": 0.2148174471187567,
+        "body_center_y": 0.5910116732120514,
+        "body_height": 0.40663737058639526,
+        "body_width": 0.2571533618820875,
         "center": [
           642,
           454
         ],
         "center_x": 0.31396402466270346,
         "center_y": 0.6671075560152531,
+        "detection_type": 1,
         "eye_makeup_type": 0,
         "eye_state": 1,
         "face_rect": [
@@ -969,6 +980,7 @@
         "hair_color_type": 2,
         "has_smile": 0,
         "intrash": 0,
+        "is_pet": false,
         "lip_makeup_type": 0,
         "manual": 0,
         "mpri_reg_rect": {
@@ -999,12 +1011,17 @@
         "_pk": 7,
         "age_type": 2,
         "asset_uuid": "FC37DBA6-CF22-4E3E-AB70-755587454608",
+        "body_center_x": 0.0,
+        "body_center_y": 0.0,
+        "body_height": 0.0,
+        "body_width": 0.0,
         "center": [
           1459,
           582
         ],
         "center_x": 0.7127665595171344,
         "center_y": 0.5731693916022778,
+        "detection_type": 1,
         "eye_makeup_type": 0,
         "eye_state": 2,
         "face_rect": [
@@ -1024,6 +1041,7 @@
         "hair_color_type": 3,
         "has_smile": 0,
         "intrash": 0,
+        "is_pet": false,
         "lip_makeup_type": 0,
         "manual": 0,
         "mpri_reg_rect": {
@@ -1481,12 +1499,17 @@
         "_pk": 6,
         "age_type": 1,
         "asset_uuid": "25D96C78-DDE8-4E88-AB29-2F0BD5830F0E",
+        "body_center_x": 0.6815095134079456,
+        "body_center_y": 0.5638466916768254,
+        "body_height": 0.618424532782552,
+        "body_width": 0.48462025076150894,
         "center": [
           812,
           563
         ],
         "center_x": 0.5952958166599274,
         "center_y": 0.724737549012434,
+        "detection_type": 1,
         "eye_makeup_type": 0,
         "eye_state": 2,
         "face_rect": [
@@ -1506,6 +1529,7 @@
         "hair_color_type": 3,
         "has_smile": 1,
         "intrash": 0,
+        "is_pet": false,
         "lip_makeup_type": 0,
         "manual": 0,
         "mpri_reg_rect": {
@@ -1873,12 +1897,17 @@
         "_pk": 2,
         "age_type": 2,
         "asset_uuid": "17BC6605-3A6D-472E-B257-1E5B37684F16",
+        "body_center_x": 0.5102206021547318,
+        "body_center_y": 0.6309312773896435,
+        "body_height": 0.3098895730152777,
+        "body_width": 0.23205581307411194,
         "center": [
           713,
           569
         ],
         "center_x": 0.5226044543087482,
         "center_y": 0.7221433890770628,
+        "detection_type": 1,
         "eye_makeup_type": 0,
         "eye_state": 2,
         "face_rect": [
@@ -1898,6 +1927,7 @@
         "hair_color_type": 3,
         "has_smile": 1,
         "intrash": 0,
+        "is_pet": false,
         "lip_makeup_type": 0,
         "manual": 0,
         "mpri_reg_rect": {
@@ -1928,12 +1958,17 @@
         "_pk": 4,
         "age_type": 2,
         "asset_uuid": "17BC6605-3A6D-472E-B257-1E5B37684F16",
+        "body_center_x": 0.6840548366308212,
+        "body_center_y": 0.4559811486997789,
+        "body_height": 0.21604264605739365,
+        "body_width": 0.20258739590644836,
         "center": [
           853,
           1042
         ],
         "center_x": 0.6256235800683498,
         "center_y": 0.4910187441186513,
+        "detection_type": 1,
         "eye_makeup_type": 0,
         "eye_state": 2,
         "face_rect": [
@@ -1953,6 +1988,7 @@
         "hair_color_type": 3,
         "has_smile": 1,
         "intrash": 0,
+        "is_pet": false,
         "lip_makeup_type": 0,
         "manual": 0,
         "mpri_reg_rect": {
@@ -1983,12 +2019,17 @@
         "_pk": 8,
         "age_type": 2,
         "asset_uuid": "17BC6605-3A6D-472E-B257-1E5B37684F16",
+        "body_center_x": 0.343097060918808,
+        "body_center_y": 0.5385854557547876,
+        "body_height": 0.2776000205828085,
+        "body_width": 0.20705395936965942,
         "center": [
           468,
           787
         ],
         "center_x": 0.3429785966873169,
         "center_y": 0.6156287444057221,
+        "detection_type": 1,
         "eye_makeup_type": 0,
         "eye_state": 2,
         "face_rect": [
@@ -2008,6 +2049,7 @@
         "hair_color_type": 2,
         "has_smile": 1,
         "intrash": 0,
+        "is_pet": false,
         "lip_makeup_type": 0,
         "manual": 0,
         "mpri_reg_rect": {
@@ -3258,12 +3300,17 @@
         "_pk": 1,
         "age_type": 3,
         "asset_uuid": "DE2FCB28-0078-4A78-BDF6-2B53F8ACF9B7",
+        "body_center_x": 0.5779476131411081,
+        "body_center_y": 0.4862580885873753,
+        "body_height": 0.9687757473826658,
+        "body_width": 0.5730008020129284,
         "center": [
           674,
           529
         ],
         "center_x": 0.4422954882402447,
         "center_y": 0.6001512419040499,
+        "detection_type": 1,
         "eye_makeup_type": 0,
         "eye_state": 2,
         "face_rect": [
@@ -3283,6 +3330,7 @@
         "hair_color_type": 3,
         "has_smile": 0,
         "intrash": 0,
+        "is_pet": false,
         "lip_makeup_type": 0,
         "manual": 0,
         "mpri_reg_rect": {
@@ -4503,7 +4551,7 @@
     "uti": "public.jpeg",
     "uti_edited": null,
     "uti_original": "public.jpeg",
-    "uti_raw": null,
+    "uti_raw": "com.canon.cr2-raw-image",
     "uuid": "A8D4A9E7-4CC6-4318-80B2-CDAD4D06AE0E",
     "visible": true,
     "width": 4416
@@ -4840,7 +4888,7 @@
     "uti": "public.jpeg",
     "uti_edited": null,
     "uti_original": "public.jpeg",
-    "uti_raw": null,
+    "uti_raw": "com.canon.cr2-raw-image",
     "uuid": "78EF2BA4-110E-427D-AFDB-557115F16585",
     "visible": true,
     "width": 3312

@@ -9,7 +9,7 @@ import (
 )
 
 // SharedMomentInfo returns the shared moment of p, the ZSHARE row of
-// ZASSET.ZMOMENTSHARE: osxphotos shared_moment_info (photoinfo.py:1606-1615);
+// ZASSET.ZMOMENTSHARE: osxphotos shared_moment_info (photoinfo.py:1604-1613);
 // nil without that row. The value is shared: do not modify it.
 func (db *DB) SharedMomentInfo(p *photoinfo.PhotoInfo) *photoinfo.ShareInfo {
 	return db.momentShares[p.UUID]
@@ -17,7 +17,7 @@ func (db *DB) SharedMomentInfo(p *photoinfo.PhotoInfo) *photoinfo.ShareInfo {
 
 // ShareInfo returns the share of p in a shared library, the ZSHARE row of
 // ZASSET.ZLIBRARYSCOPE, a key that upstream calls a guess: osxphotos share_info
-// (photoinfo.py:1617-1626, shareinfo.py:156-165); nil without that row. The
+// (photoinfo.py:1615-1624, shareinfo.py:156-165); nil without that row. The
 // value is shared: do not modify it.
 func (db *DB) ShareInfo(p *photoinfo.PhotoInfo) *photoinfo.ShareInfo {
 	return db.libraryShares[p.UUID]
@@ -25,7 +25,7 @@ func (db *DB) ShareInfo(p *photoinfo.PhotoInfo) *photoinfo.ShareInfo {
 
 // ShareParticipantInfo returns the participants of the shared library that
 // ZASSETCONTRIBUTOR links to p: osxphotos share_participant_info
-// (photoinfo.py:1634-1639, shareparticipant.py:21-49), in
+// (photoinfo.py:1632-1637, shareparticipant.py:21-49), in
 // ZSHAREPARTICIPANT.Z_PK order, a participant once per ZASSETCONTRIBUTOR row
 // that links it to p. It is nil without a participant and also when the name
 // archive of one of them does not decode, as upstream returns [] on that
@@ -36,7 +36,7 @@ func (db *DB) ShareParticipantInfo(p *photoinfo.PhotoInfo) []photoinfo.SharePart
 
 // ShareParticipants returns the given and the family name of each
 // participant of ShareParticipantInfo, joined by a space even when one of
-// them is "": osxphotos share_participants (photoinfo.py:1641-1649).
+// them is "": osxphotos share_participants (photoinfo.py:1639-1647).
 func (db *DB) ShareParticipants(p *photoinfo.PhotoInfo) []string {
 	var names []string
 	for _, s := range db.participants[p.UUID] {

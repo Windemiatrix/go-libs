@@ -50,7 +50,7 @@ const (
 
 func ptr[T any](v T) *T { return &v }
 
-// A photo without a row: every score 0.0, not None (photoinfo.py:1507-1537).
+// A photo without a row: every score 0.0, not None (photoinfo.py:1505-1535).
 func noScoreRow() scoreinfo.ScoreInfo {
 	var s scoreinfo.ScoreInfo
 	fields := reflect.ValueOf(&s).Elem()
@@ -322,6 +322,7 @@ func fixtureLib() goLib {
 		Faces: map[string][]personinfo.FaceInfo{selectedFrame: {{
 			PK: 21, UUID: faceA, Name: "Person A", AssetUUID: selectedFrame, PersonPK: 31, PersonUUID: personA,
 			CenterX: 0.5, CenterY: 0.5, Quality: 0.5, Roll: 0.25, SourceWidth: 4032, SourceHeight: 3024, HasSmile: true, AgeType: 2,
+			DetectionType: 1, BodyCenterX: 0.25, BodyCenterY: 0.75, BodyWidth: 0.5, BodyHeight: 0.125,
 		}}},
 		// Types as howett.net/plist decodes them: a non-negative integer is a uint64, a negative one an int64.
 		CloudMetadata: map[string]map[string]any{selectedFrame: {
@@ -376,12 +377,13 @@ const refPersonInfo = `[{"displayname": "Pat", "facecount": 3, "favorite": true,
 	`{"displayname": null, "facecount": null, "favorite": false, "feature_less": false, "keyface": null, "keyphoto": null, ` +
 	`"name": "_UNKNOWN_", "sort_order": null, "uuid": "` + personUnknown + `"}]`
 
-// The face of the fixture as personinfo.py:420-455 computes it for a photo of
+// The face of the fixture as personinfo.py:455-496 computes it for a photo of
 // 4032 x 3024 in orientation 6.
-const refFaceInfo = `[{"_person_pk": 31, "_pk": 21, "age_type": 2, "asset_uuid": "` + selectedFrame + `", "center": [1512, 2016], ` +
-	`"center_x": 0.5, "center_y": 0.5, "eye_makeup_type": 0, "eye_state": 0, "face_rect": [[1512.0, 2016.0], [1512.0, 2016.0]], ` +
+const refFaceInfo = `[{"_person_pk": 31, "_pk": 21, "age_type": 2, "asset_uuid": "` + selectedFrame + `", ` +
+	`"body_center_x": 0.25, "body_center_y": 0.75, "body_height": 0.125, "body_width": 0.5, "center": [1512, 2016], ` +
+	`"center_x": 0.5, "center_y": 0.5, "detection_type": 1, "eye_makeup_type": 0, "eye_state": 0, "face_rect": [[1512.0, 2016.0], [1512.0, 2016.0]], ` +
 	`"face_type": null, "facial_hair_type": 0, "gender_type": 0, "glasses_type": 0, "hair_color_type": 0, "has_smile": 1, ` +
-	`"intrash": 0, "lip_makeup_type": 0, "manual": 0, "mpri_reg_rect": {"h": 0.0, "w": 0.0, "x": 0.5, "y": 0.5}, ` +
+	`"intrash": 0, "is_pet": false, "lip_makeup_type": 0, "manual": 0, "mpri_reg_rect": {"h": 0.0, "w": 0.0, "x": 0.5, "y": 0.5}, ` +
 	`"mwg_rs_area": {"h": 0.0, "w": 0.0, "x": 0.5, "y": 0.5}, "name": "Person A", "pitch": 0, "quality": 0.5, "roll": 0.25, ` +
 	`"size": 0.0, "smile_type": 0, "source_height": 3024, "source_width": 4032, "uuid": "` + faceA + `", "yaw": 0}]`
 
@@ -398,7 +400,7 @@ const (
 		`"camera_make": "Acme", "camera_model": "Acme One", "codec": "hvc1", "lens_model": "Acme One 4mm", ` +
 		`"date": "2020-06-06T15:30:00+05:30", "tzoffset": 19800, "tzname": "Asia/Kolkata"}`
 
-	// A photo without a row (photoinfo.py:1702-1704).
+	// A photo without a row (photoinfo.py:1700-1702).
 	refExifNull = `{"flash_fired": null, "iso": null, "metering_mode": null, "sample_rate": null, "track_format": null, "white_balance": null, ` +
 		`"aperture": null, "bit_rate": null, "duration": null, "exposure_bias": null, "focal_length": null, "fps": null, ` +
 		`"latitude": null, "longitude": null, "shutter_speed": null, ` +
@@ -415,7 +417,7 @@ const (
 		`"pleasant_reflection": 0.21, "pleasant_symmetry": 0.22, "sharply_focused_subject": 0.23, "tastefully_blurred": 0.24, ` +
 		`"well_chosen_subject": 0.25, "well_framed_subject": 0.26, "well_timed_shot": 0.27}`
 
-	// A photo without a row: upstream writes 0.0 for every score (photoinfo.py:1507-1537).
+	// A photo without a row: upstream writes 0.0 for every score (photoinfo.py:1505-1535).
 	refScoreZero = `{"overall": 0.0, "curation": 0.0, "promotion": 0.0, "highlight_visibility": 0.0, "behavioral": 0.0, "failure": 0.0, ` +
 		`"harmonious_color": 0.0, "immersiveness": 0.0, "interaction": 0.0, "interesting_subject": 0.0, "intrusive_object_presence": 0.0, ` +
 		`"lively_color": 0.0, "low_light": 0.0, "noise": 0.0, "pleasant_camera_tilt": 0.0, "pleasant_composition": 0.0, ` +
