@@ -55,6 +55,8 @@ func TestLiveExport(t *testing.T) {
 	})
 
 	var cloud []*photoinfo.PhotoInfo
+	// Progress is only an observation: TestLiveVersions may have downloaded the
+	// original already.
 	t.Run("cloud original", func(t *testing.T) {
 		cloud = filter(photos, func(p *photoinfo.PhotoInfo) bool { return p.IsMissing && p.Path == "" })
 		if len(cloud) == 0 {
@@ -73,8 +75,9 @@ func TestLiveExport(t *testing.T) {
 				silent++
 			}
 		}
-		if empty > 0 || short > 0 || silent > 0 {
-			t.Errorf("of %d originals only in iCloud, %d exported empty, %d not of the size of the original, %d without a call of Progress", len(cloud), empty, short, silent)
+		t.Logf("of %d originals only in iCloud, %d exported without a call of Progress", len(cloud), silent)
+		if empty > 0 || short > 0 {
+			t.Errorf("of %d originals only in iCloud, %d exported empty, %d not of the size of the original", len(cloud), empty, short)
 		}
 	})
 
