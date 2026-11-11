@@ -3337,7 +3337,7 @@
     "uti": "public.jpeg",
     "uti_edited": null,
     "uti_original": "public.jpeg",
-    "uti_raw": null,
+    "uti_raw": "com.canon.cr2-raw-image",
     "uuid": "A8D4A9E7-4CC6-4318-80B2-CDAD4D06AE0E",
     "visible": true,
     "width": 4416
@@ -3630,7 +3630,7 @@
     "uti": "public.jpeg",
     "uti_edited": null,
     "uti_original": "public.jpeg",
-    "uti_raw": null,
+    "uti_raw": "com.canon.cr2-raw-image",
     "uuid": "78EF2BA4-110E-427D-AFDB-557115F16585",
     "visible": true,
     "width": 3312

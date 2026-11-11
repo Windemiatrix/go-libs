@@ -52,12 +52,17 @@
         "_pk": 8,
         "age_type": 0,
         "asset_uuid": "6FD38366-3BF2-407D-81FE-7153EB6125B6",
+        "body_center_x": 0.0,
+        "body_center_y": 0.0,
+        "body_height": 0.0,
+        "body_width": 0.0,
         "center": [
           655,
           496
         ],
         "center_x": 0.4293108995839787,
         "center_y": 0.6253720238095238,
+        "detection_type": 1,
         "eye_makeup_type": 0,
         "eye_state": 0,
         "face_rect": [
@@ -77,6 +82,7 @@
         "hair_color_type": 0,
         "has_smile": 0,
         "intrash": 0,
+        "is_pet": false,
         "lip_makeup_type": 0,
         "manual": 1,
         "mpri_reg_rect": {
