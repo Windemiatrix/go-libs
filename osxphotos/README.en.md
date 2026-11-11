@@ -125,7 +125,61 @@ The name of an export file is one path element. An empty name, `.`, `..`, or a `
 
 ## Differences from osxphotos
 
-The module follows osxphotos `v0.78.1`. Unlike osxphotos, it also returns cloud identifiers of photos and albums and the sizes of all photo files without downloading them. Its `photokit` package also imports photos, manages albums, and deletes and changes photos. The module has no command line, export database, file conversion, XMP or JSON sidecar files, exiftool or media analysis results. The full list of differences, with links to the osxphotos code, is in [UPSTREAM.md](UPSTREAM.md).
+The module follows osxphotos `v0.78.1`. The full list of differences, with links to the osxphotos code, is in [UPSTREAM.md](UPSTREAM.md).
+
+### What osxphotos does not have
+
+`photokit` changes a library through PhotoKit. osxphotos changes it only through AppleScript.
+
+- `Import` imports files. It can also set the file name, date, location, favorite, hidden state and albums.
+- `Delete` deletes photos; `Update` changes their date, favorite, hidden state and location.
+- `CreateAlbum`, `CreateFolder`, `RenameCollection`, `DeleteCollections`, `AddToAlbum` and `RemoveFromAlbum` manage albums and folders. `Collections` lists them.
+- `CloudIdentifiers` and `LocalIdentifiers` convert local identifiers of photos to cloud identifiers and back.
+- `ExportOptions.Progress` reports how much of a file is exported.
+
+`photosdb` returns database data that osxphotos does not return:
+
+- `PhotoInfo.CloudAssetGUID`: the cloud identifier of a photo;
+- `PhotoInfo.DateModifiedRaw`: the date the photo's record last changed; `DateModified`, as in osxphotos, is the date of the last edit;
+- `PhotoInfo.LibraryScopeShareState`: the state of a photo in an iCloud Shared Photo Library;
+- `PhotoInfo.Resources`: all files of a photo, with their sizes and whether each is on disk;
+- `AlbumInfo.CloudGUID` and `FolderInfo.CloudGUID`: cloud identifiers of albums and folders;
+- `AlbumInfo.InTrash`: whether an album is in the trash;
+- `Info.LibraryUUID`: the identifier of the library;
+- `Info.SkippedAssets`: how many photos were skipped because their database record is incomplete; osxphotos skips them silently.
+
+The module is also more careful than osxphotos:
+
+- `photosdb` always reads a copy of the database; osxphotos copies it only when it is locked.
+- For an unknown database version `Open` returns an error; osxphotos reads it with the latest schema it knows.
+- The size of parsed data and of template results is limited.
+- Paths to photo files never lead outside the library.
+- A `photokit` export does not overwrite a file without `ExportOptions.Overwrite`, and `ctx` stops it at any moment.
+- The order of items in lists is stable; in osxphotos it may change between runs.
+
+### What the module does not have
+
+Will not be ported:
+
+- libraries of Photos 7 and earlier (macOS 12 and earlier), iPhoto and macOS betas;
+- file export: copying, conversion, the export database, XMP and JSON sidecar files, exiftool; `export` gives only file names;
+- the `osxphotos` command line with all its commands;
+- template fields and query filters that run code or programs: `{function}`, `{exiftool}`, `{detected_text}`, `query_eval`, `exif`;
+- the filter by photos selected in the Photos app;
+- text recognition in photos, media analysis results (`media_analysis`, `ai_caption`) and `PhotoInfo.tables()`;
+- changing a library through AppleScript.
+
+Not ported yet:
+
+- finding a library through PhotoKit, finding the last opened library and listing all libraries;
+- paths to files stored outside the library and to photos of shared moments;
+- detecting a file type through macOS; the type comes from the osxphotos table;
+- the orientation of an edited photo from its edit file; it now comes from the database;
+- the file fingerprint as Photos computes it, and finding a photo by it;
+- comparing two libraries;
+- reading metadata from photo files;
+- repairing a damaged database;
+- month and day names in the system language; they are now in English.
 
 ## How it is tested
 
